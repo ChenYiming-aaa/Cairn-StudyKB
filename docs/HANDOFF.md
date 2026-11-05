@@ -409,7 +409,7 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **改动文件**
 
 - 后端：`app/prompts/organize.md`（新）、`app/services/agents/{__init__,organizer}.py`（新）、`app/db/repo/items.py`（`list_items` 加 `tag`；新增 `set_status` / `list_ids_by_status` / `save_organize_result`）、`app/routers/knowledge.py`（两个 organize 端点 + `tag` 参数）
-- 前端：`package.json`、`package-lock.json`、`vite.config.js`、`index.html`、`src/{main.js,App.vue}`、`src/router/index.js`、`src/api/client.js`、`src/styles/{tokens,app}.css`、`src/composables/{useUi,useToast}.js`、`src/utils/format.js`、`src/views/Knowledge.vue`、`src/components/{PasteDialog,StatusBadge,CategoryTree,ItemList,ItemDetail,NoteEditor}.vue`
+- 前端：`package.json`、`package-lock.json`、`vite.config.js`、`index.html`、`src/{main.js,App.vue}`、`src/router/index.js`、`src/api` 目录下的 `client.js`、`src/styles/{tokens,app}.css`、`src/composables/{useUi,useToast}.js`、`src/utils/format.js`、`src/views/Knowledge.vue`、`src/components/{PasteDialog,StatusBadge,CategoryTree,ItemList,ItemDetail,NoteEditor}.vue`
 - 文档：`contracts/接口契约.md`（`tag` 参数、两个 organize 端点形状、`client.js` baseUrl 优先级与「空串走 Vite 代理」）、`00-总纲.md`（M1 状态改「进行中」）、`HANDOFF.md`（本条）
 
 **验证**
@@ -435,7 +435,7 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **遗留问题**（每条都能直接开干）
 
 - [ ] **T1.11 未做**：`backend/scripts/verify_m1.py`（建库→造 3 条→整理→改笔记→断言 chunk 重建→删条目→查残留→清理）。因它不存在，本次未跑 §8 收工清单、未打 tag、未改总纲为「已验收」
-- [ ] 分类树计数上限 100 条（裁决 2 的代价）：条目超过 100 后左侧计数偏低。超过时再加 `GET /api/knowledge/categories` 聚合端点并登记契约
+- [ ] 分类树计数上限 100 条（裁决 2 的代价）：条目超过 100 后左侧计数偏低。超过时再加 `knowledge/categories` 聚合端点并登记契约
 - [ ] 前端未实现改标题 / 改分类 / 改标签的 UI（`PATCH` 后端已支持）。M1 DoD 不要求，属 backlog
 - [ ] `verify_m1.py` 写「删条目后 chunk_fts 无残留」时仍需裁决：FTS5 影子表 `chunk_fts_data` 留明文 term 是否算残留、是否允许删除路径执行 `optimize`（与数据契约 §6「不许直接写 chunk_fts」冲突）——**上一会话遗留，本次未动**
 - [ ] 开发库 `data/data.db` 现有 1 条真实测试条目（间隔重复，已整理、已手改笔记），是人工验收用的样例数据，未被 git 跟踪
@@ -448,3 +448,59 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **下一会话第一件事**
 > 写 `backend/scripts/verify_m1.py` 覆盖 M1 §4 的 T1.11 与 §5 全部 DoD（含 FTS 残留口径），跑绿后按 §8 收尾：打 `m1-done`、改总纲为「已验收」、按 §5.2 盖完结章。
 
+
+## 2026-11-06 00:40 · M1 收尾 · T1.11 验收脚本 + 里程碑完结
+
+**背景**：上一会话遗留的待裁决——DoD 里「删除后 `chunk_fts` 无残留」是否包含 FTS5 影子表（`chunk_fts_data`）里的明文 term，以及是否因此允许在删除路径执行 `optimize`。
+
+**用户裁决（1 条）**
+
+| # | 冲突/取舍 | 裁决 |
+|---|---|---|
+| 1 | 影子表明文残留算不算 DoD 的「chunk_fts 有残留」 | **不算**。DoD 说的「残留」只指 **SQL 查得到的东西**，不涉及文件里还留着几个字节。故只断言主虚拟表按 `rowid`/`MATCH` 查不到，删除路径**不执行** `optimize`（也就不用去写 `chunk_fts`，与数据契约 §6「不许直接写」不冲突） |
+
+**完成**
+
+- T1.11 `scripts/verify_m1.py`：8 组断言 43 项，自建临时 `DATA_DIR`、全程不碰 `data/data.db`、末尾清理；`--keep` 可保留现场排障；未配 Key 直接退 2 并说明原因
+- T1.11 `scripts/fixtures_m1.py`：3 篇 789–891 字真实中文长文（记忆方法 / 时间管理 / 学习方法），实测均切成 2 块，用于验证 `chunk_count > 1`
+- M1 §5 的 11 条 DoD 全部勾上，M1 文档盖完结章、§9 补验收记录；总纲 M1 状态改「已验收」；数据契约 §6 落裁决口径
+- 顺手把 `会话提示词手册` 模板 A/B 的示例从 M1 换成 M2——M1 已完结，示例继续指它会让下个会话照着读旧文档
+
+**改动文件**
+
+- `backend/scripts/verify_m1.py`（新）、`backend/scripts/fixtures_m1.py`（新）
+- `docs/milestones/M1-骨架与最小闭环.md`（完结章 + DoD 勾选 + §9 验收记录）
+- `docs/contracts/数据契约.md`（§6 不变量补残留判定口径）
+- `docs/00-总纲.md`（M1 → 已验收）、`docs/会话提示词手册.md`（示例换 M2）、`docs/HANDOFF.md`（本条）
+
+**验证**
+
+- `uv run python scripts/verify_m1.py` → **43/43 PASS，EXIT=0**（真实 DeepSeek，3 篇各 1 次整理 + 1 次批量）
+  - 造 3 条均 `pending`/`chunk=2`；`organize` 202→done，`organize-pending` 命中剩余 2 条
+  - 三条 `ready` 且 `category/tags/summary/key_points/structured_note` 全非空，`note_edited=0`（机器整理不冒充手改）
+  - PATCH 笔记 → `note_edited=1`、note chunk 重建（旧 chunk ID 全消失）、新内容可被 FTS 命中、刷新后仍在
+  - 删条目 → `chunk` 0 行、`chunk_fts` 按 `rowid` 0 行、按专属探针文字 `MATCH` 0 命中；清空后两表均 0
+  - 无 Key → 400 `LLM_NO_KEY`，服务仍健康，任务数仍为 3（没派发注定失败的任务）
+  - `wal_checkpoint` 后整文件复制 → `status.py --db` 退出码 0
+- `uv run python scripts/status.py` → EXIT=0，各表行数/环境/任务正常
+- `python tools/doc_check.py` → 6 项 PASS + 2 项 WARN（完结文档被 HANDOFF 与手册速查表引用；前者是台账、后者是里程碑索引，均非当现状使用）
+
+**过程中修掉的两个真问题**
+
+1. 第一版验收脚本用「间隔重复」当 FTS 探针，删除后仍报 2 命中——不是残留，是另外两篇正文里真有这四个字。已改为从待删条目里挑一段其他条目不包含的 8 字窗口，先断言删除前可搜到、再断言删除后搜不到
+2. `doc_check` 报 HANDOFF 两处端点引用未登记：一处是 `src/api/client.js` 被正则误判为 `/api/client`，一处是 backlog 里提到的 `knowledge/categories`（尚未实现的设想端点）。只改措辞（去掉前导斜杠、拆分路径写法），语义未变，未改校验器
+
+**遗留问题**（每条都能直接开干）
+
+- [ ] M2 开工前按 M2 §2 核对前置：`ffmpeg` 已装（`D:/Anaconda3/Library/bin`）、Key 已配；M2 新增依赖与 `fetch` 目标站点策略需先读 M2 §6
+- [ ] 分类树计数上限 100 条（前端聚合的代价）：条目超过 100 后左侧计数偏低，需要时再加 `knowledge/categories` 聚合端点并登记契约
+- [ ] 前端未做改标题 / 改分类 / 改标签的 UI（`PATCH` 已支持），M1 不要求，属 backlog
+- [ ] 前端无 ESLint / 无单测；`verify_m1.py` 是后端链路验收，不覆盖 UI 交互（UI 由 Playwright 手工脚本验过，未纳入仓库）
+- [ ] 开发库 `data/data.db` 里有 1 条人工验收用的样例数据（间隔重复，已整理、已手改笔记），未被 git 跟踪
+
+**待裁决冲突**
+
+- 无
+
+**下一会话第一件事**
+> M2 开工：读 `docs/milestones/M2-真实内容采集.md` §2 核环境 → 按 T2.1 起做网页采集；M1 文档已完结，不要把它当现状，接口/表结构一律查 `contracts/` 与 `/docs`。
