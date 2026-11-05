@@ -1,0 +1,47 @@
+# ── Python ─────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── Node / 前端 ────────────────────────
+node_modules/
+package-lock.json.bak
+.vite/
+
+# ── 项目数据（绝不入库）────────────────
+# data.db 里有你的全部知识库内容，绝不能提交
+data/
+*.db
+*.db-wal
+*.db-shm
+models/
+logs/
+tmp/
+
+# ── 密钥 ───────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── 构建产物 ───────────────────────────
+dist/
+release/
+build/
+*.spec
+!docs/**/*.spec
+
+# ── 编辑器 / 系统 ──────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── 工具运行时数据（私有工作笔记，不入库）──
+.workbuddy/
