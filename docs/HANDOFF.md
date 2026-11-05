@@ -252,5 +252,36 @@
 **下一会话第一件事**
 > 若 GitHub 已建好仓库，先 `git remote add origin …` 推送；否则直接开始 M1（`uv python install 3.12`）。
 
+---
+
+## 2026-11-05 22:32 · M0 · 配置远程，推送待用户执行
+
+**背景**：用户建好私有仓库 `https://github.com/ChenYiming-aaa/Cairn-StudyKB`（仓库名并非 `cairn`）。
+
+**完成**
+- `origin` 已配置为 `https://github.com/ChenYiming-aaa/Cairn-StudyKB.git`
+- 本地：`main` 分支，4 次提交（`50cedaa` 最新），2 个标签（`m0-docs`、`m0-ready`）
+- 总纲 §1.1 仓库名更新为 `Cairn-StudyKB`；§9 新增两条 git 环境坑位
+
+**为什么推送没做（重要，别重复踩）**
+1. **PATH 里的 `git` 是 WorkBuddy 精简版**（`D:/workbuddy/resources/vendor/PortableGit`，2.55），
+   `libexec/git-core` 里**没有 `git-remote-https.exe`**，执行 `git ls-remote` 直接报
+   `git: 'remote-https' is not a git command`
+2. 完整版在 `C:\Program Files\Git\cmd\git.exe`（2.49），`remote-http(s).exe` 齐全，可用
+3. 本 shell 继承代理 `http://127.0.0.1:3669`，`curl https://github.com` 需 20s+；
+   `git credential fill` 会等 GCM 弹窗，非交互环境下超时被杀
+4. 结论：**需要认证的 git 操作（push/fetch）必须用户在普通终端或 GitHub Desktop 里做**
+
+**遗留问题**
+- [ ] **推送未完成**：用户需在自己终端执行 `git push -u origin main && git push --tags`
+- [ ] GitHub 凭据尚未缓存，首次推送会弹浏览器登录
+- [ ] Python 3.12 未安装；LLM API Key 未配置
+
+**待裁决冲突**
+- 无
+
+**下一会话第一件事**
+> 先确认推送是否成功（`git log origin/main --oneline` 或看 GitHub 页面）。若已推送，开始 M1：`uv python install 3.12` → T1.1。
+
 
 
