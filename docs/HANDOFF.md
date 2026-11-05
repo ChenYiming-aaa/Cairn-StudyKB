@@ -164,15 +164,54 @@
 **验证**
 - `python tools/doc_check.py` → 6 项全 PASS（ADR 20 条、端点 30 个、表 11 张）
 
+**遗留问题**（已在下一会话前全部解决，见下方 21:20 条目）
+
+**待裁决冲突**
+- 无
+
+---
+
+## 2026-11-05 21:20 · M0 · 仓库初始化 + 环境核对完成
+
+**完成**
+
+- `git init -b main` + 首次提交（14 个文件）+ 标签 `m0-docs`；`.gitattributes` 统一 LF
+- `.gitignore` 排除 `data/ *.db .env node_modules dist build models logs` 与 `.workbuddy/`
+- 新增 `README.md`、`docs/会话提示词手册.md`
+- 环境核对结果（实测）：
+  - Python 3.13.14（另需 uv 装 3.12）、SQLite **3.53.1**（远超 trigram 要求的 3.34）
+  - uv 0.13.5 ✅、Node 22.22.2 ✅、git 2.55 ✅、winget 1.29 ✅、CUDA 12.4 在 PATH ✅
+  - **ffmpeg / ffprobe 4.3.1 已装**（conda-forge 清华镜像 → `D:\Anaconda3\Library\bin`），实测 16k 单声道 wav 转码成功
+- `00-总纲.md` §9 环境基线改写为实测值；M2 §2 前置条件与排障表同步修正
+
+**踩到的坑（已写进总纲 §9，别再重复）**
+
+- `winget install Gyan.FFmpeg` 本机被拦截；gyan.dev / GitHub Releases 只有 ~7KB/s，80MB 静态包下不动
+- 有效路径：`conda install -c https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge ffmpeg`
+- ffmpeg 装在 Anaconda 目录下，**M5 打包必须自带一份进 `resources/`**，不能依赖系统 PATH
+
+**改动文件**
+
+- `.gitignore`、`.gitattributes`、`README.md`（新增）
+- `docs/会话提示词手册.md`（新增）
+- `docs/00-总纲.md`（§5 表格加手册行、§9 重写）
+- `docs/milestones/M2-真实内容采集.md`（前置条件与排障修正）
+
+**验证**
+
+- `python tools/doc_check.py` → 6 项全 PASS（11 份文档）
+- `ffmpeg -f lavfi -i sine → 16k mono wav` → 成功，`ffprobe` 读到 duration=2.0
+
 **遗留问题**
-- [ ] 目录尚未 `git init`
-- [ ] `ffmpeg`、`uv` 仍未确认安装
+
+- [ ] Python 3.12 尚未安装（M1 T1.1 第一件事：`uv python install 3.12`）
+- [ ] LLM API Key 尚未配置（M1 T1.5 之前必须就位）
 
 **待裁决冲突**
 - 无
 
 **下一会话第一件事**
-> `git init` + 首次提交，然后按 M1 §2 核对环境，从 T1.1 开始。
+> 用户新开会话执行 M1。开场按 `00-总纲.md` §6：读总纲 + M1 文档 → 跑 `tools/doc_check.py`（`scripts/status.py` 还没创建，T1.4 才产出）→ 读本文件最后两条。
 
 
 
