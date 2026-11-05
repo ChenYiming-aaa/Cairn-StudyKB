@@ -283,5 +283,39 @@
 **下一会话第一件事**
 > 先确认推送是否成功（`git log origin/main --oneline` 或看 GitHub 页面）。若已推送，开始 M1：`uv python install 3.12` → T1.1。
 
+---
+
+## 2026-11-05 22:41 · M0 完成 · 远程推送已验证
+
+**结果**：用户在自己终端完成首次登录并推送，**GitHub 凭据已存入 Windows 凭据管理器，此后 agent 侧可直接 push / fetch / ls-remote，无需再人工登录**。
+
+**远程核对（`git ls-remote origin`）**
+
+```
+64d60cc  HEAD
+64d60cc  refs/heads/main
+4148427  refs/tags/m0-docs
+a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
+```
+
+本地 `HEAD` = `origin/main` = `64d60cc`，**完全一致，无 ahead/behind**。
+
+**踩坑记录（补两条到总纲 §9 的思路）**
+- 推送失败的根因不是"私有仓库"，而是 ①PATH 中 git 为精简版缺 `git-remote-https.exe` ②GCM 需人工登录而 agent 是非交互环境
+- 私有与否只影响匿名**读**，不影响**推**；公开仓库推送同样要认证
+- 诊断技巧：同时 curl 一个已知公开仓库和自建仓库——公开的 504、自己的 404，说明 504 是代理超时而非仓库问题
+
+**M0 正式收尾**
+
+| 项 | 状态 |
+|---|---|
+| 文档体系（总纲/契约/5 里程碑/台账/提示词手册） | ✅ |
+| git 仓库 + 5 次提交 + 2 标签 + 远程同步 | ✅ |
+| 环境（Python 3.13/uv/SQLite 3.53/Node 22/CUDA 12.4/ffmpeg 4.3.1） | ✅ |
+| 待补：Python 3.12、LLM API Key | ⏳ M1 内解决 |
+
+**下一会话第一件事**
+> 开始 M1。`uv python install 3.12` → T1.1 建目录骨架。提示词模板见 `docs/会话提示词手册.md` 模板 A。
+
 
 
