@@ -25,7 +25,8 @@ class CreateBody(BaseModel):
 
 
 class PatchBody(BaseModel):
-    title: str | None = None
+    # 标题上限 20 字（2026-11-06 裁决）：AI 生成与手改同一口径，超长直接 422
+    title: str | None = Field(default=None, min_length=1, max_length=20)
     category: str | None = None
     tags: list[str] | None = None
     structured_note: str | None = None
@@ -54,7 +55,8 @@ def _detail_shape(row: sqlite3.Row, conn: sqlite3.Connection) -> dict:
 @router.post("")
 def create_item(body: CreateBody) -> JSONResponse:
     first_line = (body.raw_content.strip().splitlines() or ["未命名条目"])[0]
-    title = body.title or first_line[:120] or "未命名条目"
+    # 占位标题只用于整理前列表可读；整理后会被 AI 生成的标题覆盖（≤20 字）
+    title = (body.title or first_line[:40]).strip() or "未命名条目"
     conn = get_conn()
     try:
         with conn:

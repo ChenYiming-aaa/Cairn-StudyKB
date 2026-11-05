@@ -27,6 +27,7 @@ TAIL_CHARS = 10_000
 OMIT_MARKER = "\n\n[内容过长，已省略中间部分]\n\n"
 MAX_TAGS = 6
 MAX_KEY_POINTS = 8
+MAX_TITLE = 20  # 裁决：标题上限 20 字，超了强截，不做「……」省略
 
 RETRY_HINT = (
     "上一次的输出不合格：summary 为空，或 key_points 少于 3 条，或 structured_note 为空。"
@@ -65,7 +66,21 @@ def _as_list(value) -> list:
     return value if isinstance(value, list) else []
 
 
-def _normalize(data: dict) -> dict:
+def clean_title(value, fallback: str) -> str:
+    """把模型给的标题压成一行、去掉首尾的标点与书名号，并卡在 MAX_TITLE 字内。
+
+    超长直接截断而不是加「…」——标题要进列表行和窗口标题，省略号只是把问题往后推。
+    模型没给或给了空白时退回原标题，不让这次整理把标题变成空。
+    """
+    text = " ".join(str(value or "").split())
+    text = text.strip("#*·-—《》〈〉“”‘’\"'")
+    text = text.strip("。．.！!？?；;，,：:")
+    if not text:
+        return fallback
+    return text[:MAX_TITLE].strip()
+
+
+def _normalize(data: dict, fallback_title: str) -> dict:
     """容错：模型偶尔把 tags 写成字符串、把 key_points 写成带序号的段落。"""
     tags: list[str] = []
     for raw in _as_list(data.get("tags")):
@@ -76,6 +91,7 @@ def _normalize(data: dict) -> dict:
     points = [str(p).strip() for p in _as_list(data.get("key_points")) if str(p).strip()]
 
     return {
+        "title": clean_title(data.get("title"), fallback_title),
         "category": str(data.get("category") or "").strip() or "未分类",
         "tags": tags[:MAX_TAGS],
         "summary": str(data.get("summary") or "").strip(),
@@ -107,7 +123,7 @@ def run(task_input: dict | None = None) -> dict:
         raise OrganizeError("ORGANIZE_EMPTY_CONTENT", "原文为空，无法整理")
 
     try:
-        result = _organize_with_retry(_build_messages(title, content, truncated))
+        result = _organize_with_retry(_build_messages(title, content, truncated), title)
     except LLMError as exc:
         # 根因在 LLM 侧（无 Key / 超时 / JSON 解析失败），原样上抛给任务队列
         _mark_failed(item_id, exc.message)
@@ -120,7 +136,8 @@ def run(task_input: dict | None = None) -> dict:
     try:
         with conn:
             repo.save_organize_result(
-                conn, item_id, category=result["category"], tags=result["tags"],
+                conn, item_id, title=result["title"],
+                category=result["category"], tags=result["tags"],
                 summary=result["summary"], key_points=result["key_points"],
                 structured_note=result["structured_note"], truncated=truncated,
             )
@@ -129,17 +146,19 @@ def run(task_input: dict | None = None) -> dict:
     finally:
         conn.close()
 
-    log.info("条目 %s 整理完成（truncated=%s, note_chunk=%s）", item_id, truncated, note_chunks)
-    return {"item_id": item_id, "truncated": truncated, "note_chunk_count": note_chunks}
+    log.info("条目 %s 整理完成（title=%s, truncated=%s, note_chunk=%s）",
+             item_id, result["title"], truncated, note_chunks)
+    return {"item_id": item_id, "title": result["title"],
+            "truncated": truncated, "note_chunk_count": note_chunks}
 
 
-def _organize_with_retry(messages: list[dict]) -> dict:
+def _organize_with_retry(messages: list[dict], fallback_title: str) -> dict:
     """解析失败重试一次；质量不合格也重试一次。最多两次调用。"""
     last_error: LLMError | None = None
     for attempt in range(2):
         try:
             raw = llm.chat(messages, agent="organizer", json_mode=True)
-            result = _normalize(llm.extract_json(raw))
+            result = _normalize(llm.extract_json(raw), fallback_title)
         except LLMError as exc:
             last_error = exc
             if exc.code in ("LLM_BAD_JSON", "LLM_BAD_RESPONSE") and attempt == 0:

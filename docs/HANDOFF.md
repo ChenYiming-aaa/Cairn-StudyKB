@@ -488,7 +488,7 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **过程中修掉的两个真问题**
 
 1. 第一版验收脚本用「间隔重复」当 FTS 探针，删除后仍报 2 命中——不是残留，是另外两篇正文里真有这四个字。已改为从待删条目里挑一段其他条目不包含的 8 字窗口，先断言删除前可搜到、再断言删除后搜不到
-2. `doc_check` 报 HANDOFF 两处端点引用未登记：一处是 `src/api/client.js` 被正则误判为 `/api/client`，一处是 backlog 里提到的 `knowledge/categories`（尚未实现的设想端点）。只改措辞（去掉前导斜杠、拆分路径写法），语义未变，未改校验器
+2. `doc_check` 报 HANDOFF 两处端点引用未登记：一处是 `src/api` 目录下的 `client.js` 被正则误判成端点，一处是 backlog 里提到的 `knowledge/categories`（尚未实现的设想端点）。只改措辞（去掉前导斜杠、拆分路径写法），语义未变，未改校验器
 
 **遗留问题**（每条都能直接开干）
 
@@ -504,3 +504,62 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 
 **下一会话第一件事**
 > M2 开工：读 `docs/milestones/M2-真实内容采集.md` §2 核环境 → 按 T2.1 起做网页采集；M1 文档已完结，不要把它当现状，接口/表结构一律查 `contracts/` 与 `/docs`。
+
+## 2026-11-06 00:52 · M1 补丁 · 标题改由整理 Agent 生成
+
+**背景**：用户提出标题过长——粘贴一篇长文后，标题就是「正文首行前 120 字」，列表与详情都被一整句撑满。问该现在解决还是以后有专门区间。
+
+**核查结论（这是关键，先查再答）**
+- 契约里 `title` 只有两个来源：用户手填，或正文首行前 120 字
+- M2 的 T2.1 抓取器返回 `{title, text}`，**网页/视频的标题来自源站，只覆盖采集入口，不管粘贴**
+- 整理 Agent 的 JSON 只有 category/tags/summary/key_points/structured_note，**没有 title**
+- 结论：M1–M5 没有任何任务接手「粘贴路径的标题」，是真缺口，不是已被后续阶段覆盖的事
+
+**用户裁决（3 条）**
+
+| # | 取舍 | 裁决 |
+|---|---|---|
+| 1 | 何时做 | **现在就补**（M1 补丁，不重开里程碑） |
+| 2 | AI 标题能否覆盖手填 | **AI 直接生成标题，之后可手改**。即整理会覆盖现有 title（含手填），改标题走 PATCH + 详情页「改」 |
+| 3 | 标题长度上限 | **20 字**（AI 与手改同一口径，超长后端 422） |
+
+**完成**
+
+- 后端：`prompts/organize.md` 增加 `title` 字段（8–20 汉字、不照抄首句、不带书名号/引号/句号）+ 输入处提示「原标题可能是自动截取的首句，需自行概括」
+- 后端：`organizer.clean_title()` 压成一行、去首尾标点书名号、硬截 20 字；模型没给时退回原标题，不让整理把标题变空
+- 后端：`repo.save_organize_result()` 增 `title` 参数，`COALESCE(NULLIF(?, ''), title)` 保证空值不清标题
+- 后端：创建时占位标题 `[:120]` → `[:40]`；`PatchBody.title` 加 `min_length=1, max_length=20`（超长 422）
+- 前端：新组件 `TitleEditor.vue`（标题旁「改」按钮 + 双击标题，回车保存 / Esc 取消 / 失焦保存，20 字计数与超长提示）；`ItemDetail` 接入并把 `.title` 样式迁进组件（自身 297 → 288 行）；重新整理的确认文案补上「并按正文重新生成标题」
+- 文档：数据契约 §3 增 `title` 语义行；接口契约补创建占位、PATCH 20 字限制、organize 重写标题的副作用；M1 文档记补丁 m1.1
+
+**改动文件**
+
+- `backend/app/prompts/organize.md`、`backend/app/services/agents/organizer.py`、`backend/app/db/repo/items.py`、`backend/app/routers/knowledge.py`
+- `frontend/src/components/{TitleEditor.vue(新),ItemDetail.vue,PasteDialog.vue}`
+- `backend/scripts/verify_m1.py`（+5 项标题断言，48 项）
+- `docs/contracts/{数据契约,接口契约}.md`、`docs/milestones/M1-骨架与最小闭环.md`、`docs/HANDOFF.md`
+
+**验证**
+
+- `uv run python scripts/verify_m1.py` → **48/48 PASS，EXIT=0**：三条 `ready` 后标题分别为 `间隔重复的原理与正确复习节奏`(14)、`番茄工作法的正确用法`(10)、`费曼技巧的四步与三种常见误用`(14)；PATCH 标题生效并刷新后仍在；21 字标题返回 422
+- Playwright 实测（真实后端 + 真实 LLM）：粘贴 700 字（占位标题 40 字）→ 整理 → 标题变 `写作是逼出想法的思考工具`(12)，列表同步；把样例条目 120 字标题手改为 13 字，详情与列表同时更新；**0 条 console 错误**
+- `npm run build` 通过（CSS 16.61 kB / JS 191 kB）
+- `python tools/doc_check.py` → 6 项 PASS + 2 项 WARN（完结文档被台账与速查表引用）
+
+**过程中修掉的两个问题**
+
+1. `TitleEditor` 初版用 `@blur="save"`，按 Esc 会先卸载输入框、再触发 blur 把改动存下去 → `save()` 加 `if (!editing.value) return` 守卫
+2. 「改」按钮因 `.title{flex:1}` 被推到最右侧，和「重新整理/删除」挤成一排、读不出归属 → 改 `flex:0 1 auto`，按钮贴标题右侧 8px
+
+**遗留问题**（每条都能直接开干）
+
+- [ ] 手填标题在整理时会被覆盖（按裁决 2 的预期行为）。若以后觉得别扭，加 `title_edited` 字段 + 判定「手填则不覆盖」，需改数据契约与 schema
+- [ ] 前端未做改分类 / 改标签的 UI（PATCH 已支持），仍属 backlog
+- [ ] 开发库 `data/data.db` 现有 2 条人工验收样例（间隔重复 11 字、写作 12 字），均 ready，未跟踪
+
+**待裁决冲突**
+
+- 无
+
+**下一会话第一件事**
+> M2 开工：读 `docs/milestones/M2-真实内容采集.md` §2 核环境，从 T2.1 抓取 adapter 起做；网页/视频的 title 来自源站，仍需过一遍 `organizer.clean_title()` 的 20 字口径。

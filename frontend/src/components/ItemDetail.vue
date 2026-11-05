@@ -6,6 +6,7 @@ import StatusBadge from './StatusBadge.vue'
 import NoteEditor from './NoteEditor.vue'
 import RawPane from './RawPane.vue'
 import SummaryPane from './SummaryPane.vue'
+import TitleEditor from './TitleEditor.vue'
 import { useToast } from '../composables/useToast'
 import { fullTime } from '../utils/format'
 
@@ -49,7 +50,7 @@ function organize() {
   const item = props.item
   if (!item || busy.value) return
   // 数据契约 §3：note_edited=1 时重新整理会覆盖手改内容，必须先确认
-  if (item.note_edited && !window.confirm('重新整理将覆盖你手动编辑过的笔记，确定继续？')) return
+  if (item.note_edited && !window.confirm('重新整理将覆盖你手动编辑过的笔记，并按正文重新生成标题，确定继续？')) return
 
   organizing.value = true
   api
@@ -117,7 +118,7 @@ onBeforeUnmount(stop)
 
     <template v-else>
       <header class="detail-head">
-        <h1 class="title">{{ item.title }}</h1>
+        <TitleEditor :item-id="item.id" :title="item.title" :disabled="busy" @saved="emit('refresh', item.id)" />
         <div class="head-actions">
           <button class="btn btn-sm" type="button" :disabled="busy" @click="organize">
             {{ busy ? '整理中…' : isPending ? '开始整理' : '重新整理' }}
@@ -195,16 +196,6 @@ onBeforeUnmount(stop)
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
-}
-
-.title {
-  flex: 1;
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .head-actions {

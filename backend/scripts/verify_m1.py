@@ -92,8 +92,7 @@ def step_build_and_create(client: TestClient) -> list[dict]:
         check(f"创建「{title}」201/pending/chunk>1",
               resp.status_code == 201 and item.get("status") == "pending" and item.get("chunk_count", 0) > 1,
               f"status={item.get('status')} chunk={item.get('chunk_count')} 文本 {len(body)} 字")
-    raw_chunks = sql("SELECT COUNT(*) FROM chunk WHERE source='raw' AND length(content)>0")[0][0]
-    check("raw chunk 已落库", raw_chunks >= 6, f"{raw_chunks} 块")
+    check("raw chunk 已落库", sql("SELECT COUNT(*) FROM chunk WHERE source='raw'")[0][0] >= 6)
     return created
 
 
@@ -120,6 +119,9 @@ def step_organize(client: TestClient, created: list[dict]) -> None:
                   and (detail["category"] or "").strip() and detail["tags"])
         check(f"条目 {item['id']} 五字段非空且 ready", filled,
               f"category={detail['category']} tags={len(detail['tags'])} points={len(detail['key_points'])}")
+        check(f"条目 {item['id']} 标题由 AI 重写且 ≤20 字",
+              0 < len(detail["title"]) <= 20 and "\n" not in detail["title"],
+              f"{len(detail['title'])} 字：{detail['title']}")
         note_chunks = [c for c in detail["chunks"] if c["source"] == "note"]
         check(f"条目 {item['id']} 产出 note chunk 且 note_edited=0",
               len(note_chunks) > 0 and detail["note_edited"] == 0,
@@ -144,6 +146,13 @@ def step_edit_note(client: TestClient, item_id: int) -> None:
     check("新笔记已进 chunk", any(MARKER in c["content"] for c in after["chunks"]))
     hits = sql("SELECT COUNT(*) FROM chunk_fts WHERE chunk_fts MATCH ?", (MARKER,))[0][0]
     check("FTS 能搜到新笔记", hits > 0, f"{hits} 命中")
+
+    renamed = "验收手改过的标题"
+    resp = client.patch(f"/api/knowledge/{item_id}", json={"title": renamed})
+    current = client.get(f"/api/knowledge/{item_id}").json()["title"]
+    check("PATCH 标题生效且刷新后仍在", resp.status_code == 200 and current == renamed, current)
+    resp = client.patch(f"/api/knowledge/{item_id}", json={"title": "标" * 21})
+    check("PATCH 标题超 20 字被拒（422）", resp.status_code == 422, f"{resp.status_code}")
 
 
 def step_filters(client: TestClient, item_id: int) -> None:

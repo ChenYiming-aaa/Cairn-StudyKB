@@ -60,8 +60,8 @@ async function submit() {
 
       <div class="dialog-body">
         <label class="field">
-          <span class="field-label">标题（可留空，默认取正文首行）</span>
-          <input v-model="title" class="input" type="text" placeholder="例如：番茄工作法的三个误区" />
+          <span class="field-label">标题（可留空，整理后由 AI 生成）</span>
+          <input v-model="title" class="input" type="text" maxlength="40" placeholder="可留空，整理时会自动生成标题" />
         </label>
 
         <label class="field">

@@ -201,17 +201,21 @@ def save_organize_result(
     key_points: list[str],
     structured_note: str,
     truncated: bool,
+    title: str | None = None,
 ) -> None:
     """落整理结果并置 status='ready'。
 
     刻意不走 update_item：那里会因 structured_note 把 note_edited 置 1，
     但整理是机器行为，不能冒充「用户手改过」（数据契约 §3）。
+
+    title 由整理 Agent 生成（≤20 字）；传 None 或空串时保留原标题（COALESCE），
+    避免模型没给标题时把已有标题清空。
     """
     conn.execute(
         """UPDATE knowledge_item
-           SET category=?, tags=?, summary=?, key_points=?, structured_note=?,
-               truncated=?, status='ready', updated_at=?
+           SET title=COALESCE(NULLIF(?, ''), title), category=?, tags=?, summary=?,
+               key_points=?, structured_note=?, truncated=?, status='ready', updated_at=?
            WHERE id=?""",
-        (category, dumps(tags), summary, dumps(key_points), structured_note,
+        (title or "", category, dumps(tags), summary, dumps(key_points), structured_note,
          1 if truncated else 0, now_iso(), item_id),
     )
