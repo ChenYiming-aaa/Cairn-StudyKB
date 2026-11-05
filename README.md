@@ -30,6 +30,18 @@ python tools/doc_check.py
 - 技术栈定版见 `docs/00-总纲.md` §3，更换需先在 `决策记录.md` 追加 ADR
 - 红线见 §2，四条技术限制的解除条件见 §2.1
 
+## 配置
+
+复制 `.env.example` 为 `.env` 并填入 API Key（`.env` 已被 gitignore，永不入库）：
+
+```bash
+cp .env.example .env
+```
+
+必填项是 `LLM_API_KEY`，其余已有合理默认值。取 Key：https://platform.deepseek.com → API keys → 创建。
+
+> `HF_ENDPOINT=https://hf-mirror.com` 这一行不要删。本机直连 HuggingFace 不通，模型（bge / whisper）靠它下载。
+
 ## 数据与备份
 
 所有数据在单个 SQLite 文件 `data/data.db`（生产环境为 `%APPDATA%/Cairn/data.db`）。
