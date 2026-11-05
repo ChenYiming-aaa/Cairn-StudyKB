@@ -32,15 +32,23 @@ python tools/doc_check.py
 
 ## 配置
 
-复制 `.env.example` 为 `.env` 并填入 API Key（`.env` 已被 gitignore，永不入库）：
+复制 `.env.example` 为 `.env`，填入 API Key（`.env` 已被 gitignore，永不入库）：
 
 ```bash
 cp .env.example .env
 ```
 
-必填项是 `LLM_API_KEY`，其余已有合理默认值。取 Key：https://platform.deepseek.com → API keys → 创建。
+必填项只有 `LLM_API_KEY`，其余已有默认值。取 Key：https://platform.deepseek.com → API keys → 创建。
 
-> `HF_ENDPOINT=https://hf-mirror.com` 这一行不要删。本机直连 HuggingFace 不通，模型（bge / whisper）靠它下载。
+| 变量 | 说明 |
+|---|---|
+| `LLM_BASE_URL` | `https://api.deepseek.com` —— **注意 DeepSeek 不带 `/v1`**，换服务商时必改 |
+| `LLM_MODEL` | `deepseek-flash`（另有 `deepseek-v4-pro`） |
+| `LLM_EFFORT` | 思考档位 `low`／`high`／`max`，结构化任务用 `low` 省钱 |
+| `FFMPEG_DIR` | 本机 ffmpeg 在 Anaconda 下，显式指定避免 IDE 启动时找不到 |
+| `HF_ENDPOINT` | **别删**。直连 HuggingFace 不通，模型靠这个镜像下载 |
+
+> API 规范以 https://api-docs.deepseek.com 为准，本表核对于 2026-11-05。
 
 ## 数据与备份
 
