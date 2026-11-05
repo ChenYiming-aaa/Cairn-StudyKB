@@ -383,3 +383,68 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **下一会话第一件事**
 > 打开 `milestones/M1-骨架与最小闭环.md` 的 T1.8，写 `prompts/organize.md` 与 `services/agents/organizer.py`，再实现 `POST /api/knowledge/{id}/organize`；开工先跑 `uv run python scripts/status.py` 与 `python tools/doc_check.py`。
 
+---
+
+## 2026-11-06 00:20 · M1 · T1.8 整理 Agent + T1.9/T1.10 前端（本次会话）
+
+**背景**：用户要求「继续做 M1 T1.7 以后的前端部分」。开工按总纲 §6 读总纲 + M1 + 契约相关小节，跑 `doc_check.py`（6/6 PASS）与 `status.py`（Python 3.12.13 / SQLite 3.50.4 / trigram 可用 / Key 已配置 / 库内 0 条）。
+事实核对发现两处文档与服务端不一致：`POST /api/knowledge/{id}/organize`（T1.8）**尚未实现**；`GET /api/knowledge` 无标签筛选、无分类聚合端点，而 T1.10 要求「两级分类树」。
+
+**用户裁决（3 条，已全部回写契约）**
+
+| # | 冲突/取舍 | 裁决 |
+|---|---|---|
+| 1 | 两级分类树的层级定义 | **分类（category）→ 标签（tags）**；为此给 `GET /api/knowledge` 增加 `tag` 查询参数（`json_each` 精确匹配），已登记进接口契约 §3 |
+| 2 | 分类节点条目数从哪来 | **前端拉 `page_size=100` 的列表本地聚合**，不加聚合端点。代价：条目超 100 后计数偏低，见下方遗留 |
+| 3 | T1.8 未实现，前端「整理」按钮无端点 | **顺带补 T1.8**，让闭环真正跑通（本次范围因此扩到后端） |
+
+**完成**
+
+- T1.8 整理 Agent：`prompts/organize.md`（角色/输入/严格 JSON schema/硬性约束，含 M3 导图依赖的 `#`+`-` 结构要求）、`services/agents/organizer.py`（50,000 字符采样前 40k+末 10k、解析失败重试一次、`summary` 空或 `key_points<2` 也重试一次、失败落 `status=failed` 并带错误码上抛）
+- T1.8 端点：`POST /{id}/organize`（202 + task_id；无 Key 提前 400 `LLM_NO_KEY`，已在整理中 409 `ITEM_BUSY`）、`POST /organize-pending`（只挑 pending，逐条派发）
+- T1.8 落库：新增 `repo.save_organize_result()`，**刻意不走 `update_item`**——后者会因 `structured_note` 把 `note_edited` 置 1，而整理是机器行为不能冒充手改；整理后按数据契约 §6 重建 `source='note'` chunk
+- T1.9 前端骨架：Vite 6 + Vue 3 + vue-router（hash 模式，为 M5 `file://` 打包留路）、`styles/tokens.css`（§6.7 全量 + 字体三项新增）、`styles/app.css`（全局控件与三态）、`api/client.js`（统一错误 + `pollTask` 1.5s→5s 退避 20 分钟）、主布局（顶栏 + 左树 + 列表 + 详情）
+- T1.10 阅读器 + 笔记编辑器：`CategoryTree`（分类→标签两级、计数、折叠）、`ItemList`（标题搜索 300ms 防抖、状态徽标、空/加载/错误三态）、`ItemDetail`（摘要与要点 / 结构化笔记 / 原文 三 Tab、整理与删除、truncated 提示、笔记已手改标记）、`NoteEditor`（编辑/预览/分屏、marked+dompurify、渲染 500ms 防抖、Ctrl+S 保存、脏标记 + `beforeunload` + 切换条目拦截）
+
+**改动文件**
+
+- 后端：`app/prompts/organize.md`（新）、`app/services/agents/{__init__,organizer}.py`（新）、`app/db/repo/items.py`（`list_items` 加 `tag`；新增 `set_status` / `list_ids_by_status` / `save_organize_result`）、`app/routers/knowledge.py`（两个 organize 端点 + `tag` 参数）
+- 前端：`package.json`、`package-lock.json`、`vite.config.js`、`index.html`、`src/{main.js,App.vue}`、`src/router/index.js`、`src/api/client.js`、`src/styles/{tokens,app}.css`、`src/composables/{useUi,useToast}.js`、`src/utils/format.js`、`src/views/Knowledge.vue`、`src/components/{PasteDialog,StatusBadge,CategoryTree,ItemList,ItemDetail,NoteEditor}.vue`
+- 文档：`contracts/接口契约.md`（`tag` 参数、两个 organize 端点形状、`client.js` baseUrl 优先级与「空串走 Vite 代理」）、`00-总纲.md`（M1 状态改「进行中」）、`HANDOFF.md`（本条）
+
+**验证**
+
+- `python tools/doc_check.py` → 6 项全 PASS（ADR 22 / 端点 30 / 表 11）
+- 后端冒烟（真实 DeepSeek 调用，临时 DATA_DIR）：800+ 字文本 → `chunk_count=2` → organize 202 → 任务 done → `category=时间管理`、5 个 tags、6 条 key_points、note 645 字、`note_edited=0`、`truncated=0`、note chunk=2 → `?tag=番茄工作法` 命中 1 条 → PATCH 笔记后 `note_edited=1`、note chunk 重建 → `organize-pending` 返回 1 条
+- 前端 `npm run build` → 47 modules，CSS 15.3kB / JS 189kB，无告警
+- Playwright（Anaconda Python 的 playwright 1.60 + 本机 chromium）端到端：首屏 → 粘贴 400 字 → 列表出现 pending → 整理 → 变 ready → 摘要 137 字 / 关键点 6 条 → 结构化笔记 547 字且预览已渲染 → 追加一行保存 → 刷新后内容仍在且出现「笔记已手改」→ 原文 Tab 正常 → 点分类过滤剩 1 条；**全程 0 条 console 错误**
+- 脏标记拦截单独验证：改笔记后点另一条目 → 弹「结构化笔记有未保存的修改…」→ 取消后仍停在原条目、`.dirty` 标记保留
+- 截图存于 `data/_e2e/`（gitignored）：`03-ready.png`、`10-note-split.png` 等
+
+**过程中修掉的问题**
+
+1. 前端首轮截图：详情标题取自正文首行（120 字）占三行，把 meta 挤下去 → `.title` 加两行截断
+2. 空态（无条目 / 未选中）浮在面板顶部 → `.state` 改 flex 居中，列表与详情各自 `justify-content:center`
+3. 正文行宽过宽（详情区约 600px 满宽）→ `.summary/.points/.raw/.prose` 加 `max-width:72ch/74ch`
+
+**已知偏离（不是遗漏，写在这里备查）**
+
+- M1 §6.9 要求「切换 Tab 也要拦截确认」。实现改为三 Tab 用 `v-show` 常驻挂载：切 Tab 不会丢内容，因此只对「切换条目」和「关闭窗口」弹确认。若坚持弹窗，改 `ItemDetail` 的 `v-show` 为 `v-if` 即可，但会丢掉切 Tab 时的编辑状态
+- 接口契约 §4 原写「开发期默认 `http://127.0.0.1:8756`」，实现改为空串走 Vite 代理（同源，不依赖 CORS），已回写契约说明两种来源
+
+**遗留问题**（每条都能直接开干）
+
+- [ ] **T1.11 未做**：`backend/scripts/verify_m1.py`（建库→造 3 条→整理→改笔记→断言 chunk 重建→删条目→查残留→清理）。因它不存在，本次未跑 §8 收工清单、未打 tag、未改总纲为「已验收」
+- [ ] 分类树计数上限 100 条（裁决 2 的代价）：条目超过 100 后左侧计数偏低。超过时再加 `GET /api/knowledge/categories` 聚合端点并登记契约
+- [ ] 前端未实现改标题 / 改分类 / 改标签的 UI（`PATCH` 后端已支持）。M1 DoD 不要求，属 backlog
+- [ ] `verify_m1.py` 写「删条目后 chunk_fts 无残留」时仍需裁决：FTS5 影子表 `chunk_fts_data` 留明文 term 是否算残留、是否允许删除路径执行 `optimize`（与数据契约 §6「不许直接写 chunk_fts」冲突）——**上一会话遗留，本次未动**
+- [ ] 开发库 `data/data.db` 现有 1 条真实测试条目（间隔重复，已整理、已手改笔记），是人工验收用的样例数据，未被 git 跟踪
+- [ ] 前端无 ESLint / 无单测；`package.json` 只有 dev/build/preview 三个脚本
+
+**待裁决冲突**
+
+- 无（本次 3 条取舍均已由用户裁决并回写契约）
+
+**下一会话第一件事**
+> 写 `backend/scripts/verify_m1.py` 覆盖 M1 §4 的 T1.11 与 §5 全部 DoD（含 FTS 残留口径），跑绿后按 §8 收尾：打 `m1-done`、改总纲为「已验收」、按 §5.2 盖完结章。
+

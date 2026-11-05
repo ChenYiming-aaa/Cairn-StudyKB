@@ -1,0 +1,102 @@
+/* 长文阅读与滚动条：详情页的 Markdown、原文、编辑器预览共用 */
+
+/* ── 渲染后的 Markdown ─────────────────────────────── */.prose {
+  font-family: var(--font-reading);
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--c-text-1);
+  word-break: break-word;
+  max-width: 74ch;
+}
+
+.prose h1 {
+  font-size: var(--fs-xl);
+  margin: var(--space-6) 0 var(--space-3);
+}
+
+.prose h2 {
+  font-size: var(--fs-lg);
+  margin: var(--space-6) 0 var(--space-3);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.prose h3 {
+  font-size: var(--fs-md);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.prose p {
+  margin: var(--space-3) 0;
+}
+
+.prose ul,
+.prose ol {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-6);
+}
+
+.prose li {
+  margin: var(--space-1) 0;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--c-bg-2);
+}
+
+.prose pre {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-2);
+  overflow-x: auto;
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+}
+
+.prose blockquote {
+  margin: var(--space-3) 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--c-border);
+  color: var(--c-text-2);
+}
+
+.prose a {
+  color: var(--c-primary);
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid var(--c-border);
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+
+/* 滚动条：细一点，别抢视线 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8d5ca;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c3bfb2;
+  background-clip: content-box;
+}

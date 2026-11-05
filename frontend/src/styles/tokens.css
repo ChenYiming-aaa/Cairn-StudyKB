@@ -1,0 +1,60 @@
+/* Cairn design tokens —— M1 §6.7 定死，后续只增不改。
+   任何组件都不许写死颜色/字号/间距，一律引用这里的变量。 */
+
+:root {
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* 字号 */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  /* 行高 */
+  --lh-body: 1.6;
+  --lh-title: 1.4;
+
+  /* 语义色 —— 纸石色系，长时间阅读不刺眼 */
+  --c-primary: #3f6f5f;
+  --c-primary-soft: #e8efeb;
+  --c-success: #3f8f5f;
+  --c-warning: #b8791f;
+  --c-danger: #b3453a;
+
+  /* 文本 */
+  --c-text-1: #23211c;
+  --c-text-2: #5c574d;
+  --c-text-3: #97928a;
+
+  /* 背景与描边 */
+  --c-bg-0: #f6f5f1;
+  --c-bg-1: #fffefa;
+  --c-bg-2: #efeee7;
+  --c-border: #e2dfd5;
+
+  /* 版面尺寸 */
+  --w-sidebar: 232px;
+  --w-list: 320px;
+  --h-topbar: 52px;
+
+  /* 阴影（极轻，避免卡片堆叠感） */
+  --shadow-sm: 0 1px 2px rgba(35, 33, 28, 0.06);
+  --shadow-md: 0 8px 24px rgba(35, 33, 28, 0.12);
+
+  /* 字体（§6.7 之外的新增项，只增不改） */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+    "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-reading: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+}

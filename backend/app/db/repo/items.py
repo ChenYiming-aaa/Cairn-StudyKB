@@ -118,6 +118,7 @@ def list_items(
     category: str | None = None,
     status: str | None = None,
     q: str | None = None,
+    tag: str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[sqlite3.Row], int]:
@@ -129,6 +130,14 @@ def list_items(
     if q:
         where.append("title LIKE ?")
         args.append(f"%{q}%")
+    if tag:
+        # tags 是 JSON 数组字符串（数据契约 §3）；非法 JSON 时退化空数组，不让整条查询报错
+        where.append(
+            "EXISTS (SELECT 1 FROM json_each("
+            "CASE WHEN json_valid(knowledge_item.tags) THEN knowledge_item.tags ELSE '[]' END)"
+            " WHERE json_each.value = ?)"
+        )
+        args.append(tag)
     clause = " WHERE " + " AND ".join(where) if where else ""
     total = conn.execute("SELECT COUNT(*) FROM knowledge_item" + clause, args).fetchone()[0]
     rows = conn.execute(
@@ -164,3 +173,45 @@ def delete_item(conn: sqlite3.Connection, item_id: int) -> bool:
     """外键 CASCADE 处理 chunk / question；chunk_fts 由触发器同步。"""
     cur = conn.execute("DELETE FROM knowledge_item WHERE id=?", (item_id,))
     return cur.rowcount > 0
+
+
+def set_status(conn: sqlite3.Connection, item_id: int, status: str) -> None:
+    conn.execute(
+        "UPDATE knowledge_item SET status=?, updated_at=? WHERE id=?",
+        (status, now_iso(), item_id),
+    )
+
+
+def list_ids_by_status(
+    conn: sqlite3.Connection, status: str, limit: int = 50
+) -> list[int]:
+    rows = conn.execute(
+        "SELECT id FROM knowledge_item WHERE status=? ORDER BY id LIMIT ?", (status, limit)
+    ).fetchall()
+    return [r["id"] for r in rows]
+
+
+def save_organize_result(
+    conn: sqlite3.Connection,
+    item_id: int,
+    *,
+    category: str,
+    tags: list[str],
+    summary: str,
+    key_points: list[str],
+    structured_note: str,
+    truncated: bool,
+) -> None:
+    """落整理结果并置 status='ready'。
+
+    刻意不走 update_item：那里会因 structured_note 把 note_edited 置 1，
+    但整理是机器行为，不能冒充「用户手改过」（数据契约 §3）。
+    """
+    conn.execute(
+        """UPDATE knowledge_item
+           SET category=?, tags=?, summary=?, key_points=?, structured_note=?,
+               truncated=?, status='ready', updated_at=?
+           WHERE id=?""",
+        (category, dumps(tags), summary, dumps(key_points), structured_note,
+         1 if truncated else 0, now_iso(), item_id),
+    )

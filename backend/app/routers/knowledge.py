@@ -1,4 +1,4 @@
-"""条目 CRUD + 切块（T1.7）。所有端点用同步 def（总纲 §7）。"""
+"""条目 CRUD + 切块（T1.7）+ 整理触发（T1.8）。所有端点用同步 def（总纲 §7）。"""
 from __future__ import annotations
 
 import sqlite3
@@ -8,9 +8,12 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.config import get_settings
 from app.db.conn import get_conn
 from app.db.repo import items as repo
-from app.errors import error_payload
+from app.errors import ApiError, error_payload
+from app.services import tasks as task_queue
+from app.services.agents import organizer
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
 
@@ -77,6 +80,7 @@ def list_items(
     category: str | None = None,
     status: str | None = None,
     q: str | None = None,
+    tag: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> dict:
@@ -84,9 +88,57 @@ def list_items(
     try:
         rows, total = repo.list_items(
             conn, source_type=source_type, category=category, status=status,
-            q=q, page=page, page_size=page_size,
+            q=q, tag=tag, page=page, page_size=page_size,
         )
         return {"items": [_list_shape(r) for r in rows], "total": total}
+    finally:
+        conn.close()
+
+
+def _require_llm_key() -> None:
+    """未配置 Key 时立刻失败，不留一个注定失败的任务在队列里（M1 §5 DoD）。"""
+    if not get_settings().has_llm_key:
+        raise ApiError("LLM_NO_KEY", "未配置 LLM API Key，请在 .env 中设置 LLM_API_KEY", status=400)
+
+
+@router.post("/organize-pending")
+def organize_pending(limit: int = Query(default=20, ge=1, le=100)) -> dict:
+    """批量整理 status='pending' 的条目。逐条派发独立任务，返回 item→task 映射。"""
+    _require_llm_key()
+    conn = get_conn()
+    try:
+        item_ids = repo.list_ids_by_status(conn, "pending", limit)
+        queued: list[dict] = []
+        for item_id in item_ids:
+            with conn:
+                repo.set_status(conn, item_id, "organizing")
+            queued.append({
+                "item_id": item_id,
+                "task_id": task_queue.submit("organize", organizer.run, {"item_id": item_id}),
+            })
+        return {"items": queued, "total": len(queued)}
+    finally:
+        conn.close()
+
+
+@router.post("/{item_id}/organize")
+def organize_item(item_id: int):
+    """触发整理，返回 task_id（202）；同一时刻只允许一个整理任务在同一条目上跑。"""
+    _require_llm_key()
+    conn = get_conn()
+    try:
+        row = repo.get_item(conn, item_id)
+        if row is None:
+            return _not_found()
+        if row["status"] == "organizing":
+            return JSONResponse(
+                status_code=409,
+                content=error_payload("ITEM_BUSY", "该条目正在整理中，请等待完成"),
+            )
+        with conn:
+            repo.set_status(conn, item_id, "organizing")
+        task_id = task_queue.submit("organize", organizer.run, {"item_id": item_id})
+        return JSONResponse(status_code=202, content={"task_id": task_id})
     finally:
         conn.close()
 
