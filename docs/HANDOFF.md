@@ -317,5 +317,69 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **下一会话第一件事**
 > 开始 M1。`uv python install 3.12` → T1.1 建目录骨架。提示词模板见 `docs/会话提示词手册.md` 模板 A。
 
+---
 
+## 2026-11-06 00:05 · M1 · 后端骨架 T1.1–T1.7（本次会话）
+
+**背景**：M1 开工。开场按总纲 §6 读总纲 + M1 文档、跑 `doc_check.py`、读本台账最后两条；按 M1 §2 逐条核对环境。
+**注意**：开场后等待用户裁决期间，另有会话并发提交了 6 次（22:22–23:00，定名 Cairn、配 origin、写台账、新增 `.env.example`、按 DeepSeek 规范更新 LLM 配置、补提示词手册），
+并改动了总纲、M1 文档、决策记录（新增 ADR-021）。本会话已重读 `HEAD = origin/main = 748dde1` 的磁盘最新版作为执行依据，开场读到的旧版作废。
+
+**用户裁决（6 条，已全部回写文档）**
+
+| # | 冲突/取舍 | 裁决 |
+|---|---|---|
+| 1 | M1 §8 要求打 `m1-done` + 改总纲「已验收」+ 盖完结章，但本次只做 T1.1–T1.7、DoD 大半未达成、`verify_m1.py`（T1.11）尚不存在 | 打**阶段 tag `m1-backend`**，不改总纲状态、不盖完结章，台账写明 M1 进行中 |
+| 2 | 接口契约标 M1 的 11 个端点，T1.1–T1.7 只明确覆盖 knowledge CRUD | 本次做 knowledge 5 个 + `/api/health` + `/api/tasks` + `/api/tasks/{id}`；`/api/env/check` **本次不做**，契约标 M1 是笔误，实际属 M2 §4 的 T2.5（已核实），归属回写为 M2；`organize*` / `mindmap` 不动 |
+| 3 | M1 §5 DoD 写 `/api/health` 返回 `{"status":"ok"}`，接口契约 §2 写带 `version` | 以 L1 契约为准返回 `{"status":"ok","version":...}`，M1 DoD 首条同步改一致 |
+| 4 | 数据契约 §2 全量 DDL 含 `CREATE VIRTUAL TABLE chunk_vec USING vec0`，但 §6.1 的 uv add 清单没有 sqlite-vec，直接执行会建库失败 | **条件创建，且 vec0 不写进 `schema.sql`，单独放 `backend/app/db/schema_vec.sql`**；`migrate.py` 仅在检测到扩展时执行；数据契约 §1 补例外说明 |
+| 5 | 并发改动后的 M1 T1.5 / §6.11 要求 `llm_call_log` 记录 `reasoning_tokens`，但数据契约 §2 DDL 没有该列 | **加字段 + 新 ADR**：数据契约 §2 增列、§3 补语义、新增 ADR-022；首次建库直接进初始 schema，无需迁移 |
+| 6 | 数据契约 §3 写截断阈值 8000 字，ADR-021 与新版 M1 §6.6 已改为 50,000 字符 | **以 50,000 为准**，修数据契约 §3（判定为并发会话漏改的旧表述）；本次不写截断代码（属 T1.8） |
+
+**完成**
+
+- T1.1 仓库骨架：`backend/ frontend/ desktop/ data/`，`pyproject.toml`（Python 3.12 锁 `>=3.12,<3.13`）+ `uv.lock`，`.gitignore` / `.env.example` 复核已符合要求
+- T1.2 `config.py`：命令行 > `.env` > 默认；按天滚动日志到 `data/logs/app.log`；启动打印数据目录与端口。Key 只从 `.env` 读，不提供命令行覆盖
+- T1.3 数据库层：`schema.sql`（全量业务表，含 `reasoning_tokens`，trigram FTS5）、`schema_vec.sql`、`migrate.py`（`PRAGMA user_version=1`、WAL、每连接 `foreign_keys=ON`、条件加载 vec）、`repo/` 封装 items/tasks
+- T1.4 `scripts/status.py`：DB 路径与各表行数、环境自检、已完成里程碑、最近 3 条任务；支持 `--db` 打开复制品
+- T1.5 `services/llm.py`：`chat()` / `chat_stream()` / `extract_json()`，120s 超时、1s/3s 退避重试 2 次，按 §6.11 拼 `{base_url}/chat/completions`（`rstrip('/')`）、`response_format=json_object`、只取 `content` 丢弃 `reasoning_content`、每次调用写 `llm_call_log`
+- T1.6 `services/tasks.py`：`ThreadPoolExecutor(max_workers=2)`，`submit(type, fn, input)` 立即返回 uuid，异常落 `error_code/error_msg`，启动清理残留 running
+- T1.7 `routers/knowledge.py` + `services/chunker.py`：CRUD 5 个端点、创建自动切块、`content_hash` 去重、PATCH 保存笔记时重建 `source='note'` chunk 并置 `note_edited=1`；`chunker.split()` 为纯函数且两处复用
+
+**改动文件**
+
+- 文档：`docs/contracts/{接口契约,数据契约,决策记录}.md`、`docs/milestones/M1-骨架与最小闭环.md`（均为裁决回写）、`docs/HANDOFF.md`（本条）
+- 后端新增 26 个文件（见 `git show --stat`），主要：`backend/app/{main,config,errors}.py`、`backend/app/db/{schema.sql,schema_vec.sql,migrate.py,conn.py,repo/}`、`backend/app/services/{llm,tasks,chunker}.py`、`backend/app/routers/{health,knowledge,tasks}.py`、`backend/scripts/status.py`、`backend/pyproject.toml`、`backend/uv.lock`
+- 目录占位：`frontend/.gitkeep`、`desktop/.gitkeep`
+
+**验证**
+
+- `python tools/doc_check.py` → 6 项全 PASS（ADR 22 条、端点 30 个、表 11 张）
+- 内联回归 **24/24 PASS**：health/docs、CRUD、去重、note 重建、笔记进 FTS、trigram、chunk_vec 条件跳过、WAL+user_version、reasoning_tokens 列、无 Key `LLM_NO_KEY` 降级、并发 8 任务全 done、异常任务落 error_msg、tasks 端点、启动清理残留、删除后 chunk 与 chunk_fts 均无残留、404 错误形状、复制品可打开
+- 真实 `uvicorn app.main:app --port 8756`：`/api/health` 返回 `{"status":"ok","version":"0.1.0"}`、`/docs` 200、OpenAPI 登记的正是裁决范围内 5 个路径
+- `uv run python scripts/status.py` → 正常输出（EXIT=0）；`data.db` 整文件复制品可被 `status.py --db` 正常打开
+- 红线 7：代码不硬编码 Key、日志不含真实 Key（已用值比对，只报布尔）、`.env` 未被 git 跟踪、异常栈用 `from None` 切断原始 httpx 上下文
+- 单文件均 ≤300 行
+
+**过程中修掉的两个真实缺陷**（执行类，未涉及表结构/接口/选型/目录/依赖，按手册 §8 自行处理）
+
+1. `services/tasks.py` 的 `submit(type, ...)` 参数名遮蔽内置 `type()`，except 分支里 `type(exc).__name__` 抛 `TypeError: 'str' object is not callable`，导致异常分支自身崩溃、错误被线程池吞掉，**违反红线 8**。已改用 `exc.__class__.__name__`。另将线程池改为懒加载，避免 lifespan 退出 `shutdown()` 后 `submit()` 永久抛 `cannot schedule new futures after shutdown`
+2. Windows + WAL 竞态：最后一个连接关闭时 SQLite 会 checkpoint 并删除 `-wal/-shm`，另一线程此刻打开连接会被判定为只读（`attempt to write a readonly database`），生产里「后台任务写 + 用户请求写」会偶发失败。已在 `db/conn.py` 增加一个不执行业务 SQL 的空闲保活连接阻止 WAL 文件被清理；业务连接仍是「每请求新建」（M1 §6.2）
+
+**遗留问题**（每条都能直接开干）
+
+- [ ] **T1.8 起未做**：整理 Agent（`prompts/organize.md`、`services/agents/organizer.py`）、`POST /api/knowledge/{id}/organize`、`POST /api/knowledge/organize-pending`；整理时按 M1 §6.6 的 50,000 字符截断并置 `truncated=1`
+- [ ] **T1.9–T1.11 未做**：前端骨架（先写 `tokens.css`）、阅读器 + 笔记编辑器、`scripts/verify_m1.py`；因此本次未打 `m1-done`、未改总纲状态、未盖完结章
+- [ ] `verify_m1.py`（T1.11）写「删除后 chunk_fts 无残留」断言时注意：FTS5 外部内容表 delete 触发器只写删除标记，`chunk_fts` 主虚拟表 `COUNT(*)` 与 `MATCH` 均为 0，但影子表 `chunk_fts_data` 仍留明文 term；实测 `INSERT INTO chunk_fts(chunk_fts) VALUES('optimize')` 可清除。数据契约 §6 规定「`chunk_fts` 只由触发器维护，任何代码都不许直接写它」，**是否允许在删除路径加 optimize 需要裁决**，本次未擅自实现，验收按主虚拟表口径
+- [ ] `/api/env/check` 归属已在契约回写为 M2，实现见 M2 §4 T2.5（`scripts/env_check.py`）
+- [ ] 总纲 §9 与 21:20 台账记「Python 3.12 尚未安装」，实测 uv 已装 3.12.13 / 3.12.15，本次直接 `uv venv --python 3.12`，未重复 install。按台账「只追加更正」规则在此注明，未改历史条目
+- [ ] M1 §8 的 `verify_m1.py 全绿` 与「改总纲为已验收」两项留到 T1.11 完成后执行；届时才打 `m1-done` 并按 §5.2 盖完结章
+
+**待裁决冲突**
+
+- 本会话共 6 条冲突/取舍，均已由用户裁决并回写文档（见上表），无遗留待裁决项
+- 新增一条**留给 T1.11 的待裁决**：FTS5 影子表明文残留是否算 DoD 的「chunk_fts 有残留」，以及是否允许删除路径执行 `optimize`（与数据契约 §6「不许直接写 chunk_fts」冲突）
+
+**下一会话第一件事**
+> 打开 `milestones/M1-骨架与最小闭环.md` 的 T1.8，写 `prompts/organize.md` 与 `services/agents/organizer.py`，再实现 `POST /api/knowledge/{id}/organize`；开工先跑 `uv run python scripts/status.py` 与 `python tools/doc_check.py`。
 
