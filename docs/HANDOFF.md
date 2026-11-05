@@ -213,5 +213,44 @@
 **下一会话第一件事**
 > 用户新开会话执行 M1。开场按 `00-总纲.md` §6：读总纲 + M1 文档 → 跑 `tools/doc_check.py`（`scripts/status.py` 还没创建，T1.4 才产出）→ 读本文件最后两条。
 
+---
+
+## 2026-11-05 22:24 · M0 · 项目定名 cairn
+
+**背景**：用户要求取一个有特色、不与常见项目重名的名字。原占位名 `study-kb` 过于通名。
+
+**决策**：项目定名 **Cairn**（cairn /kɛərn/，登山者沿途堆的石堆路标——走一段留一块石头，靠自己的标记找得回来）。弃用候选：`herbarium`（意象最贴但 9 字母难拼）、`loom`（已被知名录屏工具占用品牌）、`kindling`。
+
+**命名约定（已写入总纲 §1.1，改起来很贵）**
+
+| 用途 | 取值 |
+|---|---|
+| GitHub 仓库名 | `cairn` |
+| Python 包名 | `cairn` |
+| 后端可执行文件 | `cairn-backend.exe` |
+| 生产数据目录 | `%APPDATA%/Cairn` |
+| 数据库文件 | `data.db`（保持不变，目录已带名字） |
+| Electron appId / productName | `com.cairn.app` / `Cairn` |
+
+**改动文件**
+- `docs/00-总纲.md`（新增 §1.1 命名约定；§5 阅读预算按新行数校正）
+- `docs/milestones/M5-计时与交付.md`（`cairn-backend`、`%APPDATA%/Cairn`、appId/productName）
+- `README.md`（标题改为 Cairn + 词源说明）
+
+**验证**
+- `python tools/doc_check.py` → 6 项全 PASS
+- `grep study-kb/StudyKB` 在 archive 之外为 **0** 处（`docs/archive/` 保留旧名，属于历史记录，不修改）
+
+**遗留问题**
+- [ ] **GitHub 尚未推送**：本地已有 3 次提交，但从未配置 remote。需用户先在 GitHub 建私有仓库 `cairn`（不要勾任何初始化选项），再执行 `git remote add` + `push`
+- [ ] Python 3.12 未安装；LLM API Key 未配置
+- [ ] 本地目录名仍是 `知识库agent开发`，与仓库名 `cairn` 不一致。**不影响功能**；若要改，须在没有任何会话运行时操作
+
+**待裁决冲突**
+- 无
+
+**下一会话第一件事**
+> 若 GitHub 已建好仓库，先 `git remote add origin …` 推送；否则直接开始 M1（`uv python install 3.12`）。
+
 
 
