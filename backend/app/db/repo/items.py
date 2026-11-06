@@ -228,6 +228,20 @@ def category_tree(conn: sqlite3.Connection) -> dict:
     }
 
 
+def replace_raw_content(conn: sqlite3.Connection, item_id: int, raw_content: str) -> None:
+    """只替换正文并同步 content_hash，状态回 pending。
+
+    这是 M2 网页采集 `force=true` 的唯一写入口（2026-11-06 裁决：force 只覆盖正文）。
+    刻意不走 update_item：那里 `_UPDATABLE` 不含 raw_content，且会误动 note_edited。
+    标题/分类/标签/笔记一律不碰，理由是同一次裁决。
+    """
+    conn.execute(
+        """UPDATE knowledge_item SET raw_content=?, content_hash=?, status='pending', updated_at=?
+           WHERE id=?""",
+        (raw_content, content_hash(raw_content), now_iso(), item_id),
+    )
+
+
 def set_status(conn: sqlite3.Connection, item_id: int, status: str) -> None:
     conn.execute(
         "UPDATE knowledge_item SET status=?, updated_at=? WHERE id=?",

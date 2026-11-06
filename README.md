@@ -5,7 +5,9 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：M1（骨架与最小闭环）已验收，tag `m1-done`；M1 遗留项已补齐（分类聚合端点、ESLint、浏览器 e2e），下一步 M2 真实内容采集。
+**当前状态**：M2（真实内容采集）进行中 —— T2.1–T2.5 网页采集已完成，tag `m2-web`；
+网页链接可入库（抓取→查重→切块→可整理），6 类抓取错误码带中文文案，`GET /api/env/check` 可自检环境。
+下一步 T2.6–T2.9：视频转录 adapter、视频接口、采集前端、任务中心（`m2-done` 留到那时）。
 
 ## 目录
 
@@ -20,6 +22,7 @@
 ## 技术栈
 
 Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · Vue 3 · Electron
+采集侧：trafilatura + httpx（网页）· yt-dlp + ffmpeg + faster-whisper（视频）
 
 ## 先读这些
 
@@ -41,6 +44,8 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | 命令 | 验什么 | 何时跑 |
 |---|---|---|
 | `python tools/doc_check.py` | 文档一致性（作用域、ADR/端点/表引用、完结标记） | 改文档后、每次会话开场 |
+| `cd backend && uv run python scripts/status.py` | 数据目录 / 表行数 / 最近任务 / 环境自检（只读） | 每次会话开场与收尾 |
+| `cd backend && uv run python scripts/env_check.py` | ffmpeg / whisper / embedding / sqlite-vec / LLM Key（`--json` 机读，`--strict` 有阻塞项即 exit 1） | 排查"转录跑不起来" |
 | `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 48 项，真实 LLM 调用 | 动到条目 / 整理 / chunk |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |

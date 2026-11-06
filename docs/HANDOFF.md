@@ -688,3 +688,55 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 
 **下一会话第一件事**
 > M2 开工：`cd backend && uv add trafilatura yt-dlp faster-whisper`，然后 T2.1 `BaseFetcher` + `TrafilaturaFetcher`；查重直接用 `repo.items.find_by_url()`，进度回报用 `tasks.update_progress()`，ffmpeg 用 `Settings.ffmpeg_exe`。
+
+---
+
+## 2026-11-06 15:25 · M2 · T2.1–T2.5 网页采集（本次会话）
+
+**范围**：用户明确只做 T2.1–T2.5，T2.6 之后（视频 / 前端 / 任务中心 / verify_m2）不动。
+
+**完成**
+
+- T2.1 `services/fetcher.py`：`BaseFetcher.fetch(url) -> FetchedPage(url, title, text)` + `TrafilaturaFetcher`（httpx 取页 + trafilatura 抽正文，`favor_recall=True`，正文 <200 字判 `FETCH_EMPTY`）；`normalize_url()` 补协议/去 fragment，非 http(s) 抛 `URL_INVALID`；`set_fetcher()` 供 verify 注入假实现
+- T2.2 `services/fetch_errors.py`：6 类错误码 + 中文文案集中一个 dict；`FetchError.code/.message` 供 `tasks.submit` 落 `agent_task`；`to_fetch_error()` 把 httpx 异常翻译成错误码
+- T2.3 `routers/ingest.py`：`POST /api/ingest/url`，URL 已存在且 `force=false` 直接 200 `{task_id: null, existing_item_id}`；否则 202 派 `fetch_url` 任务
+- T2.4 `services/web_ingest.py`：抓取→查重→落库→切块；同 URL 并发抢跑靠 `IntegrityError` 兜到"已存在"，同内容不同 URL 走 `content_hash` 撞库返回 `duplicated: true` + 已有 id，**不新建**
+- T2.5 `services/env_probe.py` + `routers/env.py` + `scripts/env_check.py`：`GET /api/env/check` 五项目检，缺 ffmpeg 时 `code=TRANSCRIBE_NO_FFMPEG`；脚本与端点共用同一份逻辑（`--json` / `--strict`）
+- 基座两处改动：`services/tasks.submit(..., pass_task_id=True)` 让长任务拿到自己的 id（原先只能 `fn(input)`，进度无处可报）；`repo.items.replace_raw_content()` 作为 `force` 的唯一写入口
+
+**改动文件**
+
+- 新增：`backend/app/services/{fetcher,fetch_errors,web_ingest,env_probe}.py`、`backend/app/routers/{ingest,env}.py`、`backend/scripts/env_check.py`
+- 修改：`backend/app/main.py`（挂两个路由）、`backend/app/services/tasks.py`（`pass_task_id`）、`backend/app/db/repo/items.py`（`replace_raw_content`）、`backend/pyproject.toml` + `uv.lock`（trafilatura 2.3.1 / yt-dlp 2026.10.26 / faster-whisper 1.2.1）
+- 工具：`tools/doc_check.py`（端点检查滤掉两类误报，见"待裁决冲突"）
+- 文档：`docs/contracts/接口契约.md`（`/api/env/check` 形状、`/api/ingest/url` 的 force 语义与 output 形状、错误码补 `FETCH_NOT_FOUND`）、`docs/00-总纲.md` §4、`docs/milestones/M2-*.md` 状态行、`README.md`、本文件
+
+**验证**（真实 uvicorn `127.0.0.1:8756`，真实网络）
+
+- `scripts/env_check.py` → ffmpeg/ffprobe 4.3.1 OK、LLM deepseek-flash OK；whisper/embedding/sqlite-vec 三项未就绪（预期，均可选或首次使用才下载）
+- `POST /api/ingest/url` 阮一峰 GitHub Actions 教程：202 → done，**1.9 秒**，`{"item_id":11,"chunk_count":10}`；正文 5009 字、标题干净无导航
+- 重复同 URL → 200 `{"task_id":null,"existing_item_id":11}`，库中未新增
+- 同内容不同 URL（加 `?utm=1`）→ `duplicated:true, existing_item_id:11`
+- `force=true`（先给条目手写声明 `category/tags/structured_note`）：正文重抓 5009 字、raw chunk 重建 10 条、状态回 `pending`，**标题/分类/标签/笔记全部未变**，`note_edited` 仍为 1
+- 6 类错误码逐个实测：`FETCH_NOT_FOUND`(HTTP 404) / `FETCH_DNS`(ProxyError) / `FETCH_BLOCKED`(403) / `FETCH_INVALID`(content-type=image/png、scheme=ftp) / `FETCH_EMPTY`(仅 156 字) / `FETCH_TIMEOUT`(ReadTimeout, timeout=1s)；`URL_INVALID` 路由层直接 400，不派任务
+- 验收场景 A 全通：入库后 `POST /api/knowledge/11/organize` → done，AI 标题「GitHub Actions 入门与自动」、分类「持续集成」、5 个标签、笔记与摘要非空
+- 回归：`scripts/verify_m1.py` → **48/48 PASS**（动过 `tasks.submit` 与 `repo/items`，必须回归）
+- `python tools/doc_check.py` → 6 PASS + 2 WARN（WARN 是台账/手册引用已完结 M1 文档，非当现状）
+- `scripts/status.py` → EXIT=0，`knowledge_item` 3 行、`agent_task` 14 行，最近任务含 `fetch_url done` 与 `fetch_url failed FETCH_EMPTY`
+
+**遗留问题**
+
+- [ ] T2.6–T2.9 未做：转录 adapter、`POST /api/ingest/video`、采集前端（`IngestPanel.vue`）、任务中心（`Tasks.vue`）；`POST /api/tasks/{id}/retry` 契约已登记但未实现
+- [ ] T2.10 `verify_m2.py` 未写（本次没到那一步）。写的时候直接用 `fetcher.set_fetcher(假实现)` 造 3 种失败，别打真实站点
+- [ ] `fetch_url` 任务的 `stage` 只有 `fetching` / `saving` 两个值，契约里我按实际实现登记；若 T2.7 想让前端统一四个阶段文案，需再对齐一次
+- [ ] `force=true` 只换正文，标题会停在旧值（可能是 AI 生成的 ≤20 字标题），不会跟着新正文变 —— 用户裁决的直接后果，先记着别当 bug
+- [ ] 网页抓取没有反爬与登录态支持（M2 §1.6 明确的非目标），403 只会提示"改用粘贴文本"
+
+**待裁决冲突**
+
+- `接口契约` §3 的 `POST /api/ingest/url` 错误码清单漏了 `FETCH_NOT_FOUND`，而 M2 §6.2 与 §3 验收场景 C 都要求 404 有独立错误码 → 按 §5.1 以契约为准但契约明显是漏登，**已把 `FETCH_NOT_FOUND` 补进契约**，两份文档现在一致；同时补登 `/api/env/check` 形状与 force 语义
+- 开场 `doc_check.py` 报 2 条 FAIL：`HANDOFF.md:668` 的 `/api/knowledge/999`（按具体 id 探测）与 `:682` 的 `src/api/client.js`（文件路径的前半段被当成端点）。**没有改历史台账条目**（HANDOFF 规则 1：只追加），改的是 `tools/doc_check.py` 的端点检查：紧跟扩展名的 match 跳过、具体 id 能匹配到已登记的 `{param}` 模板。重跑后 PASS
+- `force=true` 的语义契约原本没定义且 `idx_item_url` 不允许同 URL 建两条 → **用户裁决：就地覆盖，但只覆盖正文不动笔记**，已写进契约
+
+**下一会话第一件事**
+> 做 T2.6：`services/transcriber.py` 的 `BaseTranscriber.transcribe(url, on_progress)`（yt-dlp 取元数据→下音频→faster-whisper small），依赖已装好**不用再 uv add**；进度用 `tasks.update_progress(task_id, p, stage)` 每涨 2% 写一次，`ffmpeg` 用 `Settings.ffmpeg_exe` 拼绝对路径。先确认 `_cuda_ok()` 在本机（RTX 3060 + ffmpeg 4.3.1）能建 float16 模型，不行就回落 CPU int8。

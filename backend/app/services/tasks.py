@@ -37,8 +37,18 @@ def recover_stale_tasks() -> int:
         conn.close()
 
 
-def submit(type: str, fn: Callable[[dict | None], dict | None], input: dict | None = None) -> str:
-    """登记任务并立即返回 uuid；fn 抛出的异常捕获后写入 error_code/error_msg。"""
+def submit(
+    type: str,
+    fn: Callable[..., dict | None],
+    input: dict | None = None,
+    *,
+    pass_task_id: bool = False,
+) -> str:
+    """登记任务并立即返回 uuid；fn 抛出的异常捕获后写入 error_code/error_msg。
+
+    `pass_task_id=True` 时以 `fn(input, task_id)` 调用 —— 需要回报进度的长任务
+    （抓取 10/50/90、转录按音频时长）必须拿到自己的 id，见 M2 §6.4。
+    """
     conn = get_conn()
     try:
         with conn:
@@ -54,7 +64,7 @@ def submit(type: str, fn: Callable[[dict | None], dict | None], input: dict | No
         finally:
             conn.close()
         try:
-            output = fn(input)
+            output = fn(input, task_id) if pass_task_id else fn(input)
             conn = get_conn()
             try:
                 with conn:

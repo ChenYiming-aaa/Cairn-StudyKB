@@ -114,15 +114,34 @@ def main() -> int:
         PASS.append(f"ADR 交叉引用：共 {len(defined_adrs)} 条定义，引用全部有效")
 
     # ── 检查 3：端点引用 ──────────────────────────────────
+    # 两类误报要滤掉，否则台账里写路径/写测试 id 都会被判成未登记端点：
+    #   1) 文件路径（`src/api/client.js`）——只截到 `/api/client`，后面紧跟扩展名
+    #   2) 按具体 id 探测（`/api/knowledge/999`）——登记形状是 `/api/knowledge/{id}`
+    file_ext = (".js", ".ts", ".vue", ".py", ".css", ".json", ".md", ".html")
+
+    def _match_template(ep: str) -> bool:
+        for defined in defined_eps:
+            if "{" not in defined:
+                continue
+            pattern = "^" + re.sub(r"\\\{[^/]+\\\}", "[^/]+", re.escape(defined)) + "$"
+            if re.match(pattern, ep):
+                return True
+        return False
+
     bad_ep = 0
     for p, t in docs.items():
         if p == contract_api:
             continue
-        for ep in sorted(set(re.findall(r"/api/[A-Za-z0-9_\-{}/]+", t))):
-            ep_clean = ep.rstrip(".,;`")
-            if ep_clean not in defined_eps:
-                FAIL.append(f"{rel(p)}:{line_of(t, ep)} 引用了未在接口契约登记的端点 {ep_clean}")
-                bad_ep += 1
+        for m in re.finditer(r"/api/[A-Za-z0-9_\-{}/]+", t):
+            ep_clean = m.group(0).rstrip(".,;`")
+            if t[m.end():].startswith(file_ext):
+                continue                      # 文件路径，不是端点
+            if ep_clean in defined_eps or _match_template(ep_clean):
+                continue
+            FAIL.append(
+                f"{rel(p)}:{line_of(t, ep_clean)} 引用了未在接口契约登记的端点 {ep_clean}"
+            )
+            bad_ep += 1
     if bad_ep == 0:
         PASS.append(f"端点交叉引用：共 {len(defined_eps)} 个登记端点，引用全部有效")
 

@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings, setup_logging
 from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
-from app.routers import health, knowledge, tasks
+from app.routers import env, health, ingest, knowledge, tasks
 from app.services.tasks import recover_stale_tasks, shutdown
 
 log = logging.getLogger("cairn")
@@ -52,5 +52,7 @@ app.add_middleware(
 
 app.add_exception_handler(ApiError, api_error_handler)
 app.include_router(health.router)
+app.include_router(env.router)
+app.include_router(ingest.router)
 app.include_router(knowledge.router)
 app.include_router(tasks.router)
