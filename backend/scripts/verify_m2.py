@@ -1,12 +1,15 @@
 """T2.10 验收脚本：一次跑完 M2 §5 DoD 的机器可验部分。
 
-用法：cd backend && uv run python scripts/verify_m2.py [--keep]
+用法：cd backend && uv run python scripts/verify_m2.py [--online] [--keep]
 退出码：0 全绿 / 1 有用例失败
 
-**不打真实站点**（2026-11-06 交接建议）：网页抓取与视频转录都用
+默认 13 组**不打真实站点**（2026-11-06 交接建议）：网页抓取与视频转录都用
 `set_fetcher(假实现)` / `set_transcriber(假实现)` 注入，
 三种失败场景因此可重复、秒级完成，也不会给外部站点留下请求。
-真实网络那一遍在 HANDOFF 里单独记过（真 uvicorn + 真阮一峰文章 + 真视频）。
+
+加 `--online` 多跑第 14 组：真 `TrafilaturaFetcher` 抓两个公开页 + 真 404 + 真去重。
+这一组补的是 T2.10「抓一个稳定公开页」——假实现验不到 trafilatura 的抽取质量，
+站点改版或抽取库升级只会在这条路上暴露。依赖外网，抓不到即 FAIL，不静默跳过。
 
 全程使用临时 DATA_DIR，不碰 data/data.db，末尾清理。
 """
@@ -42,6 +45,16 @@ from app.services.transcriber import BaseTranscriber, Transcript  # noqa: E402
 
 DB = TMP / "data.db"
 RESULTS: list[tuple[bool, str]] = []
+
+# `--online` 组的目标（2026-11-06 定）：一个结构最稳的英文文档页 + 一个中文长文。
+# must_have 取正文里几乎不会改的短句/词，别用标题——标题最容易被编辑动。
+REAL_PAGES = (
+    ("docs.python.org", "https://docs.python.org/3/library/asyncio.html",
+     "asyncio is a library"),
+    ("sspai", "https://sspai.com/post/81419", "桌面"),
+)
+REAL_404_URL = "https://example.com/not-exist-xxx"
+NAV_WORDS = ("登录", "注册", "下载 App", "Copyright", "版权所有", "导航")
 
 PAGE_TEXT = (
     "番茄工作法的关键在于把注意力留在当前这一轮，而不是反复估算剩余时间。"
@@ -718,11 +731,75 @@ def step_zh_text() -> None:
         transcriber._load_model, transcriber.read_wav = real_load, real_wav
 
 
+def step_online(client: TestClient) -> None:
+    """第 14 组：真实网络链路（仅 `--online`）。
+
+    与前面 13 组的区别：用默认实现真的发请求，验的是「trafilatura 能不能从
+    真实 HTML 里抽出正文」，而不是接口形状。断言只钉三件稳的事——
+    长度、必含片段、导航黑名单——不钉具体段落，免得站点改版就红。
+    """
+    step("在线补充（--online）：真实页面 / 真 404 / 真去重")
+    fetcher.set_fetcher(None)      # None 会让 get_fetcher() 重建默认真实实现
+
+    first_item = None
+    for name, url, must_have in REAL_PAGES:
+        started = time.perf_counter()
+        resp = client.post("/api/ingest/url", json={"url": url})
+        body = resp.json()
+        if not check(f"[{name}] 返回 202 + task_id",
+                     resp.status_code == 202 and bool(body.get("task_id")), str(body)):
+            continue
+        task = wait_task(client, body["task_id"], timeout=90)
+        cost = time.perf_counter() - started
+        item_id = (task.get("output_json") or {}).get("item_id")
+        check(f"[{name}] 任务 done", task.get("status") == "done",
+              task.get("error_code") or "")
+        check(f"[{name}] 30 秒内入库", cost < 30, f"{cost:.1f}s")
+        if not isinstance(item_id, int):
+            check(f"[{name}] 落库拿到 item_id", False, str(task.get("output_json") or {}))
+            continue
+        row = sql("SELECT length(raw_content), raw_content FROM knowledge_item WHERE id=?",
+                  (item_id,))
+        text = row[0][1] if row else ""
+        check(f"[{name}] 正文 ≥ 1000 字", bool(row) and row[0][0] >= 1000,
+              f"{row[0][0] if row else 0} 字")
+        check(f"[{name}] 含预期正文片段", must_have in text,
+              text[:60].replace("\n", " | "))
+        hits = [w for w in NAV_WORDS if w in text]
+        check(f"[{name}] 无导航/版权残留", not hits, ",".join(hits))
+        if name == REAL_PAGES[0][0]:
+            first_item = item_id
+
+    # 真 404：状态码要能落到 FETCH_NOT_FOUND，且不留脏数据
+    before_404 = sql("SELECT COUNT(*) FROM knowledge_item")[0][0]
+    resp = client.post("/api/ingest/url", json={"url": REAL_404_URL})
+    task = wait_task(client, resp.json()["task_id"], timeout=60)
+    check("真 404 → FETCH_NOT_FOUND", task.get("error_code") == "FETCH_NOT_FOUND",
+          str(task.get("error_code")))
+    check("真 404 不留条目",
+          sql("SELECT COUNT(*) FROM knowledge_item")[0][0] == before_404)
+
+    # 真去重：同一个 URL 再粘一次，不该新建条目
+    if first_item is not None:
+        before_dup = sql("SELECT COUNT(*) FROM knowledge_item")[0][0]
+        resp = client.post("/api/ingest/url", json={"url": REAL_PAGES[0][1]})
+        body = resp.json()
+        check("真重复 URL → 200 + existing_item_id",
+              resp.status_code == 200 and body.get("existing_item_id") == first_item, str(body))
+        check("真重复 URL 不新增条目",
+              sql("SELECT COUNT(*) FROM knowledge_item")[0][0] == before_dup)
+    else:
+        # 首个页面都没入库时，去重用例无从验起；显式记 FAIL，不留静默缺口
+        check("真重复 URL 可验（首个真实页面未入库）", False)
+
+
 def main() -> int:
     keep = "--keep" in sys.argv[1:]
+    online = "--online" in sys.argv[1:]
     print("=" * 62)
     print("  Cairn · M2 验收（T2.10）")
     print("=" * 62)
+    print(f"模式：离线 13 组{' + 在线补充 1 组' if online else '（加 --online 跑真实网络）'}")
     print(f"临时数据目录：{TMP}")
 
     aborted = ""
@@ -744,6 +821,8 @@ def main() -> int:
             step_login_and_browser(client)
             step_video_sites()
             step_zh_text()
+            if online:
+                step_online(client)
     except Exception as exc:  # 任何未捕获异常都算验收失败
         aborted = f"{type(exc).__name__}: {exc}"
         traceback.print_exc()

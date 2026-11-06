@@ -10,7 +10,7 @@
 没有字幕才走 yt-dlp + faster-whisper 转录成带 `[mm:ss]` 时间戳的正文；两条链都有查重
 （同 URL / 同内容）、6+8 类错误码带中文文案、四阶段进度与任务中心（失败可重试）。
 采集完成后可直接「去看看」跳到该条目，或「继续采集」下一条。
-`verify_m2.py` 72/72 PASS，`verify_m1.py` 51/51 PASS。下一步 M3：全文检索 / 向量检索 / 问答。
+`verify_m2.py` 115/115 PASS（加 `--online` 131/131，含真实站点），`verify_m1.py` 51/51 PASS。下一步 M3：全文检索 / 向量检索 / 问答。
 
 ## 目录
 
@@ -50,13 +50,14 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/status.py` | 数据目录 / 表行数 / 最近任务 / 环境自检（只读） | 每次会话开场与收尾 |
 | `cd backend && uv run python scripts/env_check.py` | ffmpeg / whisper / embedding / sqlite-vec / LLM Key（`--json` 机读，`--strict` 有阻塞项即 exit 1） | 排查"转录跑不起来" |
 | `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 51 项（含分类聚合端点），真实 LLM 调用 | 动到条目 / 整理 / chunk |
-| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 72 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
+| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 115 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
+| `cd backend && uv run python scripts/verify_m2.py --online` | 上面 115 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
 
 `verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
-`verify_m2.py` 全程注入假实现，不访问外部站点、不调模型，可以随便跑。
+`verify_m2.py` 默认全程注入假实现，不访问外部站点、不调模型，可以随便跑；只有加 `--online` 才发真实请求（两个公开页 + 一个 404）。
 前端 lint 只查正确性、不管格式：无分号、单引号这类风格靠人守。
 
 ## 配置
