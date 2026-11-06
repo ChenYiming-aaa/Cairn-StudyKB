@@ -115,7 +115,7 @@ def _milestone_section() -> None:
             for t in tags:
                 print(f"  {t}")
         else:
-            print("  无（M1 进行中，尚未打 m1-done）")
+            print("  无（还没有任何 m*-done 标签）")
     except (OSError, subprocess.SubprocessError) as exc:
         print(f"  无法读取 git tag（{type(exc).__name__}）")
 

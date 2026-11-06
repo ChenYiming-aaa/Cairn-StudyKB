@@ -19,9 +19,12 @@ const FRIENDLY = [
   [/^LLM_NO_KEY$/, '未配置模型 Key：请在后端 .env 里填写 LLM_API_KEY 后重启服务'],
   [/^LLM_BAD_JSON$/, '模型返回的内容不是合法 JSON，已自动重试过一次'],
   [/^LLM_/, '模型调用失败，请稍后重试（详细原因见任务记录）'],
+  [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，无法抽取音频：请在后端 .env 里设置 FFMPEG_DIR 后重启'],
+  [/^TRANSCRIBE_/, '转录失败，详细原因见下方提示或任务记录'],
   [/^FETCH_/, '采集失败：目标站点拒绝访问或没有有效正文'],
   [/^ITEM_NOT_FOUND$/, '条目不存在，可能已被删除'],
   [/^ITEM_BUSY$/, '该条目正在整理中，请等它结束'],
+  [/^TASK_NOT_RETRYABLE$/, '该任务不是失败状态，不能重试'],
   [/^NETWORK$/, '连不上后端服务，请确认 uvicorn 已在 8756 端口启动'],
   [/^POLL_TIMEOUT$/, '任务超时未返回，请稍后在任务记录里查看'],
 ]
@@ -103,6 +106,14 @@ export const api = {
   organize: (id) => post(`/api/knowledge/${id}/organize`),
   organizePending: () => post('/api/knowledge/organize-pending'),
   getTask: (taskId) => get(`/api/tasks/${taskId}`),
+  /** 最近任务列表（T2.9 任务中心），失败项可 retry */
+  listTasks: (params) => get('/api/tasks', params),
+  retryTask: (taskId) => post(`/api/tasks/${taskId}/retry`),
+  /** 网页采集：已存在同 URL 时返回 {task_id: null, existing_item_id} */
+  ingestUrl: (payload) => post('/api/ingest/url', payload),
+  /** 视频采集：返回 {task_id}，四阶段进度靠 pollTask 追 */
+  ingestVideo: (payload) => post('/api/ingest/video', payload),
+  envCheck: () => get('/api/env/check'),
 }
 
 const POLL_START = 1500

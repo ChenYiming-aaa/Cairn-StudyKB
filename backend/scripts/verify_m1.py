@@ -172,6 +172,19 @@ def step_filters(client: TestClient, item_id: int) -> None:
     tagged = client.get("/api/knowledge", params={"tag": tag, "page_size": 100}).json()
     check(f"tag={tag} 命中", any(i["id"] == item_id for i in tagged["items"]), f"total={tagged['total']}")
 
+    # 分类树聚合端点（M1 补丁遗留项：之前只有 e2e 覆盖，后端没断言）
+    tree = client.get("/api/knowledge/categories")
+    payload = tree.json() if tree.status_code == 200 else {}
+    check("GET /api/knowledge/categories 200", tree.status_code == 200, str(tree.status_code))
+    node = next((c for c in payload.get("categories", []) if c["name"] == category), None)
+    check(f"分类树里 {category} 的计数与过滤 total 一致",
+          node is not None and node["count"] == listed["total"],
+          f"tree {node and node['count']} / list {listed['total']}")
+    all_items = client.get("/api/knowledge", params={"page_size": 1}).json()
+    check("分类树 counts.total 与列表 total 一致",
+          payload.get("counts", {}).get("total") == all_items["total"],
+          f"tree {payload.get('counts', {}).get('total')} / list {all_items['total']}")
+
 
 def unique_phrase(item_id: int) -> str:
     """从待删条目的 raw chunk 里挑一段 8 字窗口，且其他条目都不含这段文字。

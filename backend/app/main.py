@@ -17,6 +17,7 @@ from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
 from app.routers import env, health, ingest, knowledge, tasks
 from app.services.tasks import recover_stale_tasks, shutdown
+from app.services.transcriber import clear_tmp
 
 log = logging.getLogger("cairn")
 
@@ -27,6 +28,9 @@ async def lifespan(_: FastAPI):
     setup_logging(cfg)
     init_db()
     recover_stale_tasks()
+    # M2 §7：上次转录中断留下的临时音频不许攒着，启动即清
+    if (cleared := clear_tmp()):
+        log.info("已清理 %s 个残留临时目录", cleared)
     # T1.2：启动时打印实际数据目录与端口（只打印路径，不打印任何 Key）
     print(f"[Cairn] 数据目录 = {cfg.data_dir}")
     print(f"[Cairn] 数据库   = {cfg.db_path}")

@@ -740,3 +740,85 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 
 **下一会话第一件事**
 > 做 T2.6：`services/transcriber.py` 的 `BaseTranscriber.transcribe(url, on_progress)`（yt-dlp 取元数据→下音频→faster-whisper small），依赖已装好**不用再 uv add**；进度用 `tasks.update_progress(task_id, p, stage)` 每涨 2% 写一次，`ffmpeg` 用 `Settings.ffmpeg_exe` 拼绝对路径。先确认 `_cuda_ok()` 在本机（RTX 3060 + ffmpeg 4.3.1）能建 float16 模型，不行就回落 CPU int8。
+
+---
+
+## 2026-11-06 18:50 · M2 完成 · T2.6–T2.10 视频 / 前端 / 任务中心 / 验收
+
+**范围**：接上一轮，做完 T2.6–T2.10，M2 收尾。
+
+**完成**
+
+- T2.6 `services/transcriber.py`：`BaseTranscriber.transcribe(url, on_progress)`，
+  四阶段由实现内部推进（`metadata` 0–5 / `downloading` 5–30 / `transcribing` 30–95，saving 归调用方）；
+  yt-dlp 取元数据与下载（`FFmpegExtractAudio` 并 `-ar 16000 -ac 1 pcm_s16le`），faster-whisper 识别；
+  模型按 size 缓存、`cuda/float16` 建不起来自动回落 `cpu/int8`；`clear_tmp()` 启动清 `data/tmp`
+- T2.7 `services/video_ingest.py` + `POST /api/ingest/video`：与网页同构（查重 / force 只换正文 / 切块），
+  `output_json` 带 `duration / segment_count / language`
+- T2.9 `POST /api/tasks/{id}/retry` + `services/dispatch.py`：type→执行器注册表（避免与 `tasks` 循环 import），
+  重试**新建一条任务**、保留原失败现场；非 failed 409、不存在 404、类型未登记 400
+- T2.8 前端：`components/IngestPanel.vue`（粘贴 / 链接「网页·视频」/ 拖 txt 三入口，进度条 + 阶段文案 +
+  失败原因 + 重试）、`views/Tasks.vue`（最近 50 条，失败可重试，有活跃任务时每 2s 轮询）、
+  路由 `/#/tasks` + 顶栏导航；`PasteDialog.vue` 被 IngestPanel 取代并删除
+- T2.10 `scripts/verify_m2.py`：61 项，**全程注入假 fetcher/transcriber**，不打真实站点
+- 顺手补掉 M1 遗留：`verify_m1.py` 第 5 组加了 3 条分类聚合端点断言（48 → 51 项）
+
+**三个真问题（都是跑起来才暴露的）**
+
+1. **PyAV 19 与 faster-whisper 1.2.1 不兼容**：`decode_audio` 传 `metadata_errors=`，而 av 19 已删该参数 → `TypeError`。
+   uv 解析出的就是最新 av，降级只会把炸弹推给下台机器，所以改成自己用标准库 `wave` 解码成 float32 数组
+   （`read_wav()`），并把 ffmpeg 输出格式钉死成 16k 单声道 16bit。少一层版本耦合。
+2. **`metadata` 阶段永远不显示**：进度节流是「涨 2% 才写」，而 metadata 区间是 0–5、
+   `tasks.submit` 起手已置 5 → 第一帧被吞。改成「阶段一变就写 + 进度不倒退」（T2.10 断言抓到）。
+3. **model/language 靠 setattr 改单例**：两个视频任务并发会互相覆盖，静默用错模型。
+   改成 `_pick_transcriber()` 按需新建实例；注入的假实现原样返回，verify 不受影响。
+
+**改动文件**
+
+- 新增（后端）：`app/services/{transcriber,video_ingest,dispatch}.py`、`scripts/verify_m2.py`
+- 新增（前端）：`src/components/IngestPanel.vue`、`src/views/Tasks.vue`
+- 修改（后端）：`app/routers/{ingest,tasks}.py`、`app/services/fetch_errors.py`（加 8 个 TRANSCRIBE 码与 `message_for()`）、
+  `app/main.py`（启动清 tmp）、`scripts/verify_m1.py`
+- 修改（前端）：`src/App.vue`（导航 + IngestPanel）、`src/router/index.js`、`src/api/client.js`（ingestVideo / listTasks / retryTask / envCheck + TRANSCRIBE 文案映射），删除 `PasteDialog.vue`
+- 文档：`contracts/接口契约.md`（video 完整形状、retry 状态码）、`milestones/M2-*.md` 状态行、`00-总纲.md` §M2、`README.md`、本文件
+
+**验证**
+
+- `verify_m2.py` → **61/61 PASS**（网页成功/去重/force/三类失败、视频四阶段+时间戳、重试三态、并发、僵尸任务、env/check 缺 ffmpeg）
+- `verify_m1.py` → **51/51 PASS**（动过 ingest 路由与 tasks 路由，必须回归）
+- `npm run lint` → 0；`npm run build` → 通过（JS 201.76 kB / CSS 21.22 kB）
+- `npm run e2e` → **24/24 PASS**（IngestPanel 替换 PasteDialog 后 M1 流程仍通）
+- `tools/doc_check.py` → 6 PASS + 2 WARN（同上一轮，历史台账引用已完结 M1 文档）
+- 真实链路（真 uvicorn + 真 ffmpeg + 真网络）：11 秒与 110 秒两段测试视频，**small 模型在 cuda/float16 上跑通**
+  （110 秒音频约 15 秒转完，含首帧下载），正文带 `[00:00]` 时间戳；无音轨视频 → `TRANSCRIBE_NO_AUDIO`，
+  404 直链 → `TRANSCRIBE_NOT_FOUND`；同 URL 重复 → `existing_item_id`；`force=true` → 只换正文
+- 真实网页回归：`/api/ingest/url` 走新 dispatch 路径，阮一峰文章 force 重抓 → 10 块
+- 并发实测：转录进行中 `/api/knowledge` 与 `/api/knowledge/categories` 12 轮，max 56ms
+- `scripts/status.py` → EXIT=0，模型目录已落 `data/models/whisper/`（small + tiny）
+
+**遗留问题**
+
+- [ ] **中文语音未实测**：本机没有 TTS（SAPI 与 COM 都被沙箱拦），两端测试视频用的是 whisper.cpp 的
+      `jfk.wav`（英文）。管线与中文无关，但中文识别质量仍是空白，下次找一个真实中文视频补一遍
+- [ ] `env_probe.check_whisper()` 只按文件名判断「模型是否已下载」，不看是否完整；
+      下载中断留下半截目录时会误报 OK（当前只在排障页显示，不影响转录本身）
+- [ ] hf_hub 下载模型时往 `app.log` 灌几十行 httpx INFO，吵；要静就调 `httpx`/`hf_hub` logger 级别，尚未做
+- [ ] 任务中心只取最近 50 条，没有分页与按类型筛选；M5 之前够用
+- [ ] e2e 仍只覆盖 M1 粘贴流程；采集面板与任务中心只有截图人工看过，没进 `frontend/e2e/`
+- [ ] `verify_m2.py` 有意不碰真实网络（不可重复），真实链路那部分只能靠会话末尾人工跑一遍并记在台账
+
+**待裁决冲突**
+
+- `接口契约` §3 的 `POST /api/ingest/video` 只登记了 5 个错误码，但 M2 §7 排障表要求 403 报 `TRANSCRIBE_BLOCKED`，
+  且实测 404 直链、纯静音视频都需要独立码。**已在契约补登 `TRANSCRIBE_BLOCKED` / `TRANSCRIBE_NOT_FOUND` /
+  `TRANSCRIBE_EMPTY`**，与 `services/fetch_errors.py` 的 8 个码一致；两份文档现在不冲突
+- M2 §6.3 写 `_cuda_ok()` 应「建一个 float16 模型试」——那样每次都要先下模型。实际做成两段：
+  `_cuda_ok()` 用 ctranslate2 做便宜探测，真正的兜底是 `_load_model()` 的 try/except 回落 CPU，
+  语义等价、不用白下模型。已按实际实现登记，未改原文
+- 转录 `on_progress` 定为 `(progress, stage)` 两个参数（§6.3 示例只传进度）。T2.7 要求四阶段可见，
+  单参数无法表达阶段；已在契约与本文件写明
+
+**下一会话第一件事**
+> M3 开工（M2 已验收、tag `m2-done`）：先读 `docs/milestones/M3-*.md`，从 T3.1 全文检索做起 ——
+> `GET /api/search` 契约已登记（`match_type: fts|like|vector`、`fallback` 三态），FTS5 trigram 已在
+> `chunk_fts` 就位；`chunk_vec` 与 embedding 模型属可选件，`GET /api/env/check` 已能报出它们的就绪状态。
