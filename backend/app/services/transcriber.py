@@ -29,7 +29,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from app.config import get_settings
-from app.services import browser, subtitles, video_sites
+from app.services import browser, subtitles, video_sites, zh_text
 from app.services.fetch_errors import FetchError
 
 log = logging.getLogger(__name__)
@@ -520,12 +520,17 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
 
                 lines: list[str] = []
                 count = 0
+                fixed = 0
                 for seg in segments:          # 生成器：边转边回报
                     count += 1
                     if duration > 0:
                         value = P_DOWNLOAD_DONE + int(min(1.0, seg.end / duration) * span)
                         report(value, STAGE_TRANSCRIBE)
-                    lines.append(f"[{format_ts(seg.start)}] {seg.text.strip()}")
+                    # whisper 的繁简是逐段概率选择，同一条音频会混着出（实测 14% 繁）。
+                    # 只对汉字做归一，标点与时间戳不动；简体文本是恒等变换，改动数为 0
+                    line, changed = zh_text.to_simplified(seg.text.strip())
+                    fixed += changed
+                    lines.append(f"[{format_ts(seg.start)}] {line}")
             except FetchError:
                 raise
             except Exception as exc:          # noqa: BLE001 - 模型/音频层面的失败
@@ -534,6 +539,8 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
                 ) from exc
 
         report(P_TRANSCRIBE_DONE, STAGE_TRANSCRIBE)
+        if fixed:
+            log.info("ASR 输出含繁体，已归一为简体 %d 字（%d 段）", fixed, count)
         return "\n".join(lines), detected, count, duration
 
     @staticmethod

@@ -136,7 +136,7 @@ fake_transcriber = FakeTranscriber()
 
 
 def step_endpoints(client: TestClient) -> None:
-    step("1/12 端点登记与基座")
+    step("1/13 端点登记与基座")
     spec = client.get("/openapi.json").json()
     paths = set(spec["paths"])
     check("POST /api/ingest/video 已登记", "/api/ingest/video" in paths)
@@ -147,7 +147,7 @@ def step_endpoints(client: TestClient) -> None:
 
 
 def step_web_ok(client: TestClient) -> int:
-    step("2/12 网页采集成功入库")
+    step("2/13 网页采集成功入库")
     fake_fetcher.__init__()
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -174,7 +174,7 @@ def step_web_ok(client: TestClient) -> int:
 
 
 def step_dedupe(client: TestClient, item_id: int) -> None:
-    step("3/12 去重与 force")
+    step("3/13 去重与 force")
     before = sql("SELECT COUNT(*) FROM knowledge_item")[0][0]
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -213,7 +213,7 @@ def step_dedupe(client: TestClient, item_id: int) -> None:
 
 
 def step_web_failures(client: TestClient) -> None:
-    step("4/12 网页失败三类（假实现，不碰真实站点）")
+    step("4/13 网页失败三类（假实现，不碰真实站点）")
     expect = {
         "FETCH_NOT_FOUND": "exists_not",
         "FETCH_EMPTY": "too_short",
@@ -234,7 +234,7 @@ def step_web_failures(client: TestClient) -> None:
 
 
 def step_video(client: TestClient) -> None:
-    step("5/12 视频转录：四阶段进度 + 时间戳正文")
+    step("5/13 视频转录：四阶段进度 + 时间戳正文")
     fake_transcriber.__init__()
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/1", "model": "tiny"})
     body = resp.json()
@@ -274,7 +274,7 @@ def step_video(client: TestClient) -> None:
 
 
 def step_retry(client: TestClient) -> None:
-    step("6/12 任务重试")
+    step("6/13 任务重试")
     fake_fetcher.__init__()
     fake_fetcher.fail_code = "FETCH_TIMEOUT"
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/retry-me"})
@@ -301,7 +301,7 @@ def step_retry(client: TestClient) -> None:
 
 
 def step_concurrency(client: TestClient) -> None:
-    step("7/12 并发：转录期间查询照常响应")
+    step("7/13 并发：转录期间查询照常响应")
     fake_transcriber.__init__()
     fake_transcriber.delay = 2.0
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/slow"})
@@ -337,7 +337,7 @@ def step_concurrency(client: TestClient) -> None:
 
 
 def step_zombie_and_tmp() -> None:
-    step("8/12 僵尸任务与临时目录")
+    step("8/13 僵尸任务与临时目录")
     with sqlite3.connect(DB, timeout=10) as conn:
         conn.execute(
             """INSERT INTO agent_task (id, type, status, progress, created_at, updated_at)
@@ -356,7 +356,7 @@ def step_zombie_and_tmp() -> None:
 
 
 def step_env(client: TestClient) -> None:
-    step("9/12 环境自检")
+    step("9/13 环境自检")
     payload = client.get("/api/env/check").json()
     check("五项齐全", {"ffmpeg", "whisper", "embedding", "sqlite_vec", "llm"} <= set(payload),
           str(sorted(payload)))
@@ -393,7 +393,7 @@ def cleanup(keep: bool) -> None:
 
 # ── 字幕优先（T2.6 增强）────────────────────────────────────
 def step_subtitles() -> None:
-    step("10/12 现成字幕优先：选取 / 解析 / 失败降级")
+    step("10/13 现成字幕优先：选取 / 解析 / 失败降级")
     from unittest.mock import patch
 
     from app.services import subtitles as subs
@@ -455,7 +455,7 @@ def step_login_and_browser(client: TestClient) -> None:
     全程**不启动浏览器**：`_to_netscape` / `_build_page` / `BrowserFallbackFetcher`
     都是纯逻辑，注入假实现即可。登录弹窗那条只能人验，见 HANDOFF。
     """
-    step("11/12 站点登录与浏览器降级")
+    step("11/13 站点登录与浏览器降级")
     from http.cookiejar import MozillaCookieJar
 
     from app.services import browser
@@ -656,6 +656,68 @@ def step_video_sites() -> None:
           err.code == "TRANSCRIBE_BLOCKED", err.code)
 
 
+def step_zh_text() -> None:
+    """第 13 组：ASR 输出的繁简归一（只动汉字，不动标点；字幕路径不参与）。"""
+    from types import SimpleNamespace
+
+    from app.services import zh_text
+
+    # ── 纯函数：四类输入 ──
+    out, n = zh_text.to_simplified("[00:00] 這賽季攪屎過往潮了 沒想過下水道成了機密體力槍")
+    check("繁体 → 简体并返回改动字数", out == "[00:00] 这赛季搅屎过往潮了 没想过下水道成了机密体力枪"
+          and n == 9, f"{out} / {n}")
+
+    simp = "[00:00] 这赛季搅屎棍狂潮 没想到下水道成了机密体力枪"
+    out, n = zh_text.to_simplified(simp)
+    check("已是简体：原样返回、改动 0", out is simp and n == 0, f"{n}")
+
+    eng = "[00:00] This is a test about AI models, 3.5s each"
+    out, n = zh_text.to_simplified(eng)
+    check("英文/数字：原样返回、改动 0", out is eng and n == 0, f"{n}")
+
+    quoted = "它的核心不是「多看几遍」，而是「主动回忆」"
+    out, _ = zh_text.to_simplified(quoted)
+    check("中文引号不被规范化成弯引号", out == quoted, out)
+
+    check("零散繁体（混在大量简体中）也会被收掉",
+          zh_text.to_simplified("二階段了 大爸 等我算一下 8")[0] == "二阶段了 大爸 等我算一下 8")
+
+    once, _ = zh_text.to_simplified("這賽季攪屎")
+    check("转换幂等：转过的文本再转改动为 0", zh_text.to_simplified(once)[1] == 0, once)
+
+    # ── 接入点：只挂在 ASR 分支 ──
+    real_load, real_wav = transcriber._load_model, transcriber.read_wav
+    segs = [SimpleNamespace(start=0.0, end=1.0, text=" 這賽季攪屎過往潮了 "),
+            SimpleNamespace(start=1.0, end=2.5, text="This one is fine"),
+            SimpleNamespace(start=2.5, end=4.0, text="二階段了")]
+
+    class FakeModel:
+        @staticmethod
+        def transcribe(audio, **kwargs):
+            return iter(segs), SimpleNamespace(duration=4.0, language="zh")
+
+    transcriber._load_model = lambda size: FakeModel()
+    transcriber.read_wav = lambda path: [0.0]
+    try:
+        t = transcriber.YtDlpWhisperTranscriber()
+        text, lang, count, _ = t._transcribe(Path("fake.wav"), 4.0, lambda *_: None)
+        check("ASR 分段整体归一：输出无繁体",
+              "這" not in text and "階段" not in text, text.replace("\n", " | "))
+        check("归一后仍保留原段数与时间戳", count == 3 and text.count("[00:0") == 3, text)
+        check("英文分段不被动", "This one is fine" in text)
+        check("时间戳格式未受转换影响", text.startswith("[00:00] "), text[:12])
+
+        # 字幕分支：直接返回字幕原文，不该被转
+        t2 = transcriber.YtDlpWhisperTranscriber()
+        t2._metadata = lambda url, report: ("标题", 10.0, {"formats": []})
+        t2._try_subtitles = lambda info: ("[00:00] 這賽季攪屎過往潮了", "zh-Hant", 1)
+        res = t2.transcribe("https://example.com/v")
+        check("字幕路径不做繁简转换（原文照收）",
+              res.source == "subtitle" and "這賽季" in res.text, f"{res.source} {res.text}")
+    finally:
+        transcriber._load_model, transcriber.read_wav = real_load, real_wav
+
+
 def main() -> int:
     keep = "--keep" in sys.argv[1:]
     print("=" * 62)
@@ -681,6 +743,7 @@ def main() -> int:
             step_subtitles()
             step_login_and_browser(client)
             step_video_sites()
+            step_zh_text()
     except Exception as exc:  # 任何未捕获异常都算验收失败
         aborted = f"{type(exc).__name__}: {exc}"
         traceback.print_exc()
