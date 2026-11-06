@@ -21,6 +21,9 @@ dependencies = [
   # whisper 的繁简是逐段概率选择，同一条音频会混着出；识别后统一转简（ADR-025）。
   # 纯 Python 词表，无编译依赖
   "zhconv>=1.4.3",
+  "sentence-transformers>=6.2.0",
+  "sqlite-vec>=0.1.9",
+  "bleach>=6.4.0",
 ]
 
 [build-system]

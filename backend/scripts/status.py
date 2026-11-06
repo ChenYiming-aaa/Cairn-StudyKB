@@ -24,6 +24,21 @@ def _line(title: str) -> None:
     print(f"\n── {title} " + "─" * max(0, 52 - len(title)))
 
 
+def _load_vec(conn: sqlite3.Connection) -> bool:
+    """尽力装 sqlite-vec；失败只是读不了 chunk_vec 的行数，不影响其余检查。"""
+    try:
+        import sqlite_vec
+
+        conn.enable_load_extension(True)
+        try:
+            sqlite_vec.load(conn)
+        finally:
+            conn.enable_load_extension(False)
+        return True
+    except Exception:
+        return False
+
+
 def _db_section(path: Path) -> None:
     _line("数据库")
     print(f"路径      : {path}")
@@ -43,6 +58,9 @@ def _db_section(path: Path) -> None:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
         journal = conn.execute("PRAGMA journal_mode").fetchone()[0]
         print(f"user_version : {version}    journal_mode : {journal}")
+        # M3：chunk_vec 是 vec0 虚拟表，不装扩展时连 COUNT(*) 都会报
+        # "no such module: vec0"。只读连接同样可以装扩展，装不上就标出来。
+        vec_loaded = _load_vec(conn)
         tables = [r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
             "AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -54,7 +72,9 @@ def _db_section(path: Path) -> None:
                 count = conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
                 print(f"  {name:<20} {count:>8,}")
             except sqlite3.Error as exc:
-                print(f"  {name:<20} {'读取失败':>8}  ({type(exc).__name__})")
+                hint = "需 sqlite-vec 扩展" if name.startswith("chunk_vec") and not vec_loaded \
+                    else type(exc).__name__
+                print(f"  {name:<20} {'读取失败':>8}  ({hint})")
         print(f"  {'chunk_vec (可选)':<20} {'已启用' if table_exists(conn, 'chunk_vec') else '未启用':>8}")
         _line("最近 3 条任务")
         if table_exists(conn, "agent_task"):

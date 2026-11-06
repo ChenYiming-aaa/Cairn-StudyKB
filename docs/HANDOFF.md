@@ -1074,3 +1074,86 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 
 **注意**：推送时工作区里有另一路未提交的 M3 代码（retriever / embedder / ask / Ask.vue 等），
 本次只提交文档并推送已提交历史，没有动那些文件。
+
+## 2026-11-07 00:40 · M3 · T3.1–T3.6 检索问答（本次会话）
+
+**范围裁决（用户拍板，两句都要记住）**
+- 只做 T3.1–T3.6；T3.7 起（导图 / 学习页 / verify_m3）不动
+- 因此 **tag 打 `m3-wip` 而不是 `m3-done`**：§8 的 `m3-done` 语义是"已验收"，
+  而验收脚本 T3.11 还没写，打上去会让标签与总纲 §4 的状态错位（M2 刚吃过这个亏）
+- 检索界面放在「检索问答」页内，两个 Tab（问答 / 原文命中）—— 任务表里没有"检索前端"
+  这一项，但验收场景 A 要求"搜索→命中多条+片段高亮"，合并进一页最省且不用改 M1 的列表语义
+
+**完成**
+- T3.1 全文检索两段式：词长 <3 走 LIKE（`len < FTS_MIN_CHARS`，不是 `<=`），否则 FTS5 MATCH；
+  用户输入按词包成短语再 `AND`，`"` `*` `:` 等语法字符全部字面化，不会抛 `fts5: syntax error`
+- T3.4 RRF 融合：两路各取 20，`k=60` 融合后取 8；**不混算 bm25 与余弦**
+- **额外加了一层"整句兜底"**（任务书没写，实测必须有）：整句问题走精确短语几乎必然零命中
+  （"ESLint 怎么配置成 VS Code 的默认格式化程序"→ AND 全中才算），所以精确短语查不到时
+  用 `keyword_terms()` 切成检索词再 OR 查一次。切词是正则：标点切 + 疑问/口语虚词**换成竖线**
+  （不能删，否则"番茄钟应该绑定什么"会拼成"番茄钟绑定"这种谁都不含的长串）
+- T3.2 Embedding：懒加载常驻、batch=32、`normalize_embeddings=True`、**文档不加前缀 / 查询加前缀**；
+  缓存目录 `data/models/embedding`（与 `env_probe.check_embedding()` 同一路径，否则设置页永远显示"未下载"）
+- T3.3 向量索引：`chunk_vec` 启动自检（`vec_version()` 失败即置不可用）+ 读全表算矩阵的 numpy 降级；
+  `index_embed` 任务登记进 `dispatch.RUNNERS`，由 `tasks.py` 的 `EMBED_AFTER` 在**任务落库之后**派发
+  （放在 run() 里会读到未提交的 chunk）；同步入库路径（create / patch 笔记）在 `conn.close()` 之后派
+- T3.5 `POST /api/ask` SSE：`async` 生成器 + 两个反缓冲头；检索与 LLM 都丢线程池，LLM 片段用
+  `call_soon_threadsafe` 从子线程送回事件循环；**检索为空直接短路**，`llm_call_log` 不新增记录
+- T3.6 前端：nav 加「检索问答」，`views/Ask.vue` 两个 Tab；答案里的 `[n]` 是可点按钮，
+  点来源卡片/引用 → 跳知识库 + 切「原文」Tab + 滚动并高亮该段（笔记片段切到「笔记」Tab，不做高亮）
+- `scripts/status.py` 修：不装扩展时 `COUNT(*) FROM chunk_vec` 会报 `no such module: vec0`，
+  现在尽力装载扩展并把失败原因标成"需 sqlite-vec 扩展"
+
+**改动文件**
+- 新增 `backend/app/services/{retriever,embedder}.py`、`backend/app/services/agents/asker.py`
+- 新增 `backend/app/routers/{search,ask}.py`、`backend/app/prompts/ask.md`
+- 新增 `backend/scripts/backfill_embed.py`、`frontend/src/views/Ask.vue`
+- 改 `backend/app/{config,main}.py`、`routers/knowledge.py`、`services/{llm,tasks,dispatch}.py`、
+  `scripts/status.py`、`backend/pyproject.toml` + `uv.lock`（sentence-transformers / sqlite-vec / bleach）
+- 改 `frontend/src/{App.vue,api/client.js,router/index.js,composables/useUi.js}`、
+  `components/{ItemDetail,RawPane}.vue`
+- 文档：`contracts/接口契约.md`（search/ask 新增 `content`/`source`/`fallback` 字段）、
+  `milestones/M3`（状态、§2 打勾、§6.2 缓存目录与"请求不下载"）、`00-总纲`（M3 状态）、
+  `.env.example`（VECTOR_ENABLED / EMBED_MODEL）、本文件、`README.md`
+
+**验证（都真跑过，不是"应该没问题"）**
+- `verify_m2.py` → **115/115 PASS**；`verify_m1.py` → **51/51 PASS**
+  （m1 用 `VECTOR_ENABLED=0` 跑：它用临时 DATA_DIR，开着会往临时目录重下一遍 100MB 模型）
+- 检索：`ESLint` → fts；`AI`（2 字）→ like；`GitHub Actions` → fts；`笔记` → like，`fallback` 符合预期
+- 向量：`backfill_embed.py` 写入 **84/84** 条（78.6s），孤儿 0；之后 `代码检查工具` 这类无字面重合的
+  查询能召回，`match_type=vector`，`fallback=none`
+- 问答：`sources`(8) → `delta`×N → `done{usage:{prompt_tokens:2511,completion_tokens:534}}`；
+  库外问题（量子纠缠贝尔不等式）→ `no_result`，`llm_call_log` 18→18 **未新增**
+- 降级：`VECTOR_ENABLED=0` 起在 8758 → 检索/问答都正常，`fallback=vector_disabled`
+- 空库：临时 DATA_DIR 起在 8759 → 检索 `{"items":[],"total":0}`、问答 `no_result`，均非 500，`chunk_vec` 自动建成
+- 前端（playwright，msedge headless）：**10/10 PASS** —— 流式答案 187 字带 `[n]`、命中统计
+  「命中 8 段原文 · 来自 1 个条目」、点来源跳「原文」Tab 并高亮、检索 Tab 20 条命中 19 处高亮、徽标 fts
+- `npm run lint` 干净、`vite build` 通过、`tools/doc_check.py` 6 项通过 2 条既有提示
+
+**踩到的坑（下次别再花时间）**
+- `uv add sentence-transformers ...` 走本机代理**卡了 1h36 没装完**（进程 20 秒只用 0.02s CPU，
+  缓存不再增长 = 下载挂住）。改用清华镜像 `uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple`
+  且对该域名 `NO_PROXY` → **44 秒装完**（torch 2.15.0+cpu）。装大包一律先上镜像
+- 两个进程（旧服务 + 脚本）同时写 `data/logs/app.log` 时，午夜滚动的 `os.rename` 会
+  `PermissionError: [WinError 32]`。只影响日志滚动，不影响业务；要根治得给脚本单独日志文件
+- chunk 的 content **不是**原文的连续切片（chunker 会重新拼段落），整段 `indexOf` 常常落空 →
+  前端定位改成"整段找不到就按 240/160/120/80/48/24/12 递减退到能匹配的前缀"
+- 用户当时在 **8756 上跑着旧代码**（22:05 启动），本次所有联调都在 8757/8758/8759 上做，
+  没去动那个进程。**要看到新页面必须重启后端**
+
+**遗留问题**
+- [ ] T3.7–T3.11 全部未做：导图 / HTML 学习页 / 学习页接口与前端 / `verify_m3.py`
+- [ ] `verify_m3.py` 要覆盖本次的实测点：短词 LIKE、空检索不调模型（比对 `llm_call_log` 行数）、
+      降级 `VECTOR_ENABLED=0`、SSE 三事件顺序、来源跳转定位、空库空态
+- [ ] 前端 e2e（`npm run e2e`，24 项）尚未纳入「检索问答」页；改动 UI 主流程后需要补
+- [ ] `keyword_terms()` 是正则切词，没有真分词：纯英文长句、代码标识符混排的提问可能切不干净，
+      目前靠向量那一路兜
+- [ ] RRF 两路权重相同（没调参），也没有"向量相似度阈值"；如果发现弱相关片段被顶上来，
+      先看是不是 `TOP_K=8` 给多了
+
+**待裁决冲突**
+- 无。tag 口径（`m3-wip` vs `m3-done`）与检索界面归属已由用户当次裁决，记在上方"范围裁决"
+
+**下一会话第一件事**
+> 打开 `milestones/M3-检索与学习页.md` 的 T3.7，写 `services/mindmap.py`（纯 Python 出 SVG，
+> 零依赖，先跑通 `parse_tree` + 四步布局再谈配色）；导图 Tab 是条目详情的第 4 个 Tab。

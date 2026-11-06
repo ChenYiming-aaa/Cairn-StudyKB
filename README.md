@@ -5,12 +5,16 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：M2（真实内容采集）已验收（2026-11-06，tag `m2-done`）。
-网页链接与视频链接都能入库：网页走 trafilatura 抽正文，视频**优先用自带字幕**（省掉下载与识别），
-没有字幕才走 yt-dlp + faster-whisper 转录成带 `[mm:ss]` 时间戳的正文；两条链都有查重
-（同 URL / 同内容）、6+8 类错误码带中文文案、四阶段进度与任务中心（失败可重试）。
-采集完成后可直接「去看看」跳到该条目，或「继续采集」下一条。
-`verify_m2.py` 115/115 PASS（加 `--online` 131/131，含真实站点），`verify_m1.py` 51/51 PASS。下一步 M3：全文检索 / 向量检索 / 问答。
+**当前状态**：M3（检索与学习页）进行中 —— T3.1–T3.6「检索问答」已完成（2026-11-06，tag `m3-wip`），
+T3.7–T3.11（思维导图 / 学习页导出 / 验收脚本）未开始。
+M2（真实内容采集）已验收（2026-11-06，tag `m2-done`）。
+
+**已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
+没有字幕才走 yt-dlp + faster-whisper 转录）；「检索问答」页里可以
+① 对整库提问，答案分条并带 `[n]` 引用，点引用/来源卡片直接跳到原文那一段并高亮；
+② 直接搜原文片段，两字词也能搜（自动走 LIKE），命中的关键词高亮、标出 `fts`/`like`/`vector`。
+检索是 FTS5（trigram）+ bge 向量两路召回再 RRF 融合，向量不可用时自动降级为纯全文检索。
+`verify_m1.py` 51/51 PASS，`verify_m2.py` 115/115 PASS（`--online` 131/131）。
 
 ## 目录
 
@@ -53,6 +57,7 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 51 项（含分类聚合端点），真实 LLM 调用 | 动到条目 / 整理 / chunk |
 | `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 115 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
 | `cd backend && uv run python scripts/verify_m2.py --online` | 上面 115 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
+| `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
@@ -81,6 +86,8 @@ cp .env.example .env
 | `YTDLP_COOKIES` | 可选。Netscape 格式 `cookies.txt` 的绝对路径。留空则用登录助手写出的 `data/cookies.txt`。**一般不用手工配**：在采集面板点「站点登录 → B 站」即可，见下 |
 | `BROWSER_CHANNEL` | `msedge`（默认）。浏览器渲染用的通道，可选 `chrome`；置空则用 playwright 自带 Chromium（需先 `playwright install chromium`） |
 | `BROWSER_HEADLESS` | `1`（默认）。置 `0` 时渲染也弹窗口，排障用 |
+| `VECTOR_ENABLED` | `1`（默认）。置 `0` 时检索只走 FTS/LIKE：问答照常可用，前端提示「向量不可用，已降级」。sqlite-vec 加载失败时同样自动降级，不用改这里 |
+| `EMBED_MODEL` | 默认 `BAAI/bge-small-zh-v1.5`。**换模型必须重建向量**（维度变了），见 M3 §6.3 |
 
 > **站点登录**：需要登录才给内容的站点（B 站字幕、知乎受限页）在采集面板的「链接采集」里
 > 点「站点登录」即可。后端会弹一个**独立**的浏览器窗口，登完自动导出 cookie 并立即生效，
@@ -91,6 +98,11 @@ cp .env.example .env
 
 > 语音模型不是环境变量：视频采集时由请求体 `model` 决定（默认 `small`），
 > 首次使用自动下载到 `data/models/whisper/`（约 500MB，删了下次会重下）。
+>
+> 向量模型也不是环境变量：`BAAI/bge-small-zh-v1.5` 首次使用自动下载到
+> `data/models/embedding/`（约 100MB，走 `HF_ENDPOINT` 镜像）。入库与改笔记后由
+> `index_embed` 任务在后台补向量，不卡采集；首次启用或换模型时跑一次
+> `scripts/backfill_embed.py` 把历史 chunk 补齐。
 >
 > 字幕优先是**默认行为**，不需要开关：有中英字幕就用，没有就转。人工字幕优先于自动字幕，
 > 简体优先于繁体。任务 `output_json.source` 会标明这次走的是 `subtitle` 还是 `asr`。

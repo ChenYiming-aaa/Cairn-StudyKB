@@ -149,8 +149,14 @@ def chat(
     raise (last or LLMError("LLM_HTTP_ERROR", "LLM 调用失败")) from None
 
 
-def chat_stream(messages: list[dict], *, agent: str = "default") -> Iterator[str]:
-    """流式调用，只 yield content 的 delta；reasoning_content 的 delta 直接丢弃。"""
+def chat_stream(
+    messages: list[dict], *, agent: str = "default", usage_out: dict | None = None
+) -> Iterator[str]:
+    """流式调用，只 yield content 的 delta；reasoning_content 的 delta 直接丢弃。
+
+    `usage_out`：可选的字典，调用方传进来就地填 token 用量（SSE 的 done 事件要用）。
+    用可变容器而不是返回值，是因为流式生成器只能 yield 文本片段。
+    """
     cfg = get_settings()
     if not cfg.has_llm_key:
         _write_log(agent=agent, ok=False, duration_ms=0, error_msg="LLM_NO_KEY")
@@ -193,6 +199,9 @@ def chat_stream(messages: list[dict], *, agent: str = "default") -> Iterator[str
             _write_log(agent=agent, ok=True,
                        duration_ms=int((time.monotonic() - started) * 1000),
                        prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt)
+        if usage_out is not None:
+            usage_out.update({"prompt_tokens": pt, "completion_tokens": ct,
+                              "reasoning_tokens": rt})
 
 
 def _paired_object(text: str) -> str | None:

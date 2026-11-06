@@ -13,6 +13,7 @@ from app.db.conn import get_conn
 from app.db.repo import items as repo
 from app.errors import ApiError, error_payload
 from app.services import tasks as task_queue
+from app.services import embedder
 from app.services.agents import organizer
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
@@ -68,12 +69,15 @@ def create_item(body: CreateBody) -> JSONResponse:
                 chunk_count = repo.count_chunks(conn, row["id"])
             else:
                 chunk_count = repo.rebuild_chunks(conn, row["id"], body.raw_content, "raw")
-        return JSONResponse(status_code=201, content={
+        payload = {
             "id": row["id"], "title": row["title"], "status": row["status"],
             "chunk_count": chunk_count, "duplicated": duplicated,
-        })
+        }
     finally:
         conn.close()
+    # 提交之后再派任务：补向量要读到已落库的 chunk（M3 §6.2）
+    embedder.schedule(row["id"])
+    return JSONResponse(status_code=201, content=payload)
 
 
 @router.get("")
@@ -183,12 +187,16 @@ def patch_item(item_id: int, body: PatchBody):
                 # 数据契约 §6 / M1 §6.9：删 source='note' 的 chunk 后用同一 chunker 重建
                 repo.rebuild_chunks(conn, item_id, fields["structured_note"], "note")
             note_chunk_count = repo.count_chunks(conn, item_id, "note")
-        return {
+        result = {
             "id": row["id"], "updated_at": row["updated_at"],
             "note_edited": row["note_edited"], "note_chunk_count": note_chunk_count,
         }
     finally:
         conn.close()
+    if body.structured_note is not None:
+        # 笔记改写会重建 note chunk，向量必须跟着补，否则问答引用的还是旧文本
+        embedder.schedule(item_id)
+    return result
 
 
 @router.delete("/{item_id}")

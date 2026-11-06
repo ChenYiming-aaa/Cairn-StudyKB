@@ -8,6 +8,7 @@ import RawPane from './RawPane.vue'
 import SummaryPane from './SummaryPane.vue'
 import TitleEditor from './TitleEditor.vue'
 import { useToast } from '../composables/useToast'
+import { useUi } from '../composables/useUi'
 import { fullTime } from '../utils/format'
 
 const props = defineProps({
@@ -18,9 +19,13 @@ const props = defineProps({
 const emit = defineEmits(['refresh', 'deleted'])
 
 const toast = useToast()
+const { focusChunk } = useUi()
 
 const tab = ref('summary')
 const organizing = ref(false)
+// 问答点 [n] 跳过来时定位的那一段：{text, key}。key 每次跳转都变，
+// 目的是让 RawPane 即使跳的是同一段也能重新滚动一次。
+const focus = ref(null)
 let stopPolling = null
 
 const TABS = [
@@ -36,7 +41,22 @@ watch(
   () => props.item?.id,
   () => {
     tab.value = 'summary'
+    focus.value = null
   }
+)
+
+/** 来源卡片跳转：条目换了也要生效，所以同时监听 item.id 与 focusChunk */
+watch(
+  () => [props.item?.id, focusChunk.value],
+  () => {
+    const target = focusChunk.value
+    if (!target || !props.item || target.itemId !== props.item.id) return
+    // 笔记片段在 textarea 里定位不到，只能切到对应 Tab 让用户自己看
+    tab.value = target.source === 'note' ? 'note' : 'raw'
+    focus.value = target.source === 'note' ? null : { text: target.text, key: Date.now() }
+    focusChunk.value = null
+  },
+  { immediate: true }
 )
 
 function stop() {
@@ -157,7 +177,7 @@ onBeforeUnmount(stop)
           <NoteEditor :key="item.id" :item-id="item.id" :note="item.structured_note || ''" @saved="onNoteSaved" />
         </div>
 
-        <RawPane v-show="tab === 'raw'" :text="item.raw_content" />
+        <RawPane v-show="tab === 'raw'" :text="item.raw_content" :focus="focus" />
       </div>
     </template>
   </section>

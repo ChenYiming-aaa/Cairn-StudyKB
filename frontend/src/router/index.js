@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
+import Ask from '../views/Ask.vue'
 import Knowledge from '../views/Knowledge.vue'
 import Tasks from '../views/Tasks.vue'
 
@@ -8,6 +9,7 @@ export default createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'knowledge', component: Knowledge },
+    { path: '/ask', name: 'ask', component: Ask },
     { path: '/tasks', name: 'tasks', component: Tasks },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

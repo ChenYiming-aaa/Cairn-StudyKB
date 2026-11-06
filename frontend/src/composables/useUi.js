@@ -9,6 +9,8 @@ const pasteOpen = ref(false)
 const refreshTick = ref(0)
 const editorDirty = ref(false)
 const focusItemId = ref(null)
+// 问答来源卡片跳转：除了条目 id 还要知道落在哪一段（M3 T3.6）
+const focusChunk = ref(null)
 
 export function useUi() {
   return {
@@ -16,6 +18,7 @@ export function useUi() {
     refreshTick,
     editorDirty,
     focusItemId,
+    focusChunk,
     openPaste: () => {
       pasteOpen.value = true
     },
@@ -30,6 +33,13 @@ export function useUi() {
     },
     /** 请求跳到知识库并选中该条目；由 Knowledge.vue 消费后置回 null */
     openItem: (itemId) => {
+      focusItemId.value = itemId
+    },
+    /** 跳转并定位到某段原文（问答点 [n] 用；ItemDetail 消费后置回 null） */
+    openItemAt: (itemId, chunk) => {
+      focusChunk.value = chunk
+        ? { itemId, text: chunk.text || '', source: chunk.source || 'raw' }
+        : null
       focusItemId.value = itemId
     },
   }

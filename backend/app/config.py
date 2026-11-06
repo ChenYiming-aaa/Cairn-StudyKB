@@ -46,6 +46,16 @@ class Settings:
     # 置空则用 playwright 自带的那份（需先 playwright install chromium）。
     browser_channel: str = "msedge"
     browser_headless: bool = True
+    # M3：向量检索总开关。T3.5 DoD 要求「关掉向量问答仍正常返回」，
+    # 置 0 后检索只走 FTS/LIKE，前端提示"向量不可用，已降级"。
+    vector_enabled: bool = True
+    # bge-small-zh-v1.5 缓存在 data/models/embedding（与 env_probe.check_embedding 同一目录，
+    # 否则设置页会永远显示"未下载"）
+    embed_model: str = "BAAI/bge-small-zh-v1.5"
+
+    @property
+    def models_dir(self) -> Path:
+        return self.data_dir / "models"
 
     @property
     def has_llm_key(self) -> bool:
@@ -137,6 +147,8 @@ def load_settings(argv: list[str] | None = None) -> Settings:
         ytdlp_cookies=pick("YTDLP_COOKIES", ""),
         browser_channel=pick("BROWSER_CHANNEL", "msedge"),
         browser_headless=_truthy(env.get("BROWSER_HEADLESS", "1")),
+        vector_enabled=_truthy(env.get("VECTOR_ENABLED", "1")),
+        embed_model=pick("EMBED_MODEL", "BAAI/bge-small-zh-v1.5"),
     )
 
 

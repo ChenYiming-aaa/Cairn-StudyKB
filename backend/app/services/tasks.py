@@ -8,8 +8,14 @@ from typing import Callable
 
 from app.db.conn import get_conn
 from app.db.repo import tasks as repo
+from app.services import embedder
 
 log = logging.getLogger(__name__)
+
+# 跑完这些任务后要补向量（M3 §6.2「入库时异步补向量，不卡采集流程」）。
+# 放在这里而不是各个 run() 里：入队点有 6 处，改一处即可，且**一定在提交之后**，
+# 不会读到未提交的 chunk。
+EMBED_AFTER = {"organize", "fetch_url", "transcribe_video"}
 
 _executor: ThreadPoolExecutor | None = None
 _lock = threading.Lock()
@@ -72,6 +78,7 @@ def submit(
                                      output_json=output)
             finally:
                 conn.close()
+            _schedule_embed(type, output)
         except Exception as exc:
             # 红线 8：任何异步失败都必须落到 agent_task，不许静默死亡
             # 红线 7：只记类型 + 摘要，不打印原始异常栈（httpx 异常可能带请求头）
@@ -97,6 +104,19 @@ def submit(
 
     _get_executor().submit(_run)
     return task_id
+
+
+def _schedule_embed(task_type: str, output: dict | None) -> None:
+    """任务成功落库后补向量。任何异常都不许影响任务本身的成功状态。"""
+    if task_type not in EMBED_AFTER or not isinstance(output, dict):
+        return
+    item_id = output.get("item_id") or output.get("existing_item_id")
+    if not item_id:
+        return
+    try:
+        embedder.schedule(int(item_id))
+    except Exception as exc:
+        log.warning("补向量任务派发失败（%s），条目 %s", type(exc).__name__, item_id)
 
 
 def update_progress(task_id: str, progress: int, stage: str | None = None) -> None:

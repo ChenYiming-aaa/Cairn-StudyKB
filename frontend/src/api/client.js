@@ -95,9 +95,75 @@ export const post = (path, body) => request('POST', path, { body })
 export const patch = (path, body) => request('PATCH', path, { body })
 export const del = (path) => request('DELETE', path)
 
+/**
+ * SSE：POST + ReadableStream 手工解析（不用 EventSource，它不支持 POST 与请求体）。
+ * 接口契约 §4 的约定形状：每帧 `data: {json}\n\n`。
+ * 返回 Promise，流结束（或出错）后 resolve；传 signal 可中断。
+ */
+export async function streamSSE(path, body, onEvent, { signal } = {}) {
+  const url = `${baseUrl()}${path}`
+  let res
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      signal,
+      headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+      body: JSON.stringify(body),
+    })
+  } catch (exc) {
+    if (exc?.name === 'AbortError') throw exc
+    throw new ApiError({ code: 'NETWORK', message: '无法连接后端服务' })
+  }
+
+  if (!res.ok || !res.body) {
+    const raw = await res.text().catch(() => '')
+    let payload = {}
+    try {
+      payload = JSON.parse(raw)?.error || {}
+    } catch {
+      // 非 JSON 错误体（例如代理返回的 HTML）：保持空对象，下面用状态码兜底
+    }
+    throw new ApiError({
+      code: payload.code || `HTTP_${res.status}`,
+      message: payload.message || `HTTP ${res.status}`,
+      detail: payload.detail || raw.slice(0, 300),
+      status: res.status,
+    })
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let cut = buffer.indexOf('\n\n')
+    while (cut >= 0) {
+      const frame = buffer.slice(0, cut)
+      buffer = buffer.slice(cut + 2)
+      const data = frame
+        .split('\n')
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trim())
+        .join('\n')
+      if (data) {
+        try {
+          onEvent?.(JSON.parse(data))
+        } catch {
+          // 坏帧不该让整条流中断：跳过，继续读下一帧
+        }
+      }
+      cut = buffer.indexOf('\n\n')
+    }
+  }
+}
+
 /** 语义化端点：路径只在这里出现一次。 */
 export const api = {
   health: () => get('/api/health'),
+  /** 全文 + 向量融合检索（M3 T3.1/T3.4），返回 {items,total,fallback,match_type} */
+  search: (params) => get('/api/search', params),
   listItems: (params) => get('/api/knowledge', params),
   /** 分类/标签两级计数 + 状态计数（左侧树与「整理全部」气泡） */
   categories: () => get('/api/knowledge/categories'),
