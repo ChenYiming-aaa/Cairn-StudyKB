@@ -563,3 +563,128 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 
 **下一会话第一件事**
 > M2 开工：读 `docs/milestones/M2-真实内容采集.md` §2 核环境，从 T2.1 抓取 adapter 起做；网页/视频的 title 来自源站，仍需过一遍 `organizer.clean_title()` 的 20 字口径。
+
+---
+
+## 2026-11-06 12:41 · M1 复核 · 独立核验 M1 完成度与 M2 门槛
+
+**背景**：用户要求「根据文档检验 M1 是否完整实现、能否进 M2」。按总纲 §6「用事实确认状态，不信文档记述」，本次不改代码，只做核验。
+
+**核验方式**（5 条独立证据，不引用历史结论）
+
+1. `python tools/doc_check.py` → 6 PASS + 2 WARN（完结文档被台账/手册引用，均非当现状使用）
+2. `cd backend && uv run python scripts/status.py` → EXIT=0；user_version=1、WAL、14 表、环境自检全绿（Py3.12.13 / SQLite 3.50.4 / trigram 可用 / ffmpeg 4.3.1 / Key 已配）
+3. `uv run python scripts/verify_m1.py` → **48/48 PASS，EXIT=0**（真实 DeepSeek，临时 DATA_DIR，未碰 `data/data.db`）
+4. **真实 uvicorn 启动**（脚本用 TestClient，覆盖不到进程与端口）：`/api/health` → `{"status":"ok","version":"0.1.0"}`、`/docs` 200、openapi 端点 10 个与 M1 范围一致（knowledge 6 + tasks 2 + health 1 计法见清单）；CORS 白名单命中 `http://localhost:5173`，非法源无 `allow-origin`
+5. **补测 verify_m1 未覆盖的一项**：T1.6 僵尸任务回收——临时库里插 1 条 `running` + 1 条 `queued`，过 lifespan 后均变 `failed / TASK_INTERRUPTED / 服务重启，任务中断`。**通过**
+
+**结论**
+
+- T1.1–T1.11 全部落地，M1 §5 的 11 条 DoD 有事实支撑，**可以进入 M2**
+- 代码与 §1 七条硬约束逐条对得上：无 async 路由、`chunk_fts` trigram、Key 只从 `.env` 读（无明文 key 出现在代码/文档/前端/git 历史，`git ls-files` 无 `.env`、`data/`、`node_modules`）、CORS 不是 `*`、任务失败落 `agent_task`、单文件最大 300 行（`verify_m1.py` 正好 300）
+- 前端 `npm run build` 通过（54 modules，CSS 16.65kB / JS 191kB）；UI 三栏布局与 m1.1 短标题效果用 `data/_e2e/` 截图确认（截图早于本次核验，非新证据）
+
+**发现的问题**（都不阻塞 M2，按处理时机排序）
+
+- [ ] `README.md` 状态行过期（写「M0 文档阶段完成，尚未开始编码」）→ **本次已改**为「M1 已验收，tag `m1-done`」。`doc_check.py` 不覆盖 README，属校验盲区
+- [ ] `config.py` 未读 `FFMPEG_DIR`（`.env` 第 21 行有、README 有、M2 §7 排障表要求「代码优先读它」）→ M2 开工第一件事补 `Settings.ffmpeg_dir`，否则从 IDE 启动时 `ffmpeg` 可能不在 PATH
+- [ ] `repo/tasks.py` 无 `update_progress(task_id, p, stage)` 便利函数（M2 §6.4 直接引用这个名字）→ 现有 `update_task(progress=, stage=)` 够用，M2 里加一层薄封装即可
+- [ ] `repo/items.py` 无 `find_by_url`（M2 T2.3 判「URL 已存在」要用；唯一索引 `idx_item_url` 已建好）
+- [ ] M2 文档 T2.2 写「错误码映射放 `services/errors.py`」，而已有 `app/errors.py` 是 HTTP 错误形状 → 落地时别混在同一文件，建议 `app/services/fetch_errors.py`
+- [ ] `desktop/` 是空目录且无占位文件，git 不跟踪 → clone 后不存在（M5 才需要，到时自然补上）
+- [ ] 既有已知限制不变：分类树聚合上限 100（`Knowledge.vue` 的 `TREE_LIMIT`）、切换 Tab 不弹拦截确认（`v-show` 常驻）、手填标题会被整理覆盖、前端无 ESLint/单测、Playwright 脚本未入库
+
+**M2 门槛核对**（M2 §2）
+
+- [x] ffmpeg **4.3.1** + ffprobe 4.3.1 可用（`D:\Anaconda3\Library\bin`，PATH 已含）
+- [x] 磁盘 ≥3GB（C 盘剩 138G）
+- [x] M1 验收通过（本次实测 48/48）
+- [ ] `uv add trafilatura yt-dlp faster-whisper` 未做 —— M2 第一步
+- [x] 契约侧已铺好：`/api/ingest/url`、`/api/ingest/video`、`/api/env/check`、`/api/tasks/{id}/retry` 四个 M2 端点已在 `接口契约` 登记，`source_url` 唯一索引已在 schema，**M2 不需要先改契约**
+
+**改动文件**
+
+- `README.md`（状态行更正）
+- `docs/HANDOFF.md`（本条）
+
+**验证**
+
+- 改完重跑 `python tools/doc_check.py` → 仍 6 PASS + 2 WARN
+
+**待裁决冲突**
+
+- 无
+
+**下一会话第一件事**
+> M2 开工：先 `uv add trafilatura yt-dlp faster-whisper`，再补 `Settings.ffmpeg_dir`（读 `FFMPEG_DIR`）与 `repo.update_progress`，然后从 T2.1 `BaseFetcher` + `TrafilaturaFetcher` 起做。
+
+---
+
+## 2026-11-06 13:45 · M1 补丁 · 遗留项清理：分类聚合 / ESLint / e2e
+
+**背景**：用户要求「以后完成编写任务要同步更新 README」，并把上一轮复核列出的小问题都修掉。四项需要决策的按用户选择执行。
+
+**用户裁决（4 条）**
+
+| # | 取舍 | 裁决 |
+|---|---|---|
+| 1 | 分类树计数上限 100 | **现在加聚合端点**，不再等破百 |
+| 2 | 前端工程化 | **先补 ESLint，单测留后** |
+| 3 | Playwright 脚本 | **现在收进 `frontend/e2e/`** |
+| 4 | 手填标题被整理覆盖 | **保持现状**（要改需 schema v2 + `title_edited`，属新需求） |
+
+**完成**
+
+- 后端 M2 基座（上一轮列出的待补项）
+  - `config.py`：`ffmpeg_dir` 字段 + `ffmpeg_exe` / `ffprobe_exe`（目录没配或文件不存在返回 `None`，调用方回落 PATH），命令行加 `--ffmpeg-dir`
+  - `services/tasks.update_progress(task_id, p, stage)`：进度回报入口；底层 `repo/tasks.update_progress` **只对 queued/running 生效**，迟到的回调改不了已 done/failed 的进度
+  - `repo/items.find_by_url()`
+- 分类聚合端点
+  - `repo/items.category_tree()`：一次聚合分类计数、标签计数（`json_each`）、`counts.{total,pending,organizing}`；空分类归「未分类」
+  - `GET /api/knowledge/categories`：**注册在 `/{item_id}` 之前**，否则 "categories" 会被当 item_id 解析成 422
+  - 前端 `Knowledge.vue` 删掉「取前 100 条自己数」的 `allItems`/`TREE_LIMIT`，分类、总数、待整理数、是否继续轮询全部改用该端点
+- 工具链
+  - ESLint 10 flat config（`eslint.config.js`，只查正确性：未定义/未使用变量 + Vue essential），`npm run lint`
+  - `frontend/e2e/m1_flow.py` + `frontend/e2e/README.md`，`npm run e2e`（指向 `D:\Anaconda3\python.exe`，本机 Playwright 只装在那里）
+- 文档
+  - `接口契约`：登记第 31 个端点 `GET /api/knowledge/categories` 并写形状
+  - `M2`：T2.2 错误码文件改 `app/services/fetch_errors.py`（避开已有的 HTTP 错误形状模块）；§6.4 调用名 `repo.tasks.*` → `tasks.*` 并注明分层理由；「上游」补上 M1 已备好的三样
+  - `README`：状态行、目录表、验证表（doc_check / verify_m1 / lint / build / e2e）
+  - `00-总纲` §6：收尾三件事 → **四件事**（新增「同步更新 README」）
+  - `USER.md`：把「完成改动后同步更新 README」立为长期规则
+
+**过程中修掉的两个问题**
+
+1. e2e 首次跑到第 4 步炸 `UnicodeEncodeError`：`?category=时间管理` 未编码 → `api()` 改用 `urlencode(params=...)`
+2. e2e 中途失败会把自己造的条目留在库里 → 清理移进 `finally`，异常路径也删；`--keep` 才保留
+
+**验证**
+
+- `uv run python scripts/verify_m1.py` → **48/48 PASS**（改动后回归，真实 LLM）
+- `npm run lint` → 0；`npm run build` → 通过（JS 190.73 kB / CSS 16.65 kB）
+- `npm run e2e` → **24/24 PASS，跑两遍**（第二遍确认 npm 入口可用）：整理就绪、五字段非空、AI 标题 ≤20 字、分类过滤条数与接口一致、笔记刷新后仍在、note chunk 落库、console 0 error、测试条目自动删除
+- `python tools/doc_check.py` → 6 PASS（端点 31）
+- 单点实测：
+  - `/api/knowledge/categories` 分类/标签计数与 `GET /api/knowledge?category=X` 的 total 一致；`/api/knowledge/999` 仍是 404（路由顺序没抢）
+  - `update_progress`：running 任务 42→60→100（越界夹取），stage 传 `None` 时保留原值；done 任务的进度未被改成 7
+  - `status.py` 显示 `ffmpeg/ffprobe（来自 FFMPEG_DIR）`
+
+**遗留问题**
+
+- [ ] `verify_m1.py` 尚未覆盖 `/api/knowledge/categories`（e2e 覆盖了「总数与过滤一致」，但没有后端断言）→ 下次动验收脚本时补进第 5 组
+- [ ] 手填标题仍会被整理覆盖（裁决 4）。要改需加 `title_edited` + `user_version=2` 迁移
+- [ ] 前端仍无单测框架与视觉回归；`npm audit` 报 4 个 moderate，全在 eslint 依赖链（devDependency，不进产物），暂不处理
+- [ ] e2e 每次跑产生真实 LLM 调用与 `agent_task` / `llm_call_log` 记录，属预期；不要放进循环
+
+**改动文件**
+
+- 后端：`app/config.py`、`app/services/tasks.py`、`app/db/repo/{items,tasks}.py`、`app/routers/knowledge.py`、`scripts/status.py`
+- 前端：`src/views/Knowledge.vue`、`src/api/client.js`、`package.json`、`eslint.config.js`（新）、`e2e/{m1_flow.py,README.md}`（新）
+- 仓库：`.gitignore`（`frontend/e2e/_shots/`）、`README.md`、`docs/contracts/接口契约.md`、`docs/milestones/M2-真实内容采集.md`、`docs/00-总纲.md`、`docs/HANDOFF.md`
+
+**待裁决冲突**
+
+- 无
+
+**下一会话第一件事**
+> M2 开工：`cd backend && uv add trafilatura yt-dlp faster-whisper`，然后 T2.1 `BaseFetcher` + `TrafilaturaFetcher`；查重直接用 `repo.items.find_by_url()`，进度回报用 `tasks.update_progress()`，ffmpeg 用 `Settings.ffmpeg_exe`。

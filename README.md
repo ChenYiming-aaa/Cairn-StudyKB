@@ -5,7 +5,17 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：M0 文档阶段完成，尚未开始编码。
+**当前状态**：M1（骨架与最小闭环）已验收，tag `m1-done`；M1 遗留项已补齐（分类聚合端点、ESLint、浏览器 e2e），下一步 M2 真实内容采集。
+
+## 目录
+
+| 目录 | 内容 |
+|---|---|
+| `backend/` | FastAPI + SQLite；表结构与端点在 `docs/contracts/`，脚本在 `backend/scripts/` |
+| `frontend/` | Vue 3 + Vite；`e2e/` 是浏览器回归，`src/styles/tokens.css` 是唯一配色/间距来源 |
+| `desktop/` | Electron 主进程与 preload，M5 交付阶段才落地（当前只有占位） |
+| `data/` | 开发期数据库与日志，**永不入库** |
+| `docs/` | 总纲、契约（数据/接口/ADR）、里程碑、进度台账 |
 
 ## 技术栈
 
@@ -22,13 +32,22 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 
 ## 开发约定
 
-```bash
-# 文档一致性检查（每次改文档后、每次会话开场）
-python tools/doc_check.py
-```
-
 - 技术栈定版见 `docs/00-总纲.md` §3，更换需先在 `决策记录.md` 追加 ADR
 - 红线见 §2，四条技术限制的解除条件见 §2.1
+- **每次完成改动后同步更新本 README**（当前状态、配置项、目录与用法），停更就等于写错；总纲 §6 已把它列为收尾动作之一
+
+## 验证
+
+| 命令 | 验什么 | 何时跑 |
+|---|---|---|
+| `python tools/doc_check.py` | 文档一致性（作用域、ADR/端点/表引用、完结标记） | 改文档后、每次会话开场 |
+| `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 48 项，真实 LLM 调用 | 动到条目 / 整理 / chunk |
+| `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
+| `cd frontend && npm run build` | 可构建 | 改前端后 |
+| `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
+
+`verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
+前端 lint 只查正确性、不管格式：无分号、单引号这类风格靠人守。
 
 ## 配置
 

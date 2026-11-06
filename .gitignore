@@ -35,6 +35,9 @@ build/
 *.spec
 !docs/**/*.spec
 
+# ── e2e 运行现场 ───────────────────────
+frontend/e2e/_shots/
+
 # ── 编辑器 / 系统 ──────────────────────
 .vscode/
 .idea/
