@@ -1051,3 +1051,26 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
   不该自动跳过
 - 真实视频的四阶段顺序仍无独立证据（`app.log` 只记 ERROR，DB 只留终态 `stage=saving`），
   顺序只在假实现下验证；要补得给 `tasks.update_progress` 加审计日志，属 M3 可选项
+
+## 2026-11-06 23:30 · 远程同步缺失（用户发现）
+
+**问题**：远程 `main` 停在 `01d5212`（M1.1），本地已有 11 个提交没推——M1.2、M2 全部、
+验收口径修正、提示词手册全在本地。用户要求「每个阶段都要在 GitHub 上同步」。
+
+**根因不是没想到，是通道坏了没修**：PATH 里的 `git` 指向 WorkBuddy 精简版，缺
+`git-remote-https`，`git push` 直接报 `'remote-https' is not a git command`。总纲 §9 早就记了
+这条坑和正确路径，但收尾动作只写到 commit / tag，没有 push，于是每次都能"合理"漏掉。
+
+**修正**
+- 用 `"C:/Program Files/Git/cmd/git.exe"` 推送：`main 01d5212..d25aa2b`；
+  标签补推 `m1-backend` / `m2-web` / `m2-done`（远程此前一个 M2 标签都没有）
+- 总纲 §6「收尾四件事」→「收尾五件事」，新增第 5 条：**每次 commit 都要 push，不等里程碑结束**；
+  §9 已知坑改写——git 路径与"凭据无缓存"两条按实测更新
+- `README.md` 开发约定、`docs/会话提示词手册.md` 模板 A 同步加上 push
+
+**核对**
+- `git ls-remote --heads origin` → `d25aa2b`
+- `git status -sb` → `## main...origin/main`（无 ahead/behind）
+
+**注意**：推送时工作区里有另一路未提交的 M3 代码（retriever / embedder / ask / Ask.vue 等），
+本次只提交文档并推送已提交历史，没有动那些文件。

@@ -41,6 +41,7 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 - 技术栈定版见 `docs/00-总纲.md` §3，更换需先在 `决策记录.md` 追加 ADR
 - 红线见 §2，四条技术限制的解除条件见 §2.1
 - **每次完成改动后同步更新本 README**（当前状态、配置项、目录与用法），停更就等于写错；总纲 §6 已把它列为收尾动作之一
+- **每次 commit 都要推到 GitHub**：`git push origin main`，有标签再 `git push origin --tags`。别攒到里程碑结束——本地提交不算交付。推送要用 `"C:\Program Files\Git\cmd\git.exe"`，PATH 里的 WorkBuddy 精简版 git 缺 `git-remote-https`，`git push` 会直接报错
 
 ## 验证
 
