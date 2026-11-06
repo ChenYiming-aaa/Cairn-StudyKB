@@ -70,6 +70,21 @@ def update_task(conn: sqlite3.Connection, task_id: str, **fields) -> None:
     )
 
 
+def update_progress(
+    conn: sqlite3.Connection, task_id: str, *, progress: int, stage: str | None = None
+) -> int:
+    """只对 queued/running 生效：迟到的回调不许把已 done/failed 的进度改回去。
+
+    stage 传 None 时保留原值（COALESCE），这样只报进度不报阶段也不会把阶段清空。
+    """
+    cur = conn.execute(
+        """UPDATE agent_task SET progress=?, stage=COALESCE(?, stage), updated_at=?
+           WHERE id=? AND status IN ('queued','running')""",
+        (progress, stage, now_iso(), task_id),
+    )
+    return cur.rowcount
+
+
 def mark_stale_running_failed(conn: sqlite3.Connection) -> int:
     """启动时把上次进程残留的 queued/running 标为 failed，避免永久卡住。"""
     cur = conn.execute(

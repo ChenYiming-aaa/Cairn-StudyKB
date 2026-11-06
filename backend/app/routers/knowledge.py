@@ -97,6 +97,19 @@ def list_items(
         conn.close()
 
 
+@router.get("/categories")
+def list_categories() -> dict:
+    """分类 / 标签两级计数 + 状态计数（左侧树与「整理全部」的气泡都用它）。
+
+    必须注册在 `/{item_id}` 之前，否则 "categories" 会被当成 item_id 解析成 422。
+    """
+    conn = get_conn()
+    try:
+        return repo.category_tree(conn)
+    finally:
+        conn.close()
+
+
 def _require_llm_key() -> None:
     """未配置 Key 时立刻失败，不留一个注定失败的任务在队列里（M1 §5 DoD）。"""
     if not get_settings().has_llm_key:

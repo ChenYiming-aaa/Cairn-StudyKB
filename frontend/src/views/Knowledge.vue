@@ -12,9 +12,10 @@ const toast = useToast()
 const { refreshTick, editorDirty } = useUi()
 
 const PAGE_SIZE = 50
-const TREE_LIMIT = 100 // 树聚合的上限，超过后计数会偏低（M1 已知限制，见 HANDOFF）
 
-const allItems = ref([])
+// 分类树与状态计数一律来自后端聚合（GET /api/knowledge/categories），
+// 不再拿最近 N 条自己数——那样条目破百后计数就偏低（M1 已知限制已消）。
+const tree = ref({ categories: [], counts: { total: 0, pending: 0, organizing: 0 } })
 const items = ref([])
 const total = ref(0)
 
@@ -33,38 +34,15 @@ const filter = reactive({ category: '', tag: '', q: '' })
 let busyTimer = null
 let busyTicks = 0
 
-const categories = computed(() => {
-  const buckets = new Map()
-  for (const item of allItems.value) {
-    const name = item.category || '未分类'
-    if (!buckets.has(name)) buckets.set(name, { name, count: 0, tags: new Map() })
-    const bucket = buckets.get(name)
-    bucket.count += 1
-    for (const tag of item.tags || []) {
-      bucket.tags.set(tag, (bucket.tags.get(tag) || 0) + 1)
-    }
-  }
-  return [...buckets.values()]
-    .map((bucket) => ({
-      name: bucket.name,
-      count: bucket.count,
-      tags: [...bucket.tags.entries()]
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
-    }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-})
-
-const pendingCount = computed(
-  () => allItems.value.filter((item) => item.status === 'pending').length
-)
+const categories = computed(() => tree.value.categories || [])
+const totalItems = computed(() => tree.value.counts?.total || 0)
+const pendingCount = computed(() => tree.value.counts?.pending || 0)
 const isFiltered = computed(() => Boolean(filter.category || filter.tag || filter.q))
 
 async function loadTree() {
   treeLoading.value = true
   try {
-    const data = await api.listItems({ page_size: TREE_LIMIT })
-    allItems.value = data.items || []
+    tree.value = await api.categories()
   } catch (err) {
     toast.error(friendlyMessage(err))
   } finally {
@@ -112,8 +90,8 @@ async function loadDetail(itemId) {
 
 function scheduleIfBusy() {
   const busy =
-    items.value.some((item) => item.status === 'organizing') ||
-    allItems.value.some((item) => item.status === 'organizing')
+    tree.value.counts?.organizing > 0 ||
+    items.value.some((item) => item.status === 'organizing')
   if (!busy) {
     busyTicks = 0
     return
@@ -198,7 +176,7 @@ onBeforeUnmount(() => {
   <div class="workspace">
     <CategoryTree
       :categories="categories"
-      :total="allItems.length"
+      :total="totalItems"
       :active="{ category: filter.category, tag: filter.tag }"
       :loading="treeLoading"
       @select="onFilterSelect"

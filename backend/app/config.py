@@ -34,10 +34,28 @@ class Settings:
     llm_model: str = "deepseek-flash"
     llm_effort: str = "low"
     llm_timeout: int = 120
+    # 本机 ffmpeg 在 Anaconda 下，从 IDE/Electron 启动时 PATH 未必包含它（M2 §7 排障表），
+    # 因此显式给一个目录，M2 的转录一律优先用它拼出的绝对路径。
+    ffmpeg_dir: str = ""
 
     @property
     def has_llm_key(self) -> bool:
         return bool(self.llm_api_key.strip())
+
+    @property
+    def ffmpeg_exe(self) -> Path | None:
+        return self._tool("ffmpeg")
+
+    @property
+    def ffprobe_exe(self) -> Path | None:
+        return self._tool("ffprobe")
+
+    def _tool(self, name: str) -> Path | None:
+        """按 FFMPEG_DIR 拼绝对路径；没配或文件不存在返回 None，调用方回落 PATH。"""
+        if not self.ffmpeg_dir.strip():
+            return None
+        exe = Path(self.ffmpeg_dir.strip()) / (f"{name}.exe" if os.name == "nt" else name)
+        return exe if exe.exists() else None
 
     @property
     def chat_completions_url(self) -> str:
@@ -55,6 +73,7 @@ def _cli_overrides(argv: list[str] | None = None) -> dict[str, str]:
     parser.add_argument("--llm-base-url")
     parser.add_argument("--llm-model")
     parser.add_argument("--llm-effort")
+    parser.add_argument("--ffmpeg-dir")
     known, _ = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
     return {k: str(v) for k, v in vars(known).items() if v is not None}
 
@@ -67,6 +86,7 @@ _CLI_TO_ENV = {
     "llm_base_url": "LLM_BASE_URL",
     "llm_model": "LLM_MODEL",
     "llm_effort": "LLM_EFFORT",
+    "ffmpeg_dir": "FFMPEG_DIR",
 }
 
 
@@ -99,6 +119,7 @@ def load_settings(argv: list[str] | None = None) -> Settings:
         llm_model=pick("LLM_MODEL", "deepseek-flash"),
         llm_effort=pick("LLM_EFFORT", "low"),
         llm_timeout=int(pick("LLM_TIMEOUT", "120")),
+        ffmpeg_dir=pick("FFMPEG_DIR", ""),
     )
 
 

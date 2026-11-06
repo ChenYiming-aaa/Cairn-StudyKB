@@ -49,6 +49,18 @@ def find_by_hash(conn: sqlite3.Connection, digest: str) -> sqlite3.Row | None:
     ).fetchone()
 
 
+def find_by_url(conn: sqlite3.Connection, url: str) -> sqlite3.Row | None:
+    """按 source_url 查已有条目（M2 T2.3 判「该 URL 已入库」用）。
+
+    依赖 schema 里的唯一索引 idx_item_url；粘贴来的条目 source_url 为 NULL，不参与匹配。
+    """
+    if not url:
+        return None
+    return conn.execute(
+        "SELECT * FROM knowledge_item WHERE source_url=? LIMIT 1", (url,)
+    ).fetchone()
+
+
 def create_item(
     conn: sqlite3.Connection,
     *,
@@ -173,6 +185,47 @@ def delete_item(conn: sqlite3.Connection, item_id: int) -> bool:
     """外键 CASCADE 处理 chunk / question；chunk_fts 由触发器同步。"""
     cur = conn.execute("DELETE FROM knowledge_item WHERE id=?", (item_id,))
     return cur.rowcount > 0
+
+
+def category_tree(conn: sqlite3.Connection) -> dict:
+    """分类 → 标签两级计数 + 状态计数，供左侧树使用。
+
+    之前前端拿最近 100 条自己聚合，条目破百后计数就偏低（M1 已知限制）。
+    这里直接由 SQL 聚合全库，不再有上限，也省掉前端一次全量拉取。
+    """
+    rows = conn.execute(
+        """SELECT COALESCE(NULLIF(category,''),'未分类') AS name, COUNT(*) AS cnt
+           FROM knowledge_item GROUP BY name ORDER BY cnt DESC, name ASC"""
+    ).fetchall()
+    tag_rows = conn.execute(
+        """SELECT COALESCE(NULLIF(k.category,''),'未分类') AS cat, j.value AS tag, COUNT(*) AS cnt
+           FROM knowledge_item k,
+                json_each(CASE WHEN json_valid(k.tags) THEN k.tags ELSE '[]' END) j
+           GROUP BY cat, tag ORDER BY cnt DESC, tag ASC"""
+    ).fetchall()
+
+    buckets: dict[str, dict] = {
+        r["name"]: {"name": r["name"], "count": r["cnt"], "tags": []} for r in rows
+    }
+    for r in tag_rows:
+        bucket = buckets.get(r["cat"])
+        if bucket is not None:
+            bucket["tags"].append({"name": r["tag"], "count": r["cnt"]})
+
+    counts = conn.execute(
+        """SELECT COUNT(*) AS total,
+                  COALESCE(SUM(status='pending'), 0)    AS pending,
+                  COALESCE(SUM(status='organizing'), 0) AS organizing
+           FROM knowledge_item"""
+    ).fetchone()
+    return {
+        "categories": list(buckets.values()),
+        "counts": {
+            "total": counts["total"],
+            "pending": counts["pending"],
+            "organizing": counts["organizing"],
+        },
+    }
 
 
 def set_status(conn: sqlite3.Connection, item_id: int, status: str) -> None:

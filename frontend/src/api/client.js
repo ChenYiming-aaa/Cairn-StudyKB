@@ -94,6 +94,8 @@ export const del = (path) => request('DELETE', path)
 export const api = {
   health: () => get('/api/health'),
   listItems: (params) => get('/api/knowledge', params),
+  /** 分类/标签两级计数 + 状态计数（左侧树与「整理全部」气泡） */
+  categories: () => get('/api/knowledge/categories'),
   getItem: (id) => get(`/api/knowledge/${id}`),
   createItem: (payload) => post('/api/knowledge', payload),
   patchItem: (id, payload) => patch(`/api/knowledge/${id}`, payload),

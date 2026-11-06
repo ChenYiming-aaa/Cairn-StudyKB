@@ -85,6 +85,26 @@ def submit(type: str, fn: Callable[[dict | None], dict | None], input: dict | No
     return task_id
 
 
+def update_progress(task_id: str, progress: int, stage: str | None = None) -> None:
+    """长任务回调用的轻量进度更新（M2 §6.4）。
+
+    转录回调每涨 2% 才调一次，不要每个 segment 都写库（几百次写库会锁表）。
+    进度是尽力而为：写失败只记 warning，不中断正在跑的任务——
+    真正的失败会由 saving 阶段落 agent_task，不会因此静默。
+    """
+    conn = get_conn()
+    try:
+        with conn:
+            repo.update_progress(
+                conn, task_id,
+                progress=max(0, min(100, int(progress))), stage=stage,
+            )
+    except Exception as exc:
+        log.warning("任务 %s 进度更新失败（%s）", task_id, type(exc).__name__)
+    finally:
+        conn.close()
+
+
 def shutdown() -> None:
     global _executor
     with _lock:

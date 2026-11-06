@@ -92,7 +92,12 @@ def _env_section() -> None:
     print(f"  FTS5 trigram    : {trigram}")
     print(f"  uv              : {shutil.which('uv') or '未找到'}")
     print(f"  Node            : {shutil.which('node') or '未找到'}")
-    print(f"  ffmpeg          : {shutil.which('ffmpeg') or '未找到（M2 需要）'}")
+    # ffmpeg 优先按 FFMPEG_DIR 解析（从 IDE/Electron 启动时 PATH 可能不含它，M2 §7）
+    for name, configured in (("ffmpeg", cfg.ffmpeg_exe), ("ffprobe", cfg.ffprobe_exe)):
+        found = configured or shutil.which(name)
+        source = "FFMPEG_DIR" if configured else "PATH"
+        print(f"  {name:<15} : {found or '未找到（M2 需要）'}"
+              + (f"（来自 {source}）" if found else ""))
     print(f"  LLM Key         : {'已配置' if cfg.has_llm_key else '未配置'}（值不显示）")
     print(f"  LLM model       : {cfg.llm_model}")
     print(f"  LLM endpoint    : {cfg.chat_completions_url}")
