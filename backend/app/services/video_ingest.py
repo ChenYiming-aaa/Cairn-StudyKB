@@ -72,9 +72,9 @@ def run(payload: dict, task_id: str) -> dict:
     output = _save(transcript, force)
     task_queue.update_progress(task_id, P_SAVED, STAGE_SAVE)
     log.info(
-        "视频入库完成 url=%s item=%s 时长=%.0fs 段数=%s duplicated=%s",
+        "视频入库完成 url=%s item=%s 时长=%.0fs 段数=%s 来源=%s duplicated=%s",
         transcript.url, output["item_id"], transcript.duration,
-        transcript.segment_count, output.get("duplicated"),
+        transcript.segment_count, transcript.source, output.get("duplicated"),
     )
     return output
 
@@ -102,7 +102,8 @@ def _replace(conn: sqlite3.Connection, item_id: int, t: Transcript) -> dict:
     repo.replace_raw_content(conn, item_id, t.text)
     chunk_count = repo.rebuild_chunks(conn, item_id, t.text, "raw")
     return {"item_id": item_id, "duplicated": False, "replaced": True,
-            "existing_item_id": None, "chunk_count": chunk_count}
+            "existing_item_id": None, "chunk_count": chunk_count,
+            "language": t.language, "source": t.source}
 
 
 def _create(conn: sqlite3.Connection, t: Transcript) -> dict:
@@ -125,4 +126,4 @@ def _create(conn: sqlite3.Connection, t: Transcript) -> dict:
             "existing_item_id": row["id"] if duplicated else None,
             "chunk_count": chunk_count,
             "duration": round(t.duration), "segment_count": t.segment_count,
-            "language": t.language}
+            "language": t.language, "source": t.source}

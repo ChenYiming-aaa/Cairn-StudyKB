@@ -9,7 +9,7 @@ import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 
 const toast = useToast()
-const { refreshTick, editorDirty } = useUi()
+const { refreshTick, editorDirty, focusItemId } = useUi()
 
 const PAGE_SIZE = 50
 
@@ -164,7 +164,33 @@ watch(refreshTick, () => {
   refreshAll()
 })
 
-onMounted(refreshAll)
+/** 采集完成点「去看看」：跳过来时可能还带着筛选条件，条目不在当前列表里就看不到它，
+ *  所以先清筛选再选中（清完列表必然包含最新入库的那条）。 */
+async function focusOnItem(itemId) {
+  if (filter.category || filter.tag || filter.q) {
+    filter.category = ''
+    filter.tag = ''
+    filter.q = ''
+    await Promise.all([loadTree(), loadList()])
+  }
+  selectItem(itemId)
+}
+
+watch(focusItemId, (itemId) => {
+  if (!itemId) return
+  focusItemId.value = null          // 消费掉，避免重复触发
+  focusOnItem(itemId)
+})
+
+onMounted(async () => {
+  await refreshAll()
+  // 从「任务」页跳过来时组件刚挂载，watch 注册前值就已写入，这里补一次
+  if (focusItemId.value) {
+    const itemId = focusItemId.value
+    focusItemId.value = null
+    await focusOnItem(itemId)
+  }
+})
 
 onBeforeUnmount(() => {
   if (busyTimer) clearTimeout(busyTimer)

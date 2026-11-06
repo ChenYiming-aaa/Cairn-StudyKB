@@ -6,10 +6,11 @@
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
 **当前状态**：M2（真实内容采集）已验收（2026-11-06，tag `m2-done`）。
-网页链接与视频链接都能入库：网页走 trafilatura 抽正文，视频走 yt-dlp + faster-whisper 转录成
-带 `[mm:ss]` 时间戳的正文；两条链都有查重（同 URL / 同内容）、6+8 类错误码带中文文案、
-四阶段进度与任务中心（失败可重试）。`verify_m2.py` 61/61 PASS，`verify_m1.py` 51/51 PASS。
-下一步 M3：全文检索 / 向量检索 / 问答。
+网页链接与视频链接都能入库：网页走 trafilatura 抽正文，视频**优先用自带字幕**（省掉下载与识别），
+没有字幕才走 yt-dlp + faster-whisper 转录成带 `[mm:ss]` 时间戳的正文；两条链都有查重
+（同 URL / 同内容）、6+8 类错误码带中文文案、四阶段进度与任务中心（失败可重试）。
+采集完成后可直接「去看看」跳到该条目，或「继续采集」下一条。
+`verify_m2.py` 72/72 PASS，`verify_m1.py` 51/51 PASS。下一步 M3：全文检索 / 向量检索 / 问答。
 
 ## 目录
 
@@ -49,7 +50,7 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/status.py` | 数据目录 / 表行数 / 最近任务 / 环境自检（只读） | 每次会话开场与收尾 |
 | `cd backend && uv run python scripts/env_check.py` | ffmpeg / whisper / embedding / sqlite-vec / LLM Key（`--json` 机读，`--strict` 有阻塞项即 exit 1） | 排查"转录跑不起来" |
 | `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 51 项（含分类聚合端点），真实 LLM 调用 | 动到条目 / 整理 / chunk |
-| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 61 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务（**全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 |
+| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 72 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
@@ -75,9 +76,13 @@ cp .env.example .env
 | `LLM_EFFORT` | 思考档位 `low`／`high`／`max`，结构化任务用 `low` 省钱 |
 | `FFMPEG_DIR` | 本机 ffmpeg 在 Anaconda 下，显式指定避免 IDE 启动时找不到 |
 | `HF_ENDPOINT` | **别删**。直连 HuggingFace 不通，模型靠这个镜像下载 |
+| `YTDLP_COOKIES` | 可选。Netscape 格式 `cookies.txt` 的绝对路径。**B 站字幕必须登录才给**，不配就自动退回语音识别（功能不受影响，只是慢）。用浏览器扩展「Get cookies.txt LOCALLY」导出 |
 
 > 语音模型不是环境变量：视频采集时由请求体 `model` 决定（默认 `small`），
 > 首次使用自动下载到 `data/models/whisper/`（约 500MB，删了下次会重下）。
+>
+> 字幕优先是**默认行为**，不需要开关：有中英字幕就用，没有就转。人工字幕优先于自动字幕，
+> 简体优先于繁体。任务 `output_json.source` 会标明这次走的是 `subtitle` 还是 `asr`。
 
 > API 规范以 https://api-docs.deepseek.com 为准，本表核对于 2026-11-05。
 

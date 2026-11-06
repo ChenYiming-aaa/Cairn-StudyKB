@@ -190,7 +190,9 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
             editor.fill(before + f"\n\n- e2e 追加标记 {STAMP}")
             page.get_by_role("button", name="保存笔记").click()
             page.wait_for_selector(".toast", timeout=15000)
-            check("保存后出现提示", "已保存" in page.locator(".toast").first.inner_text())
+            # 不能取 .first：上一步「整理完成」的 toast 可能还没消失，把保存的挤到第二个
+            toasts = page.locator(".toast").all_inner_texts()
+            check("保存后出现提示", any("已保存" in t for t in toasts), str(toasts))
             shot("05-note-saved")
 
             page.reload(wait_until="domcontentloaded")

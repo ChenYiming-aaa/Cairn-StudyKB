@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 
 import { api, friendlyMessage, pollTask } from '../api/client'
 
@@ -12,7 +12,7 @@ import { api, friendlyMessage, pollTask } from '../api/client'
 const props = defineProps({
   open: { type: Boolean, default: false },
 })
-const emit = defineEmits(['close', 'created', 'existing', 'ingested'])
+const emit = defineEmits(['close', 'created', 'existing', 'ingested', 'open'])
 
 const MODES = [
   { key: 'paste', label: '粘贴文本' },
@@ -33,11 +33,12 @@ const mode = ref('paste')
 const paste = reactive({ title: '', content: '' })
 const link = reactive({ url: '', kind: 'web', model: 'small' })
 
-const task = ref(null)          // { id, status, progress, stage, error_code, error_msg }
+const task = ref(null)          // { id, status, progress, stage, error_code, error_msg, output_json }
 const submitting = ref(false)
 const errorText = ref('')
 const draggedOver = ref(false)
 const fileInput = ref(null)
+const urlInput = ref(null)
 
 let stopPoll = null
 
@@ -49,6 +50,9 @@ const stageLabel = computed(() => STAGE_TEXT[task.value?.stage] || '处理中')
 const words = computed(() => paste.content.trim().length)
 const canPaste = computed(() => words.value > 0 && !submitting.value)
 const canLink = computed(() => link.url.trim().length > 0 && !submitting.value && !busy.value)
+
+/** 任务结果里的条目 id —— 「去看看」跳转要用（web/video 两种任务都写 item_id） */
+const resultItemId = computed(() => task.value?.output_json?.item_id || null)
 
 /** 卡在 30% 多半是在加载（或首次下载）模型，说清楚省得用户以为卡死。 */
 const waitHint = computed(() => {
@@ -76,6 +80,40 @@ function reset() {
   errorText.value = ''
   stopPoll?.()
   stopPoll = null
+}
+
+/** 丢掉上一轮结果。切 tab / 切网页↔视频 / 继续采集都要调，
+ *  否则「已入库」会跟着串到下一个入口（T2.8 实测 bug）。 */
+function clearTask() {
+  stopPoll?.()
+  stopPoll = null
+  task.value = null
+  errorText.value = ''
+}
+
+function switchMode(key) {
+  if (busy.value || key === mode.value) return
+  mode.value = key
+  clearTask()
+}
+
+function switchKind(kind) {
+  if (busy.value || kind === link.kind) return
+  link.kind = kind
+  clearTask()
+}
+
+/** 「继续采集」：清空结果与链接，光标回到输入框，留在当前入口 */
+function continueCollect() {
+  clearTask()
+  link.url = ''
+  nextTick(() => urlInput.value?.focus())
+}
+
+/** 「去看看」：交给 App 关面板并跳到该条目 */
+function goSee() {
+  if (!resultItemId.value) return
+  emit('open', resultItemId.value)
 }
 
 watch(() => props.open, (open) => {
@@ -205,7 +243,7 @@ async function retry() {
             :class="{ on: mode === m.key }"
             type="button"
             :disabled="busy"
-            @click="mode = m.key"
+            @click="switchMode(m.key)"
           >
             {{ m.label }}
           </button>
@@ -236,10 +274,22 @@ async function retry() {
         <!-- 链接 -->
         <template v-else-if="mode === 'link'">
           <div class="seg">
-            <button class="seg-item" :class="{ on: link.kind === 'web' }" type="button" @click="link.kind = 'web'">
+            <button
+              class="seg-item"
+              :class="{ on: link.kind === 'web' }"
+              type="button"
+              :disabled="busy"
+              @click="switchKind('web')"
+            >
               网页正文
             </button>
-            <button class="seg-item" :class="{ on: link.kind === 'video' }" type="button" @click="link.kind = 'video'">
+            <button
+              class="seg-item"
+              :class="{ on: link.kind === 'video' }"
+              type="button"
+              :disabled="busy"
+              @click="switchKind('video')"
+            >
               视频转录
             </button>
           </div>
@@ -247,6 +297,7 @@ async function retry() {
           <label class="field">
             <span class="field-label">链接</span>
             <input
+              ref="urlInput"
               v-model="link.url"
               class="input"
               type="url"
@@ -294,7 +345,10 @@ async function retry() {
             {{ cleanError(task.error_msg) }}
             <span v-if="task.error_code" class="code">{{ task.error_code }}</span>
           </p>
-          <p v-else-if="done" class="ok-msg">已入库，关闭本窗口即可在列表里看到它。</p>
+          <p v-else-if="done" class="ok-msg">
+            {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕入库（没有跑语音识别）。' : '已入库。' }}
+            可以继续采集下一条，或点「去看看」打开它。
+          </p>
           <p v-else-if="waitHint" class="wait-msg">{{ waitHint }}</p>
         </section>
 
@@ -302,12 +356,23 @@ async function retry() {
           <span v-if="mode === 'paste'" class="hint">{{ words }} 字</span>
           <span v-if="errorText" class="error">{{ errorText }}</span>
           <div class="grow" />
-          <button class="btn" type="button" @click="tryClose">取消</button>
+          <button class="btn" type="button" @click="done ? continueCollect() : tryClose()">
+            {{ done ? '继续采集' : '取消' }}
+          </button>
           <button v-if="failed" class="btn" type="button" :disabled="submitting" @click="retry">
             重试
           </button>
           <button
-            v-if="mode === 'paste'"
+            v-if="done"
+            class="btn btn-primary"
+            type="button"
+            :disabled="!resultItemId"
+            @click="goSee"
+          >
+            去看看
+          </button>
+          <button
+            v-else-if="mode === 'paste'"
             class="btn btn-primary"
             type="button"
             :disabled="!canPaste"
@@ -438,6 +503,11 @@ async function retry() {
 .seg-item.on {
   background: var(--c-primary-soft);
   color: var(--c-primary);
+}
+
+.seg-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .note {

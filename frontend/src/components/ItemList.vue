@@ -84,7 +84,7 @@ function clearKeyword() {
 
       <div v-else-if="!items.length" class="state">
         <p class="state-title">{{ filtered ? '没有匹配的条目' : '知识库还是空的' }}</p>
-        <p>{{ filtered ? '换个关键词或点左侧「全部条目」' : '点右上角「粘贴文本」开始' }}</p>
+        <p>{{ filtered ? '换个关键词或点左侧「全部条目」' : '点右上角「采集内容」开始' }}</p>
       </div>
 
       <ul v-else class="rows">

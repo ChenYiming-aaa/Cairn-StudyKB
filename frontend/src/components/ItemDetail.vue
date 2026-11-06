@@ -113,7 +113,7 @@ onBeforeUnmount(stop)
 
     <div v-else-if="!item" class="detail-state state">
       <p class="state-title">从左侧选一条来读</p>
-      <p>或点右上角「粘贴文本」加入新的内容</p>
+      <p>或点右上角「采集内容」加入新的内容</p>
     </div>
 
     <template v-else>

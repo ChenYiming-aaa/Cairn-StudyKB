@@ -37,6 +37,9 @@ class Settings:
     # 本机 ffmpeg 在 Anaconda 下，从 IDE/Electron 启动时 PATH 未必包含它（M2 §7 排障表），
     # 因此显式给一个目录，M2 的转录一律优先用它拼出的绝对路径。
     ffmpeg_dir: str = ""
+    # 需要登录才能拿字幕的站点（B 站、会员视频）：给 Netscape 格式 cookies.txt 的路径。
+    # 留空则该站点按未登录处理，自动退回语音识别。
+    ytdlp_cookies: str = ""
 
     @property
     def has_llm_key(self) -> bool:
@@ -120,6 +123,7 @@ def load_settings(argv: list[str] | None = None) -> Settings:
         llm_effort=pick("LLM_EFFORT", "low"),
         llm_timeout=int(pick("LLM_TIMEOUT", "120")),
         ffmpeg_dir=pick("FFMPEG_DIR", ""),
+        ytdlp_cookies=pick("YTDLP_COOKIES", ""),
     )
 
 

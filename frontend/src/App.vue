@@ -1,13 +1,15 @@
 <script setup>
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
 import { useToast } from './composables/useToast'
 import { useUi } from './composables/useUi'
 
+const router = useRouter()
 const { toasts, error: toastError, ok: toastOk, info: toastInfo, dismiss } = useToast()
-const { pasteOpen, openPaste, closePaste, requestRefresh } = useUi()
+const { pasteOpen, openPaste, closePaste, requestRefresh, openItem } = useUi()
 
 const backend = ref('checking')
 
@@ -39,6 +41,15 @@ function onIngested() {
   requestRefresh()
   toastOk('采集完成，已加入知识库')
 }
+
+/** 「去看看」：关面板 → 切到知识库 → 选中刚入库的条目 */
+function onOpen(itemId) {
+  closePaste()
+  requestRefresh()
+  if (!itemId) return
+  router.push('/')
+  openItem(itemId)
+}
 </script>
 
 <template>
@@ -68,6 +79,7 @@ function onIngested() {
       @created="onCreated"
       @existing="onExisting"
       @ingested="onIngested"
+      @open="onOpen"
     />
 
     <div class="toast-stack">

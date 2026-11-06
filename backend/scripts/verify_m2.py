@@ -136,7 +136,7 @@ fake_transcriber = FakeTranscriber()
 
 
 def step_endpoints(client: TestClient) -> None:
-    step("1/9 端点登记与基座")
+    step("1/10 端点登记与基座")
     spec = client.get("/openapi.json").json()
     paths = set(spec["paths"])
     check("POST /api/ingest/video 已登记", "/api/ingest/video" in paths)
@@ -147,7 +147,7 @@ def step_endpoints(client: TestClient) -> None:
 
 
 def step_web_ok(client: TestClient) -> int:
-    step("2/9 网页采集成功入库")
+    step("2/10 网页采集成功入库")
     fake_fetcher.__init__()
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -174,7 +174,7 @@ def step_web_ok(client: TestClient) -> int:
 
 
 def step_dedupe(client: TestClient, item_id: int) -> None:
-    step("3/9 去重与 force")
+    step("3/10 去重与 force")
     before = sql("SELECT COUNT(*) FROM knowledge_item")[0][0]
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -213,7 +213,7 @@ def step_dedupe(client: TestClient, item_id: int) -> None:
 
 
 def step_web_failures(client: TestClient) -> None:
-    step("4/9 网页失败三类（假实现，不碰真实站点）")
+    step("4/10 网页失败三类（假实现，不碰真实站点）")
     expect = {
         "FETCH_NOT_FOUND": "exists_not",
         "FETCH_EMPTY": "too_short",
@@ -234,7 +234,7 @@ def step_web_failures(client: TestClient) -> None:
 
 
 def step_video(client: TestClient) -> None:
-    step("5/9 视频转录：四阶段进度 + 时间戳正文")
+    step("5/10 视频转录：四阶段进度 + 时间戳正文")
     fake_transcriber.__init__()
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/1", "model": "tiny"})
     body = resp.json()
@@ -274,7 +274,7 @@ def step_video(client: TestClient) -> None:
 
 
 def step_retry(client: TestClient) -> None:
-    step("6/9 任务重试")
+    step("6/10 任务重试")
     fake_fetcher.__init__()
     fake_fetcher.fail_code = "FETCH_TIMEOUT"
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/retry-me"})
@@ -301,7 +301,7 @@ def step_retry(client: TestClient) -> None:
 
 
 def step_concurrency(client: TestClient) -> None:
-    step("7/9 并发：转录期间查询照常响应")
+    step("7/10 并发：转录期间查询照常响应")
     fake_transcriber.__init__()
     fake_transcriber.delay = 2.0
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/slow"})
@@ -337,7 +337,7 @@ def step_concurrency(client: TestClient) -> None:
 
 
 def step_zombie_and_tmp() -> None:
-    step("8/9 僵尸任务与临时目录")
+    step("8/10 僵尸任务与临时目录")
     with sqlite3.connect(DB, timeout=10) as conn:
         conn.execute(
             """INSERT INTO agent_task (id, type, status, progress, created_at, updated_at)
@@ -356,7 +356,7 @@ def step_zombie_and_tmp() -> None:
 
 
 def step_env(client: TestClient) -> None:
-    step("9/9 环境自检")
+    step("9/10 环境自检")
     payload = client.get("/api/env/check").json()
     check("五项齐全", {"ffmpeg", "whisper", "embedding", "sqlite_vec", "llm"} <= set(payload),
           str(sorted(payload)))
@@ -391,6 +391,64 @@ def cleanup(keep: bool) -> None:
     shutil.rmtree(TMP, ignore_errors=True)
 
 
+# ── 字幕优先（T2.6 增强）────────────────────────────────────
+def step_subtitles() -> None:
+    step("10/10 现成字幕优先：选取 / 解析 / 失败降级")
+    from unittest.mock import patch
+
+    from app.services import subtitles as subs
+    from app.services.transcriber import YtDlpWhisperTranscriber
+
+    # ── 选取优先级 ──
+    track = subs.pick({"subtitles": {}, "automatic_captions": {
+        "ja": [{"ext": "vtt", "url": "j"}],
+        "zh-Hant": [{"ext": "vtt", "url": "ht"}],
+        "zh-Hans": [{"ext": "vtt", "url": "hs"}],
+    }})
+    check("自动字幕里选简体（跳过繁体/日语）",
+          track is not None and track.lang == "zh-Hans" and track.auto, str(track))
+
+    track = subs.pick({"subtitles": {"en": [{"ext": "vtt", "url": "h"}]},
+                       "automatic_captions": {"zh-Hans": [{"ext": "vtt", "url": "a"}]}})
+    check("人工字幕优先于自动字幕",
+          track is not None and track.lang == "en" and not track.auto, str(track))
+
+    check("一个字幕都没有 → None", subs.pick({"subtitles": {}, "automatic_captions": {}}) is None)
+    check("只有 srv3 这种不认的格式 → None",
+          subs.pick({"automatic_captions": {"zh-Hans": [{"ext": "srv3", "url": "x"}]}}) is None)
+
+    # ── 解析 ──
+    vtt = ("WEBVTT\nKind: captions\n\n"
+           "00:00:01.000 --> 00:00:04.000\n第一句\n\n"
+           "00:01:05.500 --> 00:01:07.000\n<v A>第二句</v>\n")
+    cues = subs._parse_cues(vtt)
+    check("VTT 解析：时间与文本都对，标签被剥掉",
+          cues == [(1.0, "第一句"), (65.5, "第二句")], str(cues))
+
+    cues = subs._parse_json('{"body":[{"from":2.0,"to":4.0,"content":"中文句子"}]}')
+    check("B 站 json 解析", cues == [(2.0, "中文句子")], str(cues))
+
+    cleaned = subs._clean([(1.0, "a"), (1.0, "a"), (2.0, "a"), (3.0, "")])
+    check("相邻重复与空行被去掉", cleaned == [(1.0, "a")], str(cleaned))
+
+    # ── 命中与降级 ──
+    info = {"subtitles": {"zh-Hans": [{"ext": "vtt", "url": "u"}]}}
+    with patch.object(subs, "fetch", return_value=[(0.0, "你好"), (12.0, "第二句")]):
+        hit = YtDlpWhisperTranscriber._try_subtitles(info)
+    check("字幕命中 → 正文带 [mm:ss] 时间戳",
+          hit == ("[00:00] 你好\n[00:12] 第二句", "zh-Hans", 2), str(hit))
+
+    with patch.object(subs, "fetch", side_effect=OSError("boom")):
+        check("字幕下载失败 → 返回 None（降级，不抛）",
+              YtDlpWhisperTranscriber._try_subtitles(info) is None)
+
+    with patch.object(subs, "fetch", return_value=[]):
+        check("字幕解析为空 → 返回 None",
+              YtDlpWhisperTranscriber._try_subtitles(info) is None)
+
+    check("压根没有字幕 → 返回 None", YtDlpWhisperTranscriber._try_subtitles({}) is None)
+
+
 def main() -> int:
     keep = "--keep" in sys.argv[1:]
     print("=" * 62)
@@ -413,6 +471,7 @@ def main() -> int:
             step_concurrency(client)
             step_zombie_and_tmp()
             step_env(client)
+            step_subtitles()
     except Exception as exc:  # 任何未捕获异常都算验收失败
         aborted = f"{type(exc).__name__}: {exc}"
         traceback.print_exc()

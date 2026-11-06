@@ -822,3 +822,51 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 > M3 开工（M2 已验收、tag `m2-done`）：先读 `docs/milestones/M3-*.md`，从 T3.1 全文检索做起 ——
 > `GET /api/search` 契约已登记（`match_type: fts|like|vector`、`fallback` 三态），FTS5 trigram 已在
 > `chunk_fts` 就位；`chunk_vec` 与 embedding 模型属可选件，`GET /api/env/check` 已能报出它们的就绪状态。
+
+## 2026-11-06 20:20 · M2 补丁 · 采集结果按钮 / 状态残留 / 字幕优先
+
+**范围**：用户实测 M2 前端后提的四件事——完成态按钮、切标签残留、字幕优先、无显卡兜底。
+
+**完成**
+
+- 采集面板底部按钮：`done` 时左边「继续采集」（清空结果 + 链接，光标回输入框）、
+  右边「去看看」（关面板 → 切知识库 → 选中刚入库的条目）。跳转走 `useUi.focusItemId`，
+  由 `Knowledge.vue` 消费并清筛选（否则条目可能不在当前列表里看不到高亮）
+- 修状态残留：`link.kind` / `mode` 切换时清 `task`，否则网页采完后切「视频转录」
+  进度框还挂着「已入库」。切换按钮在 `busy` 时禁用（原来只有顶部 tab 禁用）
+- 新增 `services/subtitles.py`：视频自带中英字幕直接入库（人工 > 自动、简体 > 繁体），
+  跳过下载音频与 ASR；`output_json.source` 为 `subtitle` / `asr`，前端据此换提示语
+- `Settings.ytdlp_cookies` + `.env.example` 的 `YTDLP_COOKIES`：B 站字幕要登录才给
+- 修一个顺手发现的泄漏：`tasks.py` 原来 `getattr(exc,"message",None) or str(exc)[:500]`，
+  未预料的异常会把 `name 'X' is not defined` 这类原文直接写进任务中心；改为统一中文兜底，
+  原文摘要仍进日志
+- 空态文案「粘贴文本」→「采集内容」（`ItemList.vue` / `ItemDetail.vue`，按钮早就改名了）
+
+**验证**
+
+- `verify_m2.py` 61 → **72/72 PASS**（新增第 10 组：字幕选取优先级、VTT/json 解析、
+  相邻重复清理、命中格式、下载失败降级、解析为空降级、无字幕返回 None）
+- 真实链路：B 站 4 分 42 秒中文视频 → 无字幕 → 自动退回 ASR，`source=asr`，6 块、
+  116 段、约 30 秒转完；字幕下载与解析用本地 http 服务喂真实 vtt/json 跑通（3 段 / 2 段）
+- 前端：lint 0、build 通过；playwright 实测「继续采集」清空 + 重新聚焦、
+  「去看看」从鹈鹕条目切到新入库条目、切 kind 后进度框消失
+- 中文错字仍是 `small` 的极限（「先把」→「宣版」、「岗位」→「管位」），未处理
+
+**已知边界（重要）**
+
+- **B 站字幕实际拿不到（本机）**：`yt-dlp` 明确报 "Subtitles are only available when logged in"；
+  从浏览器读 cookie 也不行——Edge 的 cookie 库被占用、Chrome 新版 DPAPI 解不开。
+  因此**字幕路径没有端到端实测过**，只验到「选取 + 解析 + 降级」这一层；
+  真要用需导出 `cookies.txt` 填 `YTDLP_COOKIES`
+- YouTube 自动字幕本来是最典型的字幕来源，但本机代理不通（502），没能验
+- 字幕链设计的硬约束：**只做加速，不做依赖**。任何一步失败都 `return None` 回去跑 ASR，
+  绝不让采集失败——这条写进 `subtitles.py` 模块 docstring 了
+
+**待裁决冲突**
+
+- 字幕默认开启，没给用户开关。理由是人工字幕通常比 ASR 准、自动字幕至少不更差；
+  但如果以后发现某些站点自动字幕质量拉胯，需要加 `prefer_subtitle` 请求参数
+
+**下一会话第一件事**
+> 若继续 M2 打磨：先用 `YTDLP_COOKIES` 实测一条真有 CC 字幕的 B 站视频，确认 `source=subtitle`
+> 与正文时间戳都对；否则按原计划进 M3（`docs/milestones/M3-*.md`，T3.1 全文检索）。

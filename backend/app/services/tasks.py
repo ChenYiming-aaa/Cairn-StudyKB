@@ -78,8 +78,12 @@ def submit(
             # 注意：submit 的参数名 type 会遮蔽内置 type()，必须用 exc.__class__
             exc_name = exc.__class__.__name__
             code = getattr(exc, "code", "TASK_FAILED")
-            message = getattr(exc, "message", None) or str(exc)[:500]
-            log.error("任务 %s (%s) 失败：%s / %s", task_id, type, exc_name, code)
+            # 只有业务异常（带 message）才能把话给人看；未预料的异常原文是给开发者看的，
+            # 落库会让任务中心出现 "name 'X' is not defined" 这类内部细节（T2.9 实测发现）。
+            # 摘要仍进日志，排查不受影响。
+            message = getattr(exc, "message", None) or "任务失败：内部错误，请重试或查看后端日志"
+            log.error("任务 %s (%s) 失败：%s / %s / %s",
+                      task_id, type, exc_name, code, str(exc)[:200])
             conn = get_conn()
             try:
                 with conn:

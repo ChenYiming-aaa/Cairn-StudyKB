@@ -27,6 +27,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from app.config import get_settings
+from app.services import subtitles
 from app.services.fetch_errors import FetchError
 
 log = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ class Transcript:
     duration: float          # 秒；未知时为 0
     language: str            # 实际识别语言（auto 时为检测结果）
     segment_count: int
+    source: str = "asr"      # asr = 语音识别；subtitle = 现成字幕
 
 
 class BaseTranscriber(ABC):
@@ -251,7 +253,20 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
         tmp = Path(self._mkdtemp(work))
         try:
             report(0, STAGE_METADATA)
-            title, duration = self._metadata(url, report)
+            title, duration, info = self._metadata(url, report)
+
+            # ① 先看有没有现成字幕。「有就用、没有就转」，字幕链任何异常都只是降级
+            hit = self._try_subtitles(info)
+            if hit is not None:
+                text, lang, count = hit
+                report(P_TRANSCRIBE_DONE, STAGE_TRANSCRIBE)
+                return Transcript(url=url, title=title, text=text, duration=duration,
+                                  language=lang, segment_count=count, source="subtitle")
+
+            # ② 没字幕才需要音轨（放这里而不是 _metadata：无音轨+有字幕的视频也该能入库）
+            if not _has_audio(info):
+                raise FetchError("TRANSCRIBE_NO_AUDIO", detail="元数据里所有 format 的 acodec=none")
+
             report(P_META_DONE, STAGE_DOWNLOAD)
             wav = self._download(url, tmp, report)
             report(P_DOWNLOAD_DONE, STAGE_TRANSCRIBE)
@@ -264,11 +279,30 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
+    @staticmethod
+    def _try_subtitles(info: dict) -> tuple[str, str, int] | None:
+        """取现成字幕；没有/拿不到/解析为空一律返回 None，让调用方回去跑 ASR。
+
+        这里**不抛异常**：字幕是优化项，它的失败不该影响采集结果。
+        """
+        track = subtitles.pick(info)
+        if track is None:
+            return None
+        try:
+            cues = subtitles.fetch(track)
+        except Exception as exc:          # noqa: BLE001 - 网络/格式/鉴权都可能
+            log.info("字幕不可用，回退语音识别（%s）", type(exc).__name__)
+            return None
+        if not cues:
+            return None
+        lines = [f"[{format_ts(start)}] {text}" for start, text in cues]
+        return "\n".join(lines), track.lang, len(cues)
+
     # ── 阶段一：元数据 ──────────────────────────────────────
-    def _metadata(self, url: str, report: ProgressFn) -> tuple[str, float]:
+    def _metadata(self, url: str, report: ProgressFn) -> tuple[str, float, dict]:
         opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
                 "logger": _YdlLogger(),
-                "socket_timeout": 30, "retries": 2, **_ffmpeg_opts()}
+                "socket_timeout": 30, "retries": 2, **_cookies_opts(), **_ffmpeg_opts()}
         try:
             with YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -283,14 +317,11 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
             # noplaylist 已尽力，仍拿到播放列表说明该链接本身是合集：不做，明确拒绝
             raise FetchError("TRANSCRIBE_UNSUPPORTED", detail="播放列表链接")
 
-        if not _has_audio(info):
-            raise FetchError("TRANSCRIBE_NO_AUDIO", detail="元数据里所有 format 的 acodec=none")
-
         raw_title = (info.get("title") or "").strip() or "未命名视频"
         title = raw_title[:100]
         duration = float(info.get("duration") or 0)
         report(P_META_DONE // 2, STAGE_METADATA)
-        return title, duration
+        return title, duration, info
 
     # ── 阶段二：下载音频 ────────────────────────────────────
     def _download(self, url: str, tmp: Path, report: ProgressFn) -> Path:
@@ -385,6 +416,16 @@ def _ffmpeg_opts() -> dict:
     cfg = get_settings()
     exe = cfg.ffmpeg_exe
     return {"ffmpeg_location": str(exe)} if exe else {}
+
+
+def _cookies_opts() -> dict:
+    """可选的 cookies.txt：B 站字幕与会员视频要靠它，没配就按未登录处理。
+
+    用文件而不是 `cookiesfrombrowser`：后者在浏览器运行时读不到库
+    （Windows 下 Edge 的 cookie 库被锁、Chrome 的 DPAPI 解不开，2026-11-06 实测）。
+    """
+    path = get_settings().ytdlp_cookies.strip()
+    return {"cookiefile": path} if path and Path(path).exists() else {}
 
 
 _default_transcriber: BaseTranscriber | None = None
