@@ -189,8 +189,18 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
             check("笔记编辑器带出了 AI 生成的笔记", len(before) > 50, f"{len(before)} 字")
             editor.fill(before + f"\n\n- e2e 追加标记 {STAMP}")
             page.get_by_role("button", name="保存笔记").click()
-            page.wait_for_selector(".toast", timeout=15000)
-            # 不能取 .first：上一步「整理完成」的 toast 可能还没消失，把保存的挤到第二个
+            # 不能只等 .toast 出现：上一步「整理完成」的提示可能还在，
+            # 选择器会立刻命中旧的，新提示还没来得及挂上（2026-11-06 实测 23/24）。
+            # 等具体文案出现，才是"保存动作真的给了反馈"。
+            try:
+                page.wait_for_function(
+                    "() => [...document.querySelectorAll('.toast')]"
+                    ".some(e => (e.textContent || '').includes('已保存'))",
+                    timeout=15000,
+                )
+            except Exception:                       # noqa: BLE001 - 下面 check 会给出实况
+                pass
+            # 不能取 .first：旧的「整理完成」可能还没消失，把保存的挤到第二个
             toasts = page.locator(".toast").all_inner_texts()
             check("保存后出现提示", any("已保存" in t for t in toasts), str(toasts))
             shot("05-note-saved")

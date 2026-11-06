@@ -39,7 +39,13 @@ class Settings:
     ffmpeg_dir: str = ""
     # 需要登录才能拿字幕的站点（B 站、会员视频）：给 Netscape 格式 cookies.txt 的路径。
     # 留空则该站点按未登录处理，自动退回语音识别。
+    # 留空时登录助手会写到 data/cookies.txt，这个字段就是"改写到别处"的开关。
     ytdlp_cookies: str = ""
+    # 浏览器渲染（2026-11-06）：知乎这类站点对 httpx 一律返回 403 空壳，
+    # 只有真实浏览器拿得到正文。channel 复用本机已装的 Edge/Chrome，避免再下 Chromium；
+    # 置空则用 playwright 自带的那份（需先 playwright install chromium）。
+    browser_channel: str = "msedge"
+    browser_headless: bool = True
 
     @property
     def has_llm_key(self) -> bool:
@@ -79,6 +85,11 @@ def _cli_overrides(argv: list[str] | None = None) -> dict[str, str]:
     parser.add_argument("--ffmpeg-dir")
     known, _ = parser.parse_known_args(sys.argv[1:] if argv is None else argv)
     return {k: str(v) for k, v in vars(known).items() if v is not None}
+
+
+def _truthy(raw: str) -> bool:
+    """环境变量里的布尔：只有明确的假值才算假，其余（含默认的 "1"）为真。"""
+    return (raw or "").strip().lower() not in ("", "0", "false", "no", "off")
 
 
 _CLI_TO_ENV = {
@@ -124,6 +135,8 @@ def load_settings(argv: list[str] | None = None) -> Settings:
         llm_timeout=int(pick("LLM_TIMEOUT", "120")),
         ffmpeg_dir=pick("FFMPEG_DIR", ""),
         ytdlp_cookies=pick("YTDLP_COOKIES", ""),
+        browser_channel=pick("BROWSER_CHANNEL", "msedge"),
+        browser_headless=_truthy(env.get("BROWSER_HEADLESS", "1")),
     )
 
 

@@ -27,7 +27,7 @@ from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from app.config import get_settings
-from app.services import subtitles
+from app.services import browser, subtitles
 from app.services.fetch_errors import FetchError
 
 log = logging.getLogger(__name__)
@@ -419,13 +419,17 @@ def _ffmpeg_opts() -> dict:
 
 
 def _cookies_opts() -> dict:
-    """可选的 cookies.txt：B 站字幕与会员视频要靠它，没配就按未登录处理。
+    """可选的 cookies.txt：B 站字幕与会员视频要靠它，没有就按未登录处理。
 
     用文件而不是 `cookiesfrombrowser`：后者在浏览器运行时读不到库
     （Windows 下 Edge 的 cookie 库被锁、Chrome 的 DPAPI 解不开，2026-11-06 实测）。
+
+    路径与登录助手共用一条规则（`browser.cookie_file()`）：配了 YTDLP_COOKIES 用它，
+    否则用登录助手写出的 data/cookies.txt。这样点一下登录就自动生效，不用改 .env、
+    也不用重启服务。
     """
-    path = get_settings().ytdlp_cookies.strip()
-    return {"cookiefile": path} if path and Path(path).exists() else {}
+    path = browser.cookie_file()
+    return {"cookiefile": str(path)} if path.exists() else {}
 
 
 _default_transcriber: BaseTranscriber | None = None

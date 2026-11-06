@@ -22,6 +22,8 @@ import re
 import urllib.request
 from dataclasses import dataclass
 
+from app.services import browser
+
 log = logging.getLogger(__name__)
 
 # 只认中文与英文：知识库是中文场景，日韩等的识别质量与产品定位都不匹配
@@ -94,6 +96,9 @@ def _headers(url: str) -> dict[str, str]:
     # B 站字幕在 aisubtitle.hdslb.com，带 referer 才稳定
     if "bilibili" in url or "hdslb" in url:
         headers["Referer"] = "https://www.bilibili.com/"
+    # 登录助手导出的 cookie 顺手带上：部分字幕地址会校验登录态
+    if (cookies := browser.cookies_for(url)):
+        headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
     return headers
 
 

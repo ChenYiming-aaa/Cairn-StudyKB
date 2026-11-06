@@ -870,3 +870,71 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **下一会话第一件事**
 > 若继续 M2 打磨：先用 `YTDLP_COOKIES` 实测一条真有 CC 字幕的 B 站视频，确认 `source=subtitle`
 > 与正文时间戳都对；否则按原计划进 M3（`docs/milestones/M3-*.md`，T3.1 全文检索）。
+
+## 2026-11-06 20:40 · M2 打磨 · 站点登录与浏览器渲染（L1+L2+L3）
+
+**起因**
+用户问"能否跳转让用户登录来拿 cookie"，并提到知乎采集也卡住。实测后结论有反转，
+不是"加个 cookie"能解决的，详见 `ADR-023`。
+
+**关键实测（决定了整个方案）**
+| 请求方式 | 知乎问答页 | 知乎专栏页 |
+|---|---|---|
+| httpx + 裸 UA | 403 / 584 字节 | 403 / 584 字节 |
+| httpx + 全套 Chrome 头（含 `sec-ch-ua`、`Sec-Fetch-*`） | 403 / 584 字节 | 403 / 584 字节 |
+| 本机 Edge 真实渲染 | 200 / 269KB → 正文 3768 字 | 403 / 431KB → 正文 3184 字 |
+
+结论：知乎拦的是**指纹层**，不是登录态。cookie 给 httpx 也没用（它证明不了"你是浏览器"）。
+
+**完成**
+- L1 `_build_page`：**先看正文再看状态码**。403 但正文够 200 字就收（知乎专栏的真实形态）；
+  只有 404/410 无条件判 `FETCH_NOT_FOUND`
+- L2 `services/browser.py`（新增）+ `BrowserFetcher` + `BrowserFallbackFetcher`：
+  httpx 报 `FETCH_BLOCKED`/`FETCH_EMPTY` 时用真浏览器渲染重抓一次，其余错误不降级
+- L3 登录助手：`GET /api/auth/status`、`POST /api/auth/login/{site}`，
+  弹独立浏览器窗口 → 检测 `SESSDATA`/`z_c0` → 导出 Netscape `cookies.txt`
+  （`#HttpOnly_` 前缀有，否则 yt-dlp 会把 HttpOnly 行当注释跳过）
+- 字幕链路复用：`transcriber._cookies_opts()` 改走 `browser.cookie_file()`，
+  登录后**即刻生效**，不改 `.env`、不重启
+- 前端：采集面板「链接采集」下加可折叠「站点登录」，显示各站状态 + 登录按钮 + 轮询；
+  失败时按 `FETCH_BLOCKED` / `FETCH_LOGIN_REQUIRED` 给"先登录再重试"的提示
+
+**改动文件**
+- `backend/app/services/browser.py`（新增）
+- `backend/app/routers/auth.py`（新增）
+- `backend/app/services/fetcher.py`（`_build_page` + 两个新类 + 默认 fetcher 换成 Fallback）
+- `backend/app/services/subtitles.py`（字幕下载带 cookie）
+- `backend/app/services/transcriber.py`（`_cookies_opts` 路径统一）
+- `backend/app/config.py`（`browser_channel` / `browser_headless`）
+- `backend/app/main.py`、`backend/pyproject.toml`、`backend/scripts/verify_m2.py`
+- `frontend/src/components/IngestPanel.vue`、`frontend/src/api/client.js`、`frontend/e2e/m1_flow.py`
+- `docs/contracts/{接口契约,决策记录}.md`、`README.md`、`.gitignore`
+
+**验证**
+- `scripts/verify_m2.py` → **91/91 PASS**（新增第 11 组 19 项：登录状态、cookie 格式、
+  按域匹配、403 收正文、404 不收、降级条件、双失败取哪个错）
+- `scripts/verify_m1.py` → 51/51；`npm run e2e` → 24/24；lint 0；build 通过；doc_check 6 PASS
+- 真实链路：知乎问答 `item_id=30`，3768 字，7 秒完成；专栏页 2753 字
+- 普通站点不受影响：少数派文章 0.56 秒 4054 字（未触发降级）
+- cookie 格式已用 `MozillaCookieJar` 反读验证（yt-dlp 读的就是它）
+
+**已知边界（重要）**
+- **登录窗口的机制已实测，但没走过真人账号**。已验证：窗口能弹出；无人操作时 40 秒
+  收敛成 `failed`；把判据临时换成匿名 cookie（`d_c0`）后 4 秒判定成功、导出 27 条
+  cookie（含 `#HttpOnly_`）、`status` 翻成 `logged_in: true`、`cookies_for` 按域返回正确。
+  没验的只剩"真人扫码之后，B 站是否真给字幕"这一步
+- **B 站字幕仍然没端到端验过**。登录打通后理论上 `source=subtitle` 能出，但没实测
+- 降级渲染耗时：知乎问答 4.6 秒、专栏 7.5 秒（含 httpx 先失败那一步）。主要花在
+  浏览器冷启动（1s）+ 等正文稳定（1.2s）+ 关闭（0.5s）
+
+**遗留问题**
+1. 人工验一次登录：采集面板 → 链接采集 → 站点登录 → B 站 → 扫码。看 `data/cookies.txt`
+   是否生成、`/api/auth/status` 是否翻成 `logged_in: true`，然后采一条有 CC 字幕的视频确认
+   `source=subtitle`
+2. 渲染慢可优化：现在每次 `render()` 都 `sync_playwright()` + `launch_persistent_context` + `close`
+   （约 1.5 秒纯开销）。可改成常驻浏览器线程 + 请求队列，预计降到 2–3 秒
+3. `env_probe` 还没暴露 `playwright` 是否可用，环境自检页看不到这项
+
+**下一会话第一件事**
+> 若用户已确认登录可用：用刚才登录的 cookie 采一条 B 站带 CC 字幕的视频，确认
+> `output_json.source == "subtitle"` 且正文 `[mm:ss]` 时间戳正确。否则先修遗留问题 1。

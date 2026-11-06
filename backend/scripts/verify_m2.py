@@ -136,7 +136,7 @@ fake_transcriber = FakeTranscriber()
 
 
 def step_endpoints(client: TestClient) -> None:
-    step("1/10 端点登记与基座")
+    step("1/11 端点登记与基座")
     spec = client.get("/openapi.json").json()
     paths = set(spec["paths"])
     check("POST /api/ingest/video 已登记", "/api/ingest/video" in paths)
@@ -147,7 +147,7 @@ def step_endpoints(client: TestClient) -> None:
 
 
 def step_web_ok(client: TestClient) -> int:
-    step("2/10 网页采集成功入库")
+    step("2/11 网页采集成功入库")
     fake_fetcher.__init__()
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -174,7 +174,7 @@ def step_web_ok(client: TestClient) -> int:
 
 
 def step_dedupe(client: TestClient, item_id: int) -> None:
-    step("3/10 去重与 force")
+    step("3/11 去重与 force")
     before = sql("SELECT COUNT(*) FROM knowledge_item")[0][0]
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -213,7 +213,7 @@ def step_dedupe(client: TestClient, item_id: int) -> None:
 
 
 def step_web_failures(client: TestClient) -> None:
-    step("4/10 网页失败三类（假实现，不碰真实站点）")
+    step("4/11 网页失败三类（假实现，不碰真实站点）")
     expect = {
         "FETCH_NOT_FOUND": "exists_not",
         "FETCH_EMPTY": "too_short",
@@ -234,7 +234,7 @@ def step_web_failures(client: TestClient) -> None:
 
 
 def step_video(client: TestClient) -> None:
-    step("5/10 视频转录：四阶段进度 + 时间戳正文")
+    step("5/11 视频转录：四阶段进度 + 时间戳正文")
     fake_transcriber.__init__()
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/1", "model": "tiny"})
     body = resp.json()
@@ -274,7 +274,7 @@ def step_video(client: TestClient) -> None:
 
 
 def step_retry(client: TestClient) -> None:
-    step("6/10 任务重试")
+    step("6/11 任务重试")
     fake_fetcher.__init__()
     fake_fetcher.fail_code = "FETCH_TIMEOUT"
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/retry-me"})
@@ -301,7 +301,7 @@ def step_retry(client: TestClient) -> None:
 
 
 def step_concurrency(client: TestClient) -> None:
-    step("7/10 并发：转录期间查询照常响应")
+    step("7/11 并发：转录期间查询照常响应")
     fake_transcriber.__init__()
     fake_transcriber.delay = 2.0
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/slow"})
@@ -337,7 +337,7 @@ def step_concurrency(client: TestClient) -> None:
 
 
 def step_zombie_and_tmp() -> None:
-    step("8/10 僵尸任务与临时目录")
+    step("8/11 僵尸任务与临时目录")
     with sqlite3.connect(DB, timeout=10) as conn:
         conn.execute(
             """INSERT INTO agent_task (id, type, status, progress, created_at, updated_at)
@@ -356,7 +356,7 @@ def step_zombie_and_tmp() -> None:
 
 
 def step_env(client: TestClient) -> None:
-    step("9/10 环境自检")
+    step("9/11 环境自检")
     payload = client.get("/api/env/check").json()
     check("五项齐全", {"ffmpeg", "whisper", "embedding", "sqlite_vec", "llm"} <= set(payload),
           str(sorted(payload)))
@@ -393,7 +393,7 @@ def cleanup(keep: bool) -> None:
 
 # ── 字幕优先（T2.6 增强）────────────────────────────────────
 def step_subtitles() -> None:
-    step("10/10 现成字幕优先：选取 / 解析 / 失败降级")
+    step("10/11 现成字幕优先：选取 / 解析 / 失败降级")
     from unittest.mock import patch
 
     from app.services import subtitles as subs
@@ -449,6 +449,144 @@ def step_subtitles() -> None:
     check("压根没有字幕 → 返回 None", YtDlpWhisperTranscriber._try_subtitles({}) is None)
 
 
+def step_login_and_browser(client: TestClient) -> None:
+    """第 11 组：站点登录与浏览器降级。
+
+    全程**不启动浏览器**：`_to_netscape` / `_build_page` / `BrowserFallbackFetcher`
+    都是纯逻辑，注入假实现即可。登录弹窗那条只能人验，见 HANDOFF。
+    """
+    step("11/11 站点登录与浏览器降级")
+    from http.cookiejar import MozillaCookieJar
+
+    from app.services import browser
+
+    # ── 状态端点 ──
+    r = client.get("/api/auth/status")
+    check("GET /api/auth/status 返回 200", r.status_code == 200)
+    body = r.json()
+    check("状态含 bilibili 与 zhihu 两个站点",
+          set(body.get("sites") or {}) == {"bilibili", "zhihu"}, str(body.get("sites")))
+    check("没有 cookie 文件时均为未登录",
+          all(not s["logged_in"] for s in body["sites"].values()))
+
+    r = client.post("/api/auth/login/weibo")
+    check("不支持的站点返回 404", r.status_code == 404, str(r.status_code))
+    check("不支持的站点错误码是 SITE_UNKNOWN",
+          (r.json().get("error") or {}).get("code") == "SITE_UNKNOWN")
+
+    # ── cookie 导出格式：最容易埋暗坑的地方 ──
+    cookies = [
+        {"domain": ".bilibili.com", "name": "SESSDATA", "value": "v1",
+         "path": "/", "expires": 1900000000, "httpOnly": True, "secure": True},
+        {"domain": ".bilibili.com", "name": "bili_jct", "value": "v2",
+         "path": "/", "expires": 1900000000, "httpOnly": False, "secure": False},
+    ]
+    text = browser._to_netscape(cookies)
+    check("HttpOnly cookie 带 #HttpOnly_ 前缀（漏了 yt-dlp 会当未登录）",
+          "#HttpOnly_.bilibili.com" in text)
+    jar_path = TMP / "verify-cookies.txt"
+    jar_path.write_text(text, encoding="utf-8")
+    jar = MozillaCookieJar(str(jar_path))
+    jar.load(ignore_discard=True, ignore_expires=True)
+    names = {c.name for c in jar}
+    check("yt-dlp 的 cookiejar 能读回全部 cookie（含 HttpOnly）",
+          names == {"SESSDATA", "bili_jct"}, str(names))
+
+    original = config_mod.get_settings()
+    config_mod._settings = replace(original, ytdlp_cookies=str(jar_path))
+    try:
+        # ── 状态翻转与按域匹配 ──
+        body = client.get("/api/auth/status").json()
+        check("写入 B 站 cookie 后判定为已登录",
+              body["sites"]["bilibili"]["logged_in"] is True)
+        check("知乎仍为未登录", body["sites"]["zhihu"]["logged_in"] is False)
+
+        got = browser.cookies_for("https://www.bilibili.com/video/BV1xx")
+        check("cookies_for 命中子域", got.get("SESSDATA") == "v1", str(got))
+        check("cookies_for 不串到别的站",
+              browser.cookies_for("https://www.zhihu.com/question/1") == {})
+
+        # ── L1：先看正文，再看状态码 ──
+        html_ok = f"<html><body><article><p>{PAGE_TEXT}</p></article></body></html>"
+        page = fetcher._build_page("https://zhuanlan.zhihu.com/p/1", html_ok, 403)
+        check("403 但正文完整时照收（知乎专栏的真实形态）",
+              len(page.text) >= fetcher.MIN_TEXT_CHARS, f"{len(page.text)} 字")
+
+        try:
+            fetcher._build_page("https://x.test/1", "<html><body></body></html>", 403)
+            check("403 且无正文 → FETCH_BLOCKED", False, "没有抛错")
+        except FetchError as exc:
+            check("403 且无正文 → FETCH_BLOCKED", exc.code == "FETCH_BLOCKED", exc.code)
+
+        try:
+            fetcher._build_page("https://x.test/1", html_ok, 404)
+            check("404 即使正文很长也判不存在", False, "没有抛错")
+        except FetchError as exc:
+            check("404 即使正文很长也判不存在", exc.code == "FETCH_NOT_FOUND", exc.code)
+
+        # ── L2：降级条件 ──
+        class _Fail(BaseFetcher):
+            def __init__(self, code: str):
+                self.code = code
+
+            def fetch(self, url: str) -> FetchedPage:
+                raise FetchError(self.code)
+
+        class _Ok(BaseFetcher):
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def fetch(self, url: str) -> FetchedPage:
+                self.calls += 1
+                return FetchedPage(url=url, title="浏览器渲染结果", text=PAGE_TEXT)
+
+        # 测试机未必装了 playwright，把"可用"钉死，避免用例结果依赖环境
+        original_available = browser.available
+        browser.available = lambda: True          # type: ignore[assignment]
+        try:
+            hit = _Ok()
+            page = fetcher.BrowserFallbackFetcher(
+                primary=_Fail("FETCH_BLOCKED"), fallback=hit).fetch("https://x.test/a")
+            check("FETCH_BLOCKED 会降级到浏览器渲染",
+                  hit.calls == 1 and page.title == "浏览器渲染结果")
+
+            empty = _Ok()
+            fetcher.BrowserFallbackFetcher(
+                primary=_Fail("FETCH_EMPTY"), fallback=empty).fetch("https://x.test/a")
+            check("FETCH_EMPTY 会降级（动态渲染页的典型症状）", empty.calls == 1)
+
+            slow = _Ok()
+            try:
+                fetcher.BrowserFallbackFetcher(
+                    primary=_Fail("FETCH_TIMEOUT"), fallback=slow).fetch("https://x.test/a")
+            except FetchError:
+                pass
+            check("FETCH_TIMEOUT 不降级（换浏览器一样超时，只是白等）", slow.calls == 0,
+                  f"calls={slow.calls}")
+
+            not_found = _Ok()
+            try:
+                fetcher.BrowserFallbackFetcher(
+                    primary=_Fail("FETCH_NOT_FOUND"), fallback=not_found).fetch("https://x.test/a")
+            except FetchError:
+                pass
+            check("FETCH_NOT_FOUND 不降级", not_found.calls == 0)
+
+            try:
+                fetcher.BrowserFallbackFetcher(
+                    primary=_Fail("FETCH_EMPTY"),
+                    fallback=_Fail("FETCH_BLOCKED")).fetch("https://x.test/a")
+                check("两边都失败时取更有指向性的错", False, "没有抛错")
+            except FetchError as exc:
+                check("两边都失败时取更有指向性的错（BLOCKED 优于 EMPTY）",
+                      exc.code == "FETCH_BLOCKED", exc.code)
+        finally:
+            browser.available = original_available      # type: ignore[assignment]
+    finally:
+        config_mod._settings = original
+        jar_path.unlink(missing_ok=True)
+
+
 def main() -> int:
     keep = "--keep" in sys.argv[1:]
     print("=" * 62)
@@ -472,6 +610,7 @@ def main() -> int:
             step_zombie_and_tmp()
             step_env(client)
             step_subtitles()
+            step_login_and_browser(client)
     except Exception as exc:  # 任何未捕获异常都算验收失败
         aborted = f"{type(exc).__name__}: {exc}"
         traceback.print_exc()

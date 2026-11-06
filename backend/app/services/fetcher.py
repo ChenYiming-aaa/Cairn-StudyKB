@@ -5,6 +5,11 @@
 
 为什么不用 `trafilatura.fetch_url`（M2 §6.1）：它内部用自己的 urllib，
 超时与 UA 不好控制；这里统一用 httpx，异常也能落到 6 类错误码。
+
+三层结构（2026-11-06 加后两层）：
+- `TrafilaturaFetcher`：httpx 取 HTML，几十毫秒，绝大多数站点走这条
+- `BrowserFetcher`：真实浏览器渲染，2–4 秒，专治指纹拦截与动态渲染
+- `BrowserFallbackFetcher`：先前者，只在"像是被拦/没渲染"的错上换后者
 """
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ from urllib.parse import urlparse, urlunparse
 import httpx
 import trafilatura
 
+from app.services import browser
 from app.services.fetch_errors import FetchError, code_for_status, to_fetch_error
 
 log = logging.getLogger(__name__)
@@ -28,6 +34,11 @@ UA = (
 TIMEOUT = 30.0
 MIN_TEXT_CHARS = 200          # 正文短于此判 FETCH_EMPTY（M2 §6.2）
 MAX_TITLE_CHARS = 100
+
+# 这些错换浏览器还有救：BLOCKED 是被反爬拦下，EMPTY 多半是 JS 没执行。
+# 超时/DNS/404/非网页换浏览器也白搭，白白把 30 秒拖成 60 秒。
+BROWSER_FALLBACK_CODES = frozenset({"FETCH_BLOCKED", "FETCH_EMPTY"})
+
 
 
 @dataclass(frozen=True)
@@ -89,6 +100,30 @@ def _pick_title(page_url: str, meta_title: str | None, text: str) -> str:
     return title[:MAX_TITLE_CHARS]
 
 
+def _build_page(final_url: str, html: str, status: int) -> FetchedPage:
+    """从 HTML 造 FetchedPage。**先看正文、再看状态码**。
+
+    知乎专栏页返回 403，响应体却有 431KB、抽得出 3184 字正文；照旧在
+    `code_for_status(403)` 就抛，等于把到手的正文扔了。所以顺序必须是：
+    404/410 先排除（那是真没页面），其余情况正文够长就用，不够才按状态码报错。
+    """
+    if status in (404, 410):
+        raise FetchError("FETCH_NOT_FOUND", detail=f"HTTP {status}")
+
+    text = (trafilatura.extract(html, **_EXTRACT_KWARGS) or "").strip()
+    if len(text) < MIN_TEXT_CHARS:
+        code = code_for_status(status)
+        if code:
+            raise FetchError(code, detail=f"HTTP {status}")
+        if status >= 400:
+            raise FetchError("FETCH_INVALID", detail=f"HTTP {status}")
+        raise FetchError("FETCH_EMPTY", detail=f"仅 {len(text)} 字")
+
+    meta = trafilatura.extract_metadata(html)
+    title = _pick_title(final_url, getattr(meta, "title", None), text)
+    return FetchedPage(url=final_url, title=title, text=text)
+
+
 class TrafilaturaFetcher(BaseFetcher):
     """httpx 取页面 + trafilatura 抽正文。同步实现：路由用 def，FastAPI 丢线程池。"""
 
@@ -97,50 +132,99 @@ class TrafilaturaFetcher(BaseFetcher):
 
     def fetch(self, url: str) -> FetchedPage:
         url = normalize_url(url)
-        html, final_url = self._get(url)
-        text = trafilatura.extract(html, **_EXTRACT_KWARGS) or ""
-        text = text.strip()
-        if len(text) < MIN_TEXT_CHARS:
-            raise FetchError("FETCH_EMPTY", detail=f"仅 {len(text)} 字")
+        html, final_url, status = self._get(url)
+        return _build_page(final_url, html, status)
 
-        meta = trafilatura.extract_metadata(html)
-        title = _pick_title(final_url, getattr(meta, "title", None), text)
-        return FetchedPage(url=final_url, title=title, text=text)
+    def _get(self, url: str) -> tuple[str, str, int]:
+        """返回 (html, 最终地址, 状态码)。**不在这里判状态码**，交给 `_build_page`。
 
-    def _get(self, url: str) -> tuple[str, str]:
+        登录助手导出的 cookie 顺手带上：对"登录后才给正文"的站点有用。
+        但别指望它解决知乎那类指纹拦截 —— 带 cookie 依然 584 字节空壳。
+        """
+        headers = {"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"}
+        if (cookies := browser.cookies_for(url)):
+            headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+
         try:
             with httpx.Client(
                 follow_redirects=True,
                 timeout=self.timeout,
-                headers={"User-Agent": UA, "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"},
+                headers=headers,
             ) as client:
                 resp = client.get(url)
         except Exception as exc:                    # noqa: BLE001 - 统一翻译成 6 类错误码
             raise to_fetch_error(exc) from exc
-
-        error_code = code_for_status(resp.status_code)
-        if error_code:
-            raise FetchError(error_code, detail=f"HTTP {resp.status_code}")
-        if resp.status_code >= 400:
-            # 其余 4xx/5xx 没有专属语义，归到"不是网页"，比笼统的 TASK_FAILED 有用
-            raise FetchError("FETCH_INVALID", detail=f"HTTP {resp.status_code}")
 
         ctype = (resp.headers.get("content-type") or "").lower()
         # 头部完全缺失时不拦（部分站点/反代不返回），交给后面 200 字阈值判空
         if ctype and "html" not in ctype:
             raise FetchError("FETCH_INVALID", detail=f"content-type={ctype}")
 
-        return resp.text, str(resp.url)
+        return resp.text, str(resp.url), resp.status_code
+
+
+class BrowserFetcher(BaseFetcher):
+    """真实浏览器渲染后抽正文。用于指纹拦截与纯 JS 渲染的站点。
+
+    代价是每次 2–4 秒并起一个浏览器进程，所以不单独使用，挂在 Fallback 后面。
+    """
+
+    def __init__(self, headless: bool | None = None):
+        self.headless = headless
+
+    def fetch(self, url: str) -> FetchedPage:
+        url = normalize_url(url)
+        try:
+            html, final_url, status = browser.render(url, headless=self.headless)
+        except browser.BrowserTimeout as exc:
+            raise FetchError("FETCH_TIMEOUT", detail=str(exc)[:120]) from exc
+        except browser.BrowserUnavailable as exc:
+            # 环境问题不能甩锅给目标站点，单列一个码，文案指向"装浏览器"
+            raise FetchError("FETCH_BROWSER_UNAVAILABLE", detail=str(exc)[:120]) from exc
+        return _build_page(final_url, html, status)
+
+
+class BrowserFallbackFetcher(BaseFetcher):
+    """先 httpx，只在"像被拦/没渲染"的错上换真浏览器。"""
+
+    def __init__(self, primary: BaseFetcher | None = None,
+                 fallback: BaseFetcher | None = None):
+        self.primary = primary or TrafilaturaFetcher()
+        self.fallback = fallback or BrowserFetcher()
+
+    def fetch(self, url: str) -> FetchedPage:
+        try:
+            return self.primary.fetch(url)
+        except FetchError as exc:
+            if exc.code not in BROWSER_FALLBACK_CODES or not browser.available():
+                raise
+            log.info("httpx 采集失败（%s），改用浏览器渲染：%s", exc.code, url)
+            try:
+                page = self.fallback.fetch(url)
+            except FetchError as browser_exc:
+                # 两边都失败时挑信息量大的那个报：浏览器说"被拦/要登录"比
+                # httpx 的"没抽到正文"更能指向真实原因（指纹 vs 真的没内容）
+                if browser_exc.code in ("FETCH_BLOCKED", "FETCH_LOGIN_REQUIRED",
+                                        "FETCH_BROWSER_UNAVAILABLE"):
+                    raise browser_exc from exc
+                raise exc from browser_exc
+            log.info("浏览器渲染成功，%s 字", len(page.text))
+            return page
+
 
 
 _default_fetcher: BaseFetcher | None = None
 
 
 def get_fetcher() -> BaseFetcher:
-    """单例入口；测试里替换实现只需改这个模块的 `_default_fetcher`。"""
+    """单例入口；测试里替换实现只需改这个模块的 `_default_fetcher`。
+
+    默认是 `BrowserFallbackFetcher`：正常站点走的还是 httpx，浏览器只在失败时登场，
+    所以这里换实现不会拖慢任何一条现有路径。
+    """
     global _default_fetcher
     if _default_fetcher is None:
-        _default_fetcher = TrafilaturaFetcher()
+        _default_fetcher = BrowserFallbackFetcher()
     return _default_fetcher
 
 

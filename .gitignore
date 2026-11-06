@@ -27,6 +27,8 @@ tmp/
 .env
 .env.local
 .env.*.local
+# 登录助手导出的 cookie 就是登录态，等同密码；data/ 已被忽略，这里兜住指到别处的配置
+cookies.txt
 
 # ── 构建产物 ───────────────────────────
 dist/

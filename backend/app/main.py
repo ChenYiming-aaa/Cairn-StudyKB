@@ -15,7 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings, setup_logging
 from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
-from app.routers import env, health, ingest, knowledge, tasks
+from app.routers import auth, env, health, ingest, knowledge, tasks
+from app.services import browser
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
 
@@ -40,6 +41,8 @@ async def lifespan(_: FastAPI):
     try:
         yield
     finally:
+        # 先让登录线程收手，再关线程池：否则退出时可能留下一个孤立的浏览器窗口
+        browser.shutdown()
         shutdown()
 
 
@@ -57,6 +60,7 @@ app.add_middleware(
 app.add_exception_handler(ApiError, api_error_handler)
 app.include_router(health.router)
 app.include_router(env.router)
+app.include_router(auth.router)
 app.include_router(ingest.router)
 app.include_router(knowledge.router)
 app.include_router(tasks.router)

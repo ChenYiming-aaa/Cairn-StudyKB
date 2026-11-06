@@ -117,10 +117,16 @@ function goSee() {
 }
 
 watch(() => props.open, (open) => {
-  if (open) reset()
+  if (open) {
+    reset()
+    refreshAuth()          // 打开面板先同步登录态，避免「已登录」显示成旧的
+  }
 })
 
-onBeforeUnmount(() => stopPoll?.())
+onBeforeUnmount(() => {
+  stopPoll?.()
+  clearTimeout(authPoll)
+})
 
 function tryClose() {
   // 任务在跑也可以关：后端线程池照常跑，任务中心能看到结果
@@ -218,6 +224,82 @@ async function retry() {
   } finally {
     submitting.value = false
   }
+}
+
+// ── 站点登录 ───────────────────────────────────────────────
+/**
+ * 只有「需要登录才给内容」的站点用得上：B 站字幕、知乎受限页。
+ * 点登录由后端弹一个独立浏览器窗口（不是用户日常那个），登录态存在后端自己的
+ * profile 里，导出成 cookies.txt 给 yt-dlp 和网页抓取共用。
+ */
+const auth = reactive({
+  open: false,
+  sites: {},
+  busy: false,
+  message: '',
+  browserAvailable: true,
+  login: { status: 'idle', site: '' },
+})
+
+const loggedInLabels = computed(() =>
+  Object.values(auth.sites).filter((s) => s.logged_in).map((s) => s.label)
+)
+
+const authSummary = computed(() =>
+  loggedInLabels.value.length ? `已登录 ${loggedInLabels.value.join('、')}` : '均未登录'
+)
+
+const authHint = computed(() => {
+  // 任务因为"要登录/被拦"失败时，把话说在这儿，省得用户去别处找原因
+  const code = task.value?.error_code
+  if (code === 'FETCH_BLOCKED') return '这条被站点拦下了，多半要登录；登录后再点一次重试。'
+  if (code === 'FETCH_LOGIN_REQUIRED') return '这条需要登录后才能看，先登录再重试。'
+  return ''
+})
+
+let authPoll = null
+
+/** 拉一次状态，返回 login.status 供轮询判断是否继续。 */
+async function refreshAuth() {
+  try {
+    const data = await api.authStatus()
+    auth.sites = data.sites || {}
+    auth.browserAvailable = data.browser_available !== false
+    const login = data.login || { status: 'idle', site: '' }
+    auth.login = login
+    if (login.message) auth.message = login.message
+    return login.status
+  } catch {
+    return 'idle'          // 状态拿不到不该打断采集，静默即可
+  }
+}
+
+function pollAuth() {
+  clearTimeout(authPoll)
+  const tick = async () => {
+    const status = await refreshAuth()
+    auth.busy = status === 'running'
+    if (status === 'running') authPoll = setTimeout(tick, 1200)
+  }
+  authPoll = setTimeout(tick, 600)
+}
+
+async function startLogin(site) {
+  auth.message = ''
+  try {
+    const res = await api.authLogin(site)
+    auth.login = res
+    auth.busy = res.status === 'running'
+    if (res.message) auth.message = res.message
+    if (auth.busy) pollAuth()
+  } catch (err) {
+    auth.message = friendlyMessage(err)
+  }
+}
+
+function loginLabel(key, site) {
+  if (auth.busy && auth.login?.site === key) return '等待登录…'
+  return site.logged_in ? '重新登录' : '登录'
 }
 </script>
 
@@ -321,6 +403,45 @@ async function retry() {
               ? '视频会先下音频再转录，1 分钟视频大约 1 分钟；首次使用要下载模型（small 约 500MB）。'
               : '只抓正文，导航与版权声明会被过滤；动态渲染的页面可能抓不到，建议改用粘贴。' }}
           </p>
+
+          <!-- 站点登录：只在需要时展开，不占正常采集的视线 -->
+          <section class="auth">
+            <button class="auth-head" type="button" @click="auth.open = !auth.open">
+              <span class="auth-dot" :class="{ on: loggedInLabels.length > 0 }" />
+              <span class="auth-title">站点登录</span>
+              <span class="auth-sum">{{ authSummary }}</span>
+              <span class="auth-more">{{ auth.open ? '收起' : '展开' }}</span>
+            </button>
+
+            <div v-if="auth.open" class="auth-body">
+              <p class="auth-tip">
+                需要登录才给内容的页面（B 站字幕、知乎受限页）共用这里的登录态。
+                点「登录」会弹出一个独立浏览器窗口，登完自动保存 —— 不碰你日常用的浏览器，
+                也不用再手工导出 cookies.txt。
+              </p>
+              <p v-if="!auth.browserAvailable" class="auth-warn">
+                后端没装上 playwright，浏览器能力不可用。装好后重启服务即可。
+              </p>
+              <div v-else class="auth-list">
+                <div v-for="(site, key) in auth.sites" :key="key" class="auth-item">
+                  <span class="auth-name">{{ site.label }}</span>
+                  <span class="auth-state" :class="{ on: site.logged_in }">
+                    {{ site.logged_in ? '已登录' : '未登录' }}
+                  </span>
+                  <button
+                    class="btn btn-sm"
+                    type="button"
+                    :disabled="auth.busy"
+                    @click="startLogin(key)"
+                  >
+                    {{ loginLabel(key, site) }}
+                  </button>
+                </div>
+              </div>
+              <p v-if="authHint" class="auth-warn">{{ authHint }}</p>
+              <p v-if="auth.message" class="auth-msg">{{ auth.message }}</p>
+            </div>
+          </section>
         </template>
 
         <!-- 文件 -->
@@ -514,6 +635,115 @@ async function retry() {
   margin: 0 0 var(--space-4);
   font-size: var(--fs-xs);
   color: var(--c-text-3);
+}
+
+/* ── 站点登录 ─────────────────────────────────────────── */
+.auth {
+  margin: 0 0 var(--space-4);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.auth-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: var(--c-bg-0);
+  font-size: var(--fs-xs);
+  color: var(--c-text-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.auth-head:hover {
+  background: var(--c-bg-2);
+}
+
+.auth-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-border);
+}
+
+.auth-dot.on {
+  background: var(--c-success);
+}
+
+.auth-title {
+  color: var(--c-text-1);
+}
+
+.auth-sum {
+  color: var(--c-text-3);
+}
+
+.auth-more {
+  margin-left: auto;
+  color: var(--c-text-3);
+}
+
+.auth-body {
+  padding: var(--space-3);
+  border-top: 1px solid var(--c-border);
+}
+
+.auth-tip {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-xs);
+  line-height: 1.65;
+  color: var(--c-text-3);
+}
+
+.auth-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.auth-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+}
+
+.auth-name {
+  min-width: 48px;
+  color: var(--c-text-1);
+}
+
+.auth-state {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+.auth-state.on {
+  color: var(--c-success);
+}
+
+.auth-item .btn {
+  margin-left: auto;
+}
+
+.auth-msg,
+.auth-warn {
+  margin: var(--space-2) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
+.auth-msg {
+  color: var(--c-text-2);
+}
+
+.auth-warn {
+  color: var(--c-warning);
 }
 
 .dropzone {

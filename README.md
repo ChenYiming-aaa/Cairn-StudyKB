@@ -76,7 +76,16 @@ cp .env.example .env
 | `LLM_EFFORT` | 思考档位 `low`／`high`／`max`，结构化任务用 `low` 省钱 |
 | `FFMPEG_DIR` | 本机 ffmpeg 在 Anaconda 下，显式指定避免 IDE 启动时找不到 |
 | `HF_ENDPOINT` | **别删**。直连 HuggingFace 不通，模型靠这个镜像下载 |
-| `YTDLP_COOKIES` | 可选。Netscape 格式 `cookies.txt` 的绝对路径。**B 站字幕必须登录才给**，不配就自动退回语音识别（功能不受影响，只是慢）。用浏览器扩展「Get cookies.txt LOCALLY」导出 |
+| `YTDLP_COOKIES` | 可选。Netscape 格式 `cookies.txt` 的绝对路径。留空则用登录助手写出的 `data/cookies.txt`。**一般不用手工配**：在采集面板点「站点登录 → B 站」即可，见下 |
+| `BROWSER_CHANNEL` | `msedge`（默认）。浏览器渲染用的通道，可选 `chrome`；置空则用 playwright 自带 Chromium（需先 `playwright install chromium`） |
+| `BROWSER_HEADLESS` | `1`（默认）。置 `0` 时渲染也弹窗口，排障用 |
+
+> **站点登录**：需要登录才给内容的站点（B 站字幕、知乎受限页）在采集面板的「链接采集」里
+> 点「站点登录」即可。后端会弹一个**独立**的浏览器窗口，登完自动导出 cookie 并立即生效，
+> 不用改 `.env`、不用重启，也不碰你日常用的浏览器。
+> 知乎这类站点光有 cookie 不够（它拦的是浏览器指纹），所以网页抓取在 httpx 失败时会
+> 自动改用同一个浏览器渲染再抓一次，多花 3–5 秒。
+
 
 > 语音模型不是环境变量：视频采集时由请求体 `model` 决定（默认 `small`），
 > 首次使用自动下载到 `data/models/whisper/`（约 500MB，删了下次会重下）。

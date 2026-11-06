@@ -19,6 +19,8 @@ FETCH_MESSAGES: dict[str, str] = {
     "FETCH_NOT_FOUND": "目标页面不存在或已删除",
     "FETCH_INVALID": "该链接不是网页",
     "FETCH_EMPTY": "未能提取到正文（可能是动态渲染页面），建议改用粘贴文本",
+    "FETCH_BROWSER_UNAVAILABLE": "浏览器渲染不可用：请安装 Edge/Chrome，或执行 playwright install chromium",
+    "FETCH_LOGIN_REQUIRED": "该页面需要登录后才能看，请先在采集面板登录对应站点",
     "URL_INVALID": "链接格式不正确，请粘贴完整的 http(s) 地址",
 }
 

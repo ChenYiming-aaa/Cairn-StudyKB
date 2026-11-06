@@ -21,6 +21,8 @@ const FRIENDLY = [
   [/^LLM_/, '模型调用失败，请稍后重试（详细原因见任务记录）'],
   [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，无法抽取音频：请在后端 .env 里设置 FFMPEG_DIR 后重启'],
   [/^TRANSCRIBE_/, '转录失败，详细原因见下方提示或任务记录'],
+  [/^FETCH_BROWSER_UNAVAILABLE$/, '浏览器渲染不可用：请安装 Edge/Chrome，或让后端执行 playwright install chromium'],
+  [/^FETCH_LOGIN_REQUIRED$/, '该页面需要登录才能看，请先在采集面板里登录对应站点'],
   [/^FETCH_/, '采集失败：目标站点拒绝访问或没有有效正文'],
   [/^ITEM_NOT_FOUND$/, '条目不存在，可能已被删除'],
   [/^ITEM_BUSY$/, '该条目正在整理中，请等它结束'],
@@ -114,6 +116,10 @@ export const api = {
   /** 视频采集：返回 {task_id}，四阶段进度靠 pollTask 追 */
   ingestVideo: (payload) => post('/api/ingest/video', payload),
   envCheck: () => get('/api/env/check'),
+  /** 各站点登录态 + 当前登录任务进度（轮询用，只读文件很快） */
+  authStatus: () => get('/api/auth/status'),
+  /** 起一个受控浏览器窗口让用户登录，立即返回，结果靠 authStatus 轮询 */
+  authLogin: (site) => post(`/api/auth/login/${site}`),
 }
 
 const POLL_START = 1500
