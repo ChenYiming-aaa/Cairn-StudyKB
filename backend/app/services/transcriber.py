@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import subprocess
 import threading
 import wave
 from abc import ABC, abstractmethod
@@ -21,13 +22,14 @@ from pathlib import Path
 from typing import Callable
 
 import ctranslate2
+import httpx
 import numpy as np
 from faster_whisper import WhisperModel
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
 from app.config import get_settings
-from app.services import browser, subtitles
+from app.services import browser, subtitles, video_sites
 from app.services.fetch_errors import FetchError
 
 log = logging.getLogger(__name__)
@@ -190,8 +192,11 @@ def _classify_ytdlp_error(exc: DownloadError) -> FetchError:
     text = str(exc).lower()
     if "unsupported url" in text:
         return FetchError("TRANSCRIBE_UNSUPPORTED", detail="unsupported url")
+    # "fresh cookies" 是抖音/TikTok 提取器缺签名时的说法，落在 BLOCKED 比
+    # YTDLP_FAIL 更准确：不是网络问题，是平台风控要一个带签名的会话
     if any(k in text for k in ("sign in", "login", "private video", "http error 403",
-                               "http error 401", "members-only", "需要登录")):
+                               "http error 401", "members-only", "需要登录",
+                               "fresh cookies")):
         return FetchError("TRANSCRIBE_BLOCKED", detail=str(exc)[:200])
     if any(k in text for k in ("http error 404", "http error 410", "not found")):
         return FetchError("TRANSCRIBE_NOT_FOUND", detail=str(exc)[:200])
@@ -199,6 +204,35 @@ def _classify_ytdlp_error(exc: DownloadError) -> FetchError:
                                "requested format is not available")):
         return FetchError("TRANSCRIBE_NO_AUDIO", detail=str(exc)[:200])
     return FetchError("TRANSCRIBE_YTDLP_FAIL", detail=str(exc)[:200])
+
+
+def parse_douyin_detail(data: dict) -> tuple[str, float, str]:
+    """抖音详情 JSON → `(标题, 时长秒, 媒体直链)`。
+
+    纯函数：`verify_m2` 用构造数据就能覆盖"有视频 / 图文笔记 / 风控空体"三种形态，
+    不必真的开浏览器。
+    """
+    detail = (data or {}).get("aweme_detail") or {}
+    if not detail:
+        # 接口 200 + 空体是抖音风控的典型形态（缺 a_bogus 签名时就是这样）
+        raise FetchError("TRANSCRIBE_BLOCKED", detail="aweme_detail 为空（风控或缺少签名）")
+
+    video = detail.get("video") or {}
+    play_url = ""
+    for key in ("play_addr_h264", "play_addr", "download_addr"):
+        urls = (video.get(key) or {}).get("url_list") or []
+        if urls:
+            play_url = urls[0]
+            break
+    if not play_url:
+        raise FetchError("TRANSCRIBE_UNSUPPORTED", detail="图文笔记，没有视频轨道")
+
+    desc = (detail.get("desc") or "").strip() or "未命名视频"
+    # 抖音的 desc 是一整段文案 + 一堆话题标签，标题只留正文部分
+    head = desc.split("#")[0].strip()
+    title = (head or desc)[:100]
+    duration = float(video.get("duration") or 0) / 1000.0    # 抖音给的是毫秒
+    return title, duration, play_url
 
 
 class _YdlLogger:
@@ -253,6 +287,10 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
         tmp = Path(self._mkdtemp(work))
         try:
             report(0, STAGE_METADATA)
+            if video_sites.is_douyin(url):
+                # 抖音既没有字幕轨道，详情接口又要 a_bogus 签名：单独一条路径
+                return self._transcribe_douyin(url, tmp, report)
+
             title, duration, info = self._metadata(url, report)
 
             # ① 先看有没有现成字幕。「有就用、没有就转」，字幕链任何异常都只是降级
@@ -368,6 +406,100 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
             # 下到了文件但没能抽出音轨：多半是源本身没有音频流
             raise FetchError("TRANSCRIBE_NO_AUDIO", detail="postprocess 后无 wav 产出")
         return wavs[0]
+
+    # ── 抖音专用路径 ────────────────────────────────────────
+    def _transcribe_douyin(self, url: str, tmp: Path, report: ProgressFn) -> Transcript:
+        """抖音：浏览器截获详情 → 直链下 mp4 → ffmpeg 抽音轨 → 识别。
+
+        不走 yt-dlp 的原因见 `video_sites` 模块 docstring：详情接口要 `a_bogus` 签名，
+        改写链接只能解决 `Unsupported URL`，解决不了签名。
+        """
+        title, duration, play_url, cookies = self._douyin_meta(url)
+        report(P_META_DONE, STAGE_DOWNLOAD)
+        wav = self._download_media(play_url, tmp, cookies, report)
+        report(P_DOWNLOAD_DONE, STAGE_TRANSCRIBE)
+        text, detected, segments, real_duration = self._transcribe(wav, duration, report)
+        if not text.strip():
+            raise FetchError("TRANSCRIBE_EMPTY", detail="0 段语音")
+        return Transcript(url=url, title=title, text=text,
+                          duration=real_duration or duration,
+                          language=detected, segment_count=segments, source="asr")
+
+    @staticmethod
+    def _douyin_meta(url: str) -> tuple[str, float, str, list[dict]]:
+        try:
+            data, cookies = browser.capture_json(
+                url, contains="/aweme/v1/web/aweme/detail/", wait_ms=15_000
+            )
+        except browser.BrowserUnavailable as exc:
+            raise FetchError("TRANSCRIBE_BROWSER_UNAVAILABLE",
+                             detail=f"{type(exc).__name__}: {str(exc)[:120]}") from exc
+        except browser.BrowserTimeout as exc:
+            raise FetchError("TRANSCRIBE_BLOCKED",
+                             detail=f"抖音详情接口无响应：{str(exc)[:120]}") from exc
+        title, duration, play_url = parse_douyin_detail(data)
+        return title, duration, play_url, cookies
+
+    def _download_media(self, media_url: str, tmp: Path,
+                        cookies: list[dict], report: ProgressFn) -> Path:
+        """下视频直链再抽音轨。mp4 通常几十 MB，进度按 content-length 折算到 5–30。"""
+        headers = {"User-Agent": browser.UA, "Referer": "https://www.douyin.com/",
+                   "Accept": "*/*"}
+        jar = "; ".join(f"{c['name']}={c['value']}" for c in cookies if c.get("name"))
+        if jar:
+            headers["Cookie"] = jar
+
+        target = tmp / "media.mp4"
+        last = [-1]
+        try:
+            with httpx.Client(timeout=120, follow_redirects=True, headers=headers) as client:
+                with client.stream("GET", media_url) as resp:
+                    if resp.status_code != 200:
+                        raise FetchError("TRANSCRIBE_BLOCKED",
+                                         detail=f"媒体地址 HTTP {resp.status_code}")
+                    total = int(resp.headers.get("content-length") or 0)
+                    got = 0
+                    with open(target, "wb") as fh:
+                        for chunk in resp.iter_bytes(1 << 16):
+                            fh.write(chunk)
+                            got += len(chunk)
+                            if not total:
+                                continue
+                            value = P_META_DONE + int(
+                                got / total * (P_DOWNLOAD_DONE - P_META_DONE))
+                            if value != last[0]:
+                                last[0] = value
+                                report(value, STAGE_DOWNLOAD)
+        except FetchError:
+            raise
+        except Exception as exc:                    # noqa: BLE001 - 网络/磁盘都归到下载失败
+            raise FetchError("TRANSCRIBE_YTDLP_FAIL",
+                             detail=f"{type(exc).__name__}: {str(exc)[:120]}") from exc
+
+        if not target.exists() or target.stat().st_size == 0:
+            raise FetchError("TRANSCRIBE_YTDLP_FAIL", detail="媒体文件为空")
+        return self._extract_audio(target, tmp / "audio.wav")
+
+    @staticmethod
+    def _extract_audio(src: Path, dst: Path) -> Path:
+        """固定输出 16k 单声道 16bit —— `read_wav` 只认这个格式。"""
+        cfg = get_settings()
+        exe = str(cfg.ffmpeg_exe) if cfg.ffmpeg_exe else "ffmpeg"
+        try:
+            proc = subprocess.run(
+                [exe, "-y", "-i", str(src), "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE),
+                 "-c:a", "pcm_s16le", str(dst)],
+                capture_output=True, text=True, timeout=600,
+            )
+        except FileNotFoundError as exc:
+            raise FetchError("TRANSCRIBE_NO_FFMPEG",
+                             detail="PATH 与 FFMPEG_DIR 都找不到 ffmpeg") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise FetchError("TRANSCRIBE_NO_AUDIO", detail="ffmpeg 抽音频超时") from exc
+        if proc.returncode != 0 or not dst.exists():
+            raise FetchError("TRANSCRIBE_NO_AUDIO",
+                             detail=(proc.stderr or "")[-200:].replace("\n", " "))
+        return dst
 
     # ── 阶段三：识别 ────────────────────────────────────────
     def _transcribe(

@@ -29,9 +29,8 @@ function onCreated(result) {
   toastOk(result.duplicated ? `内容已存在，已定位到「${result.title}」` : `已加入「${result.title}」`)
 }
 
-/** 链接已在库里：不派任务，刷新后把用户带到已有条目 */
+/** 链接已在库里：**不关面板**，面板会切成完成态让用户自己点「去看看」 */
 function onExisting(itemId) {
-  closePaste()
   requestRefresh()
   toastInfo(`该链接已在知识库中（条目 #${itemId}）`)
 }

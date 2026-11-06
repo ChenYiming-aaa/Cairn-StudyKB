@@ -938,3 +938,46 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **下一会话第一件事**
 > 若用户已确认登录可用：用刚才登录的 cookie 采一条 B 站带 CC 字幕的视频，确认
 > `output_json.source == "subtitle"` 且正文 `[mm:ss]` 时间戳正确。否则先修遗留问题 1。
+
+## 2026-11-06 21:10 · M2 打磨 · 抖音可采 + 采集面板三处修正
+
+**起因**：用户反馈三件事——① 采集完成后按钮看不到「继续采集 / 去看看」；② 网页采完切到视频，
+链接还留在框里；③ 抖音链接报 `TRANSCRIBE_UNSUPPORTED`。
+
+**① 与 ② 的真实情况**
+- 完成态在开发环境实测是**正常的**（`继续采集` / `去看看`，点击后面板关闭且条目被选中）。
+  用 Playwright 走了一遍真实采集：`foot buttons: ['继续采集', '去看看']`。
+- 用户真正撞上的是**另一条路径**：粘了一个已在库里的链接（`p/578214101` = item 33），
+  后端回 `existing_item_id`，旧代码把面板直接关掉、只给一句 toast —— 于是"采集完成后没有
+  继续采集/去看看"。现已改成**就地切成完成态**（`output_json.duplicated=true`，文案说明
+  已在库里、没有重复入库），按钮与正常入库一致。
+- ② 确认是真 bug：`switchKind` 只清任务不清链接。改成清链接 + 模型回默认 + 焦点回输入框。
+
+**③ 抖音：两个坑叠加，见 ADR-024**
+- 链接形态：`jingxuan?modal_id=<id>` → `/video/<id>`（`services/video_sites.py`）
+- 签名：yt-dlp 缺 `a_bogus` 恒失败；改为浏览器截获页面自己的 `aweme/detail` 响应
+  （`browser.capture_json`），拿直链 → 下 mp4 → ffmpeg 抽音轨 → whisper
+- 顺带：B 站链接去掉 `t`/`spm_id_from` 但保留 `p`；`youtu.be` 归一；短链先跟随跳转
+- 标题取文案 `#` 之前的部分，避免被话题标签占满
+
+**改动文件**
+- 新增 `backend/app/services/video_sites.py`
+- `backend/app/services/browser.py`（`capture_json`）
+- `backend/app/services/transcriber.py`（`parse_douyin_detail`、`_transcribe_douyin`、
+  `_download_media`、`_extract_audio`；`fresh cookies` 归到 BLOCKED）
+- `backend/app/services/video_ingest.py`（入库前 `canonicalize`）
+- `backend/app/services/fetch_errors.py`（`TRANSCRIBE_BROWSER_UNAVAILABLE`）
+- `frontend/src/components/IngestPanel.vue`、`frontend/src/App.vue`
+- `backend/scripts/verify_m2.py`（第 12 组 16 项）、`frontend/e2e/m1_flow.py`（第 6 步 2 项）
+
+**验证**
+- `verify_m2` → **104/104 PASS**；`verify_m1` → 51/51；`npm run e2e` → **26/26**
+- lint 0、build 通过
+- **真实抖音链路**：`jingxuan?modal_id=7704937199334116608` → item 37，
+  158 秒、88 段、4 块，`source=asr`，`source_url` 已归一成 `douyin.com/video/7704937199334116608`
+- 重复链接：`p/578214101` 现在显示完成态，点「去看看」正确打开 item 33
+
+**仍已知**
+- whisper 中文默认输出**繁体**（抖音这条 1730 字里几乎全繁），`initial_prompt="以下是普通话的句子。"`
+  能明显改善，但会改变所有视频的输出，等用户拍板再加
+- 抖音依赖页面结构，字段改名就失效；解析收在 `parse_douyin_detail` 一个纯函数里

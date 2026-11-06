@@ -292,6 +292,72 @@ def render(url: str, *, headless: bool | None = None,
     return html, final, status
 
 
+# ── 截获页面自己的 XHR ──────────────────────────────────────
+
+def capture_json(url: str, *, contains: str, headless: bool | None = None,
+                 timeout_ms: int = NAV_TIMEOUT_MS, wait_ms: int = 12_000,
+                 min_bytes: int = 1000) -> tuple[dict, list[dict]]:
+    """打开页面，截获**页面自己发出**的、URL 含 `contains` 的 JSON 响应。
+
+    为什么不让 httpx 直接请求：抖音详情接口要 `a_bogus` 签名，签名算在页面自己的
+    JS 里，外部复现不了；用页面自己去请求，我们只在旁边听结果，就不用逆向签名。
+
+    返回 `(json, cookies)`。`cookies` 给调用方下载媒体用（部分 CDN 会校验）。
+    """
+    if not PLAYWRIGHT_AVAILABLE:
+        raise BrowserUnavailable("未安装 playwright")
+    import json as _json
+
+    want_headless = get_settings().browser_headless if headless is None else headless
+    found: dict = {}
+
+    def _on_response(resp) -> None:
+        if found or contains not in resp.url:
+            return
+        try:
+            if resp.status != 200:
+                return
+            body = resp.text()
+        except Exception:               # noqa: BLE001 - 响应体可能已被丢弃
+            return
+        if len(body) < min_bytes:
+            # 抖音缺签名时返回 200 + 空体，别把它当成成功
+            return
+        try:
+            found["json"] = _json.loads(body)
+        except ValueError:
+            return
+
+    with _pw_lock:
+        try:
+            with sync_playwright() as p:
+                ctx = _launch_context(p, want_headless)
+                try:
+                    page = ctx.new_page()
+                    page.on("response", _on_response)
+                    try:
+                        page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+                    except PlaywrightError as exc:
+                        if "Timeout" in type(exc).__name__ or "Timeout" in str(exc):
+                            raise BrowserTimeout(str(exc)[:120]) from exc
+                        raise
+                    for _ in range(max(1, wait_ms // 500)):
+                        if found:
+                            break
+                        page.wait_for_timeout(500)
+                    cookies = ctx.cookies()
+                finally:
+                    _safe_close(ctx)
+        except (BrowserUnavailable, BrowserTimeout):
+            raise
+        except PlaywrightError as exc:
+            raise BrowserUnavailable(f"{type(exc).__name__}: {str(exc)[:120]}") from exc
+
+    if not found:
+        raise BrowserTimeout(f"等 {wait_ms // 1000} 秒没等到 {contains} 的响应")
+    return found["json"], cookies
+
+
 # ── 登录 ────────────────────────────────────────────────────
 
 def login_state() -> dict:

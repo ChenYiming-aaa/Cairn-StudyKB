@@ -100,7 +100,11 @@ function switchMode(key) {
 function switchKind(kind) {
   if (busy.value || kind === link.kind) return
   link.kind = kind
+  // 网页地址和视频地址不通用：留着上一条只会让人误点「开始采集」白跑一趟
+  link.url = ''
+  link.model = 'small'
   clearTask()
+  nextTick(() => urlInput.value?.focus())
 }
 
 /** 「继续采集」：清空结果与链接，光标回到输入框，留在当前入口 */
@@ -200,7 +204,18 @@ async function submitLink() {
       ? await api.ingestVideo({ url, model: link.model })
       : await api.ingestUrl({ url })
     if (!res.task_id) {
-      // 同一 URL 已在库里：不派任务，直接把用户带到已有条目
+      // 同一 URL 已在库里：不派任务，但也**不要**把面板直接关掉 ——
+      // 用户要的是「去看看」，一句 toast 顶不上，而且面板一消失就像没采成。
+      // 就地摆成完成态，按钮与正常入库完全一致。
+      stopPoll?.()
+      stopPoll = null
+      task.value = {
+        id: '',
+        status: 'done',
+        progress: 100,
+        stage: 'saving',
+        output_json: { item_id: res.existing_item_id, duplicated: true },
+      }
       emit('existing', res.existing_item_id)
       return
     }
@@ -467,8 +482,13 @@ function loginLabel(key, site) {
             <span v-if="task.error_code" class="code">{{ task.error_code }}</span>
           </p>
           <p v-else-if="done" class="ok-msg">
-            {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕入库（没有跑语音识别）。' : '已入库。' }}
-            可以继续采集下一条，或点「去看看」打开它。
+            <template v-if="task.output_json?.duplicated">
+              这条已经在知识库里了，没有重复入库。可以继续采集下一条，或点「去看看」打开它。
+            </template>
+            <template v-else>
+              {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕入库（没有跑语音识别）。' : '已入库。' }}
+              可以继续采集下一条，或点「去看看」打开它。
+            </template>
           </p>
           <p v-else-if="waitHint" class="wait-msg">{{ waitHint }}</p>
         </section>

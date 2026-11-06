@@ -31,8 +31,9 @@ TRANSCRIBE_MESSAGES: dict[str, str] = {
     "TRANSCRIBE_NOT_FOUND": "目标视频不存在或已删除",
     "TRANSCRIBE_NO_AUDIO": "该视频没有音轨，无法转录",
     "TRANSCRIBE_MODEL_FAIL": "语音模型加载或识别失败，可换更小的模型重试",
-    "TRANSCRIBE_UNSUPPORTED": "暂不支持该链接（播放列表、直播或非常规站点）",
+    "TRANSCRIBE_UNSUPPORTED": "暂不支持该链接（播放列表、直播、图文笔记或非常规站点）",
     "TRANSCRIBE_BLOCKED": "该平台要求登录或限制下载，暂不支持",
+    "TRANSCRIBE_BROWSER_UNAVAILABLE": "抖音需要真实浏览器取数据：请安装 Edge/Chrome，或执行 playwright install chromium",
     "TRANSCRIBE_EMPTY": "未识别到语音内容（可能是纯音乐或静音）",
 }
 

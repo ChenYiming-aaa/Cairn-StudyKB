@@ -115,14 +115,14 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
             page.screenshot(path=str(SHOTS / f"{name}.png"), full_page=False)
 
         try:
-            step("1/7 首屏与后端连接")
+            step("1/8 首屏与后端连接")
             page.goto(base_url, wait_until="domcontentloaded")
             page.wait_for_selector(".shell", timeout=15000)
             page.wait_for_selector(".conn.ok", timeout=15000)
             check("首屏渲染且顶栏显示「已连接」", page.locator(".conn").inner_text().strip() == "已连接")
             shot("01-empty")
 
-            step("2/7 粘贴 800 字 → 列表出现待整理")
+            step("2/8 粘贴 800 字 → 列表出现待整理")
             page.locator(".topbar button.btn-primary").click()
             page.wait_for_selector(".dialog textarea", timeout=8000)
             page.locator(".dialog textarea").fill(BODY)
@@ -138,7 +138,7 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
             check("列表徽标显示「待整理」", first_badge == "待整理", first_badge)
             shot("02-pending")
 
-            step("3/7 整理（真实 LLM）→ 就绪")
+            step("3/8 整理（真实 LLM）→ 就绪")
             page.locator(".rows li").first.locator(".row").click()
             page.wait_for_selector(".detail-head", timeout=10000)
             page.get_by_role("button", name="开始整理").click()
@@ -162,7 +162,7 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
             check("关键点至少 3 条", page.locator(".points li").count() >= 3, f"{page.locator('.points li').count()} 条")
             shot("03-ready")
 
-            step("4/7 分类树出现该分类，点击后列表被过滤")
+            step("4/8 分类树出现该分类，点击后列表被过滤")
             category = detail["category"]
             page.wait_for_selector(".tree .group", timeout=10000)
             node = page.locator(".tree .node", has_text=category).first
@@ -177,7 +177,7 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
                   == str(api(api_base, "GET", "/api/knowledge/categories")["counts"]["total"]))
             shot("04-filtered")
 
-            step("5/7 编辑结构化笔记并保存")
+            step("5/8 编辑结构化笔记并保存")
             page.locator(".tree .node.root").click()
             page.wait_for_timeout(800)
             page.locator(".rows li").first.locator(".row").click()
@@ -219,11 +219,27 @@ def run(base_url: str, api_base: str, timeout: int, keep: bool) -> int:
                   any(c["source"] == "note" for c in note_rows), f"{len(note_rows)} 块")
             shot("06-after-reload")
 
-            step("6/7 console 无报错")
+            step("6/8 采集面板：切入口不残留")
+            page.get_by_role("button", name="＋ 采集内容").click()
+            page.wait_for_selector(".dialog", timeout=8000)
+            page.get_by_role("button", name="链接采集").click()
+            page.wait_for_timeout(400)
+            url_box = page.locator(".dialog input[type=url]")
+            url_box.fill("https://zhuanlan.zhihu.com/p/578214101")
+            page.get_by_role("button", name="视频转录").click()
+            page.wait_for_timeout(400)
+            left = url_box.input_value()
+            # 网页地址粘到「视频转录」里只会白跑一趟：切入口必须清空
+            check("网页 → 视频切换后链接被清空", left == "", left)
+            page.get_by_role("button", name="关闭").click()
+            page.wait_for_selector(".dialog", state="detached", timeout=8000)
+            check("点关闭后面板收起", page.locator(".dialog").count() == 0)
+
+            step("7/8 console 无报错")
             real_errors = [e for e in console_errors if "favicon" not in e.lower()]
             check("浏览器 console 无 error", not real_errors, f"{len(real_errors)} 条：{real_errors[:2]}")
 
-            step("7/7 清理")
+            step("8/8 清理")
             if keep:
                 print(f"    [SKIP] --keep：保留条目 {item_id} 与截图 {SHOTS}")
             else:

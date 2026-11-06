@@ -136,7 +136,7 @@ fake_transcriber = FakeTranscriber()
 
 
 def step_endpoints(client: TestClient) -> None:
-    step("1/11 端点登记与基座")
+    step("1/12 端点登记与基座")
     spec = client.get("/openapi.json").json()
     paths = set(spec["paths"])
     check("POST /api/ingest/video 已登记", "/api/ingest/video" in paths)
@@ -147,7 +147,7 @@ def step_endpoints(client: TestClient) -> None:
 
 
 def step_web_ok(client: TestClient) -> int:
-    step("2/11 网页采集成功入库")
+    step("2/12 网页采集成功入库")
     fake_fetcher.__init__()
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -174,7 +174,7 @@ def step_web_ok(client: TestClient) -> int:
 
 
 def step_dedupe(client: TestClient, item_id: int) -> None:
-    step("3/11 去重与 force")
+    step("3/12 去重与 force")
     before = sql("SELECT COUNT(*) FROM knowledge_item")[0][0]
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/a"})
     body = resp.json()
@@ -213,7 +213,7 @@ def step_dedupe(client: TestClient, item_id: int) -> None:
 
 
 def step_web_failures(client: TestClient) -> None:
-    step("4/11 网页失败三类（假实现，不碰真实站点）")
+    step("4/12 网页失败三类（假实现，不碰真实站点）")
     expect = {
         "FETCH_NOT_FOUND": "exists_not",
         "FETCH_EMPTY": "too_short",
@@ -234,7 +234,7 @@ def step_web_failures(client: TestClient) -> None:
 
 
 def step_video(client: TestClient) -> None:
-    step("5/11 视频转录：四阶段进度 + 时间戳正文")
+    step("5/12 视频转录：四阶段进度 + 时间戳正文")
     fake_transcriber.__init__()
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/1", "model": "tiny"})
     body = resp.json()
@@ -274,7 +274,7 @@ def step_video(client: TestClient) -> None:
 
 
 def step_retry(client: TestClient) -> None:
-    step("6/11 任务重试")
+    step("6/12 任务重试")
     fake_fetcher.__init__()
     fake_fetcher.fail_code = "FETCH_TIMEOUT"
     resp = client.post("/api/ingest/url", json={"url": "https://example.com/retry-me"})
@@ -301,7 +301,7 @@ def step_retry(client: TestClient) -> None:
 
 
 def step_concurrency(client: TestClient) -> None:
-    step("7/11 并发：转录期间查询照常响应")
+    step("7/12 并发：转录期间查询照常响应")
     fake_transcriber.__init__()
     fake_transcriber.delay = 2.0
     resp = client.post("/api/ingest/video", json={"url": "https://example.com/v/slow"})
@@ -337,7 +337,7 @@ def step_concurrency(client: TestClient) -> None:
 
 
 def step_zombie_and_tmp() -> None:
-    step("8/11 僵尸任务与临时目录")
+    step("8/12 僵尸任务与临时目录")
     with sqlite3.connect(DB, timeout=10) as conn:
         conn.execute(
             """INSERT INTO agent_task (id, type, status, progress, created_at, updated_at)
@@ -356,7 +356,7 @@ def step_zombie_and_tmp() -> None:
 
 
 def step_env(client: TestClient) -> None:
-    step("9/11 环境自检")
+    step("9/12 环境自检")
     payload = client.get("/api/env/check").json()
     check("五项齐全", {"ffmpeg", "whisper", "embedding", "sqlite_vec", "llm"} <= set(payload),
           str(sorted(payload)))
@@ -393,7 +393,7 @@ def cleanup(keep: bool) -> None:
 
 # ── 字幕优先（T2.6 增强）────────────────────────────────────
 def step_subtitles() -> None:
-    step("10/11 现成字幕优先：选取 / 解析 / 失败降级")
+    step("10/12 现成字幕优先：选取 / 解析 / 失败降级")
     from unittest.mock import patch
 
     from app.services import subtitles as subs
@@ -455,7 +455,7 @@ def step_login_and_browser(client: TestClient) -> None:
     全程**不启动浏览器**：`_to_netscape` / `_build_page` / `BrowserFallbackFetcher`
     都是纯逻辑，注入假实现即可。登录弹窗那条只能人验，见 HANDOFF。
     """
-    step("11/11 站点登录与浏览器降级")
+    step("11/12 站点登录与浏览器降级")
     from http.cookiejar import MozillaCookieJar
 
     from app.services import browser
@@ -587,6 +587,75 @@ def step_login_and_browser(client: TestClient) -> None:
         jar_path.unlink(missing_ok=True)
 
 
+def step_video_sites() -> None:
+    """第 12 组：视频链接归一化 + 抖音详情解析（纯函数，不开浏览器）。"""
+    from yt_dlp.utils import DownloadError
+
+    from app.services import video_sites
+
+    check("抖音聚合页 modal_id 改写成单条视频地址",
+          video_sites.canonicalize(
+              "https://www.douyin.com/jingxuan?modal_id=7704937199334116608")
+          == "https://www.douyin.com/video/7704937199334116608",
+          video_sites.canonicalize(
+              "https://www.douyin.com/jingxuan?modal_id=7704937199334116608"))
+    check("抖音单条视频地址去掉追踪参数",
+          video_sites.canonicalize(
+              "https://www.douyin.com/video/123?is_from_webapp=1&sender_device=pc")
+          == "https://www.douyin.com/video/123")
+    check("抖音图文笔记被识别（下游判 UNSUPPORTED 而不是下载失败）",
+          video_sites.douyin_note_id("https://www.douyin.com/note/998877") == "998877")
+    check("B 站去掉 t / spm_id_from 但保留分 P",
+          video_sites.canonicalize(
+              "https://www.bilibili.com/video/BV1xHxj6WEjN?t=2.3&spm_id_from=333.1&p=2")
+          == "https://www.bilibili.com/video/BV1xHxj6WEjN?p=2",
+          video_sites.canonicalize(
+              "https://www.bilibili.com/video/BV1xHxj6WEjN?t=2.3&spm_id_from=333.1&p=2"))
+    check("youtu.be 短链改写成 watch 地址",
+          video_sites.canonicalize("https://youtu.be/dQw4w9WgXcQ")
+          == "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    check("普通网页链接原样返回",
+          video_sites.canonicalize("https://sspai.com/post/81419?x=1")
+          == "https://sspai.com/post/81419?x=1")
+
+    # ── 详情解析：三种真实形态 ──
+    detail = {
+        "aweme_detail": {
+            "desc": "  S12 无名教学  ",
+            "video": {"duration": 157900,
+                      "play_addr_h264": {"url_list": ["https://v.example/h264.mp4"]},
+                      "play_addr": {"url_list": ["https://v.example/addr.mp4"]}},
+        }
+    }
+    title, duration, play = transcriber.parse_douyin_detail(detail)
+    check("抖音标题取 desc 并去空白", title == "S12 无名教学", title)
+    check("抖音时长毫秒 → 秒", abs(duration - 157.9) < 0.01, str(duration))
+    check("优先取 h264 直链", play.endswith("h264.mp4"), play)
+
+    weird = {"aweme_detail": {"video": {"play_addr": {"url_list": ["x"]}}}}
+    check("没有 desc 时给默认标题",
+          transcriber.parse_douyin_detail(weird)[0] == "未命名视频")
+
+    try:
+        transcriber.parse_douyin_detail(
+            {"aweme_detail": {"desc": "图文", "images": [{}], "video": {}}})
+        check("图文笔记 → TRANSCRIBE_UNSUPPORTED", False, "没有抛错")
+    except FetchError as exc:
+        check("图文笔记 → TRANSCRIBE_UNSUPPORTED",
+              exc.code == "TRANSCRIBE_UNSUPPORTED", exc.code)
+
+    try:
+        transcriber.parse_douyin_detail({"aweme_detail": None})
+        check("风控空体 → TRANSCRIBE_BLOCKED", False, "没有抛错")
+    except FetchError as exc:
+        check("风控空体 → TRANSCRIBE_BLOCKED", exc.code == "TRANSCRIBE_BLOCKED", exc.code)
+
+    err = transcriber._classify_ytdlp_error(
+        DownloadError("[Douyin] 123: Fresh cookies (not necessarily logged in) are needed"))
+    check("yt-dlp 的 fresh cookies 归到 BLOCKED（不是 YTDLP_FAIL）",
+          err.code == "TRANSCRIBE_BLOCKED", err.code)
+
+
 def main() -> int:
     keep = "--keep" in sys.argv[1:]
     print("=" * 62)
@@ -611,6 +680,7 @@ def main() -> int:
             step_env(client)
             step_subtitles()
             step_login_and_browser(client)
+            step_video_sites()
     except Exception as exc:  # 任何未捕获异常都算验收失败
         aborted = f"{type(exc).__name__}: {exc}"
         traceback.print_exc()

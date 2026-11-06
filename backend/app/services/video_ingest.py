@@ -13,6 +13,7 @@ import sqlite3
 from app.db.conn import get_conn
 from app.db.repo import items as repo
 from app.services import tasks as task_queue
+from app.services import video_sites
 from app.services.fetcher import normalize_url
 from app.services.transcriber import (
     P_TRANSCRIBE_DONE, BaseTranscriber, Transcript, YtDlpWhisperTranscriber, get_transcriber,
@@ -44,7 +45,9 @@ def _pick_transcriber(model: str, language: str) -> BaseTranscriber:
 
 def run(payload: dict, task_id: str) -> dict:
     """任务入口。签名 (payload, task_id) 由 tasks.submit(pass_task_id=True) 调用。"""
-    url = normalize_url(str(payload.get("url") or ""))
+    # 归一化：抖音聚合页（jingxuan?modal_id=…）改写成单条视频地址，
+    # 顺带去掉 `?t=`、`spm_id_from=` 这类追踪参数，同一视频不会重复入库
+    url = video_sites.canonicalize(normalize_url(str(payload.get("url") or "")))
     force = bool(payload.get("force"))
     model = str(payload.get("model") or "")
     language = str(payload.get("language") or "")
