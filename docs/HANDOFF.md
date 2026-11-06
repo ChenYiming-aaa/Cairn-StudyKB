@@ -1157,3 +1157,14 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **下一会话第一件事**
 > 打开 `milestones/M3-检索与学习页.md` 的 T3.7，写 `services/mindmap.py`（纯 Python 出 SVG，
 > 零依赖，先跑通 `parse_tree` + 四步布局再谈配色）；导图 Tab 是条目详情的第 4 个 Tab。
+
+**推送状态：本地已提交，GitHub 未推（需要你用普通终端执行一次）**
+- 本地：`71e0a81 feat(M3): T3.1–T3.6 检索问答` + 标签 `m3-wip`
+- 推送失败原因：本会话里 GCM 走不通——`GCM_INTERACTIVE=never` 下报
+  `fatal: Cannot prompt because user interactivity has been disabled`；
+  试过 PATH 里的精简版、`C:/Program Files\Git\mingw64\bin\git-credential-manager.exe`
+  （`credential.helper=!"路径"` 形式）都一样要交互。凭据管理器里确实有
+  `git:https://github.com` 的记录，但这个会话用不上
+- 请你执行（普通终端，会弹一次浏览器登录）：
+  `"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
+- 推完核对：`"C:/Program Files/Git/cmd/git.exe" ls-remote --heads origin` 应显示 `71e0a81`
