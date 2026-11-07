@@ -54,7 +54,8 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | [`docs/00-总纲.md`](docs/00-总纲.md) | **入口**。红线、技术栈、里程碑地图、会话工作法 |
 | [`docs/milestones/`](docs/milestones/) | 每个里程碑的自包含执行文档 |
 | [`docs/contracts/`](docs/contracts/) | 数据契约、接口契约、决策记录（ADR） |
-| [`docs/HANDOFF.md`](docs/HANDOFF.md) | 进度台账（每次会话结尾追加） |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md) | 进度台账：顶部「当前状态」表 + 最近条目（每次会话结尾追加） |
+| [`docs/archive/`](docs/archive/) | 归档：已完结且不再是前置的里程碑台账、v1.0 规格书。**只做追溯，不读** |
 
 ## 开发约定
 
