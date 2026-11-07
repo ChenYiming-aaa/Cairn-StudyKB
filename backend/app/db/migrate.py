@@ -12,7 +12,14 @@ log = logging.getLogger(__name__)
 
 SCHEMA_FILE = Path(__file__).with_name("schema.sql")
 VEC_FILE = Path(__file__).with_name("schema_vec.sql")
-SCHEMA_VERSION = 1
+MIGRATIONS_DIR = Path(__file__).with_name("migrations")
+SCHEMA_VERSION = 2
+
+# 老库升级：{起始版本: 脚本}。只允许"追加"性质的变化，
+# 改既有列必须新开一版并写清回填方式（数据契约 §1）。
+UPGRADES = {
+    1: "v2_ask_log.sql",   # T3.12 问答历史
+}
 
 
 def _vec_extension_available(conn: sqlite3.Connection) -> bool:
@@ -36,12 +43,28 @@ def _migrate_base(conn: sqlite3.Connection) -> None:
     if version >= SCHEMA_VERSION:
         log.info("数据库已是 v%s，跳过建表", version)
         return
-    if version != 0:
-        raise RuntimeError(f"未知数据库版本 user_version={version}，拒绝自动迁移")
-    conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
-    conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
-    conn.commit()
-    log.info("已按 schema.sql 建库，user_version=%s", SCHEMA_VERSION)
+    if version == 0:
+        conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
+        conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+        conn.commit()
+        log.info("已按 schema.sql 建库，user_version=%s", SCHEMA_VERSION)
+        return
+    # 老库逐版升级。每个版本单独提交，升到一半失败时下次能接着升，
+    # 不会出现"表建了一半但版本号已经跳过去"的错位。
+    while version < SCHEMA_VERSION:
+        script = UPGRADES.get(version)
+        if script is None:
+            raise RuntimeError(
+                f"未知数据库版本 user_version={version}，拒绝自动迁移"
+            )
+        path = MIGRATIONS_DIR / script
+        if not path.exists():
+            raise RuntimeError(f"缺少迁移脚本 {script}，数据库停在 v{version}")
+        conn.executescript(path.read_text(encoding="utf-8"))
+        version += 1
+        conn.execute(f"PRAGMA user_version={version}")
+        conn.commit()
+        log.info("数据库已升级到 v%s（%s）", version, script)
 
 
 def _migrate_vec(conn: sqlite3.Connection) -> None:

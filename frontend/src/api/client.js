@@ -164,6 +164,10 @@ export const api = {
   health: () => get('/api/health'),
   /** 全文 + 向量融合检索（M3 T3.1/T3.4），返回 {items,total,fallback,match_type} */
   search: (params) => get('/api/search', params),
+  /** 问答历史（T3.12）：列表不带来源快照，详情才有 */
+  askHistory: (params) => get('/api/ask/history', params),
+  askHistoryDetail: (id) => get(`/api/ask/history/${id}`),
+  deleteAskHistory: (id) => del(`/api/ask/history/${id}`),
   listItems: (params) => get('/api/knowledge', params),
   /** 分类/标签两级计数 + 状态计数（左侧树与「整理全部」气泡） */
   categories: () => get('/api/knowledge/categories'),

@@ -143,3 +143,22 @@ CREATE TABLE llm_call_log (
   error_msg         TEXT,
   created_at        TEXT NOT NULL
 );
+
+-- ── 问答历史（T3.12 / v2）────────────────────────────────
+-- 老库升级走 app/db/migrations/v2_ask_log.sql，两处 DDL 必须一致：
+-- 新建库执行本文件，已有库只补这一段（migrate.py 按 user_version 分派）。
+CREATE TABLE ask_log (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  question          TEXT    NOT NULL,
+  answer            TEXT    NOT NULL DEFAULT '',
+  sources_json      TEXT,             -- JSON 数组，含 content 快照
+  match_type        TEXT,             -- fts | like | none
+  fallback          TEXT,
+  no_result         INTEGER NOT NULL DEFAULT 0,
+  error_code        TEXT,
+  prompt_tokens     INTEGER,
+  completion_tokens INTEGER,
+  duration_ms       INTEGER,
+  created_at        TEXT    NOT NULL
+);
+CREATE INDEX idx_ask_time ON ask_log(created_at DESC);

@@ -1194,3 +1194,58 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 `llm_call_log` 35→35 未新增）；`verify_m1` 51/51、`verify_m2` 115/115；
 `VECTOR_ENABLED=0` 实例上检索/问答均正常、`fallback=vector_disabled`；
 `doc_check` 6 项通过、前端 lint 干净。
+
+## 2026-11-07 11:05 · M3 · T3.12 问答历史（追加任务）
+
+**来源**：用户问"问答记录能不能存"，查了三处（总纲 §4 里程碑地图 / M3 任务表 / 数据契约 19 张表）
+确认**原计划里没有**——不是"还没做"而是"没规划"。用户裁决：落库做单轮历史，记为 **M3 的 T3.12**。
+
+**为什么值得做**：现在 `/api/ask` 一个字都不落库，`llm_call_log` 只有 token 与耗时、
+**没有问题和答案文本**，关掉页面就等于没问过。存下来有三个后续用途：
+① M4 出题的原料（"问过但库里没答案"= 该补什么内容的清单）；
+② M5 仪表盘指标（问答次数 / 无结果比例）；
+③ 好答案可以一键沉淀成条目（未做，留待以后）。
+
+**边界（刻意不做）**：只存**单轮**，没有 session、没有多轮上下文、追问就是新的一行。
+多轮是另一个量级（要 session+message 两表、要带历史 messages 重算 prompt 成本），需要 ADR，本次不做。
+
+**改动**
+- 数据契约新增 `ask_log`（12 列）+ `idx_ask_time`，§3 补三条字段语义，§5 写明**不跟任何表级联**、
+  §8 补索引用途；`schema.sql` 末尾追加同段 DDL
+- **数据库升到 v2**：`migrate.py` 的 `SCHEMA_VERSION=2`，新增 `UPGRADES={1:"v2_ask_log.sql"}` 逐版升级循环，
+  脚本放 `app/db/migrations/`。原先 `version != 0` 直接抛 `RuntimeError`，不补这条分支老库会起不来
+- `db/repo/ask_log.py`：save / list（**不返回完整 answer**，只给 80 字预览）/ get / delete / count / clear
+- `routers/ask.py`：`done` 事件发出**之前**落库（前端收到 done 时历史已可查）；
+  `no_result` 也记（`prompt_tokens` 为空，证明确实没调模型）；LLM 出错记 `error_code`；
+  落库失败只 log 不抛（历史存不下不该让用户看不到答案）
+- 新增 `GET /api/ask/history`、`GET /api/ask/history/{id}`、`DELETE /api/ask/history/{id}`，
+  契约已同步；列表与详情返回的字段不同（列表无 answer、无 sources）
+- 前端 `Ask.vue`：头部加「历史」按钮 + 条数角标；右侧抽屉列出问题/预览/时间/来源数/tokens，
+  点一条**把当时的问题、答案、来源恢复回主视图但不重新调模型**，并显示「历史记录 · 时间（不会重新调模型）」；
+  单条删除（×）。`api/client.js` 加三个方法
+
+**踩到的坑**
+- 拷 `data.db` 做迁移演练时只拷主文件，**数据全是 0**——WAL 模式下内容还在 `data.db-wal` 里。
+  演练与备份一律用 `sqlite3.Connection.backup()`，别用 `cp`
+- 列表接口一开始把完整 `answer` 也返回了（`row_to_log` 保留了所有列），预览和全文一起下发没有意义，已改
+- `.tabs` 在 `.head-right` 里会被压缩（实测只剩 90px，两个 tab 合计正好 90，文字没被切，
+  但为了稳），给 `.tab` 加了 `white-space: nowrap`、`.head-right` 加了 `flex: none`
+
+**验证（都真跑）**
+- 迁移：在**副本**上 v1→v2 成功，条目 10 / chunk 84 / chunk_fts 84 全在；重复执行幂等；
+  全新建库得到 20 张表 + user_version=2；真实库备份后重启自动升级，日志
+  `数据库已升级到 v2（v2_ask_log.sql）`
+- `verify_t312.py`（新建的现场脚本）**19/19 PASS**：入历史、字段完整、列表不含全文、
+  详情带来源快照、库外问题 `no_result=1`、404、重复删除、抽屉列表、点回不调模型
+  （`llm_call_log` 45→45）、角标 +1、页面无 JS 报错
+- 回归：`verify_m1` 51/51（版本断言改成跟 `SCHEMA_VERSION` 走，关键表断言补 `ask_log`）、
+  `verify_m2` 115/115、`verify_m3_ui.py` 20/20、`doc_check` 6 项通过、`vite build` 通过、前端 lint 干净
+- 测试期间产生的 8 条问答记录已清空，用户从 0 开始
+
+**备份**：迁移前做过完整备份 `data/backup/data-v1-20261107-105151.db`（含 WAL，`backup()` 导出）
+
+**遗留**
+- [ ] 多轮上下文（需要 ADR，未做）
+- [ ] 历史里的答案目前只能看，不能"存成新条目"或"导出"——留给后续
+- [ ] `ask_log` 会无限增长；暂时靠手动删除，等 M5 仪表盘时再加"只保留最近 N 天"的策略
+- [ ] 点「停止」中断的问答**不落库**（async 生成器被 aclose 时不能再 await 写库），这是刻意取舍

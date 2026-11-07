@@ -1,10 +1,11 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage, streamSSE } from '../api/client'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
+import { shortTime } from '../utils/format'
 
 const router = useRouter()
 const toast = useToast()
@@ -31,6 +32,16 @@ const hitsLoading = ref(false)
 const hitsError = ref('')
 const hitsFallback = ref('none')
 const hitsQuery = ref('')
+
+// 问答历史（T3.12）：抽屉里的列表只用来"找回来"，不参与检索
+const historyOpen = ref(false)
+const historyLoading = ref(false)
+const historyError = ref('')
+const historyItems = ref([])
+const historyTotal = ref(0)
+const currentLogId = ref(null)
+/** 当前展示的是不是从历史里调出来的旧记录（非 null 时答案上方标出时间） */
+const currentRecord = ref(null)
 
 let controller = null
 
@@ -88,6 +99,8 @@ async function ask() {
   noResult.value = false
   askError.value = ''
   askFallback.value = 'none'
+  currentLogId.value = null
+  currentRecord.value = null
   asking.value = true
   controller = new AbortController()
 
@@ -118,12 +131,79 @@ async function ask() {
   } finally {
     asking.value = false
     controller = null
+    // 后端是在 done 之前落库的，这里刷新角标能立刻看到新记录
+    refreshHistoryCount()
   }
 }
 
 function stop() {
   controller?.abort()
 }
+
+/** 只取条数，用来在入口按钮上显示角标；不打开抽屉就不必拉列表 */
+async function refreshHistoryCount() {
+  try {
+    const data = await api.askHistory({ limit: 1, offset: 0 })
+    historyTotal.value = data.total || 0
+  } catch {
+    // 计数失败不打扰用户，入口仍然可点
+  }
+}
+
+async function loadHistory() {
+  historyLoading.value = true
+  historyError.value = ''
+  try {
+    const data = await api.askHistory({ limit: 50, offset: 0 })
+    historyItems.value = data.items || []
+    historyTotal.value = data.total || 0
+  } catch (err) {
+    historyItems.value = []
+    historyError.value = friendlyMessage(err)
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function toggleHistory() {
+  historyOpen.value = !historyOpen.value
+  if (historyOpen.value) loadHistory()
+}
+
+/** 点一条历史：把当时的问题、答案、来源恢复到主视图，**不再调模型** */
+async function openLog(id) {
+  if (!id) return
+  try {
+    const log = await api.askHistoryDetail(id)
+    currentRecord.value = log
+    question.value = log.question || ''
+    askedQuestion.value = log.question || ''
+    answer.value = log.answer || ''
+    sources.value = log.sources || []
+    noResult.value = Boolean(log.no_result)
+    askError.value = log.error_code ? '这次问答中途失败了，上面的内容不完整' : ''
+    askFallback.value = log.fallback || 'none'
+    currentLogId.value = log.id
+    tab.value = 'ask'
+    historyOpen.value = false
+  } catch (err) {
+    toast.error(friendlyMessage(err))
+  }
+}
+
+async function removeLog(id) {
+  try {
+    await api.deleteAskHistory(id)
+    historyItems.value = historyItems.value.filter((h) => h.id !== id)
+    historyTotal.value = Math.max(0, historyTotal.value - 1)
+    if (currentLogId.value === id) currentLogId.value = null
+    toast.success('已删除这条记录')
+  } catch (err) {
+    toast.error(friendlyMessage(err))
+  }
+}
+
+onMounted(refreshHistoryCount)
 
 async function runSearch() {
   const q = question.value.trim()
@@ -182,18 +262,29 @@ watch(question, () => {
           <h1 class="page-title">检索问答</h1>
           <p class="page-sub">只在你的知识库里找答案，每条结论都能点回原文</p>
         </div>
-        <nav class="tabs">
+        <div class="head-right">
+          <nav class="tabs">
+            <button
+              v-for="entry in TABS"
+              :key="entry.key"
+              type="button"
+              class="tab"
+              :class="{ on: tab === entry.key }"
+              @click="switchTab(entry.key)"
+            >
+              {{ entry.label }}
+            </button>
+          </nav>
           <button
-            v-for="entry in TABS"
-            :key="entry.key"
+            class="btn btn-sm hist-btn"
             type="button"
-            class="tab"
-            :class="{ on: tab === entry.key }"
-            @click="switchTab(entry.key)"
+            :class="{ on: historyOpen }"
+            @click="toggleHistory"
           >
-            {{ entry.label }}
+            历史
+            <span v-if="historyTotal" class="hist-count">{{ historyTotal }}</span>
           </button>
-        </nav>
+        </div>
       </header>
 
       <div class="ask-bar">
@@ -221,6 +312,10 @@ watch(question, () => {
 
       <!-- 问答 -->
       <template v-if="tab === 'ask'">
+        <p v-if="currentRecord" class="hist-loaded">
+          历史记录 · {{ shortTime(currentRecord.created_at) }}（不是刚问的，不会重新调模型）
+        </p>
+
         <p v-if="sources.length" class="stats">
           命中 {{ matchCount }} 段原文 · 来自 {{ itemCount }} 个条目
         </p>
@@ -305,6 +400,54 @@ watch(question, () => {
         </div>
       </template>
     </div>
+
+    <!-- 问答历史抽屉（T3.12） -->
+    <div v-if="historyOpen" class="hist-mask" @click.self="historyOpen = false">
+      <aside class="hist-drawer">
+        <header class="hist-head">
+          <h2 class="section-title">问答历史</h2>
+          <span class="hist-total">共 {{ historyTotal }} 条</span>
+          <button class="btn btn-sm" type="button" @click="toggleHistory">关闭</button>
+        </header>
+
+        <p v-if="historyLoading" class="state-empty">加载中…</p>
+        <p v-else-if="historyError" class="state-error">{{ historyError }}</p>
+        <p v-else-if="!historyItems.length" class="state-empty">
+          还没有问答记录，问一次就会出现在这里
+        </p>
+
+        <ul v-else class="hist-list">
+          <li
+            v-for="log in historyItems"
+            :key="log.id"
+            class="hist-item"
+            :class="{ on: currentLogId === log.id }"
+          >
+            <button class="hist-main" type="button" @click="openLog(log.id)">
+              <span class="hist-q">
+                <span v-if="log.no_result" class="badge badge-warn">无结果</span>
+                <span v-else-if="log.error_code" class="badge badge-warn">出错</span>
+                {{ log.question }}
+              </span>
+              <span class="hist-preview">{{ log.answer_preview }}</span>
+              <span class="hist-meta">
+                {{ shortTime(log.created_at) }}
+                <template v-if="log.source_count"> · 来源 {{ log.source_count }} 段</template>
+                <template v-if="log.completion_tokens"> · {{ log.completion_tokens }} tokens</template>
+              </span>
+            </button>
+            <button
+              class="hist-del"
+              type="button"
+              title="删除这条记录"
+              @click.stop="removeLog(log.id)"
+            >
+              ×
+            </button>
+          </li>
+        </ul>
+      </aside>
+    </div>
   </div>
 </template>
 
@@ -356,6 +499,8 @@ watch(question, () => {
   font-size: var(--fs-sm);
   color: var(--c-text-3);
   margin-bottom: -1px;
+  /* 不加会被 .head-right 挤成两行（min-content 只有 1 个字宽） */
+  white-space: nowrap;
 }
 
 .tab.on {
@@ -545,5 +690,168 @@ watch(question, () => {
   flex-direction: column;
   gap: var(--space-2);
   margin-top: var(--space-5);
+}
+
+/* ── 问答历史（T3.12）──────────────────────────── */
+.head-right {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex: none;
+}
+
+.hist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hist-btn.on {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+}
+
+.hist-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.hist-loaded {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--c-warning);
+  background: var(--c-bg-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  color: var(--c-text-2);
+}
+
+.hist-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(35, 33, 28, 0.28);
+}
+
+.hist-drawer {
+  width: min(420px, 92vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-bg-1);
+  border-left: 1px solid var(--c-border);
+  box-shadow: var(--shadow-md);
+}
+
+.hist-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.hist-head .section-title {
+  margin: 0;
+}
+
+.hist-total {
+  margin-right: auto;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+.hist-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.hist-item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+  border: 1px solid transparent;
+}
+
+.hist-item:hover {
+  background: var(--c-bg-2);
+}
+
+.hist-item.on {
+  border-color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.hist-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: var(--fs-sm);
+  color: var(--c-text-1);
+}
+
+.hist-q {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hist-preview {
+  color: var(--c-text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hist-meta {
+  color: var(--c-text-3);
+  font-size: 11px;
+}
+
+.hist-del {
+  width: 30px;
+  border: none;
+  background: none;
+  color: var(--c-text-3);
+  font-size: 16px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+
+.hist-del:hover {
+  color: var(--c-danger);
+  background: var(--c-bg-2);
+}
+
+.badge-warn {
+  background: #f7e7cd;
+  color: var(--c-warning);
+  flex: none;
 }
 </style>

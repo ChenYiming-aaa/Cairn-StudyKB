@@ -77,10 +77,13 @@ def step_build_and_create(client: TestClient) -> list[dict]:
     check("status=ok 且带 version",
           payload.get("status") == "ok" and bool(payload.get("version")), payload.get("version", ""))
     check("/docs 可打开", client.get("/docs").status_code == 200)
-    check("已建库 user_version=1", sql("PRAGMA user_version")[0][0] == 1)
+    from app.db.migrate import SCHEMA_VERSION
+
+    check(f"已建库 user_version={SCHEMA_VERSION}",
+          sql("PRAGMA user_version")[0][0] == SCHEMA_VERSION)
     check("journal_mode=WAL", str(sql("PRAGMA journal_mode")[0][0]).lower() == "wal")
     tables = {r[0] for r in sql("SELECT name FROM sqlite_master WHERE type='table'")}
-    need = {"knowledge_item", "chunk", "chunk_fts", "agent_task", "llm_call_log"}
+    need = {"knowledge_item", "chunk", "chunk_fts", "agent_task", "llm_call_log", "ask_log"}
     check("关键表齐全", need <= tables, f"缺 {sorted(need - tables)}" if need - tables else "")
 
     step("2/8 造 3 条（自动切块）")
