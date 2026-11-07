@@ -1344,3 +1344,31 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
   `"C:/Program Files/Git/cmd/git.exe" push --force origin refs/tags/m3-wip`
 - **经验（已写进项目记忆）**：用户交互式 push 成功后，agent 会话**仍然**取不到凭据。
   `git push` 一律交给用户执行，不要在会话里反复重试
+
+## 2026-11-07 12:40 · CSDN 链接被判「该链接不是网页」（用户报障）
+
+**现象**：采集面板贴 `https://blog.csdn.net/sesquipedalian/article/details/169649516?spm=1001.2101.3001.7377`，
+10% 处失败，显示「该链接不是网页 / FETCH_INVALID」。
+
+**实测**：CSDN 对无 cookie 请求回 **HTTP 521** + 2348 字节的混淆 JS 挑战页
+（`window.onload=setTimeout("fy(45)",200)`），正文 0 字。同一 URL 用真浏览器渲染 → 6.2 秒、4075 字、标题
+「Java学习笔记5-CSDN博客」。
+
+**根因（`fetcher.py:_build_page`）**：正文不足 200 字时，`code_for_status(521)` 返回 None（映射表只有
+403/429/404/410），落到 `status >= 400` 分支报 `FETCH_INVALID`。两处错：
+1. 521 是反爬，不是"不是网页"——`FETCH_INVALID` 语义本该只表示 content-type 非 html（那个分支在 `_get`）
+2. `FETCH_INVALID` 不在 `BROWSER_FALLBACK_CODES` 里，等于把「真浏览器能解开挑战页」这条现成能力关掉了
+
+**改动**
+- `app/services/fetcher.py`：未登记的 4xx/5xx + 正文不足 → `FETCH_BLOCKED`（已在降级集合里，自动切浏览器）；
+  `FETCH_INVALID` 退回只由 content-type 非 html 触发
+- `scripts/verify_m2.py`：加 3 条用例（521 挑战页 → BLOCKED、未登记 503 → BLOCKED、502 但正文完整照收）
+- M2 文档 §6.2 映射表加一行 + 说明；通过数 115→118（`--online` 131→134）同步到 M2 文档 / 总纲 / README
+
+**验证**
+- 默认链路 `get_fetcher().fetch(CSDN)` → **6.2s / 4075 字**（此前 FETCH_INVALID）
+- `verify_m2.py` → 118/118 PASS，exit 0；`--online` → 134/134 PASS，exit 0
+
+**已知未做（用户明确这轮不动）**
+- `normalize_url` 只去 fragment 不去 query，`?spm=` / `?utm_source=` 参与查重：同一篇 CSDN 换入口点进来
+  会成两条。要做需要先定「哪些参数算跟踪」的白名单，单独一轮

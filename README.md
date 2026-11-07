@@ -19,7 +19,7 @@
 ④ 条目详情第 4 个 Tab「思维导图」按笔记标题层级现场出图（纯 Python 手写 SVG，不缓存）；
 ⑤ 「学习页」页里多选条目 → 生成一份**单文件离线** HTML（内联样式 + 内嵌导图 + 代码高亮）→
 iframe 预览 → 下载分享，历史产物可回看与删除。
-`verify_m1.py` 51/51、`verify_m2.py` 115/115（`--online` 131/131）、`verify_m3.py` 61/61 PASS。
+`verify_m1.py` 51/51、`verify_m2.py` 118/118（`--online` 134/134）、`verify_m3.py` 61/61 PASS。
 
 ## 目录
 
@@ -60,8 +60,8 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/status.py` | 数据目录 / 表行数 / 最近任务 / 环境自检（只读） | 每次会话开场与收尾 |
 | `cd backend && uv run python scripts/env_check.py` | ffmpeg / whisper / embedding / sqlite-vec / LLM Key（`--json` 机读，`--strict` 有阻塞项即 exit 1） | 排查"转录跑不起来" |
 | `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 51 项（含分类聚合端点），真实 LLM 调用 | 动到条目 / 整理 / chunk |
-| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 115 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
-| `cd backend && uv run python scripts/verify_m2.py --online` | 上面 115 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
+| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 118 项：网页/视频成功、去重、force、三类抓取失败、未登记 5xx 归类、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
+| `cd backend && uv run python scripts/verify_m2.py --online` | 上面 118 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
 | `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
 | `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |

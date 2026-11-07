@@ -537,6 +537,25 @@ def step_login_and_browser(client: TestClient) -> None:
         except FetchError as exc:
             check("404 即使正文很长也判不存在", exc.code == "FETCH_NOT_FOUND", exc.code)
 
+        # ── 未登记 5xx 反爬挑战页（2026-11-07 CSDN 521 实测）──
+        # 挑战页是 <html> 但只有一段 JS、正文 0 字；归 INVALID 会误报"该链接不是网页"，
+        # 归 BLOCKED 才对，也才会触发浏览器降级（真浏览器能解开挑战页，拿到 4075 字）。
+        challenge = ('<html><body><script>window.onload=setTimeout("fy(45)",200);'
+                     'function fy(TE){var qo,mo="",no="";}</script></body></html>')
+        try:
+            fetcher._build_page("https://blog.csdn.net/a/article/details/1", challenge, 521)
+            check("521 挑战页无正文 → FETCH_BLOCKED", False, "没有抛错")
+        except FetchError as exc:
+            check("521 挑战页无正文 → FETCH_BLOCKED", exc.code == "FETCH_BLOCKED", exc.code)
+        try:
+            fetcher._build_page("https://x.test/1", challenge, 503)
+            check("未登记 503 无正文 → FETCH_BLOCKED", False, "没有抛错")
+        except FetchError as exc:
+            check("未登记 503 无正文 → FETCH_BLOCKED", exc.code == "FETCH_BLOCKED", exc.code)
+        page = fetcher._build_page("https://x.test/1", html_ok, 502)
+        check("502 但正文完整时照收（服务端抖动不该丢正文）",
+              len(page.text) >= fetcher.MIN_TEXT_CHARS, f"{len(page.text)} 字")
+
         # ── L2：降级条件 ──
         class _Fail(BaseFetcher):
             def __init__(self, code: str):

@@ -116,7 +116,12 @@ def _build_page(final_url: str, html: str, status: int) -> FetchedPage:
         if code:
             raise FetchError(code, detail=f"HTTP {status}")
         if status >= 400:
-            raise FetchError("FETCH_INVALID", detail=f"HTTP {status}")
+            # 未登记的 4xx/5xx + 正文不足 = 反爬挑战页或服务端异常页。
+            # 典型：CSDN 对无 cookie 请求回 521 + 一段 `setTimeout("fy(45)")` 的 JS 挑战页，
+            # 2348 字节、正文 0 字（2026-11-07 实测）。
+            # 必须归 BLOCKED 而不是 INVALID：INVALID 专指 content-type 非 HTML（见 `_get`），
+            # 归错会让前端说成"该链接不是网页"，还会错过浏览器降级——真浏览器能解开挑战页。
+            raise FetchError("FETCH_BLOCKED", detail=f"HTTP {status}")
         raise FetchError("FETCH_EMPTY", detail=f"仅 {len(text)} 字")
 
     meta = trafilatura.extract_metadata(html)
