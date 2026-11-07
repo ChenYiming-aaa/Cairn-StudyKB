@@ -21,6 +21,12 @@ MIN_SCORE = 0.6
 GRADER_TIMEOUT = 60          # 排障表：超时太短会全部「待人工判断」
 GRADER_MATERIAL = 2500       # 批改只需要能核对要点，不必给全文
 FAIL_FEEDBACK = "批改服务不可用，已标记待人工判断"
+# 排障表要求超时与额度给不同提示：用户能做的事不一样（等一会儿重答 / 去充值）。
+# 两种都保留「待人工判断」四个字——前端与 verify 都靠它判断这是 NULL 而不是判错。
+FAIL_HINTS = {
+    "LLM_TIMEOUT": f"批改超时（{GRADER_TIMEOUT}s 没返回），已标记待人工判断，可稍后重答",
+    "LLM_QUOTA": "模型额度不足或触发限流，批改没跑成，已标记待人工判断",
+}
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +110,7 @@ def grade_short(
         code = getattr(exc, "code", type(exc).__name__)
         log.warning("简答批改失败（%s，题目 %s），标记待人工判断",
                     code, question.get("id"))
-        return None, FAIL_FEEDBACK
+        return None, FAIL_HINTS.get(code, FAIL_FEEDBACK)
 
     if not feedback:
         # 没给出任何反馈等于没批改：宁可不判，也不给用户一个空结论

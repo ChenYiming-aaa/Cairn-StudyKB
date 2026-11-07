@@ -7,7 +7,7 @@
   1. 增量扫描（T4.2）：题干含 `{}` 不错位、被截断的对象留在 leftover
   2. 出题流（T4.1/T4.2/T4.3）：逐题 emit、坏 JSON/非法答案/无解析只跳该题、补生成、撞指纹复用
   3. 判分（T4.4）：多选乱序、少选、字符串形状、单选大小写、判断布尔、空答案、简答反馈、
-     批改失败落 NULL（不是 0）
+     批改失败落 NULL（不是 0）、错误码归一（超时 / 额度 / 其他 HTTP 分开）
   4. 复习（T4.6）：答错明天回来、时间旅行、1→2→4→7→15、答错重置、NULL 不排期、错题本
   5. 参数校验与错误码
 
@@ -25,6 +25,8 @@ import tempfile
 import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+import httpx
 
 BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
@@ -279,11 +281,38 @@ def step_judge(client: TestClient, item_id: int) -> dict:
         check("批改失败 → is_correct null（不是 False）", item["is_correct"] is None, str(item))
         check("批改失败给「待人工判断」提示",
               "待人工判断" in (item["feedback"] or ""), str(item["feedback"]))
+        check("超时的提示明说是超时（不是笼统「服务不可用」）",
+              "超时" in (item["feedback"] or ""), str(item["feedback"]))
         check("NULL 落库仍是 NULL（不是 0）",
               sql("SELECT is_correct FROM quiz_attempt WHERE question_id=? "
                   "ORDER BY id DESC LIMIT 1", (short,))[0][0] is None)
         check("NULL 不计入 correct_count 也不漏出 total",
               data["correct_count"] == 0 and data["total"] == 1, str(data))
+
+        # 额度问题给的是另一种提示：用户要去做的事不一样（充值 vs 等一会）
+        def no_quota(*_a, **_k):
+            raise llm.LLMError("LLM_QUOTA", "额度不足", "HTTP 429")
+
+        llm.chat = no_quota
+        item = submit((short, "随便写点什么"))["items"][0]
+        check("额度不足 → 同样落 NULL（不是判错）", item["is_correct"] is None, str(item))
+        check("额度不足的提示与超时不同（说额度、不说超时）",
+              "额度" in (item["feedback"] or "") and "超时" not in (item["feedback"] or ""),
+              str(item["feedback"]))
+
+        # 错误码归一（M4 §7）：超时 / 额度 / 其他 HTTP 必须能分开
+        def status_error(status: int) -> httpx.HTTPStatusError:
+            req = httpx.Request("POST", "http://llm.test/chat/completions")
+            return httpx.HTTPStatusError(str(status), request=req,
+                                         response=httpx.Response(status, request=req))
+
+        check("HTTP 429 → LLM_QUOTA", llm.error_from(status_error(429)).code == "LLM_QUOTA")
+        check("HTTP 402 → LLM_QUOTA（欠费与限流同一提示面）",
+              llm.error_from(status_error(402)).code == "LLM_QUOTA")
+        check("HTTP 500 → LLM_HTTP_ERROR",
+              llm.error_from(status_error(500)).code == "LLM_HTTP_ERROR")
+        check("读超时 → LLM_TIMEOUT",
+              llm.error_from(httpx.ReadTimeout("slow")).code == "LLM_TIMEOUT")
     finally:
         llm.chat = original_chat
 

@@ -5,8 +5,8 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：M4（出题与练习）**已验收**（2026-11-07，tag `m4-done`）—— T4.1–T4.8 全部完成：
-出题 / 流式 / 去重 / 判分 + 练习页 / 复习队列 / 错题本 / `verify_m4.py`（56/56）。
+**当前状态**：M4（出题与练习）**已验收**（2026-11-07，tag `m4-done`；2026-11-08 独立复验补齐 7 项）——
+T4.1–T4.8 全部完成：出题 / 流式 / 去重 / 判分 + 练习页 / 复习队列 / 错题本 / `verify_m4.py`（63/63）。
 M1、M2、M3 已验收（tag `m1-done` / `m2-done` / `m3-done`）。下一步是 M5（计时与交付），未开工。
 
 **已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
@@ -30,7 +30,7 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 
 `verify_m1.py` 50/51（见 `HANDOFF.md` 2026-11-07 那条：有一条断言写死任务数 3，与实际 11 不符，
 属既有脆弱断言，未修）、`verify_m2.py` 116/118（同样两条 `force` 用例在 HEAD 上就红）、
-`verify_m3.py` 61/61、`verify_m4.py` 56/56 PASS。
+`verify_m3.py` 61/61、`verify_m4.py` 63/63 PASS。
 
 ## 目录
 
@@ -74,11 +74,12 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 118 项：网页/视频成功、去重、force、三类抓取失败、未登记 5xx 归类、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
 | `cd backend && uv run python scripts/verify_m2.py --online` | 上面 118 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
 | `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
-| `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 56 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
+| `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 63 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、错误码归一（超时/额度/其他 HTTP）、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
 | `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
+| `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 17 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
 
 `verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
 `verify_m3.py` 与 `verify_m4.py` 全程不联网：前者 `VECTOR_ENABLED=0` + 假 `asker.stream`，

@@ -17,6 +17,8 @@ export class ApiError extends Error {
 
 const FRIENDLY = [
   [/^LLM_NO_KEY$/, '未配置模型 Key：请在后端 .env 里填写 LLM_API_KEY 后重启服务'],
+  [/^LLM_QUOTA$/, '模型额度不足或触发限流：检查账户余额，或稍后再试'],
+  [/^LLM_TIMEOUT$/, '模型响应超时：可以重试；简答批改会记成「待人工判断」而不是判错'],
   [/^LLM_BAD_JSON$/, '模型返回的内容不是合法 JSON，已自动重试过一次'],
   [/^LLM_/, '模型调用失败，请稍后重试（详细原因见任务记录）'],
   [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，无法抽取音频：请在后端 .env 里设置 FFMPEG_DIR 后重启'],

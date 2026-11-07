@@ -1522,19 +1522,75 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 - Playwright 里 `get_by_role(name="3 题")` 会超时：题数选项只有 5/10/20，没有 3——脚本先按 `.chip` 文本定位
 
 **遗留**
-- [ ] 简答批改没区分 `LLM_TIMEOUT` / `LLM_QUOTA`（M4 §7 要求）：`llm.py` 把 429/402 都归到
-      `LLM_HTTP_ERROR`，要改先给 httpx 状态码加映射，会影响 ask 的既有错误码，单独一轮
+- [x] 简答批改没区分 `LLM_TIMEOUT` / `LLM_QUOTA`（M4 §7 要求）：2026-11-08 已做，
+      `llm.error_from()` 统一分类，见本文件末尾那条
 - [ ] 题目质量仍可能出"四个选项全对"的多选（模型问题），prompt 已约束，无量化验收
 - [ ] `question` / `quiz_attempt` / `review_item` 会无限增长，等 M5 仪表盘再定保留策略
 - [ ] M4 §8 收工清单第 2 条（手动改系统时间看今日待复习）没做：用时间旅行等价验过，
       改系统时间在 Windows 上影响别的进程，不做
 
-**推送状态：本地已提交，GitHub 未推（需要你在普通终端执行）**
-- 待执行：`"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
-- 上一次留的 `m4-wip` 标签指向 `1b73eb3`，是本次 `m4-done` 的祖先，不用 force 平移
+**推送状态：已推送（2026-11-08 00:15 核实）**
+- 当时这里写的是「未推」——那条已作废。`git ls-remote` 实测 `refs/heads/main = a3bab20`（= HEAD），
+  `m4-done` / `m4-wip` 两个标签都在远程，`main` 与 `origin/main` 同步，**不要再推一遍**
+- 核实命令（只读）：`git ls-remote --heads --tags origin | grep -E "m4|refs/heads/main"`
 
 **下一会话第一件事**
 > M5 开工，先读 `docs/00-总纲.md` 与 `docs/milestones/M5-计时与交付.md`，做 T5.1–T5.4（计时与仪表盘）。
 > 仪表盘要读 M4 的数据：正确率来自 `quiz_attempt`，错题数来自 `/api/quiz/wrong`，到期数来自
 > `/api/review/due`——三个端点都已就绪，M5 不用再改 M4 的表。
+
+## 2026-11-08 00:40 · M4 独立复验 + 三处收口（进入 M5 前的清账）
+
+**范围**：用户要求按 M4 DoD 逐条复验（不是收尾会话自证），并把复验中提出的三条观察收掉。
+**DoD 复验结论：8/8 PASS，无 FAIL**；`verify_m4.py` 实跑 56/56 → 补 7 项后 **63/63**。
+
+**做了什么**
+
+1. **推送状态纠错**：上一条「GitHub 未推」是错的。`git ls-remote` 实测远程 `main = a3bab20 = HEAD`，
+   `m4-done` / `m4-wip` 都在远程。已就地改掉那段，避免下一会话重复推。
+2. **补 DoD 第 1 条的视觉证据**：新增 `frontend/e2e/m4_quiz.py`（Playwright + 真 LLM **1 次调用**）。
+   出题时每 200ms 采一次 `.gen-card` 数量，实测时间线 `(0.0,0) → (7.48,1) → (7.96,2) → (8.18,3) → (8.59,4) → 进入作答（第 1/5 题）`，
+   即**题面是一张张刷出来的**，不是整包渲。截图在 `frontend/e2e/_shots/`（gitignored）。
+3. **错误码细分（M4 §7 的欠账）**：`llm.error_from()` 统一分类 —— 超时 → `LLM_TIMEOUT`，
+   HTTP 402/429 → `LLM_QUOTA`，其余 → `LLM_HTTP_ERROR`；`chat` / `chat_stream` 共用。
+   `grader` 按码给不同 feedback（超时说超时、额度说额度），两种都保留「待人工判断」且仍然落 NULL。
+   前端 `FRIENDLY` 表新增 `LLM_QUOTA` / `LLM_TIMEOUT` 两条人话。
+   **对 ask 的影响**：只是把 429/402 从 `LLM_HTTP_ERROR` 摘出来，前端按 `^LLM_` 前缀匹配，提示不变；
+   m3 无相关断言，回归 61/61。
+
+**改动文件**
+- 新增：`frontend/e2e/m4_quiz.py`
+- 改：`backend/app/services/llm.py`（`QUOTA_STATUS` + `error_from`，两处调用点）、
+  `backend/app/services/agents/grader.py`（`FAIL_HINTS`）、
+  `backend/scripts/verify_m4.py`（+7 项：错误码归一分档、超时/额度提示不同）、
+  `frontend/src/api/client.js`（两条人话）
+- 文档：`milestones/M4`（状态/任务表/DoD/§6.9 新增/§7 一行）、`contracts/接口契约.md`（错误码分档）、
+  `00-总纲.md`、`README.md`（状态、命令表 + e2e 一行）、`frontend/e2e/README.md`（m4_quiz 用法）
+
+**验证（都真跑）**
+- `verify_m4.py` → **63/63 PASS**，exit 0
+- `e2e/m4_quiz.py` → **17/17 PASS**（副本库 8757 + vite 5174，真 LLM 1 次，console 0 error）
+- 回归：`verify_m3.py` 61/61、`verify_m2.py` 116/118、`verify_m1.py` 50/51 —— **三条红与 M4 改动无关**，
+  数字与上一条记录完全一致（m1 的「未留下注定失败的任务」写死 total==3；m2 两条 force 用例）
+- `npm run lint` 干净
+
+**踩到的坑（写下来省下一轮）**
+- 路由是 **hash 模式**：e2e 必须 `/#/practice`，直接 `/practice` 会被 catch-all 重定向回首页
+- 用 200ms 轮询数卡片会**漏掉最后一题**（第 5 题与阶段切换在同一帧），断言改成「进入作答时 `.q-step` 显示 5」，
+  时间线只用来证明「有中间态」
+- 复习页角标初值是 0，请求回来才填：断言前先 `wait_for_function` 等它等于接口值，否则测的是占位
+- 副本库不干净时「错题角标 = 本轮答错数」必然红，改成与 `/api/review/due` 的 `wrong` 对比
+
+**遗留（本次没动）**
+- [ ] m1 / m2 那三条既有红仍等定口径
+- [ ] 题目质量（四个选项全对的多选）、三张表的保留策略 —— 都留给 M5 之后
+- [ ] `e2e/m4_quiz.py` 要 `--db` 才能改 ready：将来若有「手动置 ready」的接口可以去掉这一步
+
+**推送状态：本次改动本地已提交，尚未推 GitHub**
+- 需要你在普通终端执行：`"C:/Program Files/Git/cmd/git.exe" push origin main`
+  （agent 会话读不到凭据，`git push` 会 128；不要再试）
+- 没有新标签：`m4-done` 仍指 `a3bab20`，本次是验收后的补强，不另打标签
+
+**下一会话第一件事**
+> M5 开工（T5.1 计时）。开跑前先 `git ls-remote` 确认上面那个 commit 已到远程。
 

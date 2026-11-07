@@ -24,6 +24,9 @@ from app.db.repo.items import now_iso
 log = logging.getLogger(__name__)
 
 RETRY_DELAYS = (1, 3)  # 失败重试 2 次，1s / 3s 退避
+# 402 欠费、429 限流：对用户是同一件事（先去充值/等额度），前端提示与排障路径一致，
+# 所以归到同一个码。其余 4xx/5xx 仍走 LLM_HTTP_ERROR（M4 §7）。
+QUOTA_STATUS = frozenset({402, 429})
 
 
 class LLMError(Exception):
@@ -39,6 +42,25 @@ def _safe_detail(exc: Exception) -> str:
     if isinstance(exc, httpx.HTTPStatusError):
         return f"HTTP {exc.response.status_code}"
     return type(exc).__name__
+
+
+def error_from(exc: Exception) -> LLMError:
+    """把底层异常归一成对外错误码（M4 §7 要求区分超时与额度）。
+
+    - `httpx.TimeoutException`（含读/连接/写超时）→ `LLM_TIMEOUT`
+    - HTTP 402 / 429 → `LLM_QUOTA`
+    - 其余（5xx、连接失败、坏响应）→ `LLM_HTTP_ERROR`
+
+    批改与出题都靠这个码决定用户看到什么：简答批改遇 `LLM_TIMEOUT` / `LLM_QUOTA`
+    一律落「待人工判断」，而不是判错（M4 §1 约束 3）。
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        return LLMError("LLM_TIMEOUT", "模型响应超时，请稍后重试", "timeout")
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status in QUOTA_STATUS:
+        return LLMError("LLM_QUOTA", "模型额度不足或触发限流，请检查账户余额后重试",
+                        f"HTTP {status}")
+    return LLMError("LLM_HTTP_ERROR", "LLM 调用失败", _safe_detail(exc))
 
 
 def _usage(data: dict) -> tuple[int | None, int | None, int | None]:
@@ -138,10 +160,7 @@ def chat(
             last = LLMError("LLM_BAD_RESPONSE", "LLM 响应结构异常", _safe_detail(exc))
             break
         except Exception as exc:
-            last = LLMError(
-                "LLM_TIMEOUT" if isinstance(exc, httpx.TimeoutException) else "LLM_HTTP_ERROR",
-                "LLM 调用失败", _safe_detail(exc),
-            )
+            last = error_from(exc)
             if attempt < len(RETRY_DELAYS):
                 log.warning("LLM 第 %s 次调用失败（%s），%ss 后重试",
                             attempt + 1, last.detail, RETRY_DELAYS[attempt])
@@ -199,10 +218,11 @@ def chat_stream(
                             yield piece
         ok = True
     except Exception as exc:
+        err = error_from(exc)
         _write_log(agent=agent, ok=False,
                    duration_ms=int((time.monotonic() - started) * 1000),
-                   error_msg=_safe_detail(exc))
-        raise LLMError("LLM_HTTP_ERROR", "LLM 流式调用失败", _safe_detail(exc)) from None
+                   error_msg=err.code)
+        raise err from None
     finally:
         if ok:
             _write_log(agent=agent, ok=True,
