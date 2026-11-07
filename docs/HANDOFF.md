@@ -1586,9 +1586,9 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 - [ ] 题目质量（四个选项全对的多选）、三张表的保留策略 —— 都留给 M5 之后
 - [ ] `e2e/m4_quiz.py` 要 `--db` 才能改 ready：将来若有「手动置 ready」的接口可以去掉这一步
 
-**推送状态：本次改动本地已提交，尚未推 GitHub**
+**推送状态：本次改动本地已提交（`31a8f7f`），尚未推 GitHub**
 - 需要你在普通终端执行：`"C:/Program Files/Git/cmd/git.exe" push origin main`
-  （agent 会话读不到凭据，`git push` 会 128；不要再试）
+  （agent 会话读不到凭据，`git push` 报 `could not read Username`；已试过一次，别再试）
 - 没有新标签：`m4-done` 仍指 `a3bab20`，本次是验收后的补强，不另打标签
 
 **下一会话第一件事**
