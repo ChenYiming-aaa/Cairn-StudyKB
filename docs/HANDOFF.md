@@ -1168,3 +1168,29 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 - 请你执行（普通终端，会弹一次浏览器登录）：
   `"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
 - 推完核对：`"C:/Program Files/Git/cmd/git.exe" ls-remote --heads origin` 应显示 `71e0a81`
+
+### 补记（同日 10:4x）：库外问题误调模型 → 加向量距离闸门
+
+用户现场验证时跑出来的真缺陷：问库里完全没有的内容（量子纠缠 / 红烧肉 / 茅台）时，
+模型答得对（「知识库中没有找到相关内容」）但**每次白烧约 2500 prompt tokens**，
+与契约「检索为空不得调用 LLM」不符。根因：向量召回没有相似度门槛，
+不管多不相关都返回 20 个候选 → 融合后 `fused` 永远非空 → 短路只在空库生效。
+
+**裁决（用户选 A）**：全文一路零命中时，向量最近片段距离须 ≤ `VECTOR_MIN_DISTANCE`（默认 1.05），
+否则判空走 `no_result`；**全文有命中就不卡向量**（否则「番茄钟」这种会被误杀——
+虽然后来证实库里压根没有番茄钟，但闸门设计仍保留：字面命中是强证据，不该被距离推翻）。
+
+- 实测分布（bge-small-zh-v1.5，normalize 后 vec0 的 L2 距离 = 2−2·cos）：
+  库内 ESLint 0.655 / 库内语义查询「代码检查工具」0.958 —— 全 <1.0；
+  库外量子 1.111 / 红烧肉 1.136 / 茅台 1.103 / 番茄钟 1.169 —— 全 >1.1。1.05 落在空隙里。
+- 改动：`config.py` 加 `vector_min_distance`（env `VECTOR_MIN_DISTANCE`）；
+  `retriever.vector_ids()` / `_vector_numpy()` 都支持 `max_distance`
+  （numpy 那路换算回余弦 `1 − d/2`，两条路径同一语义）；`hybrid()` 只在 `fts_rows` 为空时设闸。
+- 新增 fallback 取值 `vector_below_threshold`，已同步 `contracts/接口契约.md`、`.env.example`、README。
+- **自我更正**：此前把「番茄钟」当成库内真问题是错的（`chunk` 里 0 条含「番茄」），
+  它本来就是库外问题，正好被新闸门拦下。别再拿它当"库内问题"的验收样例。
+
+**验证**：现场验收脚本 `verify_m3_ui.py` **20/20 PASS**（含库外问题 `no_result` 且
+`llm_call_log` 35→35 未新增）；`verify_m1` 51/51、`verify_m2` 115/115；
+`VECTOR_ENABLED=0` 实例上检索/问答均正常、`fallback=vector_disabled`；
+`doc_check` 6 项通过、前端 lint 干净。

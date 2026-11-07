@@ -52,6 +52,11 @@ class Settings:
     # bge-small-zh-v1.5 缓存在 data/models/embedding（与 env_probe.check_embedding 同一目录，
     # 否则设置页会永远显示"未下载"）
     embed_model: str = "BAAI/bge-small-zh-v1.5"
+    # 全文一路零命中时，向量结果的 L2 距离必须 ≤ 此值才算命中（否则判「库里没有」，
+    # 直接 no_result 不调模型 —— 契约 §api/ask 要求检索为空不得调 LLM）。
+    # 1.05 来自实测分布：库内语义查询 0.958 能过，库外问题 1.10–1.17 被挡。
+    # 只作全文零命中时的门槛：全文有命中就不再卡向量（「番茄钟」这类库内问题距离 1.169）。
+    vector_min_distance: float = 1.05
 
     @property
     def models_dir(self) -> Path:
@@ -149,6 +154,7 @@ def load_settings(argv: list[str] | None = None) -> Settings:
         browser_headless=_truthy(env.get("BROWSER_HEADLESS", "1")),
         vector_enabled=_truthy(env.get("VECTOR_ENABLED", "1")),
         embed_model=pick("EMBED_MODEL", "BAAI/bge-small-zh-v1.5"),
+        vector_min_distance=float(pick("VECTOR_MIN_DISTANCE", "1.05")),
     )
 
 

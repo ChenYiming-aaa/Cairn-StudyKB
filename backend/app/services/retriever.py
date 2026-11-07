@@ -153,8 +153,15 @@ def vector_ready() -> bool:
     )
 
 
-def vector_ids(query: str, limit: int = CANDIDATES) -> list[int]:
-    """向量召回的 chunk_id，按相似度降序。任何不可用都返回 []（不抛）。"""
+def vector_ids(query: str, limit: int = CANDIDATES,
+               max_distance: float | None = None) -> list[int]:
+    """向量召回的 chunk_id，按相似度降序。任何不可用都返回 []（不抛）。
+
+    `max_distance` 给了就把距离超过它的候选丢掉。normalize_embeddings=True 后
+    vec0 的 L2 距离 = 2 - 2·cos，所以「库里根本没有相关内容」时距离会明显偏大，
+    没有这道闸门时任何问题都会硬凑出 20 个候选，契约要求的
+    「检索为空不调模型」就只在空库才成立（M3 T3.5）。
+    """
     if not vector_ready():
         return []
     vector = embedder.encode_query(query)
@@ -163,21 +170,22 @@ def vector_ids(query: str, limit: int = CANDIDATES) -> list[int]:
     conn = embedder.connect()
     try:
         try:
-            rows = conn.execute(
-                "SELECT chunk_id FROM chunk_vec WHERE embedding MATCH ? AND k = ? "
-                "ORDER BY distance",
-                (embedder.blob(vector), limit),
-            ).fetchall()
-            return [int(r[0]) for r in rows]
+            sql = ("SELECT chunk_id, distance FROM chunk_vec "
+                   "WHERE embedding MATCH ? AND k = ? ORDER BY distance")
+            rows = conn.execute(sql, (embedder.blob(vector), limit)).fetchall()
+            if max_distance is None:
+                return [int(r[0]) for r in rows]
+            return [int(r[0]) for r in rows if float(r[1]) <= max_distance]
         except sqlite3.Error as exc:
             # vec0 用不了就退化成内存矩阵乘法（M3 §6.3），仍失败就放弃向量这一路
             log.warning("vec0 查询失败（%s），改用 numpy 暴力检索", type(exc).__name__)
-            return _vector_numpy(conn, vector, limit)
+            return _vector_numpy(conn, vector, limit, max_distance)
     finally:
         conn.close()
 
 
-def _vector_numpy(conn: sqlite3.Connection, vector: list[float], limit: int) -> list[int]:
+def _vector_numpy(conn: sqlite3.Connection, vector: list[float], limit: int,
+                  max_distance: float | None = None) -> list[int]:
     try:
         import numpy as np
 
@@ -188,7 +196,12 @@ def _vector_numpy(conn: sqlite3.Connection, vector: list[float], limit: int) -> 
         # embedding 是 sqlite-vec 的 float32 blob，直接按 dtype 解包
         mat = np.vstack([np.frombuffer(r[1], dtype=np.float32) for r in rows])
         sims = mat @ np.asarray(vector, dtype=np.float32)
-        return [int(ids[i]) for i in np.argsort(-sims)[:limit]]
+        order = np.argsort(-sims)
+        if max_distance is not None:
+            # 距离换算回余弦：d = 2 - 2·cos，两条路径的阈值必须是同一个语义
+            floor = 1.0 - max_distance / 2.0
+            order = [i for i in order if float(sims[i]) >= floor]
+        return [int(ids[i]) for i in order[:limit]]
     except Exception as exc:
         log.warning("numpy 向量检索失败（%s），本次只用全文结果", type(exc).__name__)
         return []
@@ -256,7 +269,13 @@ def hybrid(query: str, top: int = TOP_K) -> dict:
                 anchor = max(terms, key=len)
 
     tag = {row["chunk_id"]: match_type for row in fts_rows}
-    vec_ids = vector_ids(text, CANDIDATES) if ready else []
+    # 全文一路零命中时才给向量设门槛：此时没有字面证据，全靠相似度兜底，
+    # 距离太远就说明库里真没有。全文有命中则不加闸（「番茄钟」这类库内问题
+    # 向量距离 1.169，卡了会误判成没有）。
+    limit_distance = None if fts_rows else get_settings().vector_min_distance
+    vec_ids = vector_ids(text, CANDIDATES, max_distance=limit_distance) if ready else []
+    if not vec_ids and limit_distance is not None:
+        fallback = "vector_below_threshold"
     for chunk_id in vec_ids:
         tag.setdefault(chunk_id, "vector")
 
