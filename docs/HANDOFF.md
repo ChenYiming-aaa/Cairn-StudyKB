@@ -1447,6 +1447,18 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 **待裁决冲突**
 - 无（`due_at` 那条已由用户裁决并回写 `数据契约 §3`）
 
+**推送状态：本地已提交，GitHub 未推（需要你在普通终端执行一次）**
+- 本地：`1b73eb3 feat(M4): T4.1–T4.4 出题与判分` + 标签 `m4-wip`
+  （`m4-wip` 而非 `m4-done`：T4.5–T4.8 未做，打 done 会让下个会话误判已验收）
+- 本会话 `GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never` push 报
+  `could not read Username for 'https://github.com': terminal prompts disabled`，
+  与 11-06/11-07 前几次完全一致——**agent 会话拿不到已缓存的凭据**
+- 待执行：
+  `"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
+  （`--tags` 会把 `m4-wip` 带上；若报 `m3-wip already exists` 直接忽略，那个标签已对齐）
+- 顺带核对：`m3-wip` 远程已是 `05a5ace`，与本地一致，上次留的那条
+  `push --force origin refs/tags/m3-wip` **不用再执行**
+
 **下一会话第一件事**
 > 接着做 T4.5–T4.7：先写 `frontend/src/views/Practice.vue`（消费 `/api/quiz/generate` 的 SSE +
   `/api/quiz/submit` 的批量判分，`null` 要显示成「待人工判断」而不是答错），再写 `repo/review.py`
