@@ -1586,11 +1586,12 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 - [ ] 题目质量（四个选项全对的多选）、三张表的保留策略 —— 都留给 M5 之后
 - [ ] `e2e/m4_quiz.py` 要 `--db` 才能改 ready：将来若有「手动置 ready」的接口可以去掉这一步
 
-**推送状态：本次改动本地已提交（`31a8f7f`），尚未推 GitHub**
-- 需要你在普通终端执行：`"C:/Program Files/Git/cmd/git.exe" push origin main`
-  （agent 会话读不到凭据，`git push` 报 `could not read Username`；已试过一次，别再试）
-- 没有新标签：`m4-done` 仍指 `a3bab20`，本次是验收后的补强，不另打标签
+**推送状态：已推 GitHub（2026-11-08 由你在终端执行，已核实）**
+- `refs/heads/main = 866cfc0`（= 本地 HEAD `866cfc0`）；`31a8f7f` 是它的父提交，一并送达
+- 本地 `git status -sb` 为 `## main...origin/main`，无 ahead/behind
+- 标签：`m4-done` 注解标 → `a3bab20`，`m4-wip` → `1b73eb3`，均未移动，本次不打新标签
+- **不需要再推一次**；下一次 `git ls-remote --heads origin` 若显示 `866cfc0` 或更新的提交即说明没落后
 
 **下一会话第一件事**
-> M5 开工（T5.1 计时）。开跑前先 `git ls-remote` 确认上面那个 commit 已到远程。
+> M5 开工（T5.1 计时）。`git ls-remote --heads origin` 若是 `866cfc0` 或更新即可直接开工，不要再推。
 
