@@ -1335,4 +1335,12 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 > `quiz_attempt` / `review_item` 三张表已在 schema 里，不用迁移），本次只做 T4.1–T4.4（出题判分）。
 > 注意 T4.1 的 SSE 出题要复用 `ask.py` 的流式骨架与 `llm_call_log` 记账。
 
-**推送状态**：本次会尝试提交并推送（`git push`）；若 GCM 又要求交互，命令见文末「推送未完成」那条。
+**推送状态：本地已提交 + 已打标签，GitHub 未推（又是 GCM 要交互，需要你用普通终端执行一次）**
+- 本地：`ff5f2d8 feat(M3): T3.7-T3.11 思维导图与学习页，M3 收口`，标签 `m3-done`
+- 远程 `main` 还停在 `d39c2df`——上次那条「T3.12 问答历史」(`05a5ace`) 也没推上去，
+  所以这次要推 **2 个提交 + 3 个标签**（`m3-wip`、`m3-done`）
+- 本会话试过：`GCM_INTERACTIVE=never git push` → `fatal: could not read Username for
+  'https://github.com': terminal prompts disabled`。凭据没进这个会话，别在这里反复试
+- 请你执行（普通终端，会弹一次浏览器登录）：
+  `"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
+- 推完核对：`"C:/Program Files/Git/cmd/git.exe" ls-remote --heads origin` 应显示 `ff5f2d8`
