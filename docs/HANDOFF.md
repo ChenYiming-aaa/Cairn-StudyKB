@@ -1372,3 +1372,82 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 **已知未做（用户明确这轮不动）**
 - `normalize_url` 只去 fragment 不去 query，`?spm=` / `?utm_source=` 参与查重：同一篇 CSDN 换入口点进来
   会成两条。要做需要先定「哪些参数算跟踪」的白名单，单独一轮
+
+## 2026-11-07 14:10 · M4 · T4.1–T4.4 出题与判分（本次会话）
+
+**范围**：只做 M4 的 T4.1–T4.4（出题 Agent / 增量流式 / 入库存重 / 判分）。
+T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律没动**，M4 状态是**进行中**，不是已验收。
+
+**完成**
+- T4.1 `services/agents/quizzer.py` + `prompts/quiz.md`：材料 → 严格 JSON 题组。prompt 写死
+  「只能用材料里出现过的信息」「每题 explanation 要指出依据在材料哪句」「选项必须同层次」
+- T4.2 `routers/quiz.py` 的 `POST /api/quiz/generate`（SSE）：一次调用 + 增量括号扫描，
+  每完成一题立刻 emit；坏 JSON / 非法答案只 `skip` 这一题。**数量不足逐题补生成**
+  （`count=1` + 已出题干，最多补 count 次，一次补不出来就停）
+- T4.3 `db/repo/questions.py`：`fingerprint = sha256(item_id|type|去空白题干)`，
+  `INSERT ... ON CONFLICT(fingerprint) DO NOTHING` 后查回已有 id；撞了复用旧题（事件里 `duplicate: true`）
+- T4.4 `agents/grader.py` + `POST /api/quiz/submit`：客观题后端比对（多选按集合、顺序无关；
+  单选大小写/空白归一；判断转布尔），简答走 LLM 批改，**失败落 `is_correct = NULL`** 并提示待人工判断
+- 复用 `ask.py` 的 SSE 骨架（`async def` 生成器 + 子线程 + `call_soon_threadsafe`），
+  `llm_call_log` 里 `agent='quizzer'/'grader'` 正常记账
+
+**改动文件**
+- 新增：`backend/app/services/agents/{quizzer,grader}.py`、`backend/app/prompts/{quiz,grader}.md`、
+  `backend/app/routers/quiz.py`、`backend/app/db/repo/questions.py`
+- 改：`backend/app/main.py`（挂载 quiz 路由）、`backend/app/services/llm.py`
+  （`chat(timeout=)` 覆盖单次超时、`chat_stream(max_tokens=)`，均为可选参数，不影响既有调用）
+- 文档：`contracts/接口契约.md`（generate/submit 完整形状、skip.reason 取值、accuracy 口径）、
+  `contracts/数据契约.md`（`due_at` 语义，见下）、`milestones/M4`（状态、任务表、DoD、新增 §6.7 实施偏差）、
+  `00-总纲`（M4 → 进行中）、`README.md`（当前状态、出题能力、没有 verify_m4 时怎么验）
+
+**裁决（用户 2026-11-07 拍板，已回写文档）**
+1. `due_at` 比较：**按 M4 执行**——存 UTC，比较在 Python 侧转 aware datetime。
+   `数据契约 §3` 原来写「ISO 字符串可直接字典序比较」，本地时间带 `+08:00`、UTC 带 `+00:00`，
+   混着比必错，**已改契约那一句**（不是改 M4）
+2. 出题材料：**原文优先**，但**不截前 6000 字**，改成按 chunk 等距抽样覆盖全文（首尾都取到）
+3. 补生成：**本轮就做**（不是留到 T4.8）
+
+**验证（都真跑；全程在副本库 `data/tmp/quiztest/`，你真实的 `data/data.db` 一行没写，question 仍是 0）**
+- 5 道单选（条目 33 ESLint）→ 20.8s，逐题 SSE，`done {count:5,skipped:0,requested:5}`；
+  按 B/A/A/a/A 作答 → `4/5`、`accuracy 0.8`（正好验收场景 A 的数字）
+- 3 道多选（条目 11）→ 乱序 `["D","C","B","A"]` 判**对**、少一个判**错**、字符串 `"D,C,B,A"` 也判对
+- 20 道混合题型（条目 43，26 个 chunk 抽到 6000 字）→ 94s，**20/20 一次到位**，0 skip，无截断
+- 简答：答一半 → `false` + 「你正确答出了…但漏掉了第二问：…」；答全 → `true` + 具体肯定（验收场景 C）
+- **NULL 判分**：另起一个 `LLM_API_KEY=""` 的实例跑 submit → `is_correct: null`、
+  feedback 「批改服务不可用，已标记待人工判断」，库里 `is_correct IS NULL`（不是 0），同批客观题照常判对
+- 健壮性临时脚本（假流，不花调用）**11/11 PASS**：坏 JSON→`skip`、答案越界→`bad_answer`、
+  选项不足→`bad_options`、好题照常 emit、补生成补到 3 题、同题二次出题复用 id 且库里只有 1 条
+- 参数校验：`count=25`→422、`types:["essay"]`→`QUIZ_BAD_TYPES`、`difficulty:"hard"`→`QUIZ_BAD_DIFFICULTY`、
+  `item_id:9999`→404；空答案→判错并回显参考答案
+- `llm_call_log` 记账：quizzer 4 次（pt 9744 / ct 16002）、grader 3 次（2 成 1 败）
+- `tools/doc_check.py`：6 项通过 + 2 条既有提示
+
+**踩到的坑**
+- 出题默认 `max_tokens=4096` 对 20 题是**不够**的，会把末题截断成坏 JSON、全落 skip 再疯狂补生成。
+  抬到 8192（`quizzer.MAX_TOKENS`）
+- `Scanner.feed()` 之后**必须留着 leftover**：被截断的对象要等下一个 delta；
+  末尾仍不完整就报一次 `skip: json_parse_failed`，不要试图"补个括号"猜
+- 多选判分的坑不在 `set()`，而在**入参形状**：前端可能给 `["C","A"]`、也可能给 `"A,C"`，
+  两种都要能转字母集合（`grader._letters`）
+- 补生成如果不判 `duplicate`，模型反复出同一题会让 `count` 虚高；所以同一请求内复用过的 id 要跳过
+- 用 `LLM_API_KEY=""` 起实例即可稳定复现"批改服务不可用"，不用等真超时（`load_dotenv(override=False)`
+  不会覆盖已存在的空值）
+
+**遗留**
+- [ ] T4.5 练习页（前端状态机 idle→generating→answering→submitting→result）
+- [ ] T4.6 错题与复习：答错写 `review_item`、答对推进 1→2→4→7→15；`due_at` 存 UTC（裁决 1）
+- [ ] T4.7 复习队列页 + `GET /api/review/due`、`GET /api/quiz/wrong`、`POST /api/review/{id}/result`
+- [ ] T4.8 `verify_m4.py`（本轮用的是不入库的临时脚本，在 `data/tmp/`，别当长期资产）
+- [ ] 简答批改没区分 `LLM_TIMEOUT` 与 `LLM_QUOTA`（M4 §7 排障表要求）：`llm.py` 目前把 429/402
+      都归到 `LLM_HTTP_ERROR`，要做需要先给 httpx 状态码加映射，会影响 ask 的既有错误码，单独一轮
+- [ ] 题目生成质量仍会出"四个选项全对"这种多选（模型问题），prompt 已加"选项必须同层次"约束，
+      但没有量化验收；T4.8 可加一条"多选答案集合大小 < 选项数"的软断言
+- [ ] `question` / `quiz_attempt` 会无限增长，和 `ask_log` 一样等 M5 仪表盘再定保留策略
+
+**待裁决冲突**
+- 无（`due_at` 那条已由用户裁决并回写 `数据契约 §3`）
+
+**下一会话第一件事**
+> 接着做 T4.5–T4.7：先写 `frontend/src/views/Practice.vue`（消费 `/api/quiz/generate` 的 SSE +
+  `/api/quiz/submit` 的批量判分，`null` 要显示成「待人工判断」而不是答错），再写 `repo/review.py`
+  与复习队列页。动 T4.6 前先读本条的裁决 1：`due_at` 存 UTC、比较在 Python 侧。

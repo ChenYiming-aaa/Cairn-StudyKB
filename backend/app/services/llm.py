@@ -75,13 +75,15 @@ def _write_log(
         conn.close()
 
 
-def _payload(messages: list[dict], *, json_mode: bool, stream: bool) -> dict:
+def _payload(
+    messages: list[dict], *, json_mode: bool, stream: bool, max_tokens: int = 4096
+) -> dict:
     cfg = get_settings()
     body: dict[str, Any] = {
         "model": cfg.llm_model,
         "messages": messages,
         "reasoning_effort": cfg.llm_effort,
-        "max_tokens": 4096,
+        "max_tokens": max_tokens,
         "stream": stream,
     }
     if json_mode:
@@ -102,9 +104,14 @@ def _headers() -> dict[str, str]:
 
 
 def chat(
-    messages: list[dict], *, agent: str = "default", json_mode: bool = False
+    messages: list[dict], *, agent: str = "default", json_mode: bool = False,
+    timeout: int | None = None,
 ) -> str:
-    """非流式调用，返回 message.content。失败重试 2 次（1s/3s 退避）。"""
+    """非流式调用，返回 message.content。失败重试 2 次（1s/3s 退避）。
+
+    `timeout`：单次覆盖 `LLM_TIMEOUT`。简答批改刻意用更短的 60s（M4 §6.4），
+    靠超时把「批改服务不可用」变成待人工判断，而不是让用户干等 120s。
+    """
     cfg = get_settings()
     if not cfg.has_llm_key:
         _write_log(agent=agent, ok=False, duration_ms=0, error_msg="LLM_NO_KEY")
@@ -117,7 +124,7 @@ def chat(
 
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
-            with httpx.Client(timeout=cfg.llm_timeout) as client:
+            with httpx.Client(timeout=timeout or cfg.llm_timeout) as client:
                 resp = client.post(url, headers=_headers(), json=body)
                 resp.raise_for_status()
                 data = resp.json()
@@ -150,12 +157,14 @@ def chat(
 
 
 def chat_stream(
-    messages: list[dict], *, agent: str = "default", usage_out: dict | None = None
+    messages: list[dict], *, agent: str = "default", usage_out: dict | None = None,
+    max_tokens: int = 4096,
 ) -> Iterator[str]:
     """流式调用，只 yield content 的 delta；reasoning_content 的 delta 直接丢弃。
 
     `usage_out`：可选的字典，调用方传进来就地填 token 用量（SSE 的 done 事件要用）。
     用可变容器而不是返回值，是因为流式生成器只能 yield 文本片段。
+    `max_tokens`：出题要一次吐 20 题（≈4k+ token），调用方可以抬高；默认仍是 4096。
     """
     cfg = get_settings()
     if not cfg.has_llm_key:
@@ -163,7 +172,7 @@ def chat_stream(
         raise LLMError("LLM_NO_KEY", "未配置 LLM API Key，请在 .env 中设置 LLM_API_KEY")
 
     url = cfg.chat_completions_url
-    body = _payload(messages, json_mode=False, stream=True)
+    body = _payload(messages, json_mode=False, stream=True, max_tokens=max_tokens)
     started = time.monotonic()
     pt = ct = rt = None
     ok = False
