@@ -5,9 +5,9 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：M4（出题与练习）**进行中**（2026-11-07）—— T4.1–T4.4（出题 / 流式 / 去重 / 判分）
-后端已完成，T4.5–T4.8（练习页 / 复习队列 / 验收脚本）待做，**还没有界面入口**。
-M3 已验收（tag `m3-done`，`verify_m3.py` 61/61），M1、M2 已验收（tag `m1-done` / `m2-done`）。
+**当前状态**：M4（出题与练习）**已验收**（2026-11-07，tag `m4-done`）—— T4.1–T4.8 全部完成：
+出题 / 流式 / 去重 / 判分 + 练习页 / 复习队列 / 错题本 / `verify_m4.py`（56/56）。
+M1、M2、M3 已验收（tag `m1-done` / `m2-done` / `m3-done`）。下一步是 M5（计时与交付），未开工。
 
 **已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
 没有字幕才走 yt-dlp + faster-whisper 转录）；「检索问答」页里可以
@@ -20,11 +20,17 @@ M3 已验收（tag `m3-done`，`verify_m3.py` 61/61），M1、M2 已验收（tag
 ④ 条目详情第 4 个 Tab「思维导图」按笔记标题层级现场出图（纯 Python 手写 SVG，不缓存）；
 ⑤ 「学习页」页里多选条目 → 生成一份**单文件离线** HTML（内联样式 + 内嵌导图 + 代码高亮）→
 iframe 预览 → 下载分享，历史产物可回看与删除。
-⑥ 出题判分（M4 T4.1–T4.4，仅后端）：`POST /api/quiz/generate` 按条目材料出单选/多选/判断/简答
-（**SSE 逐题返回**，材料按 chunk 等距抽样、只依据材料不编造，坏 JSON 单题跳过、题数不足逐题补生成，
-同题撞指纹复用不重复入库）；`POST /api/quiz/submit` 批量判分——客观题后端比对（多选按集合、顺序无关），
-简答走 LLM 批改并给出"你提到了…但漏了…"，批改失败落 `is_correct = NULL`（待人工判断），不冤枉人。
-`verify_m1.py` 51/51、`verify_m2.py` 118/118（`--online` 134/134）、`verify_m3.py` 61/61 PASS。
+⑥ 「练习」页：选一条 ready 条目 → 选题型（单选/多选/判断/简答）、难度、题数（5/10/20）→
+**题面逐题流式浮现**（可中途停止，已收到的题留着）→ 一题一屏作答，答完立刻看到对错与解析 →
+交卷后出总分/正确率与逐题回看。出题只依据材料（按 chunk 等距抽样覆盖全文）、坏 JSON 单题跳过、
+题数不足逐题补生成、同题撞指纹复用不重复入库；客观题判分在后端（多选按集合、顺序无关），
+简答走 LLM 批改给出"你提到了…但漏了…"，批改失败落 `is_correct = NULL`（**待人工判断**，不冤枉人）。
+⑦ 「复习」页：答错的题按 1 → 2 → 4 → 7 → 15 天自动回来（`due_at` 存 UTC，比较在 Python 侧），
+今日到期一次最多 20 题，直接进入作答；「错题本」标签页列出**最近一次仍答错**的题，复习答对即移出。
+
+`verify_m1.py` 50/51（见 `HANDOFF.md` 2026-11-07 那条：有一条断言写死任务数 3，与实际 11 不符，
+属既有脆弱断言，未修）、`verify_m2.py` 116/118（同样两条 `force` 用例在 HEAD 上就红）、
+`verify_m3.py` 61/61、`verify_m4.py` 56/56 PASS。
 
 ## 目录
 
@@ -68,17 +74,16 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 118 项：网页/视频成功、去重、force、三类抓取失败、未登记 5xx 归类、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
 | `cd backend && uv run python scripts/verify_m2.py --online` | 上面 118 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
 | `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
+| `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 56 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
 | `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
 
 `verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
-`verify_m3.py` 全程不联网：`VECTOR_ENABLED=0` 且把 `asker.stream` 换成假实现，可以随便跑。
-**出题判分（T4.1–T4.4）还没有 `verify_m4.py`**（T4.8 才做）。现阶段验证办法：
-`DATA_DIR=<副本目录>` 起一个后端实例（别拿真库试，出题会写入 `question` / `quiz_attempt`），
-再 `curl --noproxy '*' -N -X POST .../api/quiz/generate` 看 SSE；判分失败路径用一个
-`LLM_API_KEY=""` 的实例跑 `submit`，确认 `is_correct` 落 NULL 而不是 0。
+`verify_m3.py` 与 `verify_m4.py` 全程不联网：前者 `VECTOR_ENABLED=0` + 假 `asker.stream`，
+后者把 `quizzer.stream` 与 `llm.chat` 都换成假实现，可以随便跑。
+`verify_m4.py` 的"待复习永远为空"用**时间旅行**验（直接改 `due_at` 或给仓库函数传 `now`），不改系统时间。
 `verify_m2.py` 默认全程注入假实现，不访问外部站点、不调模型，可以随便跑；只有加 `--online` 才发真实请求（两个公开页 + 一个 404）。
 前端 lint 只查正确性、不管格式：无分号、单引号这类风格靠人守。
 

@@ -199,6 +199,14 @@ export const api = {
   deleteHtml: (id) => del(`/api/html/${id}`),
   htmlUrl: (id) => `${baseUrl()}/api/html/${id}`,
   htmlDownloadUrl: (id) => `${baseUrl()}/api/html/${id}/download`,
+  /** 批量交卷并判分（T4.4）；is_correct 可能是 null = 待人工判断，不是答错 */
+  quizSubmit: (payload) => post('/api/quiz/submit', payload),
+  /** 错题本（T4.6）：最近一次作答仍答错的题 */
+  wrongQuestions: (params) => get('/api/quiz/wrong', params),
+  /** 今日待复习（T4.6）：拿到的题自带 options/answer/explanation，可直接作答 */
+  dueReviews: (params) => get('/api/review/due', params),
+  /** 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题 */
+  reportReview: (questionId, payload) => post(`/api/review/${questionId}/result`, payload),
 }
 
 const POLL_START = 1500

@@ -62,6 +62,8 @@ function onOpen(itemId) {
         <router-link to="/" class="nav-item" exact-active-class="on">知识库</router-link>
         <router-link to="/ask" class="nav-item" active-class="on">检索问答</router-link>
         <router-link to="/pages" class="nav-item" active-class="on">学习页</router-link>
+        <router-link to="/practice" class="nav-item" active-class="on">练习</router-link>
+        <router-link to="/review" class="nav-item" active-class="on">复习</router-link>
         <router-link to="/tasks" class="nav-item" active-class="on">任务</router-link>
       </nav>
       <span class="conn" :class="backend" :title="backend === 'ok' ? '后端已连接' : '后端未连接'">

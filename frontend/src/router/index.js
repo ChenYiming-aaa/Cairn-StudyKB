@@ -3,6 +3,8 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import Ask from '../views/Ask.vue'
 import HtmlPages from '../views/HtmlPages.vue'
 import Knowledge from '../views/Knowledge.vue'
+import Practice from '../views/Practice.vue'
+import Review from '../views/Review.vue'
 import Tasks from '../views/Tasks.vue'
 
 // hash 模式：M5 打包成 Electron 用 file:// 加载时不会 404（history 模式需要服务端兜底）
@@ -12,6 +14,8 @@ export default createRouter({
     { path: '/', name: 'knowledge', component: Knowledge },
     { path: '/ask', name: 'ask', component: Ask },
     { path: '/pages', name: 'html-pages', component: HtmlPages },
+    { path: '/practice', name: 'practice', component: Practice },
+    { path: '/review', name: 'review', component: Review },
     { path: '/tasks', name: 'tasks', component: Tasks },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

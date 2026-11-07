@@ -15,7 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings, setup_logging
 from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
-from app.routers import ask, auth, env, health, html, ingest, knowledge, quiz, search, tasks
+from app.routers import (
+    ask, auth, env, health, html, ingest, knowledge, quiz, review, search, tasks,
+)
 from app.services import browser
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
@@ -67,4 +69,5 @@ app.include_router(search.router)
 app.include_router(ask.router)
 app.include_router(html.router)
 app.include_router(quiz.router)
+app.include_router(review.router)
 app.include_router(tasks.router)

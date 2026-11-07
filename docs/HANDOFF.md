@@ -1463,3 +1463,78 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 > 接着做 T4.5–T4.7：先写 `frontend/src/views/Practice.vue`（消费 `/api/quiz/generate` 的 SSE +
   `/api/quiz/submit` 的批量判分，`null` 要显示成「待人工判断」而不是答错），再写 `repo/review.py`
   与复习队列页。动 T4.6 前先读本条的裁决 1：`due_at` 存 UTC、比较在 Python 侧。
+
+## 2026-11-08 00:05 · M4 · T4.5–T4.8 练习页 / 复习 / 验收（M4 完成）
+
+**范围**：T4.5–T4.8 全做完，M4 状态改为**已验收**（tag `m4-done`）。T4.1–T4.4 的代码一字未改，
+只在 `submit` 末尾加了「判完分顺手写 review_item」这一处联动。
+
+**完成**
+- T4.6 `db/repo/review.py`：间隔规则 1→2→4→7→15；`apply(conn, qid, correct|None)` 一个入口；
+  `due()` 取全表后**在 Python 侧**转 aware datetime 再比（UTC 与 `+08:00` 字典序不可比）；
+  `wrong()` 错题本 = 最近一次明确答错的题；`wrong_total/tracked_total` 供角标
+- T4.6 联动：`POST /api/quiz/submit` 判完分顺手 `apply`。**NULL 不排期**（待人工判断不猜对错），
+  同一次提交里同一题只推一次间隔
+- T4.7 三个端点：`GET /api/quiz/wrong`、`GET /api/review/due`（带 `total/tracked/wrong/now` 一次拿全）、
+  `POST /api/review/{qid}/result`（`scheduled=false` + `reason=not_tracked` 表示这题本来不需要复习，不是错误）
+- T4.5 `views/Practice.vue`：条目/题型/难度/题数 → SSE 出题（逐题浮现、可停止、已收到的保留）→ 作答
+- T4.5 `components/QuizRunner.vue`：一题一屏 → 客观题本地即时判（交卷后以后端为准）→ 批量交卷 →
+  结果页（`is_correct === null` 显示「待判」，**不计入正确也不算错**）
+- T4.7 `views/Review.vue`：今日待复习 / 错题本两个标签；到期题直接进 QuizRunner 作答，
+  交卷后只刷新时间表（不再重复上报，否则间隔推两格）
+- T4.8 `backend/scripts/verify_m4.py`：56 项，全假实现（`quizzer.stream` + `llm.chat`），不联网不烧钱
+- 顺带：`vite.config.js` 加 `/* global process */`——`npm run lint` 之前一直红在这条（既有问题，不是这次引入的）
+
+**改动文件**
+- 新增：`backend/app/db/repo/review.py`、`backend/app/routers/review.py`、`backend/scripts/verify_m4.py`、
+  `frontend/src/views/Practice.vue`、`frontend/src/views/Review.vue`、
+  `frontend/src/components/QuizRunner.vue`、`frontend/src/utils/quiz.js`
+- 改：`backend/app/routers/quiz.py`（写 review + `/quiz/wrong`）、`backend/app/main.py`（挂 review 路由）、
+  `frontend/src/api/client.js`（4 个调用）、`frontend/src/router/index.js`、`frontend/src/App.vue`（两个导航）、
+  `frontend/vite.config.js`
+- 文档：`contracts/接口契约.md`（三个端点完整形状 + submit 会写队列）、`milestones/M4`（状态/任务表/DoD/
+  新增 §6.8 实施偏差/§7 三条排障）、`00-总纲`（M4 → 已验收）、`会话提示词手册`（模板 A/B 换成 M5）、`README.md`
+
+**验证（都真跑）**
+- `verify_m4.py` → **56/56 PASS**，exit 0。含：题干含 `{}` 不错位、坏 JSON/越界答案/缺解析/重复各只跳该题、
+  补生成 3 题（3 次调用）、撞指纹复用且不增行、多选乱序/少选/`"A,C"` 字符串、单选空白归一、判断布尔、
+  空答案回显、简答具体反馈、批改失败落 NULL（库里 `is_correct IS NULL`）、间隔 1→2→4→7→15、
+  答错重置 + lapses、NULL 不排期、时间旅行查到期、错题本进出、5 条参数校验
+- 浏览器走查（真后端副本实例 8757 + vite 5174 + Playwright，真实 LLM **1 次调用**出 5 题）：
+  练习页渲染 → 出题中卡片逐题浮现 → 第 1/5 题 → 答完立刻出对错与解析 → 交卷 0/5 → 结果页 5 题回显 →
+  复习页角标 0 到期 / 5 队列 / 5 错题 → 错题本列出 5 条；**控制台 0 错误**
+- 回归：`verify_m3.py` 61/61；`verify_m2.py` 116/118、`verify_m1.py` 50/51（**两个都是既有红**，见下）
+- `tools/doc_check.py`：6 项通过 + 2 条既有 WARN；`scripts/status.py` 正常（真库 `question` 仍是 0，
+  走查与验收全在副本库 `data/tmp/`）
+
+**已知既有红（不是本轮引入，都已在 HEAD 上复现过，本轮不动）**
+1. `verify_m1.py`「未留下注定失败的任务」：断言写死 `total == 3`，实际 11（脚本自己前半程就在造任务）。
+   要么改成相对计数，要么断言"没有 status='failed' 且 error_code='LLM_NO_KEY' 的任务"。**待你定口径**
+2. `verify_m2.py`「force → replaced=true 且同一条目」+「正文已替换」：`git worktree` 检出 HEAD（`4776d3b`）
+   跑同样 116/118，同样的两条红，与 M4 改动无关。像是 force 覆盖路径的回归，需要单独一轮查
+
+**踩到的坑**
+- 错题本不能按 `review_item.last_result` 取：简答题批改失败的题根本不进队列，`last_result` 也不更新；
+  用户问"错过的题"关心的是**最近一次作答**，所以按 `quiz_attempt` 的最后一条判
+- `POST /review/{id}/result` 若也推进一遍，交卷就成了"推两格"。最终口径：`submit` 负责推进，
+  `/result` 只给人工裁定用——契约里写死，`verify_m4.py` 也断言 `submit` 之后队列状态正确
+- 前端本地判分必须和后端同一口径（多选集合、`"A,C"` 字符串、判断 `对/true`）：抽到 `utils/quiz.js` 一处写
+- Playwright 里 `get_by_role(name="3 题")` 会超时：题数选项只有 5/10/20，没有 3——脚本先按 `.chip` 文本定位
+
+**遗留**
+- [ ] 简答批改没区分 `LLM_TIMEOUT` / `LLM_QUOTA`（M4 §7 要求）：`llm.py` 把 429/402 都归到
+      `LLM_HTTP_ERROR`，要改先给 httpx 状态码加映射，会影响 ask 的既有错误码，单独一轮
+- [ ] 题目质量仍可能出"四个选项全对"的多选（模型问题），prompt 已约束，无量化验收
+- [ ] `question` / `quiz_attempt` / `review_item` 会无限增长，等 M5 仪表盘再定保留策略
+- [ ] M4 §8 收工清单第 2 条（手动改系统时间看今日待复习）没做：用时间旅行等价验过，
+      改系统时间在 Windows 上影响别的进程，不做
+
+**推送状态：本地已提交，GitHub 未推（需要你在普通终端执行）**
+- 待执行：`"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
+- 上一次留的 `m4-wip` 标签指向 `1b73eb3`，是本次 `m4-done` 的祖先，不用 force 平移
+
+**下一会话第一件事**
+> M5 开工，先读 `docs/00-总纲.md` 与 `docs/milestones/M5-计时与交付.md`，做 T5.1–T5.4（计时与仪表盘）。
+> 仪表盘要读 M4 的数据：正确率来自 `quiz_attempt`，错题数来自 `/api/quiz/wrong`，到期数来自
+> `/api/review/due`——三个端点都已就绪，M5 不用再改 M4 的表。
+

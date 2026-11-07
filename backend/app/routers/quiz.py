@@ -9,7 +9,9 @@
 数量不足 → 逐题补生成（M4 §7），最多补 `count` 次，补不出来就如实报 `count`。
 
 `POST /api/quiz/submit` 批量判分：客观题在这里比对，简答走 grader；
-简答失败落 NULL（待人工判断），**绝不默认判错**。写 `review_item` 是 T4.6，本轮刻意不做。
+简答失败落 NULL（待人工判断），**绝不默认判错**。
+判完分顺手写 `review_item`（T4.6）：答错 → 明天回来，答对 → 间隔推进；NULL 不排期。
+`GET /api/quiz/wrong` 是错题本：最近一次作答明确答错的题。
 """
 from __future__ import annotations
 
@@ -18,7 +20,7 @@ import json
 import logging
 import threading
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -26,6 +28,7 @@ from typing import Any
 
 from app.db.conn import get_conn
 from app.db.repo import questions as repo
+from app.db.repo import review as review_repo
 from app.errors import ApiError
 from app.services import llm
 from app.services.agents import grader, quizzer
@@ -251,6 +254,7 @@ def _grading_material(conn, item_id: int | None, cache: dict) -> str:
 def submit(body: SubmitBody) -> dict:
     results: list[dict] = []
     cache: dict = {}
+    applied: set[int] = set()
     conn = get_conn()
     try:
         for answer in body.answers:
@@ -267,6 +271,10 @@ def submit(body: SubmitBody) -> dict:
                     user_answer=answer.user_answer, is_correct=is_correct,
                     feedback=feedback, duration_ms=answer.duration_ms,
                 )
+                # T4.6：同一次提交里同一题只推一次间隔，避免一次交卷把间隔推两格
+                if answer.question_id not in applied:
+                    review_repo.apply(conn, answer.question_id, is_correct)
+                    applied.add(answer.question_id)
             results.append({
                 "question_id": answer.question_id,
                 "is_correct": None if is_correct is None else bool(is_correct),
@@ -285,3 +293,21 @@ def submit(body: SubmitBody) -> dict:
         "total": total,
         "accuracy": round(correct / total, 2) if total else 0.0,
     }
+
+
+WRONG_KEYS = ("question_id", "type", "question", "options", "answer", "explanation",
+              "difficulty", "source_item_id", "source_title",
+              "wrong_count", "last_wrong_at", "due_at", "interval_days", "lapses")
+
+
+@router.get("/quiz/wrong")
+def wrong(limit: int = Query(default=20, ge=1, le=100),
+          offset: int = Query(default=0, ge=0)) -> dict:
+    """错题本：**最近一次作答明确答错**的题（复习答对后自动消失）。"""
+    conn = get_conn()
+    try:
+        items, total = review_repo.wrong(conn, limit=limit, offset=offset)
+        return {"items": [{key: item.get(key) for key in WRONG_KEYS} for item in items],
+                "total": total}
+    finally:
+        conn.close()
