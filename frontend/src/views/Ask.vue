@@ -197,7 +197,7 @@ async function removeLog(id) {
     historyItems.value = historyItems.value.filter((h) => h.id !== id)
     historyTotal.value = Math.max(0, historyTotal.value - 1)
     if (currentLogId.value === id) currentLogId.value = null
-    toast.success('已删除这条记录')
+    toast.ok('已删除这条记录')
   } catch (err) {
     toast.error(friendlyMessage(err))
   }

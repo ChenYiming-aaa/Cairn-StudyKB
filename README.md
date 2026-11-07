@@ -5,9 +5,8 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：M3（检索与学习页）进行中 —— T3.1–T3.6「检索问答」+ T3.12「问答历史」已完成
-（2026-11-07，tag `m3-wip`），T3.7–T3.11（思维导图 / 学习页导出 / 验收脚本）未开始。
-M2（真实内容采集）已验收（2026-11-06，tag `m2-done`）。
+**当前状态**：M3（检索与学习页）**已验收**（2026-11-07，tag `m3-done`）—— T3.1–T3.12 全部完成，
+`verify_m3.py` 61/61 PASS。M1、M2 已验收（tag `m1-done` / `m2-done`），下一个里程碑是 M4（出题与练习）。
 
 **已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
 没有字幕才走 yt-dlp + faster-whisper 转录）；「检索问答」页里可以
@@ -17,7 +16,10 @@ M2（真实内容采集）已验收（2026-11-06，tag `m2-done`）。
 **不会重新调模型**，也可以单条删除。
 检索是 FTS5（trigram）+ bge 向量两路召回再 RRF 融合，向量不可用时自动降级为纯全文检索
 （全文零命中时向量还要过距离阈值，否则判"库里没有"直接短路，不调模型）。
-`verify_m1.py` 51/51 PASS，`verify_m2.py` 115/115 PASS（`--online` 131/131）。
+④ 条目详情第 4 个 Tab「思维导图」按笔记标题层级现场出图（纯 Python 手写 SVG，不缓存）；
+⑤ 「学习页」页里多选条目 → 生成一份**单文件离线** HTML（内联样式 + 内嵌导图 + 代码高亮）→
+iframe 预览 → 下载分享，历史产物可回看与删除。
+`verify_m1.py` 51/51、`verify_m2.py` 115/115（`--online` 131/131）、`verify_m3.py` 61/61 PASS。
 
 ## 目录
 
@@ -60,12 +62,14 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 51 项（含分类聚合端点），真实 LLM 调用 | 动到条目 / 整理 / chunk |
 | `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 115 项：网页/视频成功、去重、force、三类抓取失败、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
 | `cd backend && uv run python scripts/verify_m2.py --online` | 上面 115 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
+| `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
 | `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
 
 `verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
+`verify_m3.py` 全程不联网：`VECTOR_ENABLED=0` 且把 `asker.stream` 换成假实现，可以随便跑。
 `verify_m2.py` 默认全程注入假实现，不访问外部站点、不调模型，可以随便跑；只有加 `--online` 才发真实请求（两个公开页 + 一个 404）。
 前端 lint 只查正确性、不管格式：无分号、单引号这类风格靠人守。
 
@@ -91,6 +95,7 @@ cp .env.example .env
 | `BROWSER_HEADLESS` | `1`（默认）。置 `0` 时渲染也弹窗口，排障用 |
 | `VECTOR_ENABLED` | `1`（默认）。置 `0` 时检索只走 FTS/LIKE：问答照常可用，前端提示「向量不可用，已降级」。sqlite-vec 加载失败时同样自动降级，不用改这里 |
 | `EMBED_MODEL` | 默认 `BAAI/bge-small-zh-v1.5`。**换模型必须重建向量**（维度变了），见 M3 §6.3 |
+| `CAIRN_API_TARGET` | **只给前端开发用**（不是 `.env` 变量，是启动 Vite 时的环境变量）。默认 `/api` 反代到 `127.0.0.1:8756`；想在另一个后端实例（比如 8757 上的联调实例）上跑 UI 时设它，别去改 `vite.config.js` |
 | `VECTOR_MIN_DISTANCE` | `1.05`（默认）。全文零命中时，向量最近片段的 L2 距离须 ≤ 此值才算命中，否则判「库里没有」直接返回空（不调模型）。调大更宽松、调小更严格；实测库内语义查询 0.958 能过、库外问题 1.10–1.17 被挡 |
 
 > **站点登录**：需要登录才给内容的站点（B 站字幕、知乎受限页）在采集面板的「链接采集」里

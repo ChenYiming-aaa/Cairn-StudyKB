@@ -23,7 +23,7 @@ dependencies = [
   "zhconv>=1.4.3",
   "sentence-transformers>=6.2.0",
   "sqlite-vec>=0.1.9",
-  "bleach>=6.4.0",
+  "bleach[css]>=6.4.0",
 ]
 
 [build-system]

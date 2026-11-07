@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { api, friendlyMessage, pollTask } from '../api/client'
 import StatusBadge from './StatusBadge.vue'
+import MindmapPane from './MindmapPane.vue'
 import NoteEditor from './NoteEditor.vue'
 import RawPane from './RawPane.vue'
 import SummaryPane from './SummaryPane.vue'
@@ -32,6 +33,7 @@ const TABS = [
   { key: 'summary', label: '摘要与要点' },
   { key: 'note', label: '结构化笔记' },
   { key: 'raw', label: '原文' },
+  { key: 'mindmap', label: '思维导图' },
 ]
 
 const isPending = computed(() => props.item?.status !== 'ready')
@@ -178,6 +180,12 @@ onBeforeUnmount(stop)
         </div>
 
         <RawPane v-show="tab === 'raw'" :text="item.raw_content" :focus="focus" />
+
+        <MindmapPane
+          v-if="tab === 'mindmap'"
+          :item-id="item.id"
+          :updated-at="item.updated_at || ''"
+        />
       </div>
     </template>
   </section>

@@ -190,6 +190,15 @@ export const api = {
   authStatus: () => get('/api/auth/status'),
   /** 起一个受控浏览器窗口让用户登录，立即返回，结果靠 authStatus 轮询 */
   authLogin: (site) => post(`/api/auth/login/${site}`),
+  /** 思维导图（T3.7）：后端出 SVG，直接当图片用；v 是缓存戳，笔记一改就要换 */
+  mindmapUrl: (id, theme = 'light', version = '') =>
+    `${baseUrl()}/api/knowledge/${id}/mindmap?theme=${theme}&v=${encodeURIComponent(version)}`,
+  /** 学习页（T3.9）：生成是同步的，返回 {id,title,size_bytes} */
+  htmlGenerate: (payload) => post('/api/html/generate', payload),
+  htmlPages: (params) => get('/api/html', params),
+  deleteHtml: (id) => del(`/api/html/${id}`),
+  htmlUrl: (id) => `${baseUrl()}/api/html/${id}`,
+  htmlDownloadUrl: (id) => `${baseUrl()}/api/html/${id}/download`,
 }
 
 const POLL_START = 1500

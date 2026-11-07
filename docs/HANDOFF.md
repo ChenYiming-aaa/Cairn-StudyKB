@@ -1249,3 +1249,90 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 - [ ] 历史里的答案目前只能看，不能"存成新条目"或"导出"——留给后续
 - [ ] `ask_log` 会无限增长；暂时靠手动删除，等 M5 仪表盘时再加"只保留最近 N 天"的策略
 - [ ] 点「停止」中断的问答**不落库**（async 生成器被 aclose 时不能再 await 写库），这是刻意取舍
+
+## 2026-11-07 12:05 · M3 完成 · T3.7–T3.11 导图与学习页（本次会话）
+
+**范围**：T3.7 思维导图 / T3.8 HTML 渲染 / T3.9 学习页接口 / T3.10 学习页前端 / T3.11 验收脚本。
+做完这一条 M3 即收口（T3.1–T3.12 全绿），打 `m3-done`。
+
+**完成**
+- T3.7 `services/mindmap.py`：`parse_tree` 解析标题层级（第一个 `#` 挂在根**下面**，不取代根）→
+  后序定 y、按层累加定 x → 手写 SVG。深度截 4 级、单节点最多 8 个孩子（多出来的折成「…另 N 节」）、
+  文字 >24 字截为 22+`…`、节点文字 `html.escape`。
+  `GET /api/knowledge/{id}/mindmap?theme=light|dark` 返回 `image/svg+xml` + `Cache-Control: no-store`。
+  条目详情加第 4 个 Tab（`components/MindmapPane.vue`，用 `<img>` 而不是注入 innerHTML）。
+- T3.8 `services/renderer.py` + `templates/learning_page.html`：Markdown（`codehilite` **noclasses=True**）
+  → 正文净化（bleach，白名单**放行 svg/g/rect/text/path**，`script/iframe/foreignObject` 一律不给）
+  → 套模板（样式全内联）→ 导图内联成 `<svg>`。正文先转义 `&`/`<` 再进 Markdown，
+  所以笔记里的 `<script>alert(1)</script>` 在页面里是可见文本。
+  `find_external_refs()` 扫外链，生成时若扫到就**拒绝产出**（不是只警告）。
+- T3.9 `routers/html.py` + `db/repo/artifacts.py`：生成（同步，201）/ 列表（**不含全文**）/
+  预览（附 `CSP: default-src 'none'; style-src 'unsafe-inline'`）/ 下载（`filename*=UTF-8''` 编码）/
+  删除（契约里补了这一条）。
+- T3.10 `views/HtmlPages.vue` + `/pages` 路由 + nav「学习页」：左侧多选（按点击顺序成章）→
+  标题 → 生成 → iframe 预览（`sandbox="allow-same-origin"`，不给 `allow-scripts`）→ 下载；
+  历史抽屉可回看/删除。
+- T3.11 `scripts/verify_m3.py`：61 项，四组（导图 / 学习页 / 检索 / 问答）。
+  **全程不联网**：`VECTOR_ENABLED=0`、`asker.stream` 换假实现。
+
+**顺手修的真 bug**
+- `views/Ask.vue` 的删除历史调的是 `toast.success()`，但 `useToast` 只提供 `info/ok/error` →
+  点「删除这条记录」必抛 `TypeError`，记录已删但提示不弹。改成 `toast.ok()`。
+
+**改动文件**
+- 新增 `backend/app/services/{mindmap,renderer}.py`、`app/templates/learning_page.html`、
+  `app/routers/html.py`、`app/db/repo/artifacts.py`、`backend/scripts/verify_m3.py`
+- 新增 `frontend/src/components/MindmapPane.vue`、`frontend/src/views/HtmlPages.vue`
+- 改 `backend/app/{main.py, routers/knowledge.py}`、`pyproject.toml`+`uv.lock`（`bleach[css]` → tinycss2）、
+  `frontend/src/{App.vue, api/client.js, router/index.js, components/ItemDetail.vue, vite.config.js}`、
+  `views/Ask.vue`
+- 文档：`contracts/接口契约.md`（html 四个端点详细形状 + `DELETE` + `HTML_NOT_FOUND`）、
+  `milestones/M3`（状态、DoD 全勾、§6.6 布局实施偏差、§8 收工）、`00-总纲`（M3 已验收）、
+  `会话提示词手册`（模板切到 M4）、`README.md`（新增 `CAIRN_API_TARGET` 说明）
+
+**验证（都真跑）**
+- `verify_m3.py` **61/61 PASS**；`verify_m1.py` **51/51**（`VECTOR_ENABLED=0`）；`verify_m2.py` **115/115**
+- UI 联调 15/15（playwright + msedge headless，跑在 **8757 后端 + 5174 前端**，用的是 `data.db` 的
+  副本 `data/tmp/uitest/`，没碰你的库）：4 个 Tab、导图 `naturalWidth>0`、改笔记保存后导图 src 的
+  缓存戳变了且新小节出现在图里、多选 3 条生成、iframe 里 3 个小节 3 张图、历史抽屉点回预览。
+- **断网实测**：导出产物用 `file://` + `context(offline=True)` 打开 → 全程只有自身 1 个请求，
+  h1 30px、导图 526px、目录 2 条、`section.item` 2 个，样式与图都正常。
+- `npm run lint` 干净、`vite build` 通过、`tools/doc_check.py` 6 项通过 2 条既有提示。
+
+**踩到的坑（下次别再花时间）**
+- bleach 会按白名单逐属性过滤：`<svg>` 上的 `viewBox` 是 camelCase，白名单里必须原样写
+  `viewBox`（写 `viewbox` 无效），`font-family` 也得单独放行，否则导图里的中文掉回衬线体。
+- 放行 `style` 属性会触发 `NoCssSanitizerWarning`，而 `bleach[css]`（tinycss2）默认没装。
+  装上后用 `CSSSanitizer` 限定允许的 CSS 属性，Pygments 的配色能留、`position:fixed` 之类被丢。
+- 原方案 `x = 层级 × 200` 在长标题下会压到下一层的框（22 字 ≈ 310px）。改成「按层累加最宽节点 + 64」，
+  已在 M3 §6.6 记为实施偏差。
+- SVG 里 `<text>` 的**出现顺序是后序**（子先父后），所以验收断言不能依赖 `texts[0]` 是根节点，
+  要看 `parse_tree()` 的结构。
+- 本机全局有 `http_proxy`，`curl http://127.0.0.1:...` 会被代理接管返回 502，
+  本地探测一律加 `--noproxy '*'`；`uv add` 也要 `NO_PROXY=<镜像域名>`。
+- 用 `DATA_DIR=../data/tmp/x` 这种相对路径启动后端，config 会按项目根解析，
+  实际落到 `Desktop/data/tmp/x`（在仓库外新建了一个目录）。**一律传绝对路径**。
+- playwright 的 `new_page(viewport=...)` 不接受 `viewport`，它属于 `new_context()`。
+
+**遗留**
+- [ ] 前端 e2e（`npm run e2e`，24 项）仍未覆盖「检索问答」「学习页」两页；本次 UI 验证用的是一次性
+      脚本（未入库）。要长期守，应该把这两个流程并进 `frontend/e2e/`
+- [ ] `keyword_terms()` 切完只剩**一个**检索词时不会走 OR 兜底（`if len(terms) >= 2`），
+      所以「番茄工作法怎么用」这种问法零命中，而「番茄工作法的核心原理是什么」能命中。
+      最小修法是把条件放宽到 `if terms:`，但会让「怎么用」这类纯虚词词也能召回、
+      从而绕开向量距离闸门（可能把库外问题送进模型）。**要先裁决再动**
+- [ ] `html_artifact` 与 `ask_log` 一样会无限增长；目前只能手动删，等 M5 仪表盘再加保留策略
+- [ ] 导图 theme 只有后端参数与 `<img>` 拼接，界面上没有深浅色开关（当前 UI 是浅色，没做入口）
+- [ ] 学习页里的"来源链接"没做（`source_url` 未进页面）：加 `<a href>` 不违反"断网可开"，
+      但会让产物出现 `http`，与「无任何外链请求」的验收口径纠缠，需要单独裁决
+- [ ] 导图节点宽度是按字符类型估算（全角 13px / 其余 7.2px），英文等宽字体下仍可能偏窄
+
+**待裁决冲突**
+- 无（`x` 布局与 SVG 白名单属实现细节，已在 M3 §6.6 就地记录）
+
+**下一会话第一件事**
+> M4 开工：读 `00-总纲.md` + `milestones/M4-出题与练习.md`，按 §2 核环境（`question` /
+> `quiz_attempt` / `review_item` 三张表已在 schema 里，不用迁移），本次只做 T4.1–T4.4（出题判分）。
+> 注意 T4.1 的 SSE 出题要复用 `ask.py` 的流式骨架与 `llm_call_log` 记账。
+
+**推送状态**：本次会尝试提交并推送（`git push`）；若 GCM 又要求交互，命令见文末「推送未完成」那条。

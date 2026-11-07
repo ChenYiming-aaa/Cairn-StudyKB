@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }}</title>
+<style>
+/* 全部内联：断网双击打开必须和预览一模一样（M3 §1 第 5 条、§6.7） */
+:root {
+  --ink: #23211c;
+  --ink-2: #5c574d;
+  --ink-3: #8d887f;
+  --paper: #fffefa;
+  --paper-2: #f6f5f1;
+  --line: #e2dfd5;
+  --accent: #1d9e75;
+  --accent-soft: #e1f5ee;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  padding: 0 20px 64px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, "Microsoft YaHei", serif;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.page { max-width: 860px; margin: 0 auto; background: var(--paper); padding: 48px 56px 56px;
+        border-radius: 12px; box-shadow: 0 1px 2px rgba(35,33,28,.06); margin-top: 28px; }
+h1, h2, h3, h4 { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+                 line-height: 1.4; margin: 0; }
+h1.doc-title { font-size: 30px; letter-spacing: .01em; }
+.meta { margin: 14px 0 0; color: var(--ink-3); font-size: 13px;
+        font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.meta span + span::before { content: "·"; margin: 0 8px; color: var(--line); }
+.toc { margin: 32px 0 8px; padding: 18px 22px; background: var(--paper-2);
+       border: 1px solid var(--line); border-radius: 10px; }
+.toc-title { font-size: 13px; letter-spacing: .08em; color: var(--ink-3); text-transform: uppercase;
+             font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; margin-bottom: 8px; }
+.toc ol { margin: 0; padding-left: 22px; }
+.toc li { font-size: 14px; line-height: 1.9; }
+.toc a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid transparent; }
+.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+section.item { padding-top: 36px; margin-top: 36px; border-top: 1px solid var(--line); }
+section.item:first-of-type { border-top: none; }
+section.item > h2 { font-size: 23px; padding-bottom: 8px; border-bottom: 2px solid var(--accent-soft); }
+.item-meta { margin: 8px 0 18px; font-size: 12px; color: var(--ink-3);
+             font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.item-meta .chip { display: inline-block; padding: 1px 8px; margin-right: 6px; border-radius: 999px;
+                   background: var(--paper-2); color: var(--ink-2); }
+.mindmap { margin: 8px 0 24px; padding: 12px; background: #fbfaf6; border: 1px solid var(--line);
+           border-radius: 10px; overflow-x: auto; }
+.mindmap svg { display: block; max-width: 100%; height: auto; }
+.summary { margin: 0 0 18px; padding: 14px 18px; background: var(--accent-soft); border-radius: 10px;
+           color: #104e3a; font-size: 15px; }
+.points-title, .note-title { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+                             font-size: 13px; letter-spacing: .06em; color: var(--ink-3); margin: 22px 0 8px; }
+.points { margin: 0; padding-left: 22px; }
+.points li { margin: 4px 0; }
+.note h1, .note h2, .note h3, .note h4 { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+                                         margin: 22px 0 8px; }
+.note h1 { font-size: 21px; }
+.note h2 { font-size: 18px; }
+.note h3 { font-size: 16px; }
+.note h4 { font-size: 15px; color: var(--ink-2); }
+.note p { margin: 8px 0; }
+.note ul, .note ol { margin: 8px 0; padding-left: 24px; }
+.note li { margin: 3px 0; }
+.note code { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: .88em;
+             background: var(--paper-2); padding: 1px 5px; border-radius: 4px; }
+.note pre { background: #f7f6f2; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+            overflow-x: auto; font-size: 13px; line-height: 1.6; }
+.note pre code { background: none; padding: 0; font-size: 13px; }
+.note blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid var(--accent-soft); color: var(--ink-2); }
+.note table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+.note th, .note td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+.note th { background: var(--paper-2); }
+.note a { color: var(--accent); }
+.note img { max-width: 100%; }
+.note hr { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
+footer { max-width: 860px; margin: 24px auto 0; text-align: center; color: var(--ink-3); font-size: 12px;
+         font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+@media (max-width: 720px) {
+  body { padding: 0 12px 40px; }
+  .page { padding: 28px 20px 36px; border-radius: 8px; }
+  h1.doc-title { font-size: 24px; }
+}
+@media print {
+  body { background: #fff; padding: 0; }
+  .page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+  section.item { page-break-inside: avoid; }
+  .mindmap { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <h1 class="doc-title">{{ title }}</h1>
+  <p class="meta">
+    <span>{{ item_count }} 个条目</span>
+    <span>生成于 {{ generated_at }}</span>
+    <span>由 Cairn 离线生成</span>
+  </p>
+  <nav class="toc">
+    <div class="toc-title">目录</div>
+    <ol>
+      {% for entry in toc %}<li><a href="#item-{{ entry.id }}">{{ entry.title }}</a></li>
+      {% endfor %}
+    </ol>
+  </nav>
+  {{ body }}
+</main>
+<footer>本页为单文件离线产物，不依赖任何网络资源。</footer>
+</body>
+</html>

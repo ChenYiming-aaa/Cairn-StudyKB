@@ -5,15 +5,16 @@ import sqlite3
 from typing import Literal
 
 from fastapi import APIRouter, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.db.conn import get_conn
 from app.db.repo import items as repo
 from app.errors import ApiError, error_payload
-from app.services import tasks as task_queue
 from app.services import embedder
+from app.services import mindmap
+from app.services import tasks as task_queue
 from app.services.agents import organizer
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
@@ -158,6 +159,29 @@ def organize_item(item_id: int):
             repo.set_status(conn, item_id, "organizing")
         task_id = task_queue.submit("organize", organizer.run, {"item_id": item_id})
         return JSONResponse(status_code=202, content={"task_id": task_id})
+    finally:
+        conn.close()
+
+
+@router.get("/{item_id}/mindmap")
+def get_mindmap(item_id: int, theme: Literal["light", "dark"] = "light"):
+    """T3.7：现场从 structured_note 生成 SVG（ADR-019 不落库、不缓存）。
+
+    `no-store` 是刻意的：笔记一改导图必须立刻变，浏览器缓存会直接违背这条 DoD。
+    """
+    conn = get_conn()
+    try:
+        row = repo.get_item(conn, item_id)
+        if row is None:
+            return _not_found()
+        svg = mindmap.render_item_svg(
+            row["title"], row["structured_note"], repo.loads(row["key_points"]) or [], theme
+        )
+        return Response(
+            content=svg,
+            media_type="image/svg+xml; charset=utf-8",
+            headers={"Cache-Control": "no-store"},
+        )
     finally:
         conn.close()
 
