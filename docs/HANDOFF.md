@@ -1335,12 +1335,12 @@ a167c49 → 999c70f  refs/tags/m0-ready（附注标签）
 > `quiz_attempt` / `review_item` 三张表已在 schema 里，不用迁移），本次只做 T4.1–T4.4（出题判分）。
 > 注意 T4.1 的 SSE 出题要复用 `ask.py` 的流式骨架与 `llm_call_log` 记账。
 
-**推送状态：本地已提交 + 已打标签，GitHub 未推（又是 GCM 要交互，需要你用普通终端执行一次）**
-- 本地：`ff5f2d8 feat(M3): T3.7-T3.11 思维导图与学习页，M3 收口`，标签 `m3-done`
-- 远程 `main` 还停在 `d39c2df`——上次那条「T3.12 问答历史」(`05a5ace`) 也没推上去，
-  所以这次要推 **2 个提交 + 3 个标签**（`m3-wip`、`m3-done`）
-- 本会话试过：`GCM_INTERACTIVE=never git push` → `fatal: could not read Username for
-  'https://github.com': terminal prompts disabled`。凭据没进这个会话，别在这里反复试
-- 请你执行（普通终端，会弹一次浏览器登录）：
-  `"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`
-- 推完核对：`"C:/Program Files/Git/cmd/git.exe" ls-remote --heads origin` 应显示 `ff5f2d8`
+**推送状态：已推（2026-11-07 用户在普通终端执行，除 `m3-wip` 外全部同步）**
+- 远程 `main`：`d39c2df → 3a82d5a`，两个提交（`05a5ace` T3.12 问答历史、`ff5f2d8` M3 收口）都上去了
+- `m3-done` 已推；`m3-wip` 被拒（`already exists`）：远程指向 `d39c2df`（旧的向量距离闸门修复），
+  本地指向 `05a5ace`（T3.12 问答历史）。已核实 `d39c2df` 是 `05a5ace` 的**祖先**，
+  即远程只是旧、不是分叉，平移到最新是安全的
+- 待执行一条（`--force` 仅用于把 `m3-wip` 往前挪，不删任何历史）：
+  `"C:/Program Files/Git/cmd/git.exe" push --force origin refs/tags/m3-wip`
+- **经验（已写进项目记忆）**：用户交互式 push 成功后，agent 会话**仍然**取不到凭据。
+  `git push` 一律交给用户执行，不要在会话里反复重试
