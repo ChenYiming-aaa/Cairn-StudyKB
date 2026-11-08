@@ -39,7 +39,7 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 
 `verify_m1.py` 50/51（见 `HANDOFF.md` 2026-11-07 那条：有一条断言写死任务数 3，与实际 11 不符，
 属既有脆弱断言，未修）、`verify_m2.py` 116/118（同样两条 `force` 用例在 HEAD 上就红）、
-`verify_m3.py` 61/61、`verify_m4.py` 63/63 PASS。
+`verify_m3.py` 61/61、`verify_m4.py` 69/69 PASS。
 
 ## 目录
 
@@ -84,13 +84,13 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 118 项：网页/视频成功、去重、force、三类抓取失败、未登记 5xx 归类、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
 | `cd backend && uv run python scripts/verify_m2.py --online` | 上面 118 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
 | `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
-| `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 63 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、错误码归一（超时/额度/其他 HTTP）、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
+| `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 69 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、错误码归一（超时/额度/其他 HTTP）、选项不带字母前缀（生成侧与读取侧都剥）、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
 | `cd backend && uv run python scripts/verify_m5.py` | M5 计时与统计 50 项：start 并发 409 / current / 心跳卷账与锚点 / 暂停不计时 / finish 幂等与笔记 / abandon 不计入专注 / >4h 启动清理（模拟重启）/ 学习记录过滤 / `stats/today` 与**独立写的 SQL 聚合**逐项对账 / `stats/week` 七天与合计 / 口径边界（昨天的 pending 不算、NULL 不进分母、分类前 8、连续天数今天没学不算断）（**临时库，不联网不烧钱**） | 动到计时 / 统计 / 仪表盘 |
 | `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
-| `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 17 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
+| `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 19 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、选项字母只出现一次、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
 | `cd desktop && npm start` | Electron 空壳：spawn 后端 → 端口握手 → 窗口显示真实 UI（`http://127.0.0.1:<port>/`，页面与 `/api` 同源、无 CORS）→ 关窗后无 python 残留（实测日志 `desktop/_smoke/run.log`） | 动到桌面壳 / 后端启动方式 / 静态挂载 |
 
 跑桌面壳前**必须先 `cd frontend && npm run build`**：没有 `frontend/dist` 时后端不挂静态路由，

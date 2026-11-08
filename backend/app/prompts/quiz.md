@@ -18,11 +18,12 @@
 ## 输出格式
 **只输出一个 JSON 数组**，不要代码围栏，不要任何解释文字。数组中每个元素形如：
 
-{"type":"single","question":"题干","options":["A. 选项一","B. 选项二"],"answer":"B","explanation":"因为材料第二段说……","difficulty":"understand"}
+{"type":"single","question":"题干","options":["选项一","选项二"],"answer":"B","explanation":"因为材料第二段说……","difficulty":"understand"}
 
 字段规则（违反即视为无效题）：
 - `type`：single / multiple / boolean / short 之一
-- `single`：`options` 给 2–4 个，`options` 文本自带"A. ""B. "前缀，`answer` 是单个大写字母
+- `options` 里**只写选项内容本身**，不要带 "A. "/"B、"/"(C)" 之类的字母或序号前缀——序号由界面自己加，你写了会显示成「A. A. ……」
+- `single`：`options` 给 2–4 个，`answer` 是单个大写字母（对应该选项在数组里的位置，从 A 起）
 - `multiple`：`options` 给 3–5 个，`answer` 是字母数组且至少两个，如 ["A","C"]
 - `boolean`：省略 `options` 或给空数组，`answer` 只能是 true 或 false
 - `short`：省略 `options` 或给空数组，`answer` 是 1–3 句参考答案要点

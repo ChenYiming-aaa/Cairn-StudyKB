@@ -21,7 +21,7 @@
 | 里程碑 | **M5 进行中**：T5.1–T5.4（番茄钟 / 计时不丢 / 全局入口 / 仪表盘）已完成，2026-11-08，tag `m5-wip`；**T5.5–T5.8（打包 / 首次引导 / README 安装段）未开始**。M1–M4 已验收；Electron 空壳包已验证 |
 | 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` |
-| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **63/63** · **m5 50/50** · e2e m4 17/17 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 |
+| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **69/69** · **m5 50/50** · e2e m4 19/19 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 |
 | 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 一条留在本文件 |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
@@ -36,7 +36,7 @@
 | 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
 | 7 | `frontend/dist` 无 CSP meta，Electron 每次启动刷一条安全警告 | T5.5 决定 | 仅**未打包**时提示，打包后不显示；加 CSP 会与 M3 的 iframe 预览冲突，需单独设计 `frame-src`/`sandbox`，建议打包后再做 |
 | 8 | `desktop/index.html` 已不参与加载 | T5.5 处理 | 改造成 `error.html` 兜底页（握手超时 30s 后 `loadFile`），**不删**。否则后端起不来时用户只看到白窗 |
-| 9 | **题目 `options` 自带 `"A. "` 前缀**，界面渲染成「A. A. 在即将忘记…」 | **M4 模块，未动，等你裁决** | 2026-11-08 真跑 3 组 15 题，**15 个选项全部带前缀**（不是偶发）。后端存原文不剥，`QuizRunner` 又加了一层字母徽标。修法二选一：入库前 strip `^[A-Da-d][.、)]\s*`，或 prompt 再强调一次——**改 M4 已验收模块前要先问你** |
+| 9 | ~~题目 `options` 自带 `"A. "` 前缀，界面渲染成「A. A. 在即将忘记…」~~ → **2026-11-08 已修** | ✅ 关闭 | 真跑 15 题**全部**带前缀（不是偶发）。根因是 prompt 要求带前缀 + `QuizRunner` 又画徽标；修法：`repo/questions.strip_option_prefix()` 在生成侧与读取侧都剥，prompt 与契约示例同步改成裸文本。见本文件末尾 13:10 那条 |
 
 **下一会话第一件事**
 > M5 T5.5：直接在 `desktop/` 现有壳上升级。`spawn` 从 `uv run python -m app` 换成 `cairn-backend.exe`，
@@ -669,3 +669,51 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 **下一会话第一件事**
 > M5 T5.5：`desktop/main.js` 只换 spawn 目标（`cairn-backend.exe`），端口与握手逻辑不用改；
 > PyInstaller 入口用 `backend/entry.py`；静态页传 `CAIRN_WEB_DIR=<resources>/web`。
+
+## 2026-11-08 13:10 · M4 缺陷 · 选项双重编号（「A. A. …」）已修
+
+**症状**：真跑 15 题，界面每个选项渲染成「A. A. 在即将忘记的那一刻复习」。
+
+**根因**（两层叠加，各自单看都对）
+- `prompts/quiz.md` 把「`options` 文本自带 "A. " "B. " 前缀」写成硬要求，示例是 `["A. 选项一"]`
+- `QuizRunner.vue` 用 `letterOf(index)` 自己画字母徽标，选项文字原样输出
+- `接口契约.md` 的示例也写 `"options":["A....","B...."]` —— "带前缀"从头到尾都被当成正确形状
+
+**为什么 8/8 DoD 复验没抓到（是我的漏洞，写清楚）**
+- `verify_m4.py` 的 fixture **自己就用带前缀的选项**（`q_obj(options=("A. 注意力留在当前这一轮", ...))`），
+  等于把缺陷写进了"正常数据"
+- 没有任何一条断言检查过 option 文本的形状（只断言 answer 字母、判定结果、库行数）
+- `e2e/m4_quiz.py` 只看卡片数、判定文案、分数，不看选项文字
+- 假流 JSON 全是手写的，真模型"顺手加前缀"的倾向只能靠真跑暴露；那 15 题是你在界面看到的
+
+**修法**：字母只由界面给，数据层只存裸文本
+- 新增 `repo/questions.strip_option_prefix()` / `clean_options()`：剥 `A.` `B、` `(C)` `D）` `A：`；
+  **只认大写 A–Z + 分隔符**（`e.g.` / `3.5 倍` / `A/B 测试` / `Anki 软件` 不动）
+- 生成侧 `quizzer._options()` 剥一次，读取侧 `row_to_question()` 再剥一次
+  → 缺陷期入库的 15 题**不用改库**，接口吐出来就是干净的
+- `prompts/quiz.md` 改成「只写内容本身，序号由界面加」；契约示例改裸文本 + 补一条形状规则
+
+**验证（都真跑）**
+- `verify_m4.py` → **69/69 PASS**（新增 2b 组 6 条：11 种前缀形态剥掉 / 4 种不误伤 / emit 是裸文本 /
+  answer 字母不受影响 / 库里也裸 / 老数据读侧剥 / 只剩前缀的选项 → `bad_options` 跳过）
+- 真模型 1 次调用出 5 题（条目 11《GitHub Actions》）：**模型输出 0/5 带前缀**，normalize 5/5 通过
+- `e2e/m4_quiz.py` → **19/19 PASS**（新增 2 条 DOM 断言：18 个选项无重复编号、徽标从 A 起连续），
+  截图 `frontend/e2e/_shots/04-verdict-immediate.png` 确认渲染为「A + 裸文本」
+- `doc_check.py` 6 PASS + 1 提示
+
+**改动文件**
+- 改：`backend/app/db/repo/questions.py`、`backend/app/services/agents/quizzer.py`、
+  `backend/app/prompts/quiz.md`、`backend/scripts/verify_m4.py`、`frontend/e2e/m4_quiz.py`
+- 文档：`milestones/M4`（新增 §6.10 缺陷修正 + §7 一行 + 计数 69/69）、
+  `contracts/接口契约.md`（示例改裸文本 + 形状规则）、`00-总纲`、`README`（69/69、19 项）、本文件
+
+**遗留**
+- [ ] 真库 `data/data.db` 那 15 题的 payload **仍存着前缀**（读侧已剥，界面不受影响）。要彻底洗干净需
+      一次性 UPDATE，**没动你的数据**，等你点头
+- [ ] 以后任何展示选项的路径都要走 `row_to_question()`，别直接读 `payload`
+
+**推送状态：本地已提交，远程未推**（agent 侧 GCM 读不到凭据）
+- 需要你在普通终端执行：`"C:/Program Files/Git/cmd/git.exe" push origin main`
+
+**下一会话第一件事**
+> 回到 M5 T5.5（打包）。本条只动 M4 的选项文本口径，不碰 M5 代码与 `desktop/`。

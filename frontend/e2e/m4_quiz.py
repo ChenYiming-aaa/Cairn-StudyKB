@@ -181,9 +181,17 @@ def run(base_url: str, api_base: str, item_id: int, keep: bool) -> int:
             step("3/6 作答：答完一题立刻见对错与解析")
             verdicts: list[str] = []
             exps: list[str] = []
+            opt_texts: list[str] = []
+            letter_ok = True
             for i in range(5):
                 page.wait_for_selector(".q-text", timeout=15000)
                 prompt_text = page.locator(".q-text").inner_text().strip()
+                # 选项字母只该由界面给一次（2026-11-08 缺陷：后端也带了 "A. "，渲染成「A. A. …」）
+                keys = [k.inner_text().strip() for k in page.locator(".opt-key").all()]
+                if keys and all(re.fullmatch(r"[A-Z]", k) for k in keys):
+                    letter_ok = letter_ok and keys == [chr(65 + j) for j in range(len(keys))]
+                    opt_texts.extend(t.inner_text().strip()
+                                     for t in page.locator(".opt-text").all())
                 page.locator(".opt").first.click()
                 page.get_by_role("button", name="确认作答").click()
                 page.wait_for_selector(".verdict", timeout=8000)
@@ -197,6 +205,11 @@ def run(base_url: str, api_base: str, item_id: int, keep: bool) -> int:
                 if i < 4:
                     page.wait_for_timeout(250)
             check("每题答完立即出现判定（不用等交卷）", len(verdicts) == 5, str(verdicts))
+            duplicated = [t for t in opt_texts
+                          if re.match(r"^\s*(?:[A-Za-z]\s*[.、,，)）:：]|[(（]\s*[A-Za-z]\s*[)）])", t)]
+            check("选项文本不自带字母前缀（不会渲染成「A. A. …」）",
+                  not duplicated, f"共 {len(opt_texts)} 个选项，重复编号 {duplicated[:4]}")
+            check("界面的字母徽标从 A 起且连续", letter_ok, f"{len(opt_texts)} 个选项")
             check("每题判定都带解析", all(len(e) > 5 for e in exps),
                   f"最短 {min((len(e) for e in exps), default=0)} 字")
 

@@ -6,6 +6,7 @@
 覆盖五组：
   1. 增量扫描（T4.2）：题干含 `{}` 不错位、被截断的对象留在 leftover
   2. 出题流（T4.1/T4.2/T4.3）：逐题 emit、坏 JSON/非法答案/无解析只跳该题、补生成、撞指纹复用
+  2b. 选项文本（缺陷回归）：options 只存裸文本，A./B、/(C)/D） 前缀在生成侧与读侧都剥掉
   3. 判分（T4.4）：多选乱序、少选、字符串形状、单选大小写、判断布尔、空答案、简答反馈、
      批改失败落 NULL（不是 0）、错误码归一（超时 / 额度 / 其他 HTTP 分开）
   4. 复习（T4.6）：答错明天回来、时间旅行、1→2→4→7→15、答错重置、NULL 不排期、错题本
@@ -216,6 +217,83 @@ def step_generate(client: TestClient, item_id: int) -> None:
         check("重复出题不增加题目行", before == after, f"{before} → {after}")
     finally:
         quizzer.stream = original
+
+
+# ── 2b. 选项文本：不许带字母前缀（2026-11-08 缺陷回归）──────
+def step_option_text(client: TestClient) -> None:
+    """真跑 15 题时选项全是 "A. xxx"，界面又画了一层字母徽标 → 「A. A. …」。
+
+    根因是 prompt 要求 options 自带前缀，而没人断言过 option 文本长什么样。
+    这里把形状钉死：**数据层只存裸文本，字母由界面加**。
+    """
+    step("2b. 选项文本不带字母前缀（缺陷回归）")
+
+    cases = [
+        ("A. 在即将忘记的那一刻复习", "在即将忘记的那一刻复习"),
+        ("B、乙项", "乙项"),
+        ("(C) 丙项", "丙项"),
+        ("D）丁项", "丁项"),
+        ("A：冒号项", "冒号项"),
+        ("e.g. 英文例子", "e.g. 英文例子"),
+        ("3.5 倍", "3.5 倍"),
+        ("A/B 测试", "A/B 测试"),
+        ("Anki 软件", "Anki 软件"),
+        ("甲项", "甲项"),
+    ]
+    bad = [(s, qrepo.strip_option_prefix(s), want) for s, want in cases
+           if qrepo.strip_option_prefix(s) != want]
+    check("只剥「大写字母 + 分隔符」，英文小写/数字/正文不误伤", not bad, str(bad))
+
+    item = make_item(client, "选项前缀回归")
+    original = quizzer.stream
+    quizzer.stream = fake_stream
+    try:
+        set_script(as_array(q_obj(
+            question="复习的时机是什么时候？",
+            options=["A. 在即将忘记的那一刻", "B、趁还记得的时候",
+                     "(C) 复习时只看答案", "D）每天固定时间"],
+            answer="A",
+        )))
+        events = events_of(client, {"item_id": item, "types": ["single"],
+                                    "difficulty": "understand", "count": 1})
+        qs = [e["question"] for e in events if e["type"] == "question"]
+        got = qs[0]["options"] if qs else []
+        check("emit 出去的 options 是裸文本（A./B、/(C)/D） 全剥）",
+              got == ["在即将忘记的那一刻", "趁还记得的时候", "复习时只看答案", "每天固定时间"],
+              str(got))
+        check("剥前缀不影响 answer 字母", bool(qs) and qs[0]["answer"] == "A",
+              str(qs[0]["answer"]) if qs else "无题")
+        payload = sql("SELECT payload FROM question WHERE id=?", (qs[0]["id"],))[0][0]
+        check("库里存的也是裸文本（不是只在 API 层剥）",
+              '"A. ' not in payload and "、趁" not in payload and "(C)" not in payload,
+              payload[:90])
+
+        # 整个选项只有一个 "A." → 剥完为空被丢掉、答案越界 → 该题跳过（不是错位判分）
+        set_script(as_array(q_obj(question="垃圾选项题？", options=["A. ", "B. 正常项"],
+                                 answer="A")))
+        events = events_of(client, {"item_id": item, "types": ["single"],
+                                    "difficulty": "understand", "count": 1})
+        skips = [e["reason"] for e in events if e["type"] == "skip"]
+        check("选项剥成空后题被跳过（bad_options），不进入作答",
+              "bad_options" in skips, str(skips))
+    finally:
+        quizzer.stream = original
+
+    # 缺陷期入库的老题（payload 里带前缀）：读侧剥，不用改库
+    conn = get_conn()
+    try:
+        with conn:
+            legacy_id, _ = qrepo.upsert_question(
+                conn, item_id=item, qtype="single", difficulty="understand",
+                payload={"question": "老题：带前缀", "options": ["A. 老甲", "B. 老乙"],
+                         "answer": "A", "explanation": "缺陷期数据"},
+                fp=qrepo.fingerprint(item, "single", "老题：带前缀"),
+            )
+        legacy = qrepo.get_question(conn, legacy_id)
+    finally:
+        conn.close()
+    check("老数据（payload 带前缀）读出来也剥掉了",
+          legacy["options"] == ["老甲", "老乙"], str(legacy["options"]))
 
 
 # ── 3. 判分 ───────────────────────────────────────────────
@@ -456,6 +534,7 @@ def main() -> int:
             item_id = make_item(client, "番茄工作法")
             step_scan()
             step_generate(client, item_id)
+            step_option_text(client)
             qids = step_judge(client, item_id)
             step_review(client, qids, item_id)
             step_validate(client, item_id)

@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterator
 
+from app.db.repo import questions as qrepo
 from app.services import llm
 
 PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
@@ -163,9 +164,10 @@ def _text(value: Any) -> str:
 
 
 def _options(value: Any) -> list[str]:
+    """选项一律存裸文本：模型爱写 "A. xxx"，字母由界面画，剥掉（2026-11-08 缺陷）。"""
     if not isinstance(value, list):
         return []
-    return [t for t in (_text(o) for o in value) if t]
+    return qrepo.clean_options([_text(o) for o in value])
 
 
 def _letter(value: Any) -> str | None:

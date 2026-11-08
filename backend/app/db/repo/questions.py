@@ -17,6 +17,34 @@ import sqlite3
 from app.db.repo.items import now_iso
 
 _WS = re.compile(r"\s+")
+# 选项自带的字母前缀："A. xxx" / "B、xxx" / "(C) xxx" / "D）xxx" / "A：xxx"
+# 只认**大写** A–Z + 分隔符：小写（"e.g."）、数字（"3.5 倍"）都不动
+_OPT_PREFIX = re.compile(r"^\s*(?:[(（]\s*([A-Z])\s*[)）]|([A-Z])\s*[.．、,，)）:：。])\s*")
+
+
+def strip_option_prefix(text: str) -> str:
+    """去掉选项自带的字母前缀，返回裸文本。
+
+    M4 缺陷（2026-11-08 用户复现）：prompt 要求 options 自带 "A. " 前缀，而 UI 又画了一层
+    字母徽标，界面渲染成「A. A. 在即将忘记…」。**字母只能由界面给**，数据层一律存裸文本。
+    生成侧（`quizzer._options`）与读取侧（`row_to_question`）都过这个函数：
+    前者保证新数据干净，后者让缺陷期入库的老题不改库也能正常显示。
+    """
+    if not isinstance(text, str):
+        return text
+    return _OPT_PREFIX.sub("", text, count=1).strip()
+
+
+def clean_options(options) -> list[str]:
+    """批量剥前缀，顺带去空（整个选项只有一个 "A." 时剥完就是空串）。
+
+    空项会被丢掉：`normalize()` 里答案越界校验用的是**清洗后**的个数，
+    所以「全是前缀的垃圾选项」会让该题判 `bad_answer` 被跳过，而不是错位。
+    """
+    if not isinstance(options, list):
+        return []
+    return [t for t in (strip_option_prefix(str(o)) for o in options if o is not None) if t]
+
 
 
 def normalize_question(text: str) -> str:
@@ -77,7 +105,8 @@ def row_to_question(row: sqlite3.Row) -> dict:
     except (ValueError, TypeError):
         payload = {}
     question["question"] = payload.get("question", "")
-    question["options"] = payload.get("options") or []
+    # 读侧也剥一次：缺陷期（prompt 要求带前缀）入库的老题不改库也能正常显示
+    question["options"] = clean_options(payload.get("options"))
     question["answer"] = payload.get("answer")
     question["explanation"] = payload.get("explanation", "")
     return question
