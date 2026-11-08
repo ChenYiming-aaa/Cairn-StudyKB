@@ -9,7 +9,8 @@
 //      （`file://` 的 origin 是 null，会撞上后端只放行 5173 的 CORS 白名单）
 //   5. 关窗/退出时按**进程树**杀掉后端，不留孤儿进程
 //
-// 明确不做（留给 T5.6/T5.7）：NSIS 安装包配置、图标、签名、托盘、自动更新、首次引导。
+// 明确不做：签名、托盘、自动更新。
+// 图标在 T5.10 补上（`tools/make_icon.py` → `desktop/build/icon.ico`）。
 // 也不注入 preload：契约 §4 已定「页面走相对路径，底座同源」，注入 baseUrl 只会多一层
 // 永远用不上的配置（docs/contracts/接口契约.md §4）。
 'use strict'
@@ -26,6 +27,19 @@ const isDev = !app.isPackaged
 // app.getPath('userData') 取的是 package.json 的 `name`（cairn-desktop），**不是**
 // productName，所以必须显式改名，否则数据会落在 %APPDATA%/cairn-desktop。
 app.setName('Cairn')
+// Windows 任务栏分组 / 通知归属靠 AppUserModelID，必须和 electron-builder 的 appId 一致，
+// 否则"固定到任务栏"会变成两个不相干的图标。NSIS 快捷方式也会写这个值。
+app.setAppUserModelId('com.cairn.app')
+
+// 图标：`python tools/make_icon.py` 的产物。
+// dev 下 exe 是 electron.exe 自带的，只能靠 BrowserWindow 的 icon 指定；
+// 打包后图标已嵌进 Cairn.exe（electron-builder 的 win.icon），这里不再传 ——
+// asar 里的路径交给原生层去读并不可靠，没必要冒这个险。
+const WINDOW_ICON = isDev ? path.join(__dirname, 'build', 'icon.png') : null
+
+function iconPath() {
+  return WINDOW_ICON && fs.existsSync(WINDOW_ICON) ? WINDOW_ICON : undefined
+}
 
 const BACKEND_DIR = path.resolve(__dirname, '..', 'backend')
 const HEALTH_INTERVAL_MS = 300
@@ -207,6 +221,7 @@ function openWindow(base) {
     minWidth: 960,
     minHeight: 640,
     title: 'Cairn',
+    icon: iconPath(),
     backgroundColor: '#faf8f4',
     show: false,                 // 等 ready-to-show，避免启动时先白一帧
     autoHideMenuBar: true,
@@ -267,6 +282,7 @@ function showError({ reason, detail }) {
       width: 720,
       height: 520,
       title: 'Cairn · 启动失败',
+      icon: iconPath(),
       backgroundColor: '#faf8f4',
       autoHideMenuBar: true,
       webPreferences: { contextIsolation: true, nodeIntegration: false },

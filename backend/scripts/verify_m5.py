@@ -35,6 +35,7 @@ os.environ.setdefault("LOG_LEVEL", "WARNING")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.config import reload_settings  # noqa: E402
 from app.db.conn import get_conn  # noqa: E402
 from app.db.migrate import init_db  # noqa: E402
 from app.main import app  # noqa: E402
@@ -412,6 +413,42 @@ def main() -> int:
                   set(("pending_items", "pending_total", "due_reviews", "focus_seconds",
                        "sessions", "accuracy_today", "categories", "streak_days",
                        "week_focus_seconds")) <= set(s5.keys()), str(sorted(s5.keys())))
+
+            # ── 8. 首次引导：保存 Key（T5.7）────────────────────────
+            step("8. 首次引导：保存 Key 到 .env")
+
+            r = client.post("/api/env/key", json={})
+            check("空请求 → 400 ENV_NOTHING_TO_SAVE",
+                  r.status_code == 400
+                  and r.json()["error"]["code"] == "ENV_NOTHING_TO_SAVE",
+                  str(r.json().get("error")))
+
+            # 换行会把一行 .env 拆成两行 = 允许写任意环境变量，必须挡住
+            r = client.post("/api/env/key", json={"llm_api_key": "sk-x\nDATA_DIR=/tmp/evil"})
+            check("Key 带换行 → 400 ENV_INVALID_VALUE",
+                  r.status_code == 400
+                  and r.json()["error"]["code"] == "ENV_INVALID_VALUE",
+                  str(r.json().get("error")))
+
+            env_path = TMP / ".env"
+            env_path.write_text("# 手工配置，不许被清掉\nFFMPEG_DIR=\n", encoding="utf-8")
+            r = client.post("/api/env/key", json={"llm_api_key": "sk-verify-only-0001"})
+            body = r.json()
+            text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+            check("保存成功且 llm 立刻变绿（不用重启）",
+                  r.status_code == 200 and body.get("saved") is True
+                  and body["check"]["llm"]["ok"], str(body.get("check", {}).get("llm")))
+            check("落盘到当前数据目录的 .env",
+                  Path(body.get("env_file", "")) == env_path, str(body.get("env_file")))
+            check("Key 真的写进了文件", "LLM_API_KEY" in text)
+            check("已有的其它行与注释没被清掉",
+                  "手工配置" in text and "FFMPEG_DIR" in text)
+            check("响应里不含 Key 明文（红线 7）", "sk-verify-only-0001" not in r.text)
+
+            # 收尾：把假 Key 从进程环境里摘掉，别影响后面的用例
+            os.environ.pop("LLM_API_KEY", None)
+            env_path.unlink(missing_ok=True)
+            reload_settings()
     finally:
         conn.close()
 

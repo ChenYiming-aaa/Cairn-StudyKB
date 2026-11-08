@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.config import get_settings, setup_logging
+from app.config import force_utf8_stdio, get_settings, setup_logging
 from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
 from app.paths import install_root, is_frozen
@@ -51,6 +51,8 @@ def _close_stale_sessions() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     cfg = get_settings()
+    # 先修编码再打日志：否则下面每一行中文在 shell.log 里都是乱码（见 force_utf8_stdio）
+    force_utf8_stdio()
     setup_logging(cfg)
     init_db()
     recover_stale_tasks()
@@ -131,4 +133,19 @@ if (WEB_DIR / "index.html").exists():
     def _index() -> FileResponse:
         # 前端路由是 hash 模式，深链接不会打到后端，这里只需要给首页
         return FileResponse(WEB_DIR / "index.html")
+
+    # 根目录下的零散静态文件（页签图标、品牌标）。只放行**白名单里的名字**：
+    # 用 `GET /{name}` 通配会把未登记的 /api 路径兜成文件响应，
+    # 正是上面约束 1 要避免的事（`/api/nope` 必须还是 404 JSON）。
+    def _serve_root_file(name: str):
+        def _handler() -> FileResponse:
+            return FileResponse(WEB_DIR / name)
+
+        return _handler
+
+    for _name in ("favicon.ico", "logo.svg", "apple-touch-icon.png", "robots.txt"):
+        if (WEB_DIR / _name).is_file():
+            app.get(f"/{_name}", include_in_schema=False, name=f"web-{_name}")(
+                _serve_root_file(_name)
+            )
 

@@ -50,6 +50,9 @@ class Settings:
     data_dir: Path
     db_path: Path
     log_file: Path
+    # `.env` 的实际位置：显式指定了数据目录时跟着它走，否则用布局默认值
+    # （源码 = 项目根，安装包 = %APPDATA%/Cairn）。T5.7 的引导页写的就是它。
+    env_file: Path
     host: str = "127.0.0.1"
     port: int = 8756
     log_level: str = "INFO"
@@ -153,8 +156,32 @@ _CLI_TO_ENV = {
 
 
 def load_settings(argv: list[str] | None = None) -> Settings:
-    load_dotenv(ENV_FILE, override=False)
     cli = _cli_overrides(argv)
+
+    # ── 第一步：先定数据目录 ────────────────────────────────
+    # 只依赖命令行与系统环境，**不依赖 `.env`** —— 因为 `.env` 的位置接下来要由它决定。
+    # 源码下 DATA_ROOT = 项目根/data，冻结后 = %APPDATA%/Cairn。
+    explicit_data = "data_dir" in cli or bool(os.environ.get("DATA_DIR", "").strip())
+    raw_data = cli.get("data_dir") or os.environ.get("DATA_DIR") or str(DATA_ROOT)
+    data_dir = Path(raw_data).expanduser()
+    if not data_dir.is_absolute():
+        # 相对路径按 DATA_ROOT 的父目录解析：源码下就是项目根（与原行为一致），
+        # 冻结后就是 %APPDATA%（不会落到安装目录）
+        data_dir = (DATA_ROOT.parent / data_dir).resolve()
+
+    # ── 第二步：`.env` 跟着数据目录走 ───────────────────────
+    # 显式传了 --data-dir/DATA_DIR（Electron 打包后就是这么起的，测试也这么起）时，
+    # `.env` 落在那个目录里；没传时用布局默认值（源码 = 项目根）。
+    # 这条规则保证"另一个数据目录"不会把 Key 写进默认那一份 `.env`。
+    env_file = (data_dir / ".env") if explicit_data else ENV_FILE
+
+    load_dotenv(env_file, override=False)
+    if env_file != ENV_FILE:
+        # 兜底：显式换了数据目录时，再把布局默认的 `.env`（源码下 = 项目根）补进来。
+        # `override=False` 只填空缺，绝不会盖掉数据目录里已有的值；
+        # 冻结版 ROOT 是安装目录、没有 `.env`，这一步自然不生效。
+        # 没有它，「换个临时数据目录跑验收」就拿不到开发用的 Key / FFMPEG_DIR。
+        load_dotenv(ENV_FILE, override=False)
     env = dict(os.environ)
 
     def pick(env_key: str, default: str) -> str:
@@ -163,17 +190,11 @@ def load_settings(argv: list[str] | None = None) -> Settings:
                 return cli[cli_key]
         return env.get(env_key, default)
 
-    root_data = DATA_ROOT
-    data_dir = Path(pick("DATA_DIR", str(root_data))).expanduser()
-    if not data_dir.is_absolute():
-        # 相对路径按 DATA_ROOT 的父目录解析：源码下就是项目根（与原行为一致），
-        # 冻结后就是 %APPDATA%（不会落到安装目录）
-        data_dir = (root_data.parent / data_dir).resolve()
-
     return Settings(
         data_dir=data_dir,
         db_path=data_dir / "data.db",
         log_file=data_dir / "logs" / "app.log",
+        env_file=env_file,
         host=pick("HOST", "127.0.0.1"),
         port=int(pick("PORT", "8756")),
         log_level=pick("LOG_LEVEL", "INFO").upper(),
@@ -201,6 +222,39 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = load_settings()
     return _settings
+
+
+def reload_settings() -> Settings:
+    """丢掉缓存重新读一遍（T5.7：引导页写完 `.env` 后要立刻生效，不能要求重启）。
+
+    只影响读配置的地方；已经建好的数据库连接、已经起的线程不受影响 ——
+    这个端点只改 llm 的 Key/地址/模型，本来就不需要重连任何东西。
+    """
+    global _settings
+    _settings = None
+    return get_settings()
+
+
+def force_utf8_stdio() -> None:
+    """把 stdout/stderr 强制成 UTF-8（有 stream 时；幂等）。
+
+    为什么必须显式做：Electron 用管道接住后端输出、再按 **UTF-8** 写进 `shell.log`，
+    而 Python 在"输出到管道"时默认跟随系统 ANSI 代码页（中文机器 = cp936），
+    于是 shell.log 里每一行中文都是乱码 —— 而它正是用户报障时唯一能提供的东西。
+    `PYTHONIOENCODING` / `PYTHONUTF8` 在冻结的 windowed exe 上实测不生效（2026-11-08），
+    只能自己 reconfigure。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            # 已经关了/不是 TextIOWrapper：不是致命问题，别在启动路径上抛
+            pass
 
 
 def setup_logging(settings: Settings | None = None) -> None:

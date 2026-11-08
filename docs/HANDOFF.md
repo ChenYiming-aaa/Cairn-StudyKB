@@ -14,37 +14,37 @@
 
 ---
 
-## 当前状态（2026-11-08 14:20 · 每次会话结束更新这一段）
+## 当前状态（2026-11-08 19:10 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M5 进行中**：T5.1–T5.5 已完成（番茄钟 / 计时不丢 / 全局入口 / 仪表盘 / Electron 壳 + 后端 onedir 打包），2026-11-08。**T5.6 的安装包已能出（407MB），T5.7 首次引导 / T5.8 README 安装段未做**。M1–M4 已验收 |
+| 里程碑 | **M5 代码完成，待真机验收**：T5.1–T5.10 全部做完（番茄钟 / 不丢计时 / 全局入口 / 仪表盘 / Electron 壳 / onedir 打包 / **带图标的 407MB NSIS 安装包** / 首次引导页 / README 安装段 / `verify_m5.py` 57/57），2026-11-08。本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**只剩一件要你做**：装到另一台没有 Python/Node 的机器。M1–M4 已验收 |
 | 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` |
-| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **69/69** · **m5 50/50** · e2e m4 19/19 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · **打包后首屏 4126ms（全新 userData）、关窗无残留进程** |
-| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 两条留在本文件 |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip`（验收过了再打 `m5-done`） |
+| 验收 | m1 **50/51**（唯一红是下面遗留 1 的口径问题）· m2 **118/118** · m3 **61/61** · m4 **69/69** · **m5 57/57** · e2e m4 19/19 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · **安装版首屏 4066ms（热启）/ 6680ms（冷启，已记例外）** |
+| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
 
 | # | 遗留 | 类型 | 备注 |
 |---|---|---|---|
 | 1 | `verify_m1.py`「未留下注定失败的任务」写死 `total == 3`，实跑 11 → 50/51 | 既有红，等你定口径 | 改相对计数，或断言「不存在 `status='failed'` 且 `error_code='LLM_NO_KEY'` 的任务」 |
-| 2 | `verify_m2.py`「force → replaced=true」+「正文已替换」两条红 → 116/118 | 既有红，等你定口径 | 疑似 force 覆盖路径回归，要单独一轮查 |
-| 3 | 多选可能出「四个选项全对」 | 模型质量 | prompt 已约束，无量化断言 |
-| 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 → **本轮未定策略** | 仪表盘不需要保留策略就能跑；建议随 v2 一起做，先记为 backlog |
-| 5 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
-| 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
-| 7 | ~~`frontend/dist` 无 CSP，Electron 每次启动刷安全警告~~ → **2026-11-08 已修** | ✅ 关闭 | 不往 `index.html` 塞 `<meta>`（会拦掉 vite dev 的内联 HMR），改成主进程 `onHeadersReceived` 注入 header：`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self'`。`style-src` 留 `'unsafe-inline'` 是因为模板里有 `style="width:80%"` 静态属性；`frame-src 'self'` 覆盖 M3 的 `GET /api/html/{id}` 预览（同源 iframe），**没碰 iframe 的 sandbox**。dev 实跑 console 错误数 0 |
-| 8 | ~~`desktop/index.html` 已不参与加载~~ → **2026-11-08 已处理** | ✅ 关闭 | 改造成 `desktop/error.html`（已删 `index.html`）：后端起不来 / 运行中后端退出时 `loadFile` 加载，页面给出原因代码、可能原因、`shell.log` 路径 |
-| 9 | ~~题目 `options` 自带 `"A. "` 前缀，界面渲染成「A. A. 在即将忘记…」~~ → **2026-11-08 已修** | ✅ 关闭 | 真跑 15 题**全部**带前缀（不是偶发）。根因是 prompt 要求带前缀 + `QuizRunner` 又画徽标；修法：`repo/questions.strip_option_prefix()` 在生成侧与读取侧都剥，prompt 与契约示例同步改成裸文本。见本文件末尾 13:10 那条 |
+| 2 | 装到**另一台没有 Python/Node** 的 Windows 机器 | DoD 唯一未闭环项 | 我只能用干净 PATH 模拟（已过），真机得你找 |
+| 3 | 冷启 6680ms 未达 DoD 的 5 秒（热启 4066ms 达标） | 已记例外 | 原因是首启建 21 张表 + 杀软扫 1.4GB；重型导入已延迟，8.9s → 6.7s |
+| 4 | 安装包**未签名** | 发布前必办 | SmartScreen 会拦，README 已写"更多信息 → 仍要运行"；正式分发要买证书 |
+| 5 | 多选可能出「四个选项全对」 | 模型质量 | prompt 已约束，无量化断言 |
+| 6 | `question` / `quiz_attempt` / `review_item` 无限增长 | backlog，随 v2 做 | 仪表盘不需要保留策略就能跑 |
+| 7 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
+| 8 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
+| 9 | `desktop/release/`、`release-verify/` 的 `app.asar` 被锁，删不掉 | 环境问题 | gitignored，重启后可手工清 |
+| 10 | 本轮改动**只在本地提交，未 push** | 等你在终端执行 | agent 会话读不到 git 凭据，`git push` 一律交给用户 |
 
 **下一会话第一件事**
-> M5 T5.7（首次引导）：`views/Setup.vue`，按 `scripts/env_check.py` 与 `GET /api/env/check` 的字段做
-> "ffmpeg / 模型 / Key" 三步清单，缺什么给什么操作指引。
-> 改完 `frontend` 要 `npm run build`，再 `cd desktop && npm run dist` 重打安装包（约 2 分钟）。
-> 另外两件等着你点头的事：① 真装一次 `desktop/release/Cairn-0.1.0-setup.exe`（含卸载重装数据还在）；
-> ② DoD 要求"在没有 Python/Node 的机器上验证"，得你找台机器。`release/`+`release-verify/`
-> 里有被锁的 `app.asar`，删不掉，重启后手工清。
+> 你先手工验收（约 10 分钟）：装 `desktop/release/Cairn-0.1.0-setup.exe` → 双击 →
+> 引导页填 Key（存完立刻变绿、不用重启）→ 建一条资料 → 卸载 → 重装看数据还在不在。
+> 通过后：① `git tag m5-done`；② `00-总纲.md` 里 M5 改"已验收"、文档版本升 v1.1；
+> ③ 把 M4+M5 的 HANDOFF 条目原样移到 `docs/archive/`，本文件只留索引。
+> 要真机验证就找台没装 Python/Node 的 Windows，跑一遍同一个安装包。
 
 ---
 
@@ -785,3 +785,84 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 > M5 T5.7（首次引导）：`views/Setup.vue`。后端已有 `scripts/env_check.py` 与 `GET /api/env/check`
 > 那套探测（ffmpeg / whisper 模型 / embedding 模型 / sqlite-vec / LLM Key），照着它的字段做三步清单。
 > 注意 T5.7 会改 `frontend/dist`，改完要重跑 `npm run build` 并重打安装包（`npm run dist`，约 2 分钟）。
+
+---
+
+## 2026-11-08 19:10 · M5 T5.7–T5.10 + 真实安装闭环（**M5 代码完成**）
+
+**做了什么**
+
+- **T5.7 首次引导** `frontend/src/views/Setup.vue`（新）：三步清单（LLM Key / ffmpeg / 本地模型），
+  缺哪步给哪步的**可执行**指引；高级折叠里能改 base_url 与模型名；"稍后再说"写 localStorage 不再打扰。
+  配套 `POST /api/env/key` + `backend/app/services/env_store.py`（新）：把 Key 写进 `.env` 并**热生效**
+  （`reload_settings()` + 直接改 `os.environ`，否则 `load_dotenv(override=False)` 会继续用旧值）。
+  值里带 `\r`/`\n`/引号一律 400 —— 否则等于开放"写任意环境变量"。响应、日志都不出现 Key 明文。
+- **T5.8 README 安装段**：新增「安装与启动（给最终用户）」「故障速查」9 行、备份迁移、目录表补 `desktop/` 与 `tools/`。
+- **T5.9 验收**：`verify_m5.py` 加第 8 步「首次引导：保存 Key 到 .env」7 项 → **57/57**。
+- **T5.10 应用图标**：`tools/make_icon.py`（新）一套几何参数出四件 ——
+  `desktop/build/icon.ico`（16/24/32/48/64/128/256）、`desktop/build/icon.png`（512，dev 窗口图标）、
+  `frontend/public/favicon.ico`、`frontend/public/logo.svg`（顶栏品牌标）。形状"墨绿圆角块 + 四块错位叠石"，
+  纯色块无渐变 —— 16×16 任务栏才是真实考验。主进程补 `app.setAppUserModelId('com.cairn.app')` 与 `appId` 对齐。
+- **启动优化**：`faster_whisper` / `ctranslate2` / `yt_dlp` 改惰性导入（`python -X importtime` 定位，
+  三者约 2.5s；`import app.main` 9.0s → 3.8s），`TYPE_CHECKING` 保住类型标注。
+- **冻结版日志乱码**：`force_utf8_stdio()`（`reconfigure`）—— `PYTHONIOENCODING` / `PYTHONUTF8`
+  对 windowed exe **实测完全无效**（`od -c` 看过字节）。
+
+**实测（真跑，不是"应该没问题"）**
+
+| 环节 | 结果 |
+|---|---|
+| 静默安装 | `EXITCODE=0`，1.4GB 落盘，桌面快捷方式 + 开始菜单就位 |
+| 干净 PATH 首启 | 握手 18 次 / 5190ms，首屏 **6680ms**，console 错误 0，关窗无残留进程 |
+| 建库 | 21 表 / `user_version=2` / sqlite-vec OK，`.env` 与 `data.db` 都在 `%APPDATA%/Cairn` |
+| 卸载 | `start /wait` 等到结束：安装目录 + 快捷方式消失，`%APPDATA%/Cairn` 原样保留（21 表 + 标记行仍在） |
+| 重装 | 数据还在，列表里能直接看到上一轮的「M5 安装验证标记」 |
+| 换新后端重打 | 首屏 **4066ms**、握手 9 次 / 2467ms；`shell.log` 里中文不再乱码 |
+
+- 引导页 E2E（Playwright，`channel="msedge"` —— 内置 chromium headless 没装）：自动进 `/#/setup` →
+  存 Key → 步骤 1 变「已配置」→ 跳 `/#/`、顶栏"环境待配置"角标消失、console 错误 **0**
+- 回归：**m5 57/57** · **m2 118/118**（证明惰性导入没弄坏转写链路）· **m1 50/51**（唯一红是老口径问题）·
+  **m3 61/61** · `doc_check.py` 6 PASS + 1 提示 · `npm run lint` 干净 · `npm run build` 产物含 `logo.svg`/`favicon.ico`
+
+**踩到的坑（都写进 M5 §6.7 / §6.8 / §6.9 / §7 了）**
+
+1. **NSIS 静默安装 `/S` 退出码 0 但什么都没装**：`/D=` 必须是**最后一个参数且不加引号**；从 Git Bash
+   传反斜杠会被吞（实测出现过 `C:/Users//cwqjk/...` 与 `%SystemDrive%Userscwqjk...`）；装到 `C:\` 根目录
+   要管理员权限、失败时**照样退 0**。最终"ASCII 路径 + `.bat`"才成。
+2. **`Uninstall Cairn.exe /S` 立刻返回 0 却不干活**，必须 `start /wait "" "...\Uninstall Cairn.exe" /S`
+   （本机卸载约 10 分钟，别以为卡死了）。
+3. **`--data-dir` 换数据目录后项目根 `.env` 整个读不到**：真 Key / `FFMPEG_DIR` 全丢，`verify_m1` 直接报
+   "未配置 LLM_API_KEY"。修法：数据目录 `.env` 优先，再用 `override=False` 把布局默认 `.env` 补作兜底。
+4. **静态资源 404**：后端只挂了 `/assets` 与 `GET /`，`/logo.svg`、`/favicon.ico` 全 404。改成白名单逐个
+   注册 —— **故意不用 `/{name}` 通配**，否则任何未登记的接口路径都会被静态路由吞掉、返回 HTML 而不是
+   404 JSON（契约就破了）。
+5. **文件被锁**：`desktop/release*/app.asar` 依旧删不掉（gitignored，重启后清）；`ExtractAssociatedIcon` /
+   `WScript.Shell` 被 shell 安全策略挡了，图标是否真嵌进去改用"构建日志里没有 `default Electron icon`"作证据。
+
+**改动文件**
+
+- 新：`backend/app/services/env_store.py`、`frontend/src/views/Setup.vue`、`tools/make_icon.py`、
+  `desktop/build/icon.ico`、`desktop/build/icon.png`、`frontend/public/favicon.ico`、`frontend/public/logo.svg`
+- 改：`backend/app/config.py`（`env_file` 跟着数据目录走 + 兜底 + `reload_settings` + `force_utf8_stdio`）、
+  `backend/app/main.py`（白名单静态根文件）、`backend/app/routers/env.py`、`backend/app/services/env_probe.py`、
+  `backend/app/services/transcriber.py`（惰性导入）、`backend/scripts/env_check.py`、`backend/scripts/verify_m5.py`、
+  `desktop/main.js`、`desktop/package.json`、`frontend/index.html`、`frontend/src/App.vue`、
+  `frontend/src/api/client.js`、`frontend/src/composables/useUi.js`、`frontend/src/router/index.js`、
+  `frontend/src/styles/app.css`、`.gitignore`
+- 文档：`milestones/M5`（状态行 / DoD / §6.7 / §6.8 / 新 §6.9 / §7 四行 / §8）、`contracts/接口契约.md`
+  （`POST /api/env/key` 全节 + `.env` 兜底规则）、`README`、`00-总纲`、`会话提示词手册`、本文件
+
+**遗留**
+
+- [ ] **装到另一台没有 Python/Node 的机器** —— DoD 唯一没闭环的一项，我只能用干净 PATH 模拟
+- [ ] 冷启 6680ms 未达 DoD 的 5 秒（热启 4066ms 达标），已按"热启达标、冷启首启例外"记，不假装达标
+- [ ] 安装包**未签名**：SmartScreen 会拦，README 写了绕过步骤；正式分发要买证书
+- [ ] 卸载耗时异常长（约 10 分钟，1.4GB + 杀软实时扫描），值得换成增量更新或减小体积
+- [ ] `desktop/release/`、`release-verify/` 的 `app.asar` 仍被锁，gitignored，重启后手工清
+- [ ] **本轮只在本地提交，没 push**：agent 会话读不到 git 凭据，`git push` 请你在终端执行
+
+**下一会话第一件事**
+
+> 你手工验收：装 `desktop/release/Cairn-0.1.0-setup.exe` → 双击 → 引导页填 Key → 建一条资料 →
+> 卸载 → 重装看数据是否还在。通过后打 `m5-done`、`00-总纲` 改"已验收"并升 v1.1、
+> 把 M4+M5 的条目移进 `docs/archive/`。然后开 v2（模板 A 换里程碑）。

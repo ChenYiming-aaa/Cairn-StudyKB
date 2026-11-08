@@ -39,6 +39,10 @@ build/
 # 例外：打包配置是源码的一部分，要能复现构建（T5.6）
 !backend/cairn-backend.spec
 !docs/**/*.spec
+# 例外：应用图标是 `python tools/make_icon.py` 的产物，同样要能复现构建
+!desktop/build/
+!desktop/build/icon.ico
+!desktop/build/icon.png
 # ffmpeg 二进制由 tools/prepare_ffmpeg.py 从本机复制，不入库（约 74MB）
 desktop/resources/ffmpeg/
 

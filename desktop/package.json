@@ -19,11 +19,13 @@
     "appId": "com.cairn.app",
     "productName": "Cairn",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "main.js",
       "error.html",
+      "build/icon.png",
       "package.json"
     ],
     "extraResources": [
@@ -41,6 +43,7 @@
       }
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -55,7 +58,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "shortcutName": "Cairn"
     },
     "publish": [
       {

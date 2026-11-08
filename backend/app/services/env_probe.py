@@ -13,8 +13,21 @@ import subprocess
 from pathlib import Path
 
 from app.config import get_settings
+from app.paths import is_frozen
 
-FFMPEG_HINT = r"在 .env 里设 FFMPEG_DIR=D:\Anaconda3\Library\bin（IDE/Electron 启动时 PATH 不含它）"
+
+def _ffmpeg_hint() -> str:
+    """提示要跟着"谁在跑"变：安装包用户没有 uv、也不需要理解 PATH。
+
+    T5.7 的引导页把这段原样显示给用户看，写"uv add"或某个固定的 Anaconda 路径
+    只会让人更困惑。
+    """
+    if is_frozen():
+        return "安装包自带 ffmpeg（resources/ffmpeg），找不到说明安装不完整，请重新安装"
+    return r"在 .env 里设 FFMPEG_DIR=<含 ffmpeg.exe 的目录>，或把该目录加进 PATH"
+
+
+FFMPEG_HINT = _ffmpeg_hint()
 
 
 def _version(exe: Path) -> str | None:
@@ -65,7 +78,8 @@ def check_whisper(model: str = "small") -> dict:
     if downloaded:
         return {"ok": True, "detail": f"{model} 已下载"}
     return {"ok": False, "detail": f"模型 {model} 未下载",
-            "hint": "首次转录会自动下载（约 500MB，存 data/models/whisper）"}
+            # 不是错误：第一次转录时自动下。提示里给真实路径，用户才知道占多少盘
+            "hint": f"首次转录时自动下载（约 500MB）到 {root}"}
 
 
 def check_embedding() -> dict:
@@ -74,7 +88,7 @@ def check_embedding() -> dict:
     if ready:
         return {"ok": True, "detail": "bge-small-zh-v1.5 已下载"}
     return {"ok": False, "detail": "未加载",
-            "hint": "M3 首次使用自动下载（bge-small-zh-v1.5，约 100MB）"}
+            "hint": f"首次做向量检索时自动下载（bge-small-zh-v1.5，约 100MB）到 {root}"}
 
 
 def check_sqlite_vec() -> dict:
@@ -83,7 +97,7 @@ def check_sqlite_vec() -> dict:
         import sqlite_vec
     except ImportError:
         return {"ok": False, "detail": "未安装（可选）",
-                "hint": "M3 需要时 uv add sqlite-vec；未装则向量检索退化为 numpy 精排"}
+                "hint": "未装则向量检索退化为 numpy 精排，结果仍可用"}
     version = getattr(sqlite_vec, "__version__", "") or "已安装"
     return {"ok": True, "detail": version}
 
@@ -93,14 +107,19 @@ def check_llm() -> dict:
     if cfg.has_llm_key:
         return {"ok": True, "detail": cfg.llm_model}
     return {"ok": False, "code": "LLM_NO_KEY", "detail": "未配置 LLM_API_KEY",
-            "hint": "在 .env 里设置 LLM_API_KEY（Key 只从 .env 读，不接受命令行）"}
+            # 引导页就在这个 hint 下面放输入框，所以指路要指到"页面上"，不是"去改文件"。
+            # 具体存到哪由页面单独显示（`check_all()` 的 env_file），这里不重复路径。
+            "hint": "在下方填入 API Key，保存后立即生效，不用重启"}
 
 
 def check_all() -> dict:
+    # `env_file` 不是检查项，是给首次引导页显示"Key 会存到哪"的路径。
+    # 放在最外层而不是塞进某一项里，因为它和任何一项的 ok/fail 都无关。
     return {
         "ffmpeg": check_ffmpeg(),
         "whisper": check_whisper(),
         "embedding": check_embedding(),
         "sqlite_vec": check_sqlite_vec(),
         "llm": check_llm(),
+        "env_file": str(get_settings().env_file),
     }

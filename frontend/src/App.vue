@@ -12,7 +12,11 @@ import { clock } from './utils/format'
 
 const router = useRouter()
 const { toasts, error: toastError, ok: toastOk, info: toastInfo, dismiss } = useToast()
-const { pasteOpen, openPaste, closePaste, requestRefresh, openItem } = useUi()
+const {
+  pasteOpen, openPaste, closePaste, requestRefresh, openItem,
+  // T5.7：环境自检结果在顶栏与引导页之间共用一份
+  envBlocking, setupDismissed, loadEnv,
+} = useUi()
 // 顶栏迷你计时器（T5.3）：状态在 useTimer 单例里，和番茄钟面板共用同一个计时
 const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = useTimer()
 
@@ -27,6 +31,14 @@ onMounted(async () => {
   } catch (err) {
     backend.value = 'down'
     toastError(friendlyMessage(err))
+  }
+
+  // T5.7：缺 Key / 缺 ffmpeg 时把用户送到引导页。只在**本机从没配过**时自动跳一次，
+  // 点过「稍后再说」就不再打扰——顶栏那个黄色状态点会一直留着，随时能回去。
+  await loadEnv()
+  const onSetup = router.currentRoute.value.path === '/setup'
+  if (!onSetup && envBlocking.value.length && !setupDismissed.value) {
+    router.push('/setup')
   }
 
   // T5.2：刷新/重启后把进行中的那一轮接回来
@@ -77,6 +89,7 @@ function onOpen(itemId) {
   <div class="shell">
     <header class="topbar">
       <div class="brand">
+        <img class="brand-mark" src="/logo.svg" alt="" width="22" height="22" />
         Cairn
         <small>个人知识库</small>
       </div>
@@ -94,6 +107,17 @@ function onOpen(itemId) {
         {{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}
       </span>
       <div class="topbar-spacer" />
+      <!-- 环境待配置（T5.7）：只在缺 Key / 缺 ffmpeg 时出现，配好就消失 -->
+      <button
+        v-if="envBlocking.length"
+        class="env-flag"
+        type="button"
+        title="有必填项还没配好，点开看清单"
+        @click="router.push('/setup')"
+      >
+        <i class="dot" />
+        环境待配置
+      </button>
       <!-- 迷你计时器（T5.3）：任何页面都能看到剩余时间，点一下打开番茄钟面板 -->
       <button v-if="isActive" class="mini-timer" type="button" @click="openPanel()">
         <i class="mini-dot" :class="{ paused: !isRunning }" />
@@ -168,6 +192,29 @@ function onOpen(itemId) {
 
 .conn.down {
   color: var(--c-danger);
+}
+
+/* 环境待配置：用警示色但保持低饱和，别把顶栏变成报警灯 */
+.env-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid #ecd9b8;
+  border-radius: var(--radius-sm);
+  background: #fbf1e2;
+  color: var(--c-warning);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.env-flag .dot {
+  background: var(--c-warning);
+}
+
+.env-flag:hover {
+  border-color: var(--c-warning);
 }
 
 .mini-timer {

@@ -63,11 +63,18 @@ textarea {
 
 .brand {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
   font-size: var(--fs-lg);
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* 品牌标：`tools/make_icon.py` 产出的同名矢量图，与安装包图标同一套几何 */
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
 }
 
 .brand small {

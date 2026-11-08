@@ -43,6 +43,9 @@ def main() -> int:
         print("  Cairn · 环境自检")
         print("=" * 60)
         for key, item in result.items():
+            if not isinstance(item, dict):
+                # `env_file` 这类附加信息不是检查项，表格里单独打印
+                continue
             mark = "OK  " if item.get("ok") else "FAIL"
             print(f"  [{mark}] {LABELS.get(key, key):<16} {item.get('detail', '')}")
             if not item.get("ok"):
@@ -50,6 +53,8 @@ def main() -> int:
                     print(f"          code : {item['code']}")
                 if item.get("hint"):
                     print(f"          hint : {item['hint']}")
+        if result.get("env_file"):
+            print(f"  .env 位置：{result['env_file']}")
         print()
 
     if args.strict and any(not result[k].get("ok") for k in BLOCKING):

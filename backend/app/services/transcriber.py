@@ -19,20 +19,33 @@ import wave
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
-import ctranslate2
 import httpx
 import numpy as np
-from faster_whisper import WhisperModel
-from yt_dlp import YoutubeDL
-from yt_dlp.utils import DownloadError
 
 from app.config import get_settings
 from app.services import browser, subtitles, video_sites, zh_text
 from app.services.fetch_errors import FetchError
 
+if TYPE_CHECKING:                             # 只给类型标注用，运行期不 import
+    from faster_whisper import WhisperModel
+    from yt_dlp.utils import DownloadError
+
 log = logging.getLogger(__name__)
+
+
+def _ytdlp():
+    """延迟导入 yt-dlp（T5.10 启动优化）。
+
+    `faster_whisper` + `ctranslate2` + `yt_dlp` 三个加起来约 2.5 秒，而启动后
+    99% 的操作（看条目、问答、出题）根本用不到转录。DoD 要求"双击 5 秒内出界面"，
+    所以把它们挪到真正下载/识别的那一刻再 import。返回一对名字，保持调用点写法不变。
+    """
+    from yt_dlp import YoutubeDL
+    from yt_dlp.utils import DownloadError
+
+    return YoutubeDL, DownloadError
 
 # 阶段名与进度区间（T2.7 契约：stage 四阶段之一）
 STAGE_METADATA = "metadata"
@@ -134,6 +147,8 @@ def _cuda_ok() -> bool:
     所以 `_load_model` 还包了一层 try/except 回落 CPU。不要只信这个函数。
     """
     try:
+        import ctranslate2                    # 延迟导入，见文件头 _ytdlp 的说明
+
         if ctranslate2.get_cuda_device_count() < 1:
             return False
         return "float16" in ctranslate2.get_supported_compute_types("cuda")
@@ -149,6 +164,8 @@ _load_lock = threading.Lock()
 
 def _load_model(size: str) -> WhisperModel:
     """按 size 缓存模型；CUDA 建不起来就回落 CPU int8（M2 §7 排障表）。"""
+    from faster_whisper import WhisperModel   # 延迟导入：约 1.5s，只在真要转录时才付
+
     with _load_lock:
         cached = _model_cache.get(size)
         if cached is not None:
@@ -338,6 +355,7 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
 
     # ── 阶段一：元数据 ──────────────────────────────────────
     def _metadata(self, url: str, report: ProgressFn) -> tuple[str, float, dict]:
+        YoutubeDL, DownloadError = _ytdlp()
         opts = {"quiet": True, "no_warnings": True, "noplaylist": True,
                 "logger": _YdlLogger(),
                 "socket_timeout": 30, "retries": 2, **_cookies_opts(), **_ffmpeg_opts()}
@@ -379,6 +397,7 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
                 last[0] = value
                 report(value, STAGE_DOWNLOAD)
 
+        YoutubeDL, DownloadError = _ytdlp()
         opts = {
             "format": "bestaudio/best",
             "outtmpl": str(tmp / "%(id)s.%(ext)s"),

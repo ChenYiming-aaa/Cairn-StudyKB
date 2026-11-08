@@ -5,13 +5,14 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：**M5（计时与交付）进行中**——T5.1–T5.5 已完成：
+**当前状态**：**M5（计时与交付）功能已全部完成**（T5.1–T5.8，2026-11-08）：
 番茄钟（时间戳口径 / 暂停 / 提前完成 / 放弃 / 结束写笔记 / 刷新恢复 / 15 秒心跳）、顶栏迷你计时器、
-条目与练习页「开始专注」、条目学习记录、仪表盘（6 区块 + 原生 CSS 周条形图）、`verify_m5.py`（50/50）；
-**后端已能打成单目录 exe，桌面壳会拉起它并加载同源页面，`npm run dist` 能出 407MB 的 NSIS 安装包**
-（2026-11-08 实测：打包后首屏 4126ms、关窗无残留进程、首次启动自动建库）。
-**首次引导与安装段文档（T5.7–T5.8）未完成**，安装包也**还没在本机真装过**，所以暂不对外发。
+条目与练习页「开始专注」、条目学习记录、仪表盘（6 区块 + 原生 CSS 周条形图）、
+`verify_m5.py`（57/57）；后端打成 onedir exe，桌面壳按 dev/prod 分流并加载同源页面，
+**首次引导页（缺 Key / 缺 ffmpeg 时自动进入，可当场填 Key 并热生效）**、
+**自绘应用图标（ico/png/svg 同源），`npm run dist` 出 407MB 的 NSIS 安装包**。
 M1–M4 已验收（tag `m1-done` / `m2-done` / `m3-done` / `m4-done`）。
+**还差两件（都要人工）**：安装包在本机真装一遍、装到一台没有 Python/Node 的机器上验一遍。
 
 **已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
 没有字幕才走 yt-dlp + faster-whisper 转录）；「检索问答」页里可以
@@ -37,10 +38,32 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 15 秒心跳兜底强杀），一轮结束后出现在该条目的「学习记录」页签里。
 ⑨ 「仪表盘」页：今日待整理 / 今日待复习 / 连续学习天数 / 今日正确率 / 本周专注（原生 CSS 条形图，
 7 天）/ 分类分布，数字全部由后端按固定口径算好，前端不做二次统计。
+⑩ 「环境」引导页：缺 Key 或 ffmpeg 时首次启动自动进入，三步清单（Key / ffmpeg / 本地模型），
+Key 在页面里填完**立刻生效、不用重启**，卸载重装也还在（写在 `%APPDATA%/Cairn/.env`）；
+配好之后顶栏的黄色「环境待配置」标记自动消失，随时可以点回来复查。
 
 `verify_m1.py` 50/51（见 `HANDOFF.md` 2026-11-07 那条：有一条断言写死任务数 3，与实际 11 不符，
 属既有脆弱断言，未修）、`verify_m2.py` 116/118（同样两条 `force` 用例在 HEAD 上就红）、
-`verify_m3.py` 61/61、`verify_m4.py` 69/69 PASS。
+`verify_m3.py` 61/61、`verify_m4.py` 69/69、`verify_m5.py` 57/57 PASS。
+
+## 安装与启动（Windows，给最终用户）
+
+前提：Windows 10/11 x64。**不需要装 Python、Node、ffmpeg**，安装包自带后端与 ffmpeg。
+
+1. 拿到 `Cairn-0.1.0-setup.exe`（约 400MB）
+2. 双击安装。若弹出蓝色的「Windows 已保护你的电脑」：点**更多信息 → 仍要运行**
+   （安装包未做代码签名，这不是病毒告警，是"没见过这个发布者"）
+3. 安装向导里可以改安装目录（默认装在当前用户目录下，不需要管理员权限）；
+   最后一步勾「运行 Cairn」即可
+4. 首次启动约 4–6 秒出界面（先起本地后端，握手成功才建窗口，所以不会白屏）。
+   如果还没配模型 Key，会自动进「环境」引导页：粘贴 Key → 保存并检查 → 变绿 → 去知识库
+5. 以后双击桌面 / 开始菜单的 **Cairn** 即可。第二次双击不会开第二个实例，只会把已有窗口叫到前面
+
+**卸载**：设置 → 应用 → 已安装的应用 → Cairn → 卸载。
+**数据默认保留**在 `%APPDATA%\Cairn`（卸载重装不丢）；要彻底清除就手动删掉这个目录。
+
+装完想确认装对了：窗口标题是 `Cairn`，右上角有「已连接」，第一次用「采集内容」粘一条链接
+能进库、能整理出摘要 —— 就说明后端、数据库、模型 Key 三条链路都通了。
 
 ## 目录
 
@@ -48,8 +71,8 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 |---|---|
 | `backend/` | FastAPI + SQLite；表结构与端点在 `docs/contracts/`，脚本在 `backend/scripts/` |
 | `frontend/` | Vue 3 + Vite；`e2e/` 是浏览器回归，`src/styles/tokens.css` 是唯一配色/间距来源 |
-| `desktop/` | Electron 壳（`main.js`）：spawn 后端 → 随机端口 + HTTP 握手 → 窗口加载 `http://127.0.0.1:<port>/`（**页面与 `/api` 同源，不走 file://**）。dev 用 `uv run python -m app`，打包后用 `resources/backend/cairn-backend.exe`；后端起不来时加载 `error.html` 兜底页而不是白窗。**图标/签名/托盘/自动更新、NSIS 安装包都还没做**，见 `docs/HANDOFF.md` |
-| `tools/` | `doc_check.py` 文档一致性检查；`prepare_ffmpeg.py` 把本机 ffmpeg 全套（exe + 7 个 DLL）复制进 `desktop/resources/ffmpeg/` 供打包 |
+| `desktop/` | Electron 壳（`main.js`）：spawn 后端 → 随机端口 + HTTP 握手 → 窗口加载 `http://127.0.0.1:<port>/`（**页面与 `/api` 同源，不走 file://**）。dev 用 `uv run python -m app`，打包后用 `resources/backend/cairn-backend.exe`；后端起不来时加载 `error.html` 兜底页而不是白窗。`build/icon.ico` 是应用图标（`tools/make_icon.py` 生成），`package.json` 里有 electron-builder / NSIS 配置。**签名、托盘、自动更新没做** |
+| `tools/` | `doc_check.py` 文档一致性检查；`prepare_ffmpeg.py` 把本机 ffmpeg 全套（exe + 7 个 DLL）复制进 `desktop/resources/ffmpeg/` 供打包；`make_icon.py` 生成应用图标（多尺寸 ico / png / svg，需系统 Python 装 Pillow） |
 | `data/` | 开发期数据库与日志，**永不入库** |
 | `docs/` | 总纲、契约（数据/接口/ADR）、里程碑、进度台账 |
 
@@ -87,7 +110,7 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd backend && uv run python scripts/verify_m2.py --online` | 上面 118 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
 | `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
 | `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 69 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、错误码归一（超时/额度/其他 HTTP）、选项不带字母前缀（生成侧与读取侧都剥）、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
-| `cd backend && uv run python scripts/verify_m5.py` | M5 计时与统计 50 项：start 并发 409 / current / 心跳卷账与锚点 / 暂停不计时 / finish 幂等与笔记 / abandon 不计入专注 / >4h 启动清理（模拟重启）/ 学习记录过滤 / `stats/today` 与**独立写的 SQL 聚合**逐项对账 / `stats/week` 七天与合计 / 口径边界（昨天的 pending 不算、NULL 不进分母、分类前 8、连续天数今天没学不算断）（**临时库，不联网不烧钱**） | 动到计时 / 统计 / 仪表盘 |
+| `cd backend && uv run python scripts/verify_m5.py` | M5 计时与统计 57 项：start 并发 409 / current / 心跳卷账与锚点 / 暂停不计时 / finish 幂等与笔记 / abandon 不计入专注 / >4h 启动清理（模拟重启）/ 学习记录过滤 / `stats/today` 与**独立写的 SQL 聚合**逐项对账 / `stats/week` 七天与合计 / 口径边界（昨天的 pending 不算、NULL 不进分母、分类前 8、连续天数今天没学不算断）/ 首次引导保存 Key（拒换行注入、保留原有行、响应不含 Key 明文）（**临时库，不联网不烧钱**） | 动到计时 / 统计 / 仪表盘 / 引导页 |
 | `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
 | `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
@@ -95,6 +118,7 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 19 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、选项字母只出现一次、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
 | `cd desktop && npm start` | Electron 壳（dev）：spawn 后端 → 端口握手 → 窗口显示真实 UI（`http://127.0.0.1:<port>/`，页面与 `/api` 同源、无 CORS）→ 关窗后无 python 残留（日志 `desktop/_smoke/shell.log`，含握手耗时与首屏耗时） | 动到桌面壳 / 后端启动方式 / 静态挂载 |
 | `cd backend && uv run pyinstaller --noconfirm --distpath build/dist --workpath build/work cairn-backend.spec` | 把后端打成 `build/dist/cairn-backend/`（onedir，windowed，约 965MB） | 改了后端代码、要在桌面端验证 |
+| `python tools/make_icon.py` | 重新生成 `desktop/build/icon.{ico,png}`、`frontend/public/{favicon.ico,logo.svg}`（四个文件同一套几何）。**产物已入库，只有改设计时才需要跑**；需系统 Python 装 Pillow | 改图标 |
 | `cd desktop && npm run pack` | 打可执行目录（`electron-builder --dir`，不出安装包），产物在 `desktop/release/win-unpacked/Cairn.exe` | 验证"打包后能不能真跑起来" |
 | `cd desktop && npm run dist` | 出 NSIS 安装包 → `desktop/release/Cairn-<版本>-setup.exe`（约 407MB，2 分钟） | 交付前 |
 
@@ -179,3 +203,21 @@ cp .env.example .env
 | `%APPDATA%/Cairn/.env` | 打包后读的配置（开发期读项目根 `.env`） |
 
 备份 = 复制这个目录（至少 `data.db`）。`data/` 已在 `.gitignore` 中排除，**永不入库**。
+
+**换电脑 / 迁移**：装好新机器后先**退出** Cairn，再把旧机器的 `%APPDATA%\Cairn` 整个覆盖过去，
+重启即可（`.env` 里的 Key 也一起跟过去了）。模型目录可以不带，会重新下。
+单独备份数据库也行：`data.db` + `.env` 两个文件就够，`logs/` 与 `models/` 都不影响正确性。
+
+## 故障速查
+
+| 症状 | 原因 | 处理 |
+|---|---|---|
+| 双击后窗口闪一下 / 白窗 | 后端没起来，或起来后又崩了 | 兜底页会写原因码与日志路径；日志在 `%APPDATA%\Cairn\logs\shell.log`（握手耗时、后端退出码都在这） |
+| 一直停在"连接中" | 后端进程还在但没响应 | 关掉重开；连续两次不行就把 `logs\app.log` 最后 30 行捞出来 |
+| 顶栏黄标「环境待配置」 | 缺模型 Key 或 ffmpeg | 点它进引导页，填上立即生效 |
+| 出题/问答报"未配置模型 Key" | Key 过期或删了 | 同上，重新填一次 |
+| 视频采集报 `TRANSCRIBE_NO_FFMPEG` | 安装不完整（ffmpeg 没带上） | 重装安装包；单文件覆盖安装不会修好缺失的资源 |
+| 提示"模型额度不足或触发限流" | 服务商侧 402/429 | 查余额或稍后重试，与本地无关 |
+| Windows 提示"已保护你的电脑" | 安装包未签名 | 更多信息 → 仍要运行；介意的话把安装目录加进 Defender 排除项 |
+| 卸载后重装，数据没了 | 手动删过 `%APPDATA%\Cairn`，或用了"清理工具" | 只要没删这个目录就不会丢；重要数据自己定期复制 |
+| 任务栏出现两个 Cairn 图标 | 从不同路径各启动了一次 | 已加单实例锁，正常只会有一个；出现两个说明其中一个是从旧安装残留的 exe 起的 |
