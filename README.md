@@ -38,7 +38,7 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 |---|---|
 | `backend/` | FastAPI + SQLite；表结构与端点在 `docs/contracts/`，脚本在 `backend/scripts/` |
 | `frontend/` | Vue 3 + Vite；`e2e/` 是浏览器回归，`src/styles/tokens.css` 是唯一配色/间距来源 |
-| `desktop/` | Electron 空壳（`main.js` + `index.html`）：spawn 后端、端口握手、`file://` 加载。**打包/图标/签名/接 Vite 产物/托盘/自动更新都还没做**，见 `docs/HANDOFF.md` 的空壳验证条目 |
+| `desktop/` | Electron 空壳（`main.js`）：spawn 后端 → 端口握手 → 窗口加载 `http://127.0.0.1:<port>/`，后端直接把 `frontend/dist` 吐出来（**页面与 `/api` 同源，不走 file://**）。同目录的 `index.html` 是早期 file:// 验证页，**已不参与加载**。**打包/图标/签名/托盘/自动更新都还没做**，见 `docs/HANDOFF.md` |
 | `data/` | 开发期数据库与日志，**永不入库** |
 | `docs/` | 总纲、契约（数据/接口/ADR）、里程碑、进度台账 |
 
@@ -81,7 +81,10 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
 | `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 17 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
-| `cd desktop && npm start` | Electron 空壳：spawn 后端 → 端口握手 → 窗口显示 `index.html` → 关窗后无 python 残留（实测日志见 `desktop/_smoke/run.log`） | 动到桌面壳 / 后端启动方式 |
+| `cd desktop && npm start` | Electron 空壳：spawn 后端 → 端口握手 → 窗口显示真实 UI（`http://127.0.0.1:<port>/`，页面与 `/api` 同源、无 CORS）→ 关窗后无 python 残留（实测日志 `desktop/_smoke/run.log`） | 动到桌面壳 / 后端启动方式 / 静态挂载 |
+
+跑桌面壳前**必须先 `cd frontend && npm run build`**：没有 `frontend/dist` 时后端不挂静态路由，
+窗口会白屏（后端本身不会报错，只是 `GET /` 返回 404）。
 
 空壳验证加 `SMOKE_AUTOCLOSE_MS=5000` 会自动关窗，便于非交互地跑第 3、4 项（否则要人点关闭）。
 
@@ -115,6 +118,7 @@ cp .env.example .env
 | `VECTOR_ENABLED` | `1`（默认）。置 `0` 时检索只走 FTS/LIKE：问答照常可用，前端提示「向量不可用，已降级」。sqlite-vec 加载失败时同样自动降级，不用改这里 |
 | `EMBED_MODEL` | 默认 `BAAI/bge-small-zh-v1.5`。**换模型必须重建向量**（维度变了），见 M3 §6.3 |
 | `CAIRN_API_TARGET` | **只给前端开发用**（不是 `.env` 变量，是启动 Vite 时的环境变量）。默认 `/api` 反代到 `127.0.0.1:8756`；想在另一个后端实例（比如 8757 上的联调实例）上跑 UI 时设它，别去改 `vite.config.js` |
+| `CAIRN_WEB_DIR` | **只给 Electron 壳用**。后端启动时若该目录下存在 `index.html`，就挂 `/assets` 并让 `GET /` 返回它（页面与 `/api` 同源，绕开 `file://` 的 `null` origin）。默认 `frontend/dist`；目录不存在时整段跳过，不影响 dev 与 API |
 | `VECTOR_MIN_DISTANCE` | `1.05`（默认）。全文零命中时，向量最近片段的 L2 距离须 ≤ 此值才算命中，否则判「库里没有」直接返回空（不调模型）。调大更宽松、调小更严格；实测库内语义查询 0.958 能过、库外问题 1.10–1.17 被挡 |
 
 > **站点登录**：需要登录才给内容的站点（B 站字幕、知乎受限页）在采集面板的「链接采集」里

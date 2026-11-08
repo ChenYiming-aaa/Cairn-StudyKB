@@ -7,10 +7,14 @@ T1.3 / T1.6：启动时建库并清理残留任务。
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings, setup_logging
 from app.db.migrate import init_db
@@ -71,3 +75,29 @@ app.include_router(html.router)
 app.include_router(quiz.router)
 app.include_router(review.router)
 app.include_router(tasks.router)
+
+
+# ── 前端静态产物：让页面与 /api 同源（Electron 壳用，dev 仍走 5173）──────────
+# 为什么要同源：Electron 里若用 file:// 加载 index.html，页面 origin 是 null，
+# 而后端 CORS 白名单只有 http://localhost:5173 / 127.0.0.1:5173，API 会被浏览器拦。
+# 解法是让后端自己吐页面，而不是放宽 CORS（白名单一行没动）。
+#
+# 两条硬约束：
+# 1) 只挂 /assets 与 /，**绝不用 app.mount("/", StaticFiles(html=True))**——那会把
+#    未匹配的 /api 路径也返回 index.html，接口调试直接变成"永远 200 但内容是 HTML"。
+# 2) 必须条件挂载：dist 不存在（dev 没 build / 没装前端）就整段跳过，否则后端启动即报错。
+WEB_DIR = Path(
+    os.environ.get("CAIRN_WEB_DIR")
+    or str(Path(__file__).resolve().parents[2] / "frontend" / "dist")
+)
+
+if (WEB_DIR / "index.html").exists():
+    # vite 产物在 assets/ 下；单独判一次目录，避免 dist 是半成品时 StaticFiles 抛错
+    if (WEB_DIR / "assets").is_dir():
+        app.mount("/assets", StaticFiles(directory=WEB_DIR / "assets"), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def _index() -> FileResponse:
+        # 前端路由是 hash 模式，深链接不会打到后端，这里只需要给首页
+        return FileResponse(WEB_DIR / "index.html")
+

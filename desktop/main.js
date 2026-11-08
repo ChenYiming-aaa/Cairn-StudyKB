@@ -1,9 +1,10 @@
 // Cairn 桌面壳 —— 空壳验证（M1 遗留项），只验四件事：
 //   1. spawn 后端（uv run python -m app，不上 PyInstaller）
 //   2. 随机端口 + 每 300ms 轮询 GET /api/health，确认可用后才建窗口（ADR-013 / ADR-016）
-//   3. 窗口用 file:// 加载 index.html
+//   3. 窗口加载 http://127.0.0.1:{port}/ —— 后端直接吐 frontend/dist，页面与 /api 同源
+//      （不用 file://：那会让 origin 变成 null，撞上后端只放行 5173 的 CORS 白名单）
 //   4. 关窗口后杀掉后端整棵进程树，不留 python 残留
-// 明确不做：NSIS 安装包 / 图标 / 签名 / 接 Vite 产物 / 托盘 / 自动更新。
+// 明确不做：NSIS 安装包 / 图标 / 签名 / 托盘 / 自动更新。
 'use strict'
 
 const { app, BrowserWindow } = require('electron')
@@ -21,6 +22,7 @@ const HEALTH_TIMEOUT_MS = 30000
 
 let backend = null
 let win = null
+let consoleErrors = 0
 
 // Electron 主进程在 Windows 下的 stdout 不总能落到控制台，所以同时写一份日志文件，
 // 四项验证的实测输出都从这份文件取。
@@ -93,7 +95,8 @@ function killBackend() {
   backend = null
 }
 
-function createWindow(port, version) {
+function createWindow(port) {
+  const base = `http://127.0.0.1:${port}`
   win = new BrowserWindow({
     width: 900,
     height: 640,
@@ -102,13 +105,38 @@ function createWindow(port, version) {
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   })
 
-  win.loadFile(path.join(__dirname, 'index.html'), {
-    query: { port: String(port), version: version || '' },
+  // 等价于 DevTools 的 Network 面板：渲染进程打到后端的每个请求都记一行
+  win.webContents.session.webRequest.onCompleted(
+    { urls: [`${base}/*`] },
+    (d) => log(`3/4 net ${d.statusCode} ${d.method} ${d.url}`),
+  )
+
+  // 等价于 Console 面板：renderer 的 console.error 与 CORS 拦截都会落到这里
+  win.webContents.on('console-message', (...args) => {
+    const e = args[0]
+    const level = e && typeof e === 'object' && e.level !== undefined ? e.level : args[1]
+    const msg = e && typeof e === 'object' && e.message !== undefined ? e.message : args[2]
+    if (level === 'error' || level === 3) consoleErrors += 1
+    log(`3/4 console[${level}] ${String(msg).slice(0, 300)}`)
   })
+
+  // 页面与 /api 同源：后端直接把 frontend/dist 吐出来（不再用 file://，origin 不再是 null）
+  win.loadURL(`${base}/`)
 
   win.webContents.on('did-finish-load', async () => {
     log(`3/4 页面加载完成 url=${win.webContents.getURL()}`)
     log(`3/4 窗口标题 = ${win.getTitle()}`)
+    try {
+      // 主动打一次 health：r.url 就是 Network 面板里的 Request URL，
+      // 被 CORS 拦掉会走 catch（证明"无 CORS 报错"不能靠肉眼）
+      const probe = await win.webContents.executeJavaScript(
+        "fetch('/api/health').then(r => r.json().then(j => ({url: r.url, status: r.status, body: j})))"
+        + '.catch(e => ({error: String(e)}))',
+      )
+      log(`3/4 页面内 fetch('/api/health') → ${JSON.stringify(probe)}`)
+    } catch (e) {
+      log(`3/4 页面内 probe 失败: ${e.message}`)
+    }
     try {
       const img = await win.webContents.capturePage()
       const png = path.join(SMOKE_DIR, 'window.png')
@@ -120,7 +148,10 @@ function createWindow(port, version) {
     const ms = Number(process.env.SMOKE_AUTOCLOSE_MS || 0)
     if (ms > 0) {
       log(`3/4 ${ms}ms 后自动关窗（SMOKE_AUTOCLOSE_MS，仅验证用）`)
-      setTimeout(() => win.close(), ms)
+      setTimeout(() => {
+        log(`3/4 关窗前 console 错误数 = ${consoleErrors}`)
+        win.close()
+      }, ms)
     }
   })
 
@@ -152,9 +183,7 @@ async function boot() {
   log(`2/4 GET http://127.0.0.1:${port}/api/health → ${h.body}`)
   log(`2/4 握手成功：尝试 ${h.attempts} 次，耗时 ${h.elapsed}ms`)
 
-  let version = ''
-  try { version = JSON.parse(h.body).version } catch { /* 只用于展示 */ }
-  createWindow(port, version)
+  createWindow(port)
 }
 
 app.whenReady().then(boot).catch((e) => {

@@ -34,7 +34,6 @@
 | 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 | 等 M5 仪表盘定保留策略 |
 | 5 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
-| 7 | `file://` origin 是 `null`，后端 CORS 只放行 `localhost:5173` | T5.5 前必须裁决 | 空壳页刻意不发网络请求绕开了它；接 Vite 产物时会撞上，三种解法见 2026-11-08 12:20 那条 |
 
 **下一会话第一件事**
 > M5 开工：读 `docs/milestones/M5-计时与交付.md`，做 T5.1–T5.4。仪表盘数据源已就绪
@@ -427,3 +426,101 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 
 **下一会话第一件事**
 > M5 T5.1。注意：本条只到"空壳四件事已验证"，**不等于 T5.5 已完成**，打包与接前端都还没动。
+
+## 2026-11-08 12:30 · 桌面 · 空壳收尾：页面与 API 同源（**不打包**）
+
+**背景**：上一条的 `loadFile(file://)` 让页面 origin 变成 `null`，后端 CORS 只放行
+`localhost:5173`，API 必被拦。**解法不是放宽 CORS，是让页面与 `/api` 同源**：
+后端自己吐 `frontend/dist`。前端本来就是相对路径 + `createWebHashHistory`，**前端代码一行没改**。
+
+**改的四处**
+
+| # | 文件 | 改了什么 |
+|---|---|---|
+| 1 | `backend/app/main.py`（末尾，所有 `include_router` 之后） | `WEB_DIR`（`CAIRN_WEB_DIR` 或 `frontend/dist`）→ 条件挂 `/assets` + `GET /` 返回 `index.html` |
+| 2 | `backend/entry.py`（新增 12 行） | PyInstaller 入口，绝对导入 `from app.__main__ import main` |
+| 3 | `desktop/main.js` | `win.loadFile(...)` → `win.loadURL(\`http://127.0.0.1:${port}/\`)`，端口复用 `waitHealth` 那个变量，没新加一套 |
+| 4 | `desktop/main.js`（验证用加料） | `webRequest.onCompleted` 记网络、`console-message` 记渲染进程报错并计数、页面内 `fetch('/api/health')` 取绝对 URL |
+
+**两条硬约束都守住了，而且是实测过的**
+- **没有**用 `app.mount("/", StaticFiles(html=True))`：`GET /api/不存在的路径` → `404 application/json`
+  `{"detail":"Not Found"}`，**没有**被兜成 index.html（这是最容易踩的坑）
+- **条件挂载**：`CAIRN_WEB_DIR=C:/no/such/dir` 时后端正常启动、`GET /` → 404、`/api/health` → 200
+- **CORS 白名单一行没动**，dev 仍走 5173
+
+**一处小偏差（我加的，1 行）**：`/assets` 单独又判了一次 `is_dir()`。原片段是「`index.html` 存在就
+挂 `assets`」，若 dist 是半成品（有 index.html 没 assets/），`StaticFiles(check_dir=True)` 会在
+**启动时**抛错，正好违背"条件挂载"的初衷。不想要可以删掉那行 if。
+
+**实测（顺序：build → 静态路由 → Electron）**
+
+`cd frontend && npm run build`：
+```
+dist/index.html                   0.39 kB │ gzip:  0.27 kB
+dist/assets/index-CS4PzLg6.css   46.12 kB │ gzip:  7.32 kB
+dist/assets/index-CWyAk6v1.js   245.68 kB │ gzip: 90.55 kB
+✓ built in 1.14s
+```
+
+静态路由（TestClient，同一个 app 实例）：
+```
+GET /                    → 200 text/html; charset=utf-8  len=392
+GET /assets/index-CWyAk6v1.js → 200 application/javascript
+GET /api/health          → 200 {'status': 'ok', 'version': '0.1.0'}
+GET /api/不存在的路径     → 404 application/json  body='{"detail":"Not Found"}'   ← 没被兜成 HTML
+GET /some/spa/deep/path  → 404 application/json   （hash 路由不需要兜深链接）
+```
+
+**Electron 四点（`desktop/_smoke/run.log`，端口 5185）**
+```
+1/4 spawn: uv run python -m app --port 5185   pid=5016
+2/4 GET http://127.0.0.1:5185/api/health → {"status":"ok","version":"0.1.0"}（第 12 次，3384ms）
+3/4 net 200 GET http://127.0.0.1:5185/
+3/4 net 200 GET http://127.0.0.1:5185/assets/index-CS4PzLg6.css
+3/4 net 200 GET http://127.0.0.1:5185/assets/index-CWyAk6v1.js
+3/4 net 200 GET http://127.0.0.1:5185/api/health
+3/4 net 200 GET http://127.0.0.1:5185/api/knowledge/categories
+3/4 net 200 GET http://127.0.0.1:5185/api/knowledge?page_size=50
+3/4 页面加载完成 url=http://127.0.0.1:5185/#/      ← hash 路由正常工作
+3/4 窗口标题 = Cairn
+3/4 页面内 fetch('/api/health') → {"url":"http://127.0.0.1:5185/api/health","status":200,"body":{...}}
+3/4 关窗前 console 错误数 = 0
+4/4 taskkill /PID 5016 /T /F → 成功终止 8056 / 29352 / 29344 / 5016 四个进程
+```
+
+| 用户要求确认的点 | 结论 | 证据 |
+|---|---|---|
+| 窗口显示页面，不是白屏 | ✅ | `_smoke/window.png` 截图：左侧分类树 + 10 条条目列表 + 顶部「已连接」徽标，真实 UI |
+| DevTools Console 无 CORS 报错 | ✅ | `console 错误数 = 0`。**唯一一条是 Electron 的 CSP 安全警告**（warning 级，见遗留） |
+| Network 里 `/api/health` 200 且 Request URL 正确 | ✅ | `net 200 GET http://127.0.0.1:5185/api/health`；页面内 fetch 回读 `url` 与 `status` 同为 200 |
+| 关窗后 tasklist 查不到残留 python | ✅ | `AFTER_COUNT=0`；`tasklist /FI "IMAGENAME eq python.exe"` → 「没有运行的任务匹配指定标准」；端口 5185 只剩 `TimeWait` |
+
+**T5.5 可以从 `desktop/` 直接接（三处已就位）**
+1. **入口用 `backend/entry.py`，不是 `app/__main__.py`**。理由：PyInstaller 把**入口脚本所在目录**
+   塞进 `sys.path`，入口若是 `app/__main__.py`，`sys.path[0]` 就是 `backend/app/`，`import app` 必失败。
+2. `main.js` 只需把 spawn 的 `uv run python -m app` 换成 `--onedir` 出的 `cairn-backend.exe`，
+   `--port` 传参与 300ms/30s 握手逻辑**一行不用改**。
+3. 静态页改打包内置：把 `frontend/dist` 拷进 `resources/web`，spawn 时给子进程
+   `CAIRN_WEB_DIR=<resources>/web` 即可 —— **后端已经有这个开关，不用再改代码**。
+4. 剩下没做：`electron-builder --win nsis`、图标、签名、CSP。
+
+**改动文件**
+- 改：`backend/app/main.py`、`desktop/main.js`、`README.md`（`desktop/` 目录行、验证表加 build 前置、
+  配置表加 `CAIRN_WEB_DIR`）、`docs/HANDOFF.md`
+- 新增：`backend/entry.py`
+- **没动**：前端任何文件（一行未改）、CORS 白名单、M1–M4 已验收模块、任何里程碑文档
+
+**遗留**
+- [ ] Electron 报 `Insecure Content-Security-Policy`（warning）：`frontend/dist/index.html` 没有 CSP。
+      T5.5 加 `<meta http-equiv="Content-Security-Policy">` 或用 `session.webRequest.onHeadersReceived` 注 header。
+      **不是错误、不影响功能**，但现在每次启动都刷一条警告
+- [ ] `desktop/index.html`（早期 file:// 验证页）**已不参与加载**，T5.5 决定删掉还是改造成"后端没起来"的兜底页
+- [ ] `GET /` 与 `/assets` 是静态路由，**没登记进接口契约**（不在 `/api` 命名空间，`doc_check.py` 不管它）。
+      要登记的话说一声，我加一行
+
+**验证**：`python tools/doc_check.py` 见本条提交前实跑。
+**推送状态**：本地已提交，**远程未推**（agent 侧 `could not read Username`）。
+需要你在普通终端执行 `"C:/Program Files/Git/cmd/git.exe" push origin main`。**本次不打标签。**
+
+**下一会话第一件事**
+> M5 T5.1；T5.5 若要开工，直接从 `desktop/` 按上面三条接（打包连握手都不用改）。
