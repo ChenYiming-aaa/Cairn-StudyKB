@@ -21,6 +21,9 @@ const {
 const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = useTimer()
 
 const backend = ref('checking')
+// 静态演示版（github.io）：数据是抓下来的 fixture，生成类操作会返回 DEMO_OFFLINE。
+// 正式构建里 VITE_DEMO 未设，这个常量恒为 false，整块提示被摇掉。
+const isDemo = import.meta.env.VITE_DEMO === '1'
 // 恢复入口：`visibilitychange` 会临时挂监听，保存引用以便卸载时摘掉
 let onVisible = null
 
@@ -150,6 +153,15 @@ function onOpen(itemId) {
       >
         {{ item.message }}
       </div>
+    </div>
+
+    <!-- 静态演示横幅：常驻，不参与布局，避免遮挡内容 -->
+    <div v-if="isDemo" class="demo-bar">
+      <b>演示模式</b>
+      <span>页面用的是预置样例数据（真跑一遍整理/问答/出题后抓取的）。整理、采集、出题、问答需要本地后端。</span>
+      <a href="https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases" target="_blank" rel="noreferrer">
+        下载桌面版
+      </a>
     </div>
   </div>
 </template>
@@ -303,5 +315,39 @@ function onOpen(itemId) {
     opacity: 1;
     transform: none;
   }
+}
+
+/* 演示模式横幅：贴底部一条，不进布局，避免把界面挤变形 */
+.demo-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-4);
+  background: #fbf1e2;
+  border-top: 1px solid #ecd9b8;
+  color: var(--c-warning);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  text-align: center;
+}
+
+.demo-bar b {
+  font-weight: 600;
+}
+
+.demo-bar span {
+  color: var(--c-text-2);
+}
+
+.demo-bar a {
+  color: var(--c-primary);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
 }
 </style>

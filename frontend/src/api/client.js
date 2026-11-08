@@ -39,6 +39,8 @@ const FRIENDLY = [
   [/^SESSION_/, '计时操作失败，请刷新后重试'],
   [/^NETWORK$/, '连不上后端服务，请确认 uvicorn 已在 8756 端口启动'],
   [/^POLL_TIMEOUT$/, '任务超时未返回，请稍后在任务记录里查看'],
+  // 只有静态演示版（VITE_DEMO）会返回这个，正式运行永远不会命中
+  [/^DEMO_/, '这是静态演示版：生成、采集、整理、问答都要本地后端，请下载桌面版运行'],
 ]
 
 export function friendlyMessage(err) {

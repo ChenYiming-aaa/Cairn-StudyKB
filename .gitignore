@@ -32,6 +32,8 @@ cookies.txt
 
 # ── 构建产物 ───────────────────────────
 dist/
+# github.io 静态演示包（CI 里现构建，不入库）
+dist-demo/
 release/
 release-verify/
 build/

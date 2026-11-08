@@ -28,6 +28,7 @@
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` **`v0.1.0`** |
 | 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57（2026-11-08 全量重跑）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · 安装版首屏 4066ms（热启）/ 6680ms（冷启，已记例外） |
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
+| 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/>** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），由 `.github/workflows/pages.yml` 在 main 更新后自动部署。**需要在 GitHub 仓库 Settings → Pages 把 Source 选成 "GitHub Actions" 才会生效** |
 | 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
@@ -45,12 +46,15 @@
 | 9 | `desktop/release/`、`release-verify/` 的 `app.asar` 被锁，删不掉 | 环境问题 | gitignored，重启后可手工清 |
 | 10 | **v0.1.0 只在本地打了 tag，远程未推** | 等你在终端执行 | `git push origin main && git push origin --tags`（agent 会话读不到凭据） |
 | 11 | GitHub Release 还没建 | 要你在网页做 | 正文直接用 `docs/dev/release-notes-v0.1.0.md`，安装包 `desktop/release/Cairn-0.1.0-setup.exe` 拖进去 |
+| 12 | Pages 从没开过，workflow 推上去也不会生效 | 要你在网页做 | Settings → Pages → Source 选 **GitHub Actions**（不是 Deploy from a branch） |
 
 **下一会话第一件事**
 > ① 终端里 `git push origin main && git push origin --tags`（`v0.1.0` 要一起推上去）；
-> ② 网页建 GitHub Release：tag 选 `v0.1.0`，正文整段拷 `docs/dev/release-notes-v0.1.0.md`，
+> ② **Settings → Pages → Source 选 "GitHub Actions"**，然后看 Actions 里 `demo-pages` 跑完，
+> 打开 <https://chenyiming-aaa.github.io/Cairn-StudyKB/> 确认演示站能点；
+> ③ 网页建 GitHub Release：tag 选 `v0.1.0`，正文整段拷 `docs/dev/release-notes-v0.1.0.md`，
 > 附件拖 `desktop/release/Cairn-0.1.0-setup.exe`（426MB，`git push` 推不了这么大的文件）；
-> ③ 找台没装 Python/Node 的 Windows 真机装一遍，跑通「填 Key → 建一条资料 → 重启还在」。
+> ④ 找台没装 Python/Node 的 Windows 真机装一遍，跑通「填 Key → 建一条资料 → 重启还在」。
 > 之后才谈 M5 归档与 v2（模板 A 换里程碑）。
 
 ---
@@ -926,3 +930,47 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 - [ ] **`git push origin main && git push origin --tags`** —— agent 会话读不到 git 凭据
 - [ ] GitHub Release 要你在网页建（正文用 release-notes，安装包手动上传）
 - [ ] 真机验收（另一台没有 Python/Node 的 Windows）仍未做
+
+## 2026-11-08 20:30 · 发布 · 网页版静态演示（github.io）+ README 再精简
+
+**前提纠正**
+> 网页版不是独立可部署的应用：`frontend` 是 Vue SPA，所有数据走 `/api`，后端是本地
+> FastAPI + SQLite + torch + ffmpeg。GitHub Pages 只能放静态文件，把 `dist` 直接丢上去
+> 只会满屏「连不上后端」。所以做的是**静态演示包**，不是「部署网页版」。
+
+**完成**
+
+- **演示层**（新）：`frontend/src/demo/`
+  - `fixtures.json`（77KB）：起临时 `DATA_DIR` 后端 → 真跑 6 篇整理 + 2 次问答 + 1 次出题（故意错 2 题）
+    + 2 份学习页 → 把各 GET 端点响应原样抓下来；`public/demo/` 放导图 SVG（明/暗）与学习页 HTML
+  - `index.js`：在 `main.js` 挂载前替换 `window.fetch`，GET 走 fixture（支持 q/category/tag 过滤），
+    **非白名单写操作一律 403 `DEMO_OFFLINE`**；`api.mindmapUrl` / `htmlUrl` 指到静态资源
+  - 唯一允许的写：交卷判分与复习结果上报（`quiz/submit`、`review/:id/result`）—— 判分用 fixture 里的
+    标准答案本地比对（复用 `utils/quiz.judgeLocal`），**不是预录结果**，复习链路能完整点到结果页
+- **UI**：`App.vue` 加常驻演示横幅（底部一条，不进布局）；`client.js` 加 `DEMO_` 前缀的错误人话映射；
+  `main.js` 用 `VITE_DEMO=1` 动态 import（正式构建实测被摇掉：`dist` 里搜不到 `DEMO_OFFLINE` / `演示模式`）
+- **CI**：`.github/workflows/pages.yml` —— `npm ci` → `VITE_DEMO=1 vite build --base=./` → `upload-pages-artifact`
+  → `deploy-pages`，推 main 自动跑
+- **README 重写第二版**：272 行 → 169 行。新增「在线试用」段（能看什么 / 不能做什么 / 数据是快照），
+  删掉「从源码运行」整节（移到 `docs/dev/运行与打包.md`）、验收数字、目录结构
+- **文档**：新增 `docs/dev/运行与打包.md`（依赖/启动/打包/验收/演示包构建 + 作用域声明）
+
+**验证**（本地按 Pages 路径结构 `127.0.0.1:5210/Cairn-StudyKB/` 起静态服务，Playwright 实跑）
+
+- 逐页 12/12 PASS：列表 6 条 / 详情摘要+要点 / 导图 SVG `naturalWidth>0` / 仪表盘「4 小时 10 分」+
+  分类分布 + 正确率 33% / 问答历史有真实记录 / 学习页 iframe 指向 `demo/page-2.html` 且正文渲染 /
+  复习「开始复习 → 选项 → 答对了 + 解析 → 交卷 2/2 正确率 100%」/ 采集与出题被拒绝且提示含「演示」
+- **console 0 错误**；`npm run lint` 干净；`doc_check.py` 6 PASS + 1 提示（旧的 WARN 不变）
+
+**改动文件**
+
+- 新增：`frontend/src/demo/{index.js,fixtures.json}`、`frontend/public/demo/*`（4 个）、
+  `.github/workflows/pages.yml`、`docs/dev/运行与打包.md`
+- 改：`README.md`、`frontend/src/{main.js,App.vue,api/client.js}`、`frontend/eslint.config.js`、`.gitignore`
+
+**遗留**
+
+- [ ] **`git push origin main`** —— agent 会话读不到 git 凭据，这次连 tag 都没打（没发新版本）
+- [ ] **GitHub Settings → Pages → Source 选 "GitHub Actions"**，否则 workflow 跑完也不会发布
+- [ ] 演示站上线后要自己点一遍（我这边只能用本地 http.server 模拟同一个路径结构）
+- [ ] 后端响应结构变了要重抓 fixture，否则演示数据会和真实接口漂移（做法写在 `运行与打包.md`）

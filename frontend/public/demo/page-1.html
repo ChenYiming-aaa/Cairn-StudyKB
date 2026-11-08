@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高效学习方法专题</title>
+<style>
+/* 全部内联：断网双击打开必须和预览一模一样（M3 §1 第 5 条、§6.7） */
+:root {
+  --ink: #23211c;
+  --ink-2: #5c574d;
+  --ink-3: #8d887f;
+  --paper: #fffefa;
+  --paper-2: #f6f5f1;
+  --line: #e2dfd5;
+  --accent: #1d9e75;
+  --accent-soft: #e1f5ee;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  padding: 0 20px 64px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, "Microsoft YaHei", serif;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.page { max-width: 860px; margin: 0 auto; background: var(--paper); padding: 48px 56px 56px;
+        border-radius: 12px; box-shadow: 0 1px 2px rgba(35,33,28,.06); margin-top: 28px; }
+h1, h2, h3, h4 { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+                 line-height: 1.4; margin: 0; }
+h1.doc-title { font-size: 30px; letter-spacing: .01em; }
+.meta { margin: 14px 0 0; color: var(--ink-3); font-size: 13px;
+        font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.meta span + span::before { content: "·"; margin: 0 8px; color: var(--line); }
+.toc { margin: 32px 0 8px; padding: 18px 22px; background: var(--paper-2);
+       border: 1px solid var(--line); border-radius: 10px; }
+.toc-title { font-size: 13px; letter-spacing: .08em; color: var(--ink-3); text-transform: uppercase;
+             font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; margin-bottom: 8px; }
+.toc ol { margin: 0; padding-left: 22px; }
+.toc li { font-size: 14px; line-height: 1.9; }
+.toc a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid transparent; }
+.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+section.item { padding-top: 36px; margin-top: 36px; border-top: 1px solid var(--line); }
+section.item:first-of-type { border-top: none; }
+section.item > h2 { font-size: 23px; padding-bottom: 8px; border-bottom: 2px solid var(--accent-soft); }
+.item-meta { margin: 8px 0 18px; font-size: 12px; color: var(--ink-3);
+             font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.item-meta .chip { display: inline-block; padding: 1px 8px; margin-right: 6px; border-radius: 999px;
+                   background: var(--paper-2); color: var(--ink-2); }
+.mindmap { margin: 8px 0 24px; padding: 12px; background: #fbfaf6; border: 1px solid var(--line);
+           border-radius: 10px; overflow-x: auto; }
+.mindmap svg { display: block; max-width: 100%; height: auto; }
+.summary { margin: 0 0 18px; padding: 14px 18px; background: var(--accent-soft); border-radius: 10px;
+           color: #104e3a; font-size: 15px; }
+.points-title, .note-title { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+                             font-size: 13px; letter-spacing: .06em; color: var(--ink-3); margin: 22px 0 8px; }
+.points { margin: 0; padding-left: 22px; }
+.points li { margin: 4px 0; }
+.note h1, .note h2, .note h3, .note h4 { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+                                         margin: 22px 0 8px; }
+.note h1 { font-size: 21px; }
+.note h2 { font-size: 18px; }
+.note h3 { font-size: 16px; }
+.note h4 { font-size: 15px; color: var(--ink-2); }
+.note p { margin: 8px 0; }
+.note ul, .note ol { margin: 8px 0; padding-left: 24px; }
+.note li { margin: 3px 0; }
+.note code { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: .88em;
+             background: var(--paper-2); padding: 1px 5px; border-radius: 4px; }
+.note pre { background: #f7f6f2; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+            overflow-x: auto; font-size: 13px; line-height: 1.6; }
+.note pre code { background: none; padding: 0; font-size: 13px; }
+.note blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid var(--accent-soft); color: var(--ink-2); }
+.note table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+.note th, .note td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+.note th { background: var(--paper-2); }
+.note a { color: var(--accent); }
+.note img { max-width: 100%; }
+.note hr { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
+footer { max-width: 860px; margin: 24px auto 0; text-align: center; color: var(--ink-3); font-size: 12px;
+         font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+@media (max-width: 720px) {
+  body { padding: 0 12px 40px; }
+  .page { padding: 28px 20px 36px; border-radius: 8px; }
+  h1.doc-title { font-size: 24px; }
+}
+@media print {
+  body { background: #fff; padding: 0; }
+  .page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+  section.item { page-break-inside: avoid; }
+  .mindmap { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <h1 class="doc-title">高效学习方法专题</h1>
+  <p class="meta">
+    <span>3 个条目</span>
+    <span>生成于 2026-11-08 19:50</span>
+    <span>由 Cairn 离线生成</span>
+  </p>
+  <nav class="toc">
+    <div class="toc-title">目录</div>
+    <ol>
+<li><a href="#item-1">间隔重复为何有效：检索加固记忆</a></li>
+<li><a href="#item-2">主动回忆与费曼技巧的学习方法</a></li>
+<li><a href="#item-3">有效笔记的压缩与重建方法</a></li>
+    </ol>
+  </nav>
+  <section class="item" id="item-1">
+<h2>间隔重复为何有效：检索加固记忆</h2>
+<p class="item-meta"><span class="chip">学习方法</span><span class="chip">#间隔重复 · #遗忘曲线 · #检索练习 · #记忆保持</span><span class="chip">text</span></p>
+<div class="mindmap"><svg xmlns="http://www.w3.org/2000/svg" width="661" height="168" viewBox="0 0 661 168" font-family="'Microsoft YaHei','PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><g transform="translate(16,16)"><path d="M 424 68 C 456 68, 456 14, 488 14" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 424 68 C 456 68, 456 50, 488 50" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 424 68 C 456 68, 456 86, 488 86" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 424 68 C 456 68, 456 122, 488 122" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 219 68 C 251 68, 251 68, 283 68" fill="none" stroke="#1D9E75" stroke-width="1.2"></path><g><rect x="488" y="0" width="115" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="500" y="14" fill="#22354F" font-size="13" dominant-baseline="central">什么是间隔重复</text></g><g><rect x="488" y="36" width="115" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="500" y="50" fill="#22354F" font-size="13" dominant-baseline="central">间隔为何能拉长</text></g><g><rect x="488" y="72" width="141" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="500" y="86" fill="#22354F" font-size="13" dominant-baseline="central">核心机制：检索本身</text></g><g><rect x="488" y="108" width="102" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="500" y="122" fill="#22354F" font-size="13" dominant-baseline="central">要避免的陷阱</text></g><g><rect x="283" y="54" width="141" height="28" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"></rect><text x="295" y="68" fill="#104E3A" font-size="13" dominant-baseline="central">间隔重复的有效机制</text></g><g><rect x="0" y="54" width="219" height="28" rx="8" fill="#1D9E75" stroke="#14624A" stroke-width="0.5"></rect><text x="12" y="68" fill="#FFFFFF" font-size="13" dominant-baseline="central">间隔重复为何有效：检索加固记忆</text></g></g></svg></div>
+<p class="summary">间隔重复把复习分散到逐渐拉长的时间点，每次成功回忆让遗忘曲线变缓，后续间隔可更长。其核心机制是检索本身：先尝试回答再看答案，比重复阅读更能加固记忆。要警惕反复阅读带来的熟悉错觉。</p>
+<div class="points-title">关键点</div>
+<ul class="points">
+<li>复习应分散到逐渐拉长的时间点，而不是一次集中重复。</li>
+<li>每次成功回忆会让遗忘曲线变缓，下一次复习间隔可以更长。</li>
+<li>按 1、2、4、7、15 天递增间隔复习的学生，一个月后保持率接近集中复习组的两倍。</li>
+<li>从记忆中提取答案比重新阅读材料更能加固记忆。</li>
+<li>复习时要先尝试回答再看答案，而不是先看答案。</li>
+<li>反复阅读会造成熟悉错觉，以为记住了但考试时提取失败。</li>
+</ul>
+<div class="note-title">结构化笔记</div>
+<div class="note"><h1 id="_1">间隔重复的有效机制</h1>
+<h2 id="_2">什么是间隔重复</h2>
+<ul>
+<li>把复习分散到逐渐拉长的时间点上</li>
+<li>与一次集中重复相对</li>
+</ul>
+<h2 id="_3">间隔为何能拉长</h2>
+<ul>
+<li>每次成功回忆都会让遗忘曲线变缓</li>
+<li>曲线变缓后，下一次复习的间隔就能更长</li>
+<li>实验：按 1 天、2 天、4 天、7 天、15 天递增间隔复习</li>
+<li>一个月后保持率接近集中复习组的两倍</li>
+</ul>
+<h2 id="_4">核心机制：检索本身</h2>
+<ul>
+<li>把答案从记忆里拽出来的动作最能加固记忆</li>
+<li>效果优于重新读一遍材料</li>
+<li>做法：先尝试回答，再看答案</li>
+</ul>
+<h2 id="_5">要避免的陷阱</h2>
+<ul>
+<li>敌人是熟悉的错觉</li>
+<li>反复阅读让人以为记住了</li>
+<li>真正考试时却提取失败</li>
+</ul></div>
+</section>
+<section class="item" id="item-2">
+<h2>主动回忆与费曼技巧的学习方法</h2>
+<p class="item-meta"><span class="chip">学习方法</span><span class="chip">#主动回忆 · #费曼技巧 · #提取练习 · #写作复述 · #记忆巩固</span><span class="chip">text</span></p>
+<div class="mindmap"><svg xmlns="http://www.w3.org/2000/svg" width="622" height="168" viewBox="0 0 622 168" font-family="'Microsoft YaHei','PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><g transform="translate(16,16)"><path d="M 411 68 C 443 68, 443 14, 475 14" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 411 68 C 443 68, 443 50, 475 50" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 411 68 C 443 68, 443 86, 475 86" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 411 68 C 443 68, 443 122, 475 122" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 206 68 C 238 68, 238 68, 270 68" fill="none" stroke="#1D9E75" stroke-width="1.2"></path><g><rect x="475" y="0" width="115" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="487" y="14" fill="#22354F" font-size="13" dominant-baseline="central">什么是主动回忆</text></g><g><rect x="475" y="36" width="76" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="487" y="50" fill="#22354F" font-size="13" dominant-baseline="central">费曼技巧</text></g><g><rect x="475" y="72" width="89" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="487" y="86" fill="#22354F" font-size="13" dominant-baseline="central">写作的作用</text></g><g><rect x="475" y="108" width="76" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="487" y="122" fill="#22354F" font-size="13" dominant-baseline="central">实践经验</text></g><g><rect x="270" y="54" width="141" height="28" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"></rect><text x="282" y="68" fill="#104E3A" font-size="13" dominant-baseline="central">主动回忆与费曼技巧</text></g><g><rect x="0" y="54" width="206" height="28" rx="8" fill="#1D9E75" stroke="#14624A" stroke-width="0.5"></rect><text x="12" y="68" fill="#FFFFFF" font-size="13" dominant-baseline="central">主动回忆与费曼技巧的学习方法</text></g></g></svg></div>
+<p class="summary">主动回忆是不看材料尝试复述，效果稳定优于重读，因为提取练习同时强化记忆痕迹和检索路径。费曼技巧是其具体做法：把概念讲给完全不懂的人听，讲不下去处即理解缺口，写下来更好。实践是每读完一节合上材料，用三句话写下核心论点、支撑证据和它反驳了什么。</p>
+<div class="points-title">关键点</div>
+<ul class="points">
+<li>主动回忆是在不看材料的情况下尝试复述内容</li>
+<li>主动回忆效果稳定优于重读，因提取练习同时强化记忆痕迹和检索路径</li>
+<li>费曼技巧是把概念讲给完全不懂的人听，讲不下去之处就是理解缺口</li>
+<li>把讲解过程写成文字更好，写作会强迫把模糊感觉变成明确句子</li>
+<li>每读完一节可合上材料，用三句话写核心论点、支撑证据和所反驳的内容</li>
+</ul>
+<div class="note-title">结构化笔记</div>
+<div class="note"><h1 id="_1">主动回忆与费曼技巧</h1>
+<h2 id="_2">什么是主动回忆</h2>
+<ul>
+<li>指在不看材料的情况下尝试复述内容</li>
+<li>效果在大量实验中稳定优于重读</li>
+<li>原因：提取练习同时强化记忆痕迹和检索路径</li>
+</ul>
+<h2 id="_3">费曼技巧</h2>
+<ul>
+<li>是主动回忆的一种具体做法</li>
+<li>做法：把概念讲给一个完全不懂的人听</li>
+<li>判断缺口：遇到讲不下去的地方，就是理解的缺口</li>
+</ul>
+<h2 id="_4">写作的作用</h2>
+<ul>
+<li>把讲解过程写成文字更好</li>
+<li>因为写作会强迫你把模糊的感觉变成明确的句子</li>
+</ul>
+<h2 id="_5">实践经验</h2>
+<ul>
+<li>每读完一节，合上材料</li>
+<li>用三句话写下：核心论点、支撑证据、它反驳了什么</li>
+</ul></div>
+</section>
+<section class="item" id="item-3">
+<h2>有效笔记的压缩与重建方法</h2>
+<p class="item-meta"><span class="chip">学习方法</span><span class="chip">#笔记方法 · #知识压缩 · #结构化笔记 · #复习效率</span><span class="chip">text</span></p>
+<div class="mindmap"><svg xmlns="http://www.w3.org/2000/svg" width="583" height="168" viewBox="0 0 583 168" font-family="'Microsoft YaHei','PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><g transform="translate(16,16)"><path d="M 372 68 C 404 68, 404 14, 436 14" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 372 68 C 404 68, 404 50, 436 50" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 372 68 C 404 68, 404 86, 436 86" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 372 68 C 404 68, 404 122, 436 122" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 180 68 C 212 68, 212 68, 244 68" fill="none" stroke="#1D9E75" stroke-width="1.2"></path><g><rect x="436" y="0" width="89" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="448" y="14" fill="#22354F" font-size="13" dominant-baseline="central">笔记的本质</text></g><g><rect x="436" y="36" width="115" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="448" y="50" fill="#22354F" font-size="13" dominant-baseline="central">推荐的记录顺序</text></g><g><rect x="436" y="72" width="76" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="448" y="86" fill="#22354F" font-size="13" dominant-baseline="central">结构组织</text></g><g><rect x="436" y="108" width="76" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="448" y="122" fill="#22354F" font-size="13" dominant-baseline="central">写作标准</text></g><g><rect x="244" y="54" width="128" height="28" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"></rect><text x="256" y="68" fill="#104E3A" font-size="13" dominant-baseline="central">如何做有效的笔记</text></g><g><rect x="0" y="54" width="180" height="28" rx="8" fill="#1D9E75" stroke="#14624A" stroke-width="0.5"></rect><text x="12" y="68" fill="#FFFFFF" font-size="13" dominant-baseline="central">有效笔记的压缩与重建方法</text></g></g></svg></div>
+<p class="summary">有效的笔记并非抄写，而要压缩与重建。逐字记录会占用大脑处理文字的精力，使人无暇建立联系。更好的做法是先写一句结论，再列出两三个支撑理由，最后写一句自己的疑问或反驳；用标题层级表达逻辑关系，并按未来一分钟内能读懂的标准裁剪内容。</p>
+<div class="points-title">关键点</div>
+<ul class="points">
+<li>有效笔记的本质是压缩与重建，而非抄写原文</li>
+<li>逐字记录是常见失败模式，会占用大脑建立联系的余力</li>
+<li>记录顺序：先写一句结论，再列两三个支撑理由，最后写自己的疑问或反驳</li>
+<li>用标题层级表达逻辑关系，层级本身就是理解结构，复习时看标题即可复述全文</li>
+<li>笔记要能让未来的自己在一分钟内读懂，写作时即按此标准裁剪</li>
+</ul>
+<div class="note-title">结构化笔记</div>
+<div class="note"><h1 id="_1">如何做有效的笔记</h1>
+<h2 id="_2">笔记的本质</h2>
+<ul>
+<li>有效的笔记是压缩与重建，不是抄写</li>
+<li>常见失败模式是逐字记录</li>
+<li>逐字记录时大脑全程处理文字输入，没有余力建立联系</li>
+</ul>
+<h2 id="_3">推荐的记录顺序</h2>
+<ul>
+<li>先用一句话写出这段材料的结论</li>
+<li>再列出支撑结论的两三个理由</li>
+<li>最后写一句自己的疑问或反驳</li>
+</ul>
+<h2 id="_4">结构组织</h2>
+<ul>
+<li>用标题层级表达逻辑关系</li>
+<li>层级本身就是你的理解结构</li>
+<li>日后复习可以只看标题复述一遍全文</li>
+</ul>
+<h2 id="_5">写作标准</h2>
+<ul>
+<li>笔记应能被未来的自己在一分钟内读懂</li>
+<li>写的时候就要按这个标准裁剪内容</li>
+</ul></div>
+</section>
+</main>
+<footer>本页为单文件离线产物，不依赖任何网络资源。</footer>
+</body>
+</html>

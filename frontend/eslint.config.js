@@ -5,7 +5,7 @@ import globals from 'globals'
 // 只抓正确性问题（未定义变量、未使用变量、Vue 必备规则），不做风格约束。
 // 项目风格（无分号、单引号）靠人守，不让 lint 在格式上刷存在感。
 export default [
-  { ignores: ['dist/**', 'node_modules/**', 'e2e/**'] },
+  { ignores: ['dist/**', 'dist-demo/**', 'node_modules/**', 'e2e/**'] },
   js.configs.recommended,
   ...pluginVue.configs['flat/essential'],
   {

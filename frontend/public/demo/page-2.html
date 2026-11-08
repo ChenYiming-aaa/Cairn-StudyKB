@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>把知识连成网</title>
+<style>
+/* 全部内联：断网双击打开必须和预览一模一样（M3 §1 第 5 条、§6.7） */
+:root {
+  --ink: #23211c;
+  --ink-2: #5c574d;
+  --ink-3: #8d887f;
+  --paper: #fffefa;
+  --paper-2: #f6f5f1;
+  --line: #e2dfd5;
+  --accent: #1d9e75;
+  --accent-soft: #e1f5ee;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  padding: 0 20px 64px;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, "Microsoft YaHei", serif;
+  font-size: 16px;
+  line-height: 1.75;
+}
+.page { max-width: 860px; margin: 0 auto; background: var(--paper); padding: 48px 56px 56px;
+        border-radius: 12px; box-shadow: 0 1px 2px rgba(35,33,28,.06); margin-top: 28px; }
+h1, h2, h3, h4 { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+                 line-height: 1.4; margin: 0; }
+h1.doc-title { font-size: 30px; letter-spacing: .01em; }
+.meta { margin: 14px 0 0; color: var(--ink-3); font-size: 13px;
+        font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.meta span + span::before { content: "·"; margin: 0 8px; color: var(--line); }
+.toc { margin: 32px 0 8px; padding: 18px 22px; background: var(--paper-2);
+       border: 1px solid var(--line); border-radius: 10px; }
+.toc-title { font-size: 13px; letter-spacing: .08em; color: var(--ink-3); text-transform: uppercase;
+             font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; margin-bottom: 8px; }
+.toc ol { margin: 0; padding-left: 22px; }
+.toc li { font-size: 14px; line-height: 1.9; }
+.toc a { color: var(--ink-2); text-decoration: none; border-bottom: 1px solid transparent; }
+.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+section.item { padding-top: 36px; margin-top: 36px; border-top: 1px solid var(--line); }
+section.item:first-of-type { border-top: none; }
+section.item > h2 { font-size: 23px; padding-bottom: 8px; border-bottom: 2px solid var(--accent-soft); }
+.item-meta { margin: 8px 0 18px; font-size: 12px; color: var(--ink-3);
+             font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+.item-meta .chip { display: inline-block; padding: 1px 8px; margin-right: 6px; border-radius: 999px;
+                   background: var(--paper-2); color: var(--ink-2); }
+.mindmap { margin: 8px 0 24px; padding: 12px; background: #fbfaf6; border: 1px solid var(--line);
+           border-radius: 10px; overflow-x: auto; }
+.mindmap svg { display: block; max-width: 100%; height: auto; }
+.summary { margin: 0 0 18px; padding: 14px 18px; background: var(--accent-soft); border-radius: 10px;
+           color: #104e3a; font-size: 15px; }
+.points-title, .note-title { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+                             font-size: 13px; letter-spacing: .06em; color: var(--ink-3); margin: 22px 0 8px; }
+.points { margin: 0; padding-left: 22px; }
+.points li { margin: 4px 0; }
+.note h1, .note h2, .note h3, .note h4 { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+                                         margin: 22px 0 8px; }
+.note h1 { font-size: 21px; }
+.note h2 { font-size: 18px; }
+.note h3 { font-size: 16px; }
+.note h4 { font-size: 15px; color: var(--ink-2); }
+.note p { margin: 8px 0; }
+.note ul, .note ol { margin: 8px 0; padding-left: 24px; }
+.note li { margin: 3px 0; }
+.note code { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace; font-size: .88em;
+             background: var(--paper-2); padding: 1px 5px; border-radius: 4px; }
+.note pre { background: #f7f6f2; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
+            overflow-x: auto; font-size: 13px; line-height: 1.6; }
+.note pre code { background: none; padding: 0; font-size: 13px; }
+.note blockquote { margin: 12px 0; padding: 4px 16px; border-left: 3px solid var(--accent-soft); color: var(--ink-2); }
+.note table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+.note th, .note td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+.note th { background: var(--paper-2); }
+.note a { color: var(--accent); }
+.note img { max-width: 100%; }
+.note hr { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
+footer { max-width: 860px; margin: 24px auto 0; text-align: center; color: var(--ink-3); font-size: 12px;
+         font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+@media (max-width: 720px) {
+  body { padding: 0 12px 40px; }
+  .page { padding: 28px 20px 36px; border-radius: 8px; }
+  h1.doc-title { font-size: 24px; }
+}
+@media print {
+  body { background: #fff; padding: 0; }
+  .page { box-shadow: none; margin: 0; padding: 0; max-width: none; }
+  section.item { page-break-inside: avoid; }
+  .mindmap { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <h1 class="doc-title">把知识连成网</h1>
+  <p class="meta">
+    <span>2 个条目</span>
+    <span>生成于 2026-11-08 19:50</span>
+    <span>由 Cairn 离线生成</span>
+  </p>
+  <nav class="toc">
+    <div class="toc-title">目录</div>
+    <ol>
+<li><a href="#item-5">把卡片连成主题网络提升检索</a></li>
+<li><a href="#item-6">留缓冲与可判断任务让计划更可持续</a></li>
+    </ol>
+  </nav>
+  <section class="item" id="item-5">
+<h2>把卡片连成主题网络提升检索</h2>
+<p class="item-meta"><span class="chip">知识管理</span><span class="chip">#卡片笔记 · #主题聚类 · #检索路径 · #双向链接 · #主题综述</span><span class="chip">text</span></p>
+<div class="mindmap"><svg xmlns="http://www.w3.org/2000/svg" width="791" height="168" viewBox="0 0 791 168" font-family="'Microsoft YaHei','PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><g transform="translate(16,16)"><path d="M 450 68 C 482 68, 482 14, 514 14" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 450 68 C 482 68, 482 50, 514 50" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 450 68 C 482 68, 482 86, 514 86" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 450 68 C 482 68, 482 122, 514 122" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 193 68 C 225 68, 225 68, 257 68" fill="none" stroke="#1D9E75" stroke-width="1.2"></path><g><rect x="514" y="0" width="167" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="526" y="14" fill="#22354F" font-size="13" dominant-baseline="central">问题：孤立知识难以提取</text></g><g><rect x="514" y="36" width="141" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="526" y="50" fill="#22354F" font-size="13" dominant-baseline="central">做法：按主题聚成簇</text></g><g><rect x="514" y="72" width="245" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="526" y="86" fill="#22354F" font-size="13" dominant-baseline="central">关键动作：每张卡片写完后的两个提问</text></g><g><rect x="514" y="108" width="141" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="526" y="122" fill="#22354F" font-size="13" dominant-baseline="central">阶段产出：主题综述</text></g><g><rect x="257" y="54" width="193" height="28" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"></rect><text x="269" y="68" fill="#104E3A" font-size="13" dominant-baseline="central">把知识连成网：从卡片到主题</text></g><g><rect x="0" y="54" width="193" height="28" rx="8" fill="#1D9E75" stroke="#14624A" stroke-width="0.5"></rect><text x="12" y="68" fill="#FFFFFF" font-size="13" dominant-baseline="central">把卡片连成主题网络提升检索</text></g></g></svg></div>
+<p class="summary">孤立的知识点缺少通往它的路径，难以被提取。做法是把卡片按主题聚成簇，写完每张卡片后立刻追问它属于哪个已有主题、与哪张卡片冲突或互补，从而自然长出链接，链接即检索路径；某主题积累到七八张卡片时，写一页综述把它们串起来。</p>
+<div class="points-title">关键点</div>
+<ul class="points">
+<li>孤立知识点缺少路径，因此很难被提取。</li>
+<li>把卡片按主题聚成簇，可从任一点顺相邻节点走回来。</li>
+<li>每写完一张卡片就问它属于哪个已有主题。</li>
+<li>再问它与哪张卡片冲突或互补，链接会自然长出。</li>
+<li>链接就是检索路径。</li>
+<li>主题积累到七八张卡片时值得写一页综述串联。</li>
+</ul>
+<div class="note-title">结构化笔记</div>
+<div class="note"><h1 id="_1">把知识连成网：从卡片到主题</h1>
+<h2 id="_2">问题：孤立知识难以提取</h2>
+<ul>
+<li>孤立的知识点很难被提取，因为缺少通往它的路径</li>
+<li>解决方向是让知识点之间产生可走的连接</li>
+</ul>
+<h2 id="_3">做法：按主题聚成簇</h2>
+<ul>
+<li>把卡片按主题聚成簇</li>
+<li>回忆任意一个点，都能顺着相邻节点走回来</li>
+</ul>
+<h2 id="_4">关键动作：每张卡片写完后的两个提问</h2>
+<ul>
+<li>它属于哪个已有主题？</li>
+<li>它和哪张卡片冲突或互补？</li>
+<li>这两个问题会自然长出链接，而链接就是检索路径</li>
+</ul>
+<h2 id="_5">阶段产出：主题综述</h2>
+<ul>
+<li>当某个主题积累到七八张卡片时</li>
+<li>值得写一页综述把它们串起来</li>
+<li>这一页往往比任何单张卡片都更有价值</li>
+</ul></div>
+</section>
+<section class="item" id="item-6">
+<h2>留缓冲与可判断任务让计划更可持续</h2>
+<p class="item-meta"><span class="chip">时间管理</span><span class="chip">#学习计划 · #时间缓冲 · #任务拆解 · #进度感 · #坚持</span><span class="chip">text</span></p>
+<div class="mindmap"><svg xmlns="http://www.w3.org/2000/svg" width="817" height="168" viewBox="0 0 817 168" font-family="'Microsoft YaHei','PingFang SC','Hiragino Sans GB',system-ui,sans-serif"><g transform="translate(16,16)"><path d="M 489 68 C 521 68, 521 14, 553 14" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 489 68 C 521 68, 521 50, 553 50" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 489 68 C 521 68, 521 86, 553 86" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 489 68 C 521 68, 521 122, 553 122" fill="none" stroke="#6E9BD8" stroke-width="1.2"></path><path d="M 232 68 C 264 68, 264 68, 296 68" fill="none" stroke="#1D9E75" stroke-width="1.2"></path><g><rect x="553" y="0" width="128" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="565" y="14" fill="#22354F" font-size="13" dominant-baseline="central">计划为什么会失败</text></g><g><rect x="553" y="36" width="154" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="565" y="50" fill="#22354F" font-size="13" dominant-baseline="central">做法一：留出缓冲时间</text></g><g><rect x="553" y="72" width="232" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="565" y="86" fill="#22354F" font-size="13" dominant-baseline="central">做法二：任务写成可判断完成的形式</text></g><g><rect x="553" y="108" width="89" height="28" rx="8" fill="#EAF1FA" stroke="#6E9BD8" stroke-width="0.5"></rect><text x="565" y="122" fill="#22354F" font-size="13" dominant-baseline="central">为什么有效</text></g><g><rect x="296" y="54" width="193" height="28" rx="8" fill="#E1F5EE" stroke="#1D9E75" stroke-width="0.5"></rect><text x="308" y="68" fill="#104E3A" font-size="13" dominant-baseline="central">让学习计划可持续的两个做法</text></g><g><rect x="0" y="54" width="232" height="28" rx="8" fill="#1D9E75" stroke="#14624A" stroke-width="0.5"></rect><text x="12" y="68" fill="#FFFFFF" font-size="13" dominant-baseline="central">留缓冲与可判断任务让计划更可持续</text></g></g></svg></div>
+<p class="summary">计划失败常源于把时间排满，估算波动一遇意外就导致整周崩塌并引发放弃。给每天留两成缓冲时间，能让计划在坏日子依然成立；把任务写成可判断完成的形式，如写出笔记并自测五道题，能带来真实的进度感，而进度感是坚持下去的主要燃料。</p>
+<div class="points-title">关键点</div>
+<ul class="points">
+<li>计划失败通常不是不够努力，而是把时间排满了。</li>
+<li>排满的计划遇到意外会整周崩塌，进而引发放弃。</li>
+<li>每天留出两成缓冲时间，能让计划在坏日子里依然成立。</li>
+<li>把任务写成可判断完成的形式，例如写一页笔记并自测五道题。</li>
+<li>可判断完成的任务带来真实进度感，进度感是坚持的主要燃料。</li>
+</ul>
+<div class="note-title">结构化笔记</div>
+<div class="note"><h1 id="_1">让学习计划可持续的两个做法</h1>
+<h2 id="_2">计划为什么会失败</h2>
+<ul>
+<li>失败通常不是因为不够努力，而是把时间排满了</li>
+<li>任何估算都有波动，排满的计划一遇意外就会整周崩塌</li>
+<li>崩塌之后容易引发放弃</li>
+</ul>
+<h2 id="_3">做法一：留出缓冲时间</h2>
+<ul>
+<li>给每天留出两成缓冲时间</li>
+<li>缓冲让计划在坏日子里依然成立</li>
+</ul>
+<h2 id="_4">做法二：任务写成可判断完成的形式</h2>
+<ul>
+<li>不说今天学检索，而说今天写出一页检索原理的笔记并自测五道题</li>
+<li>可判断完成的任务才会带来真实的进度感</li>
+</ul>
+<h2 id="_5">为什么有效</h2>
+<ul>
+<li>进度感是坚持下去的主要燃料</li>
+</ul></div>
+</section>
+</main>
+<footer>本页为单文件离线产物，不依赖任何网络资源。</footer>
+</body>
+</html>

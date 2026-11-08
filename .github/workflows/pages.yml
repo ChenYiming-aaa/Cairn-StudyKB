@@ -1,0 +1,63 @@
+# 把前端打成「静态演示包」发布到 GitHub Pages。
+#
+# 为什么不是直接部署前端：Cairn 的网页版依赖本地 Python 后端（SQLite / 模型 / ffmpeg），
+# Pages 只能放静态文件。所以这里用 VITE_DEMO=1 构建，数据来自 src/demo/fixtures.json
+# （真跑一遍整理/问答/出题后抓下来的响应），生成类操作会被明确拒绝。
+name: demo-pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖
+        working-directory: frontend
+        run: npm ci
+
+      - name: 构建演示包
+        working-directory: frontend
+        env:
+          VITE_DEMO: '1'
+        # 相对 base：仓库名改了也不用动这里
+        run: npx vite build --base=./ --outDir dist-demo
+
+      - name: 关掉 Jekyll（避免资源被二次处理）
+        run: touch frontend/dist-demo/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist-demo
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
