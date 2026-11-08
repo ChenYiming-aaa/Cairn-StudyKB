@@ -21,3 +21,23 @@ export function fullTime(iso) {
 export function charCount(text) {
   return (text || '').length
 }
+
+/** 秒 → mm:ss（倒计时用；超过 1 小时退化成 h:mm:ss） */
+export function clock(seconds) {
+  const total = Math.max(0, Math.floor(seconds || 0))
+  const pad = (n) => String(n).padStart(2, '0')
+  const hours = Math.floor(total / 3600)
+  const body = `${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`
+  return hours ? `${hours}:${body}` : body
+}
+
+/** 秒 → 「1 小时 25 分」/「25 分钟」/「40 秒」，统计展示用 */
+export function humanDuration(seconds) {
+  const total = Math.max(0, Math.round(seconds || 0))
+  if (total < 60) return `${total} 秒`
+  const minutes = Math.round(total / 60)
+  if (minutes < 60) return `${minutes} 分钟`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest ? `${hours} 小时 ${rest} 分` : `${hours} 小时`
+}

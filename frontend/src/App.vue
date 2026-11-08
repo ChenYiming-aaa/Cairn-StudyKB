@@ -1,17 +1,24 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
+import Pomodoro from './components/Pomodoro.vue'
+import { useTimer } from './composables/useTimer'
 import { useToast } from './composables/useToast'
 import { useUi } from './composables/useUi'
+import { clock } from './utils/format'
 
 const router = useRouter()
 const { toasts, error: toastError, ok: toastOk, info: toastInfo, dismiss } = useToast()
 const { pasteOpen, openPaste, closePaste, requestRefresh, openItem } = useUi()
+// 顶栏迷你计时器（T5.3）：状态在 useTimer 单例里，和番茄钟面板共用同一个计时
+const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = useTimer()
 
 const backend = ref('checking')
+// 恢复入口：`visibilitychange` 会临时挂监听，保存引用以便卸载时摘掉
+let onVisible = null
 
 onMounted(async () => {
   try {
@@ -21,6 +28,21 @@ onMounted(async () => {
     backend.value = 'down'
     toastError(friendlyMessage(err))
   }
+
+  // T5.2：刷新/重启后把进行中的那一轮接回来
+  await restore()
+
+  // 从后台切回来时用服务端状态对齐一次（系统休眠、长时间挂起会让本地时钟松）
+  onVisible = () => {
+    if (document.visibilityState === 'visible') restore()
+  }
+  document.addEventListener('visibilitychange', onVisible)
+  window.addEventListener('beforeunload', beacon)
+})
+
+onBeforeUnmount(() => {
+  if (onVisible) document.removeEventListener('visibilitychange', onVisible)
+  window.removeEventListener('beforeunload', beacon)
 })
 
 function onCreated(result) {
@@ -60,6 +82,7 @@ function onOpen(itemId) {
       </div>
       <nav class="nav">
         <router-link to="/" class="nav-item" exact-active-class="on">知识库</router-link>
+        <router-link to="/dashboard" class="nav-item" active-class="on">仪表盘</router-link>
         <router-link to="/ask" class="nav-item" active-class="on">检索问答</router-link>
         <router-link to="/pages" class="nav-item" active-class="on">学习页</router-link>
         <router-link to="/practice" class="nav-item" active-class="on">练习</router-link>
@@ -71,10 +94,18 @@ function onOpen(itemId) {
         {{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}
       </span>
       <div class="topbar-spacer" />
+      <!-- 迷你计时器（T5.3）：任何页面都能看到剩余时间，点一下打开番茄钟面板 -->
+      <button v-if="isActive" class="mini-timer" type="button" @click="openPanel()">
+        <i class="mini-dot" :class="{ paused: !isRunning }" />
+        <span class="mini-clock">{{ clock(remainingSeconds) }}</span>
+      </button>
+      <button v-else class="btn btn-sm btn-ghost" type="button" @click="openPanel()">专注</button>
       <button class="btn btn-primary" type="button" @click="openPaste()">＋ 采集内容</button>
     </header>
 
     <router-view />
+
+    <Pomodoro />
 
     <IngestPanel
       :open="pasteOpen"
@@ -137,6 +168,48 @@ function onOpen(itemId) {
 
 .conn.down {
   color: var(--c-danger);
+}
+
+.mini-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-right: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--c-primary);
+  border-radius: var(--radius-sm);
+  background: var(--c-primary-soft);
+  cursor: pointer;
+}
+
+.mini-clock {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-primary);
+}
+
+.mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.mini-dot.paused {
+  background: var(--c-text-3);
+  animation: none;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 .toast-stack {

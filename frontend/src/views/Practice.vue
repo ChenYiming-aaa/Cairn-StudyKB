@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 
 import { api, friendlyMessage, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
+import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { DIFFICULTY_LABELS, TYPE_LABELS } from '../utils/quiz'
 
@@ -22,6 +23,18 @@ const TYPES = ['single', 'multiple', 'boolean', 'short']
 const DIFFICULTIES = ['basic', 'understand', 'apply']
 
 const toast = useToast()
+// T5.3：练习页也能直接开一轮专注，目标带入当前选中的来源条目
+const { start: startSession } = useTimer()
+
+async function startFocus() {
+  if (itemId.value === null) return
+  const created = await startSession({
+    target_type: 'item',
+    target_id: itemId.value,
+    planned_seconds: 1500,
+  })
+  if (created) toast.info(`开始专注：${pickedTitle.value}`)
+}
 
 const phase = ref('idle')          // idle | generating | answering
 const items = ref([])
@@ -145,6 +158,9 @@ onMounted(loadItems)
         <h1 class="page-title">练习</h1>
         <p class="page-sub">拿自己的材料出题考自己，答错的题目明天会自动回来找你</p>
       </div>
+      <button class="btn btn-sm" type="button" :disabled="itemId === null" @click="startFocus">
+        开始专注{{ pickedTitle ? `：${pickedTitle}` : '' }}
+      </button>
     </header>
 
     <div class="body">

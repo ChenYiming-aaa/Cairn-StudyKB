@@ -20,13 +20,31 @@ from app.config import get_settings, setup_logging
 from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
 from app.routers import (
-    ask, auth, env, health, html, ingest, knowledge, quiz, review, search, tasks,
+    ask, auth, env, health, html, ingest, knowledge, quiz, review, search, session,
+    stats, tasks,
 )
+from app.db.repo import sessions as sessions_repo
 from app.services import browser
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
 
 log = logging.getLogger("cairn")
+
+
+def _close_stale_sessions() -> None:
+    """启动清理：把放了太久还 active 的计时收掉。失败不影响启动。"""
+    from app.db.conn import get_conn
+
+    conn = get_conn()
+    try:
+        with conn:
+            closed = sessions_repo.abandon_stale(conn)
+        if closed:
+            log.info("已关闭 %s 个超时计时（>%s 小时）", closed, sessions_repo.STALE_HOURS)
+    except Exception as exc:              # noqa: BLE001 - 启动清理不该拖垮服务
+        log.warning("清理超时计时失败：%s", exc)
+    finally:
+        conn.close()
 
 
 @asynccontextmanager
@@ -35,6 +53,8 @@ async def lifespan(_: FastAPI):
     setup_logging(cfg)
     init_db()
     recover_stale_tasks()
+    # M5 §6.2：忘了关的番茄钟不许一直 running（>4 小时按计划时长封顶后标 abandoned）
+    _close_stale_sessions()
     # M2 §7：上次转录中断留下的临时音频不许攒着，启动即清
     if (cleared := clear_tmp()):
         log.info("已清理 %s 个残留临时目录", cleared)
@@ -74,6 +94,8 @@ app.include_router(ask.router)
 app.include_router(html.router)
 app.include_router(quiz.router)
 app.include_router(review.router)
+app.include_router(session.router)
+app.include_router(stats.router)
 app.include_router(tasks.router)
 
 

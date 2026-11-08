@@ -14,15 +14,15 @@
 
 ---
 
-## 当前状态（2026-11-08 12:35 · 每次会话结束更新这一段）
+## 当前状态（2026-11-08 13:05 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M1–M4 已验收**（M0 是文档与仓库就绪阶段，tag `m0-ready`，总纲里程碑地图里没有 M0 这一行）；**Electron 空壳包已验证**（同源加载 / 随机端口握手 / 进程树按树杀，2026-11-08）；下一站 **M5 计时与交付**（未开工） |
+| 里程碑 | **M5 进行中**：T5.1–T5.4（番茄钟 / 计时不丢 / 全局入口 / 仪表盘）已完成，2026-11-08，tag `m5-wip`；**T5.5–T5.8（打包 / 首次引导 / README 安装段）未开始**。M1–M4 已验收；Electron 空壳包已验证 |
 | 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) |
-| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **63/63** · e2e m4 **17/17** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 |
-| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条留在本文件 |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` |
+| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **63/63** · **m5 50/50** · e2e m4 17/17 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 |
+| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 一条留在本文件 |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
 
@@ -31,17 +31,18 @@
 | 1 | `verify_m1.py`「未留下注定失败的任务」写死 `total == 3`，实跑 11 → 50/51 | 既有红，等你定口径 | 改相对计数，或断言「不存在 `status='failed'` 且 `error_code='LLM_NO_KEY'` 的任务」 |
 | 2 | `verify_m2.py`「force → replaced=true」+「正文已替换」两条红 → 116/118 | 既有红，等你定口径 | 疑似 force 覆盖路径回归，要单独一轮查 |
 | 3 | 多选可能出「四个选项全对」 | 模型质量 | prompt 已约束，无量化断言 |
-| 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 | 等 M5 仪表盘定保留策略 |
+| 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 → **本轮未定策略** | 仪表盘不需要保留策略就能跑；建议随 v2 一起做，先记为 backlog |
 | 5 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
 | 7 | `frontend/dist` 无 CSP meta，Electron 每次启动刷一条安全警告 | T5.5 决定 | 仅**未打包**时提示，打包后不显示；加 CSP 会与 M3 的 iframe 预览冲突，需单独设计 `frame-src`/`sandbox`，建议打包后再做 |
 | 8 | `desktop/index.html` 已不参与加载 | T5.5 处理 | 改造成 `error.html` 兜底页（握手超时 30s 后 `loadFile`），**不删**。否则后端起不来时用户只看到白窗 |
+| 9 | **题目 `options` 自带 `"A. "` 前缀**，界面渲染成「A. A. 在即将忘记…」 | **M4 模块，未动，等你裁决** | 2026-11-08 真跑 3 组 15 题，**15 个选项全部带前缀**（不是偶发）。后端存原文不剥，`QuizRunner` 又加了一层字母徽标。修法二选一：入库前 strip `^[A-Da-d][.、)]\s*`，或 prompt 再强调一次——**改 M4 已验收模块前要先问你** |
 
 **下一会话第一件事**
-> M5 开工：读 `docs/milestones/M5-计时与交付.md`，做 T5.1–T5.4。仪表盘数据源已就绪
-> （正确率 ← `quiz_attempt`，错题数 ← `/api/quiz/wrong`，到期数 ← `/api/review/due`），不用再改 M4 的表。
-> T5.5 直接在 `desktop/` 现有壳上升级：把 spawn 从 `uv run python -m app` 换成 `cairn-backend.exe`，
-> `--port` 与握手逻辑一行不用改；PyInstaller 入口用 `backend/entry.py`（不用 `app/__main__.py`）。
+> M5 T5.5：直接在 `desktop/` 现有壳上升级。`spawn` 从 `uv run python -m app` 换成 `cairn-backend.exe`，
+> `--port` 与 300ms/30s 握手逻辑**一行不用改**；PyInstaller 入口用 `backend/entry.py`（不用 `app/__main__.py`）；
+> 静态页走 `CAIRN_WEB_DIR=<resources>/web`（后端已有这个开关）。
+> 先 `npm i -D electron-builder` + `uv add pyinstaller`（M5 §2 只剩这两条没打勾）。
 
 ---
 
@@ -555,3 +556,116 @@ GET /some/spa/deep/path  → 404 application/json   （hash 路由不需要兜�
 **验证**：`python tools/doc_check.py` → 6 PASS + 1 WARN（手册引用已完结的 M1 作模板，属正常）
 **推送状态**：见本条提交后的实际结果；若报 `could not read Username`，由用户在普通终端执行
 `"C:/Program Files/Git/cmd/git.exe" push origin main`。**本次不打标签。**
+
+## 2026-11-08 13:05 · M5 · T5.1–T5.4 番茄钟与仪表盘（**M5 未完成**）
+
+**范围**：只做 T5.1–T5.4。T5.5 之后（打包 / 首次引导 / README 安装段）一行没动。
+开场先跑 `doc_check.py`（6 PASS + 1 提示）与 `status.py`（`user_version=2`、20 表、环境全绿）确认状态。
+
+**两条前置按你的交代处理，没有重做也没有再问**
+- Electron 空壳包 2026-11-08 已验证 → 只当作既有事实，`desktop/` 一个字节没改
+- 接口契约 §5「静态资源路由」属 T5.5 → 没碰
+
+**动工前问了你两件事，都按推荐方案执行**
+1. 心跳端点：新增 `POST /api/session/{id}/heartbeat`（`sendBeacon` 只能发 POST，PATCH 走不通）
+2. 仪表盘要有真数据：真跑练习（3 组 × 5 题，3 次真实 LLM 调用）
+
+**后端（新增 4 个文件 + `main.py` 挂载）**
+
+| 文件 | 内容 |
+|---|---|
+| `app/db/repo/sessions.py`（220 行） | **表结构一行没改**：`duration_seconds` 存已结算时长，`start_time` 存当前段锚点，用这两列表达 M5 §6.1 的 `pausedAccum`/`pausedAt`。`elapsed = duration_seconds + (now - start_time)` 只在 running |
+| `app/db/repo/stats.py`（164 行） | 仪表盘口径；「今日待复习」直接调 `review.due()`，不在 SQL 里重写一遍 UTC/本地比较 |
+| `app/routers/session.py`（146 行） | start / current / action / heartbeat / 列表 |
+| `app/routers/stats.py`（33 行） | today / week |
+| `app/main.py` | 挂两个 router；启动时 `abandon_stale()` 收掉 >4h 的 active 会话，时长按 `planned_seconds` 封顶 |
+
+**几处刻意的设计（都在代码注释里写了理由）**
+- `paused` **也算占用**：暂停中再开一轮照样 409，否则可以同时跑两个计时
+- `finish`/`abandon` 对**同一个终态幂等**（连点两下不报错、不重算），跨终态才 409
+- 心跳打**非 running** 会话不报错：闭窗时 `sendBeacon` 与 pause 几乎同时到达
+- 清理判据用 `created_at` 不用 `start_time`：心跳会把锚点一直往前挪，用锚点判断等于永不超时
+- 到点不在前端「自己结束」：先 `pause` 冻住时长再弹笔记框，人走开十分钟也不会把 25 分钟记成 35 分钟
+- 「连续学习天数」今天没学**不算断**，从昨天起算（M5 §6.6 原文有歧义，已回写澄清到里程碑与契约）
+
+**前端（新增 4 个文件，改 5 个）**
+- 新增 `composables/useTimer.js`（244 行，模块级单例）、`components/Pomodoro.vue`、`components/SessionLog.vue`、`views/Dashboard.vue`
+- 改 `App.vue`（顶栏迷你计时器 + 仪表盘导航 + `visibilitychange` 对齐 + `beforeunload` 心跳）、
+  `ItemDetail.vue`（「开始专注」按钮 + 第 5 个 Tab「学习记录」）、`Practice.vue`（「开始专注」带选中条目）、
+  `router/index.js`、`api/client.js`（7 个语义方法 + 导出 `apiBase()`）、`utils/format.js`（`clock`/`humanDuration`）
+- 到点/提前完成都先暂停再要笔记（第一版「提前完成」直接结束、不给写笔记，UI 验收时发现并改掉了）
+
+**实测数字（都是实跑的，不是预估）**
+
+`uv run python scripts/verify_m5.py` → **50/50**
+```
+1 生命周期   start 201 / 并发 409 带 id / 404 ITEM_NOT_FOUND / 422 非法 target_type
+             heartbeat 卷账 1s + 锚点 12:45:32 → 12:45:33
+             pause 后 1s → 1s 不增长 / paused 再开仍 409 / resume 保留 1s
+             finish done + note，时长 2s（暂停那段没算）
+             重复 finish 幂等：2s / 同一 end_time / 同一 note
+2 终止态     abandon / 终态 resume 409 / abandoned 再 finish 409 / 404 / 404 非法 action
+             心跳打终态会话 = 200 且状态不变
+3 清理       种 5 小时前的 running → 重启后 abandoned，时长 1500（=planned，不是 18000）
+4 学习记录   按条目 total=1、带标题与笔记、只列终态
+5 今日统计   pending 2=SQL 2 / pending_total 5 / due 1=SQL 1 / focus 2=SQL 2 / sessions 1=SQL 1
+             正确率 0.6667（2 对 / 3 次判定，NULL 那条不计）/ 分类 {'写作方法':2,'记忆方法':2,...}
+6 本周      7 天、周一起、is_today 唯一、周合计 1502=各日之和=SQL 1502、今日柱 = today 的数
+             连续天数 3（今天+昨天+前天）
+7 边界       一周前的 pending 不算今日(2) 全库 6 / 分类取前 8 / 今天没学 streak 从昨天算 =2
+```
+
+真实库跑完（`data/data.db`，不是我造的数）：
+```
+study_session 8 条全部 done（3 组练习 35/37/42s + 5 轮 UI 验收 4–7s），今日专注 145 秒
+question 15 条 / quiz_attempt 15 条全部 is_correct=1 / review_item 0（全对，没题可进队列）
+pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正确）
+```
+
+浏览器验收（Playwright，1360×900，**13/13**，console 错误 0）：
+```
+仪表盘 6 区块 ['今日待整理','今日待复习','连续学习','正确率（今日）','本周专注','分类分布']
+条形图 7 根柱子 / 分类分布 7 行
+开始 15 分钟 → 顶栏 15:00 → 等 6 秒刷新 → 14:54（**没有重置**）
+暂停 → 「已暂停」，2 秒后 14:54 仍是 14:54
+提前完成 → 写笔记 → 保存 → 显示 +6 秒
+条目详情「开始专注」→ target 显示条目标题 → 结束 → 学习记录第一条 = 刚结束那一轮
+```
+截图：`data/e2e_shots/m5_dashboard.png`、`m5_pomodoro_running.png`、`m5_paused.png`、`m5_item_sessions.png`
+（脚本放在 `data/_e2e/m5_ui.py`，`data/` 不入库，要留成正式 e2e 就挪到 `frontend/e2e/`）
+
+`npm run lint` 干净（`Pomodoro.vue` 单文件名加了定向 `eslint-disable`，因为文件名是 M5 文档指定的产出物）；
+`npm run build` 通过：`index.html 0.39kB` / `css 54.34kB` / `js 261.98kB`。
+
+**接口契约回写（改了一处，加了两行端点、四个详细形状、一张口径表）**
+- 端点总表 +2：`POST /api/session/{id}/heartbeat`、`GET /api/session`（学习记录）→ 36 → 38 个
+- `finish` 可带 `{"note"}`、状态机与幂等规则、`duration_seconds` vs `elapsed_seconds` 的区别
+- `stats/today` 补 `pending_total`/`wrong_questions`/`week_focus_seconds`/`accuracy_all`/`attempts_*`/`streak_days`
+- `stats/week` 完整形状（固定 7 天、`is_today`/`is_future`）
+- 新增「计时与统计口径」表，与 M5 §6.6 同源
+
+> `GET /api/session` 不在你批准的那两项里，但 DoD 写明「该条目学习记录里出现这次 session」，
+> 没有按 target 列表的端点就做不到。已登记契约，不想要可以整条删（只影响 `SessionLog.vue`）。
+
+**改动文件**
+- 新增：`backend/app/db/repo/sessions.py`、`backend/app/db/repo/stats.py`、
+  `backend/app/routers/session.py`、`backend/app/routers/stats.py`、`backend/scripts/verify_m5.py`、
+  `frontend/src/composables/useTimer.js`、`frontend/src/components/{Pomodoro,SessionLog}.vue`、
+  `frontend/src/views/Dashboard.vue`
+- 改：`backend/app/main.py`、`frontend/src/{App.vue,router/index.js,api/client.js,utils/format.js}`、
+  `frontend/src/components/ItemDetail.vue`、`frontend/src/views/Practice.vue`、
+  `docs/contracts/接口契约.md`、`docs/milestones/M5-计时与交付.md`、`docs/00-总纲.md`、`README.md`、本文件
+- **没动**：`desktop/` 任何文件、`study_session` 表结构、M1–M4 的后端与视图逻辑（只在 ItemDetail/Practice 加入口）
+
+**遗留**
+- [ ] 见顶部「未结遗留」第 9 条：选项自带 `A. ` 前缀（M4 模块，等你裁决）
+- [ ] T5.5 起手要装 `electron-builder` 与 `pyinstaller`
+- [ ] 仪表盘「今日待复习/错题」目前是 0 —— 因为真实练习 15 题全对。非零路径由 `verify_m5` 的种子数据覆盖
+
+**验证**：`python tools/doc_check.py` → 6 PASS + 1 WARN（手册引用已完结 M1 作模板，属正常）
+**推送状态**：本地已提交并打 `m5-wip`。agent 侧 GCM 凭据读不到，请在普通终端执行
+`"C:/Program Files/Git/cmd/git.exe" push origin main && "C:/Program Files/Git/cmd/git.exe" push origin --tags`。
+
+**下一会话第一件事**
+> M5 T5.5：`desktop/main.js` 只换 spawn 目标（`cairn-backend.exe`），端口与握手逻辑不用改；
+> PyInstaller 入口用 `backend/entry.py`；静态页传 `CAIRN_WEB_DIR=<resources>/web`。

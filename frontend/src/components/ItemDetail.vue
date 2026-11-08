@@ -6,8 +6,10 @@ import StatusBadge from './StatusBadge.vue'
 import MindmapPane from './MindmapPane.vue'
 import NoteEditor from './NoteEditor.vue'
 import RawPane from './RawPane.vue'
+import SessionLog from './SessionLog.vue'
 import SummaryPane from './SummaryPane.vue'
 import TitleEditor from './TitleEditor.vue'
+import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 import { fullTime } from '../utils/format'
@@ -34,7 +36,21 @@ const TABS = [
   { key: 'note', label: '结构化笔记' },
   { key: 'raw', label: '原文' },
   { key: 'mindmap', label: '思维导图' },
+  { key: 'sessions', label: '学习记录' },
 ]
+
+// T5.3：从条目点「开始专注」，把这条件为目标带进计时（target_type=item）
+const { start: startSession } = useTimer()
+
+async function startFocus() {
+  if (!props.item) return
+  const created = await startSession({
+    target_type: 'item',
+    target_id: props.item.id,
+    planned_seconds: 1500,
+  })
+  if (created) toast.info(`开始专注：${props.item.title}`)
+}
 
 const isPending = computed(() => props.item?.status !== 'ready')
 const busy = computed(() => organizing.value || props.item?.status === 'organizing')
@@ -142,6 +158,7 @@ onBeforeUnmount(stop)
       <header class="detail-head">
         <TitleEditor :item-id="item.id" :title="item.title" :disabled="busy" @saved="emit('refresh', item.id)" />
         <div class="head-actions">
+          <button class="btn btn-sm" type="button" @click="startFocus">开始专注</button>
           <button class="btn btn-sm" type="button" :disabled="busy" @click="organize">
             {{ busy ? '整理中…' : isPending ? '开始整理' : '重新整理' }}
           </button>
@@ -186,6 +203,9 @@ onBeforeUnmount(stop)
           :item-id="item.id"
           :updated-at="item.updated_at || ''"
         />
+
+        <!-- v-if 而非 v-show：每次切进来都重新拉一次，刚结束的一轮立刻能看到 -->
+        <SessionLog v-if="tab === 'sessions'" :item-id="item.id" />
       </div>
     </template>
   </section>

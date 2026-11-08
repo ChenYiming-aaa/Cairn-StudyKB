@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import Ask from '../views/Ask.vue'
+import Dashboard from '../views/Dashboard.vue'
 import HtmlPages from '../views/HtmlPages.vue'
 import Knowledge from '../views/Knowledge.vue'
 import Practice from '../views/Practice.vue'
@@ -12,6 +13,7 @@ export default createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'knowledge', component: Knowledge },
+    { path: '/dashboard', name: 'dashboard', component: Dashboard },
     { path: '/ask', name: 'ask', component: Ask },
     { path: '/pages', name: 'html-pages', component: HtmlPages },
     { path: '/practice', name: 'practice', component: Practice },

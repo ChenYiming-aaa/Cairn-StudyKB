@@ -29,6 +29,10 @@ const FRIENDLY = [
   [/^ITEM_NOT_FOUND$/, '条目不存在，可能已被删除'],
   [/^ITEM_BUSY$/, '该条目正在整理中，请等它结束'],
   [/^TASK_NOT_RETRYABLE$/, '该任务不是失败状态，不能重试'],
+  [/^SESSION_ALREADY_RUNNING$/, '已经有一个计时在进行中，先把它结束或放弃'],
+  [/^SESSION_STATE$/, '计时状态已经变了，刷新一下就正确了'],
+  [/^SESSION_NOT_FOUND$/, '这次计时不存在，可能已经结束'],
+  [/^SESSION_/, '计时操作失败，请刷新后重试'],
   [/^NETWORK$/, '连不上后端服务，请确认 uvicorn 已在 8756 端口启动'],
   [/^POLL_TIMEOUT$/, '任务超时未返回，请稍后在任务记录里查看'],
 ]
@@ -44,6 +48,11 @@ export function friendlyMessage(err) {
 function baseUrl() {
   const injected = typeof window !== 'undefined' && window.api && window.api.baseUrl
   return (injected || import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+}
+
+/** 给 `navigator.sendBeacon` 用：闭窗前必须拿到绝对 URL（相对路径在 beacon 里不保证能解析）*/
+export function apiBase() {
+  return baseUrl()
 }
 
 function buildQuery(params) {
@@ -209,6 +218,16 @@ export const api = {
   dueReviews: (params) => get('/api/review/due', params),
   /** 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题 */
   reportReview: (questionId, payload) => post(`/api/review/${questionId}/result`, payload),
+  /** 番茄钟（T5.1）：同一时刻只允许一个，409 会带上现有 id */
+  sessionStart: (payload) => post('/api/session/start', payload),
+  sessionCurrent: () => get('/api/session/current'),
+  /** action ∈ pause/resume/finish/abandon；finish 可带 {note} */
+  sessionAction: (id, action, payload) => post(`/api/session/${id}/${action}`, payload),
+  sessionHeartbeat: (id) => post(`/api/session/${id}/heartbeat`),
+  /** 学习记录（按 target 过滤，只列 done/abandoned） */
+  sessionHistory: (params) => get('/api/session', params),
+  statsToday: () => get('/api/stats/today'),
+  statsWeek: () => get('/api/stats/week'),
 }
 
 const POLL_START = 1500
