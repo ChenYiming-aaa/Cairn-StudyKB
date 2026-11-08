@@ -38,7 +38,7 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 |---|---|
 | `backend/` | FastAPI + SQLite；表结构与端点在 `docs/contracts/`，脚本在 `backend/scripts/` |
 | `frontend/` | Vue 3 + Vite；`e2e/` 是浏览器回归，`src/styles/tokens.css` 是唯一配色/间距来源 |
-| `desktop/` | Electron 主进程与 preload，M5 交付阶段才落地（当前只有占位） |
+| `desktop/` | Electron 空壳（`main.js` + `index.html`）：spawn 后端、端口握手、`file://` 加载。**打包/图标/签名/接 Vite 产物/托盘/自动更新都还没做**，见 `docs/HANDOFF.md` 的空壳验证条目 |
 | `data/` | 开发期数据库与日志，**永不入库** |
 | `docs/` | 总纲、契约（数据/接口/ADR）、里程碑、进度台账 |
 
@@ -81,6 +81,9 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
 | `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 17 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
+| `cd desktop && npm start` | Electron 空壳：spawn 后端 → 端口握手 → 窗口显示 `index.html` → 关窗后无 python 残留（实测日志见 `desktop/_smoke/run.log`） | 动到桌面壳 / 后端启动方式 |
+
+空壳验证加 `SMOKE_AUTOCLOSE_MS=5000` 会自动关窗，便于非交互地跑第 3、4 项（否则要人点关闭）。
 
 `verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
 `verify_m3.py` 与 `verify_m4.py` 全程不联网：前者 `VECTOR_ENABLED=0` + 假 `asker.stream`，

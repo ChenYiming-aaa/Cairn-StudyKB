@@ -34,6 +34,7 @@
 | 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 | 等 M5 仪表盘定保留策略 |
 | 5 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
+| 7 | `file://` origin 是 `null`，后端 CORS 只放行 `localhost:5173` | T5.5 前必须裁决 | 空壳页刻意不发网络请求绕开了它；接 Vite 产物时会撞上，三种解法见 2026-11-08 12:20 那条 |
 
 **下一会话第一件事**
 > M5 开工：读 `docs/milestones/M5-计时与交付.md`，做 T5.1–T5.4。仪表盘数据源已就绪
@@ -333,3 +334,96 @@ T4.5 练习页、T4.6 复习队列、T4.7 复习页、T4.8 验收脚本**一律�
 
 **下一会话第一件事**
 > M5 T5.1，见顶部「当前状态」。
+
+## 2026-11-08 12:20 · 桌面 · 空壳验证（M1 遗留项，**不是** M5 任务）
+
+**范围**：`desktop/` 最小可跑 Electron 壳，只验四件事（spawn 后端 / 随机端口 + HTTP 握手 /
+`file://` 显示页面 / 关窗无残留）。**没读 M5 文档**。明确没做：NSIS 安装包、图标、签名、
+接 Vite 产物、托盘、自动更新；没打 `m5-xxx` 标签。
+
+**一处裁决（用户当场拍板，2026-11-08）**
+- `uv run python -m app` 原本跑不通：`app/` 里没有 `__main__.py`，直接报
+  `No module named app.__main__; 'app' is a package and cannot be directly executed`。
+  按"改后端启动方式先问我"的约定，**问过才动**，用户选「新增 `backend/app/__main__.py`」。
+- 实现 12 行，只做 `uvicorn.run(app, host/port 取 config)`，**不改任何已验收模块**
+  （`config.py` 早就支持 `--port`，命令行优先级仍由它负责）。顺带的好处：它就是将来
+  PyInstaller `--onedir` 的入口形状（ADR-014）。
+
+**desktop/ 文件清单**
+
+| 文件 | 作用 |
+|---|---|
+| `desktop/.npmrc` | `electron_mirror=https://npmmirror.com/mirrors/electron/`（直连 GitHub Releases 只有 ~7KB/s） |
+| `desktop/package.json` | `main: main.js`、`scripts.start: electron .`、devDep `electron ^45.2.3` |
+| `desktop/package-lock.json` | 入库，锁版本 |
+| `desktop/main.js`（173 行） | 四件事全在这里：`listen(0)` 拿空闲端口 → spawn `uv run python -m app --port N` → 每 300ms 轮询 `/api/health`（上限 30s）→ `loadFile('index.html', {query:{port,version}})` → 窗口关闭时 `taskkill /T /F` 杀整棵进程树 |
+| `desktop/index.html`（48 行） | 静态验证页，显示 `location.protocol`/`href`/端口/后端版本。**不发起任何网络请求**（端口与版本走 URL query 传入），刻意把"窗口能不能显示"这一个变量单独隔离出来 |
+| `desktop/_smoke/` | 每次运行的现场：`run.log`（四项实测输出）+ `window.png`（截图）。**已 gitignore** |
+| `desktop/node_modules/` | gitignore；Electron 45.2.3 二进制已在 `node_modules/electron/dist/` |
+
+**四项结论（2026-11-08 12:17 实测，原始日志 `desktop/_smoke/run.log`）**
+
+1. **spawn 后端 ✅** — `uv run python -m app --port 12327`，cwd=`backend/`，uv pid=30220。
+   后端自己打出来的 `[Cairn] 监听端口 = 12327` 与传入值一致，说明 `--port` 真的透传到底了。
+2. **随机端口 + 握手 ✅** — 端口 12327 由 `net.createServer().listen(0)` 探测；轮询第 13 次拿到
+   `{"status":"ok","version":"0.1.0"}`，耗时 3685ms（几乎全花在 `uv run` 冷启动的依赖自检上，
+   不是后端慢）。窗口是在握手成功**之后**才建的（ADR-016 的顺序）。
+3. **窗口显示 index.html ✅** — `file:///C:/Users/cwqjk/Desktop/知识库agent开发/desktop/index.html?port=12327&version=0.1.0`，
+   标题 `Cairn · 桌面壳验证`，`capturePage()` 截图 `_smoke/window.png` 已肉眼核对：无白屏、
+   protocol 显示 `file:`、端口 12327、版本 0.1.0 全部对上。
+4. **关窗后无残留 ✅** — 关窗触发 `taskkill /PID 30220 /T /F`，一次杀掉 4 个进程
+   （uv 30220 → shim 29588 → python 4540 → 其子 5844）。跑前基线 **0** 个、跑后 **0** 个
+   `python.exe`（判定口径：CommandLine 含 `app*--port`）；端口 12327 只剩 `TimeWait`，`LISTEN` 已释放。
+
+**复现**
+- `cd desktop && npm start`（正常交互，手动关窗）
+- 非交互/自动关窗：`SMOKE_AUTOCLOSE_MS=5000 npm start`（只为自动化验第 3、4 项，不是产品功能）
+
+**踩到的坑（T5.5 会再遇到）**
+- **Electron 二进制默认没下下来**：`npm i -D electron` 退出码 0、`package.json` 也写好了，
+  但 `node_modules/electron/dist/` 不存在（postinstall 静默失败）。补救：
+  `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ node node_modules/electron/install.js`。
+  注意 `.npmrc` 的 `electron_mirror` 只对 **npm 脚本**生效，手动跑 install.js 必须显式传 env。
+- **`uv run` 会再拉一层 python 子进程**，`child.kill()` 只杀 uv → 必留孤儿 python。
+  必须 `taskkill /PID <uvpid> /T /F` 按树杀。
+- `taskkill` 的中文提示是 **GBK**，按 utf8 读全是乱码，要用 `TextDecoder('gbk')` 解。
+- **Electron 主进程在 Windows 下 stdout 未必落到控制台**，日志必须双写文件，否则拿不到实测输出。
+- 本 agent shell 里有 `ELECTRON_RUN_AS_NODE=1`（**只在 Process 级**，User/Machine 都没有），
+  会让 `electron.exe .` 退化成 node 跑、`require('electron')` 得到 undefined（报
+  `Cannot read properties of undefined (reading 'whenReady')`）。跑之前 `env -u ELECTRON_RUN_AS_NODE`。
+  **你自己的普通终端没有这个变量，`npm start` 直接可用，不用管这条。**
+
+**T5.5 可以从哪里接着做（三项已就位的形状）**
+1. **后端换成 exe**：`pyinstaller --onedir`（ADR-014），入口就是 `app/__main__.py`，产物
+   `cairn-backend.exe`。`main.js` 只需把 spawn 的 `uv run python -m app` 换成 exe 路径，
+   `--port` 传参与 300ms/30s 握手逻辑**一行都不用改**（已验证）。
+   记得 ffmpeg 一起进 `resources/`（总纲 §9 已知坑）。
+2. **把 Vite 产物接进来 —— 这一步要动已验收模块，先问你**：窗口现在是 `loadFile('index.html')`，
+   换成 `frontend/dist/index.html` 是 drop-in；但 **`file://` 的 origin 是 `null`，而后端 CORS
+   白名单只有 `http://localhost:5173` / `127.0.0.1:5173`**（`main.py`），页面里的 API 请求会被拦。
+   **这条是读代码推断的，没有实测**。可选的解法：① 后端白名单放行 `null`/`file://`；
+   ② 主进程起一个本地 http 反代；③ preload 暴露端口 + 后端放行。选哪条要你定，别让我自己挑。
+3. 再往后才是 electron-builder `--win nsis`、图标、签名。
+
+**改动文件**
+- 新增：`desktop/{.npmrc,package.json,package-lock.json,main.js,index.html}`、
+  `backend/app/__main__.py`
+- 改：`.gitignore`（加 `desktop/_smoke/`）、`README.md`（`desktop/` 目录行 + 验证表加 `npm start` 一行）
+- 删：`desktop/.gitkeep`（目录不再为空）
+- **没动**：前端任何文件、M1–M4 已验收模块、任何里程碑文档
+
+**验证**
+- 空壳四项：见上（1–4 全绿，实测输出在 `desktop/_smoke/run.log`）
+- `python tools/doc_check.py` → 见本条提交前的实跑结果
+
+**遗留**
+- [ ] T5.5 前要定 `file://` 与 CORS 的口径（上面第 2 条，三种解法选一）
+- [ ] 打包时 ffmpeg 必须随 `resources/` 一起走，不能靠系统 PATH
+- [ ] `desktop/index.html` 是验证页，T5.5 接 Vite 产物后应删除或替换
+
+**推送状态**
+- 本地已提交，**远程未推**（agent 会话的 GCM 凭据会失效）。需要你在普通终端执行
+  `"C:/Program Files/Git/cmd/git.exe" push origin main`。**本次不打标签。**
+
+**下一会话第一件事**
+> M5 T5.1。注意：本条只到"空壳四件事已验证"，**不等于 T5.5 已完成**，打包与接前端都还没动。

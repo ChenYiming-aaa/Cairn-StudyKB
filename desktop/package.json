@@ -1,0 +1,13 @@
+{
+  "name": "cairn-desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cairn 桌面壳（空壳验证：spawn 后端 + 端口握手 + file:// 页面）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^45.2.3"
+  }
+}
