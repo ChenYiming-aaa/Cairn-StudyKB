@@ -22,13 +22,14 @@
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M5 代码完成 + v0.1.0 已发布（tag）**：功能到交付全链路打通，本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。README 已重写成面向用户版（含 8 张真实截图），docs 拆成 `docs/images/` + `docs/dev/`。**还差两件要你做**：① 装到另一台没有 Python/Node 的机器；② 在网页上建 GitHub Release 并上传安装包 |
-| 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
+| 里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：功能到交付全链路打通，本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。README 已重写成面向用户版（含 8 张真实截图），docs 拆成 `docs/images/` + `docs/dev/`，`docs/` 演示站已上线。**只剩一件要你做**：装到另一台没有 Python/Node 的机器 |
+| 远程 | `origin/main` = `50c9348`（2026-11-08 20:16）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处 `package.json`·`pyproject` 都是 0.1.0，与安装包文件名一致） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` **`v0.1.0`** |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` **`v0.1.0`**（本地/远程都是 `1a31a5b` → commit `299f72a`，全部已推） |
 | 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57（2026-11-08 全量重跑）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · 安装版首屏 4066ms（热启）/ 6680ms（冷启，已记例外） |
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
-| 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/>** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），由 `.github/workflows/pages.yml` 在 main 更新后自动部署。**需要在 GitHub 仓库 Settings → Pages 把 Source 选成 "GitHub Actions" 才会生效** |
+| 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
+| 发布 | GitHub Release `v0.1.0`：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.1.0>（正文取 `release-notes-v0.1.0.md`，附件 `Cairn-0.1.0-setup.exe` 426,428,660 字节） |
 | 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
@@ -44,17 +45,13 @@
 | 7 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 8 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
 | 9 | `desktop/release/`、`release-verify/` 的 `app.asar` 被锁，删不掉 | 环境问题 | gitignored，重启后可手工清 |
-| 10 | **v0.1.0 只在本地打了 tag，远程未推** | 等你在终端执行 | `git push origin main && git push origin --tags`（agent 会话读不到凭据） |
-| 11 | GitHub Release 还没建 | 要你在网页做 | 正文直接用 `docs/dev/release-notes-v0.1.0.md`，安装包 `desktop/release/Cairn-0.1.0-setup.exe` 拖进去 |
-| 12 | Pages 从没开过，workflow 推上去也不会生效 | 要你在网页做 | Settings → Pages → Source 选 **GitHub Actions**（不是 Deploy from a branch） |
+| 10 | ~~v0.1.0 只在本地打了 tag，远程未推~~ | **已完成 2026-11-08 20:16** | 全部标签（含 `v0.1.0`）已在远程 |
+| 11 | ~~GitHub Release 还没建~~ | **已完成 2026-11-08 20:19** | Release id `438225599`，正文＋安装包已上传 |
+| 12 | ~~Pages 从没开过~~ | **已完成 2026-11-08 20:12** | 根因是**仓库私有**，转 Public 后 run #2 一次通过；`configure-pages` 步骤已加，以后会自动兜底 |
 
 **下一会话第一件事**
-> ① 终端里 `git push origin main && git push origin --tags`（`v0.1.0` 要一起推上去）；
-> ② **Settings → Pages → Source 选 "GitHub Actions"**，然后看 Actions 里 `demo-pages` 跑完，
-> 打开 <https://chenyiming-aaa.github.io/Cairn-StudyKB/> 确认演示站能点；
-> ③ 网页建 GitHub Release：tag 选 `v0.1.0`，正文整段拷 `docs/dev/release-notes-v0.1.0.md`，
-> 附件拖 `desktop/release/Cairn-0.1.0-setup.exe`（426MB，`git push` 推不了这么大的文件）；
-> ④ 找台没装 Python/Node 的 Windows 真机装一遍，跑通「填 Key → 建一条资料 → 重启还在」。
+> 只剩一件：找台**没装 Python/Node** 的 Windows 真机装一遍
+> `desktop/release/Cairn-0.1.0-setup.exe`（或从 Release 下），跑通「填 Key → 建一条资料 → 重启还在」。
 > 之后才谈 M5 归档与 v2（模板 A 换里程碑）。
 
 ---
@@ -974,3 +971,43 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 - [ ] **GitHub Settings → Pages → Source 选 "GitHub Actions"**，否则 workflow 跑完也不会发布
 - [ ] 演示站上线后要自己点一遍（我这边只能用本地 http.server 模拟同一个路径结构）
 - [ ] 后端响应结构变了要重抓 fixture，否则演示数据会和真实接口漂移（做法写在 `运行与打包.md`）
+
+## 2026-11-08 20:20 · 发布 · 修掉 github.io 404 + Release 落地
+
+**404 的根因（推翻了「Pages 没开」的猜测）**
+
+- 站点 404 不是 base 写错、不是 workflow 有问题、不是 `npm ci` 失败（本地 `npm ci --dry-run` 通过，
+  `VITE_DEMO=1 vite build` 1.4s 成功）。真因是**仓库是 Private**：
+  GitHub 免费账号的私有仓库不支持 Pages，`Source` 选了 `GitHub Actions` 也生不出站点。
+- 判定证据：未登录访问仓库首页 404（公开仓库 `TRAVEL-DESK` 是 200）、匿名 API 三连 404、
+  账号 22 个公开仓库列表里没有它、而账号下另外三个仓库的 Pages 站点全部 200。
+- 转 Public 后立刻见效：Actions `demo-pages` **run #1（private 期）failure → run #2 success**。
+
+**完成**
+
+- 仓库转 Public；`frontend/src/demo/fixtures.json` 里 2 处 `C:/Users/cwqjk/AppData/Local/Temp/cairn_demo`
+  换成 `C:/Users/<you>/AppData/Roaming/Cairn`（安装版真实数据目录），构建产物 grep 零残留。
+  旧提交 `f4aeeb5` 历史里仍留有该路径（用户名级别，非密钥，未清洗历史）。
+- workflow 加 `actions/configure-pages@v5`（`enablement: true`）：Pages 没启用时自动开启。
+- **GitHub Release `v0.1.0` 已建**（id `438225599`）：正文取 `release-notes-v0.1.0.md`
+  （去掉 H1 与作用域块），附件 `Cairn-0.1.0-setup.exe` 426,428,660 字节。
+- `release-notes-v0.1.0.md` 修掉一个失效链接（`../README.md#从源码运行` → `运行与打包.md`），
+  因为「从源码运行」那节早已移出 README。
+
+**线上校验**（Playwright 直打线上地址，12/12 PASS）
+
+```
+演示横幅常驻 / 列表 6 条 / 详情摘要+要点 / 仪表盘有专注时长 / 问答历史有记录
+学习页：点「历史」→ 选产物 → iframe 1 个且正文渲染（"把知识连成网"）
+复习：开始复习 → 2 个选项 → 「答对了」+ 解析
+写操作 403 DEMO_OFFLINE / console 0 错误
+```
+
+**踩坑记录**
+
+- `actions/runs` 匿名可查的前提也是**仓库公开**；private 时连 Actions 日志都取不到，
+  这让「到底跑没跑」无法自证 —— 以后排查 Pages 先确认可见性。
+- 学习页 `iframe` 是 `v-if="current"`，不点产物就一直是空状态；Playwright 里点抽屉必须用
+  `.drawer .drawer-main`，用 `aside.drawer button` 会先命中「关闭」。
+- 清 fixture 里的 Windows 路径时，heredoc 里的 `\\\\` 会被外层 JSON 再吃一层，
+  用 `chr(92)` 拼反斜杠最稳。
