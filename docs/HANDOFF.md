@@ -14,12 +14,12 @@
 
 ---
 
-## 当前状态（2026-11-08 00:40 · 每次会话结束更新这一段）
+## 当前状态（2026-11-08 12:35 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M1–M4 已验收**（M0 是文档与仓库就绪阶段，tag `m0-ready`，总纲里程碑地图里没有 M0 这一行）；下一站 **M5 计时与交付**（未开工） |
-| 远程 | `origin/main = 7844372`，0 ahead / 0 behind（2026-11-08 00:34 核实；**本表不追每次提交，以 `git ls-remote --heads origin` 为准**） |
+| 里程碑 | **M1–M4 已验收**（M0 是文档与仓库就绪阶段，tag `m0-ready`，总纲里程碑地图里没有 M0 这一行）；**Electron 空壳包已验证**（同源加载 / 随机端口握手 / 进程树按树杀，2026-11-08）；下一站 **M5 计时与交付**（未开工） |
+| 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) |
 | 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **63/63** · e2e m4 **17/17** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 |
 | 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条留在本文件 |
@@ -34,10 +34,14 @@
 | 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 | 等 M5 仪表盘定保留策略 |
 | 5 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
+| 7 | `frontend/dist` 无 CSP meta，Electron 每次启动刷一条安全警告 | T5.5 决定 | 仅**未打包**时提示，打包后不显示；加 CSP 会与 M3 的 iframe 预览冲突，需单独设计 `frame-src`/`sandbox`，建议打包后再做 |
+| 8 | `desktop/index.html` 已不参与加载 | T5.5 处理 | 改造成 `error.html` 兜底页（握手超时 30s 后 `loadFile`），**不删**。否则后端起不来时用户只看到白窗 |
 
 **下一会话第一件事**
 > M5 开工：读 `docs/milestones/M5-计时与交付.md`，做 T5.1–T5.4。仪表盘数据源已就绪
 > （正确率 ← `quiz_attempt`，错题数 ← `/api/quiz/wrong`，到期数 ← `/api/review/due`），不用再改 M4 的表。
+> T5.5 直接在 `desktop/` 现有壳上升级：把 spawn 从 `uv run python -m app` 换成 `cairn-backend.exe`，
+> `--port` 与握手逻辑一行不用改；PyInstaller 入口用 `backend/entry.py`（不用 `app/__main__.py`）。
 
 ---
 
@@ -524,3 +528,30 @@ GET /some/spa/deep/path  → 404 application/json   （hash 路由不需要兜�
 
 **下一会话第一件事**
 > M5 T5.1；T5.5 若要开工，直接从 `desktop/` 按上面三条接（打包连握手都不用改）。
+
+---
+
+## 2026-11-08 12:35 · 契约补齐：静态资源路由 + 废弃 preload 注入
+
+**背景**：空壳收尾把页面从 `file://` 改成 `http://127.0.0.1:<port>/` 同源加载，代码和 README 都改了，
+但**接口契约 §4 仍写着「生产必须由 preload 注入 baseUrl」**。契约落后于代码，且方向相反——
+下个会话照契约做会把注入加回来，多一层永远用不上的配置，还会让人以为页面是 `file://`。
+
+**改了两处（都在 `docs/contracts/接口契约.md`）**
+
+1. **§4 前端调用约定**：两种运行形态统一走「空串 = 相对路径」（dev 靠 Vite 代理、prod 靠同源），
+   明确「不要再往 preload 注入 baseUrl」，`window.api.baseUrl` 降级为调试逃生口
+2. **新增 §5 静态资源路由（非 API）**：`GET /` 与 `GET /assets/*` 的注册条件、四条硬约束
+   （禁 catch-all / 必须条件注册 / 不做 SPA fallback / `CAIRN_WEB_DIR` 优先）、以及为什么不用 `file://`
+
+**为什么单开一节而不是塞进端点表**：`/` 和 `/assets` 不是 API，没有错误码，塞进 §2 会污染
+"端点"这个概念，也会误导 `doc_check.py` 的端点引用校验。这一节的价值不在记事实，在**钉住
+「禁止 `mount('/')`」这条约束**——目前只有 `main.py` 里的一段注释挡着，而注释会随那次文件重写消失。
+
+**顺带收口**：空壳会话遗留的三条已进「未结遗留」表 7、8 两项；第三条（契约登记）由本条关闭。
+`origin/main` 已与本地一致（用户手工推送成功，agent 侧凭据仍读不到，别重试）。
+
+**改动文件**：`docs/contracts/接口契约.md`、`docs/HANDOFF.md`
+**验证**：`python tools/doc_check.py` → 6 PASS + 1 WARN（手册引用已完结的 M1 作模板，属正常）
+**推送状态**：见本条提交后的实际结果；若报 `could not read Username`，由用户在普通终端执行
+`"C:/Program Files/Git/cmd/git.exe" push origin main`。**本次不打标签。**
