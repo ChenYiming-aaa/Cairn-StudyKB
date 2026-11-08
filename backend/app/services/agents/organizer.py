@@ -10,16 +10,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from app.db.conn import get_conn
 from app.db.repo import items as repo
+from app.paths import app_path
 from app.services import llm
 from app.services.llm import LLMError
 
 log = logging.getLogger(__name__)
 
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPT_DIR = app_path("prompts")
 
 SAMPLE_LIMIT = 50_000
 HEAD_CHARS = 40_000

@@ -15,8 +15,32 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[2]
-ENV_FILE = ROOT / ".env"
+from app.paths import install_root, is_frozen
+
+
+def _appdata_dir() -> Path:
+    """`%APPDATA%/Cairn` —— 打包后的默认数据目录。
+
+    M5 §1 约束 4：数据目录必须是这里，**不是安装目录**（否则卸载即丢数据，
+    装在 `Program Files` 下还写不进去）。Electron 会显式传 `--data-dir`，
+    这个函数只是"万一没传"时的兜底，兜底也绝不能落回安装目录。
+    """
+    base = os.environ.get("APPDATA")
+    return (Path(base) if base else Path.home() / "AppData" / "Roaming") / "Cairn"
+
+
+if is_frozen():
+    # 冻结后 `__file__` 是 `<_MEIPASS>/app/config.py` 这种假路径，
+    # 原来的 parents[2] 会指到 `_internal/` 的上一层，只读资源全部读不到（M5 §6.4）。
+    ROOT = install_root()
+    DATA_ROOT = _appdata_dir()
+    # 安装目录只读，`.env` 必须落在数据目录（T5.7 的首次引导会往这里写 Key）
+    ENV_FILE = DATA_ROOT / ".env"
+else:
+    ROOT = Path(__file__).resolve().parents[2]
+    DATA_ROOT = ROOT / "data"
+    # 源码下 `.env` 在项目根，与 M1 起的口径一致，不能挪进 data/
+    ENV_FILE = ROOT / ".env"
 
 _LOG_MARKER = "cairn"
 
@@ -75,11 +99,20 @@ class Settings:
         return self._tool("ffprobe")
 
     def _tool(self, name: str) -> Path | None:
-        """按 FFMPEG_DIR 拼绝对路径；没配或文件不存在返回 None，调用方回落 PATH。"""
-        if not self.ffmpeg_dir.strip():
-            return None
-        exe = Path(self.ffmpeg_dir.strip()) / (f"{name}.exe" if os.name == "nt" else name)
-        return exe if exe.exists() else None
+        """按 FFMPEG_DIR 拼绝对路径；没配或文件不存在返回 None，调用方回落 PATH。
+
+        冻结后多一条兜底：安装包会把 ffmpeg 放在 `resources/ffmpeg/`（总纲 §9：
+        不能依赖系统 PATH，用户的机器上大概率没有）。没配 FFMPEG_DIR 时先看那里，
+        再回落 PATH —— 用户自己在 `.env` 里配的仍然优先。
+        """
+        exe_name = f"{name}.exe" if os.name == "nt" else name
+        if self.ffmpeg_dir.strip():
+            exe = Path(self.ffmpeg_dir.strip()) / exe_name
+            return exe if exe.exists() else None
+        if is_frozen():
+            bundled = install_root().parent / "ffmpeg" / exe_name
+            return bundled if bundled.exists() else None
+        return None
 
     @property
     def chat_completions_url(self) -> str:
@@ -130,10 +163,12 @@ def load_settings(argv: list[str] | None = None) -> Settings:
                 return cli[cli_key]
         return env.get(env_key, default)
 
-    root_data = ROOT / "data"
+    root_data = DATA_ROOT
     data_dir = Path(pick("DATA_DIR", str(root_data))).expanduser()
     if not data_dir.is_absolute():
-        data_dir = (ROOT / data_dir).resolve()
+        # 相对路径按 DATA_ROOT 的父目录解析：源码下就是项目根（与原行为一致），
+        # 冻结后就是 %APPDATA%（不会落到安装目录）
+        data_dir = (root_data.parent / data_dir).resolve()
 
     return Settings(
         data_dir=data_dir,
@@ -169,7 +204,7 @@ def get_settings() -> Settings:
 
 
 def setup_logging(settings: Settings | None = None) -> None:
-    """按天滚动到 data/logs/app.log，同时输出到控制台。幂等。"""
+    """按天滚动到 data/logs/app.log；有控制台时才同时输出到控制台。幂等。"""
     cfg = settings or get_settings()
     root = logging.getLogger()
     if any(getattr(h, "_cairn_marker", False) for h in root.handlers):
@@ -188,10 +223,16 @@ def setup_logging(settings: Settings | None = None) -> None:
     file_handler.setFormatter(fmt)
     file_handler._cairn_marker = True  # type: ignore[attr-defined]
 
-    console = logging.StreamHandler(sys.stdout)
-    console.setFormatter(fmt)
-    console._cairn_marker = True  # type: ignore[attr-defined]
+    console = None
+    # windowed exe 在**没有**父进程接管 stdout 时 `sys.stdout` 是 None，
+    # StreamHandler(None) 会在每次 emit 时抛 "Logging error —— 没有 stream"。
+    # 有 stdout（源码运行、或 Electron 用管道接管时）就照常双写，方便现场排障。
+    if sys.stdout is not None:
+        console = logging.StreamHandler(sys.stdout)
+        console.setFormatter(fmt)
+        console._cairn_marker = True  # type: ignore[attr-defined]
 
     root.addHandler(file_handler)
-    root.addHandler(console)
+    if console is not None:
+        root.addHandler(console)
     root.setLevel(level)

@@ -33,9 +33,14 @@ cookies.txt
 # ── 构建产物 ───────────────────────────
 dist/
 release/
+release-verify/
 build/
 *.spec
+# 例外：打包配置是源码的一部分，要能复现构建（T5.6）
+!backend/cairn-backend.spec
 !docs/**/*.spec
+# ffmpeg 二进制由 tools/prepare_ffmpeg.py 从本机复制，不入库（约 74MB）
+desktop/resources/ffmpeg/
 
 # ── e2e / 空壳验证运行现场 ─────────────
 frontend/e2e/_shots/

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cairn · 启动失败</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 40px 44px;
+        font: 14px/1.7 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+        background: #faf8f4;
+        color: #2f2b26;
+      }
+      h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: .5px; }
+      .sub { margin: 0 0 28px; color: #8a8175; font-size: 13px; }
+      .card {
+        background: #fff;
+        border: 1px solid #e8e2d8;
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+      }
+      .card h2 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+      ol, ul { margin: 0; padding-left: 20px; }
+      li { margin: 5px 0; }
+      code, .path {
+        font-family: Consolas, "Cascadia Mono", monospace;
+        font-size: 12.5px;
+        background: #f5f1ea;
+        border: 1px solid #e8e2d8;
+        border-radius: 5px;
+        padding: 2px 6px;
+        word-break: break-all;
+      }
+      .path { display: block; padding: 9px 11px; margin-top: 8px; user-select: all; }
+      .meta { color: #8a8175; font-size: 12.5px; margin-top: 10px; }
+      .warn { color: #a2543a; }
+      a { color: #7a5c3e; }
+    </style>
+  </head>
+  <body>
+    <h1>Cairn 没能启动</h1>
+    <p class="sub">页面本身是好的，是它依赖的本地后端没有应答。下面这份说明比白屏有用。</p>
+
+    <div class="card">
+      <h2>先试这两步</h2>
+      <ol>
+        <li><b>关掉这个窗口，再重新打开 Cairn。</b>端口是随机分配的，绝大多数偶发失败重开即好。</li>
+        <li>还不行，就打开下面这个日志，找最后一段 <code>Traceback</code> 或 <code>ERROR</code>。</li>
+      </ol>
+      <span class="path" id="logpath">（日志路径未知）</span>
+    </div>
+
+    <div class="card">
+      <h2>常见原因</h2>
+      <ul id="hints"></ul>
+      <p class="meta" id="detail"></p>
+    </div>
+
+    <p class="meta">
+      这一页的文件是 <code>error.html</code>，只在后端起不来时出现。<br />
+      如果日志里有 <code>unable to open database file</code>，说明数据目录不可写；
+      有 <code>FileNotFoundError</code> 且路径里带 <code>prompts</code> 或 <code>templates</code>，
+      说明安装包少带了资源文件。
+    </p>
+
+    <script>
+      // 参数由主进程用 loadFile({query}) 传入；拿不到就全部降级成通用文案
+      const q = new URLSearchParams(location.search)
+      const reason = q.get('reason') || 'unknown'
+      const logPath = q.get('log') || ''
+      const detail = q.get('detail') || ''
+      const mode = q.get('mode') || ''
+
+      if (logPath) document.getElementById('logpath').textContent = logPath
+
+      const HINTS = {
+        'health-timeout': [
+          '后端进程起来了但 30 秒内没应答：多半是首次加载模型太慢，或数据库被另一个 Cairn 占着。',
+          '装了杀毒软件时，未签名的 <code>cairn-backend.exe</code> 可能被静默拦截。',
+        ],
+        'backend-exited': [
+          '后端进程启动后自己退出了：通常是数据目录不可写，或数据库文件损坏。',
+          '日志最后一段会有退出原因，先看 <code>code=</code> 前面的那几行。',
+        ],
+        'boot-exception': [
+          '主进程在准备阶段就抛了异常，通常是安装不完整（resources 里缺 backend/ 或 web/）。',
+          '重新安装一次；仍然失败请把这份日志发出来。',
+        ],
+        unknown: ['没有拿到具体原因，先看日志。'],
+      }
+      const ul = document.getElementById('hints')
+      for (const h of (HINTS[reason] || HINTS.unknown)) {
+        const li = document.createElement('li')
+        li.innerHTML = h
+        ul.appendChild(li)
+      }
+
+      const bits = [`原因代码：${reason}`]
+      if (detail) bits.push(detail)
+      if (mode) bits.push(`模式：${mode}`)
+      document.getElementById('detail').textContent = bits.join(' · ')
+    </script>
+  </body>
+</html>

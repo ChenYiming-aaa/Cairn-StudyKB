@@ -13,13 +13,13 @@ from __future__ import annotations
 import json
 import logging
 import re
-from pathlib import Path
 from typing import Any, Iterator
 
 from app.db.repo import questions as qrepo
+from app.paths import app_path
 from app.services import llm
 
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPT_DIR = app_path("prompts")
 
 MAX_MATERIAL = 6000        # 出题材料预算（M4 §6.1）
 MIN_MATERIAL = 120         # 低于这个长度基本出不了题，直接拒绝，不浪费一次 LLM 调用

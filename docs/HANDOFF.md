@@ -14,15 +14,15 @@
 
 ---
 
-## 当前状态（2026-11-08 13:05 · 每次会话结束更新这一段）
+## 当前状态（2026-11-08 14:20 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M5 进行中**：T5.1–T5.4（番茄钟 / 计时不丢 / 全局入口 / 仪表盘）已完成，2026-11-08，tag `m5-wip`；**T5.5–T5.8（打包 / 首次引导 / README 安装段）未开始**。M1–M4 已验收；Electron 空壳包已验证 |
+| 里程碑 | **M5 进行中**：T5.1–T5.5 已完成（番茄钟 / 计时不丢 / 全局入口 / 仪表盘 / Electron 壳 + 后端 onedir 打包），2026-11-08。**T5.6 的安装包已能出（407MB），T5.7 首次引导 / T5.8 README 安装段未做**。M1–M4 已验收 |
 | 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` |
-| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **69/69** · **m5 50/50** · e2e m4 19/19 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 |
-| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 一条留在本文件 |
+| 验收 | m1 **50/51** · m2 **116/118**（`--online` 134/134）· m3 **61/61** · m4 **69/69** · **m5 50/50** · e2e m4 19/19 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · **打包后首屏 4126ms（全新 userData）、关窗无残留进程** |
+| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 两条留在本文件 |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
 
@@ -34,15 +34,17 @@
 | 4 | `question` / `quiz_attempt` / `review_item` 无限增长 | M5 决定 → **本轮未定策略** | 仪表盘不需要保留策略就能跑；建议随 v2 一起做，先记为 backlog |
 | 5 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 6 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
-| 7 | `frontend/dist` 无 CSP meta，Electron 每次启动刷一条安全警告 | T5.5 决定 | 仅**未打包**时提示，打包后不显示；加 CSP 会与 M3 的 iframe 预览冲突，需单独设计 `frame-src`/`sandbox`，建议打包后再做 |
-| 8 | `desktop/index.html` 已不参与加载 | T5.5 处理 | 改造成 `error.html` 兜底页（握手超时 30s 后 `loadFile`），**不删**。否则后端起不来时用户只看到白窗 |
+| 7 | ~~`frontend/dist` 无 CSP，Electron 每次启动刷安全警告~~ → **2026-11-08 已修** | ✅ 关闭 | 不往 `index.html` 塞 `<meta>`（会拦掉 vite dev 的内联 HMR），改成主进程 `onHeadersReceived` 注入 header：`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self'`。`style-src` 留 `'unsafe-inline'` 是因为模板里有 `style="width:80%"` 静态属性；`frame-src 'self'` 覆盖 M3 的 `GET /api/html/{id}` 预览（同源 iframe），**没碰 iframe 的 sandbox**。dev 实跑 console 错误数 0 |
+| 8 | ~~`desktop/index.html` 已不参与加载~~ → **2026-11-08 已处理** | ✅ 关闭 | 改造成 `desktop/error.html`（已删 `index.html`）：后端起不来 / 运行中后端退出时 `loadFile` 加载，页面给出原因代码、可能原因、`shell.log` 路径 |
 | 9 | ~~题目 `options` 自带 `"A. "` 前缀，界面渲染成「A. A. 在即将忘记…」~~ → **2026-11-08 已修** | ✅ 关闭 | 真跑 15 题**全部**带前缀（不是偶发）。根因是 prompt 要求带前缀 + `QuizRunner` 又画徽标；修法：`repo/questions.strip_option_prefix()` 在生成侧与读取侧都剥，prompt 与契约示例同步改成裸文本。见本文件末尾 13:10 那条 |
 
 **下一会话第一件事**
-> M5 T5.5：直接在 `desktop/` 现有壳上升级。`spawn` 从 `uv run python -m app` 换成 `cairn-backend.exe`，
-> `--port` 与 300ms/30s 握手逻辑**一行不用改**；PyInstaller 入口用 `backend/entry.py`（不用 `app/__main__.py`）；
-> 静态页走 `CAIRN_WEB_DIR=<resources>/web`（后端已有这个开关）。
-> 先 `npm i -D electron-builder` + `uv add pyinstaller`（M5 §2 只剩这两条没打勾）。
+> M5 T5.7（首次引导）：`views/Setup.vue`，按 `scripts/env_check.py` 与 `GET /api/env/check` 的字段做
+> "ffmpeg / 模型 / Key" 三步清单，缺什么给什么操作指引。
+> 改完 `frontend` 要 `npm run build`，再 `cd desktop && npm run dist` 重打安装包（约 2 分钟）。
+> 另外两件等着你点头的事：① 真装一次 `desktop/release/Cairn-0.1.0-setup.exe`（含卸载重装数据还在）；
+> ② DoD 要求"在没有 Python/Node 的机器上验证"，得你找台机器。`release/`+`release-verify/`
+> 里有被锁的 `app.asar`，删不掉，重启后手工清。
 
 ---
 
@@ -717,3 +719,69 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 **下一会话第一件事**
 > 回到 M5 T5.5（打包）。本条只动 M4 的选项文本口径，不碰 M5 代码与 `desktop/`。
+
+---
+
+## 2026-11-08 14:20 · M5 T5.5 + T5.6（后端 onedir 打包 / 桌面壳 dev-prod 分流 / NSIS 安装包）
+
+**做了什么（T5.5 + T5.6 的打包主线，T5.7/T5.8 未动）**
+
+后端能冻成一个单目录 exe，桌面壳按 `app.isPackaged` 分流，`npm run dist` 能出安装包。
+
+- `backend/app/paths.py`（新）：只读资源统一走 `app_path()` / `resource_root()`，源码与
+  PyInstaller 冻结两套布局同一条路。替掉 5 处 `Path(__file__).parents[n]` 硬算
+  （4 个 agent 的 `PROMPT_DIR` + `renderer.TEMPLATE_DIR`）
+- `backend/app/config.py`：`ROOT`/`ENV_FILE`/默认数据目录在冻结时改口径 —— 数据与 `.env`
+  一律 `%APPDATA%/Cairn`，绝不落安装目录；`_tool()` 冻结时默认去 `resources/ffmpeg/` 找 ffmpeg；
+  windowed 模式（`sys.stdout is None`）不再挂 console handler
+- `backend/app/main.py`：`WEB_DIR` 冻结时兜底 `resources/web`
+- `backend/cairn-backend.spec`（新，`.gitignore` 里开了例外）：onedir + windowed，
+  按后缀收全 `app/**/*.{sql,html,md,txt,json}`
+- `desktop/main.js`：dev/prod 分流；CSP 用 `onHeadersReceived` 注入；单实例锁；
+  `app.setName('Cairn')`；握手失败/后端中途退出 → `error.html`；日志带时间戳并记握手与首屏耗时
+- `desktop/error.html`（新，删掉旧 `index.html`）
+- `desktop/package.json`：`pack` / `dist` 脚本 + electron-builder 配置（extraResources 三段、`deleteAppDataOnUninstall: false`、generic publish 占位）
+- `tools/prepare_ffmpeg.py`（新）：复制 ffmpeg.exe + 7 个 DLL（74MB）并用**干净 PATH** 自证
+
+**实测结果（都真跑）**
+- 后端 onedir **965MB**（exe 79MB），全新数据目录首启建库 21 表 / `user_version=2`、sqlite-vec 可用
+- 打包后桌面端（全新 userData）：握手 12 次 / **3351ms**，首屏 **4126ms**，窗口 4128ms，**关窗后无 `Cairn.exe`/`cairn-backend.exe` 残留**
+- dev 端：握手 17 次 / 4928ms（`uv run` 冷启动），首屏 5730ms，console 错误 0，`taskkill /T` 一次收掉 4 个进程
+- 冻结后真实链路：`/api/quiz/generate` 出题成功（prompt 读得到）、`/api/html/generate` 生成 13565 字节学习页（模板读得到）、`/api/health` 200、`GET /` 200，未登记的 `/api` 路径仍是 404 JSON（静态挂载没把接口吞掉）
+- NSIS 安装包 **407MB**：`Cairn-0.1.0-setup.exe`，已放到 `desktop/release/`（gitignored）；`dist` 退出码 0
+- 回归：`verify_m5.py` 50/50、`verify_m4.py` 69/69、`doc_check.py` 6 PASS + 1 提示
+
+**踩到的三个坑（都写进 M5 §6.3.1 / §6.5 / §7 了）**
+1. **`ELECTRON_RUN_AS_NODE=1` 是 WorkBuddy shell 的默认环境变量**。带着它启动任何
+   `electron.exe`/`Cairn.exe` 都会退化成纯 Node，报 `Cannot read properties of undefined
+   (reading 'isPackaged')`、**一行日志都不写**、进程还挂着。我在这上面误判了两轮，
+   差点去改启动逻辑。一律 `env -u ELECTRON_RUN_AS_NODE <exe>`
+2. **spec 只 add-data `templates`/`prompts` 不够**：`app/db/migrate.py` 读 `app/db/schema.sql`，
+   静态分析跟不到，**全新安装首启**就 `FileNotFoundError`。装过库的机器看不出来（"已是 v2，跳过建表"）
+3. **`app.asar` 会被锁住**（能读、不能删/覆盖，查不出是谁；`release/` 与 `release-verify/`
+   两个目录现在都还卡着，重启后可删）。规避：electron-builder 输出到**全新的空目录**
+
+**其它环境事实**
+- npm 必须 `--registry=https://registry.npmmirror.com`（直连 19 分钟没动 → 镜像 38 秒）；
+  electron-builder 二进制要 `ELECTRON_BUILDER_BINARIES_MIRROR`
+- `desktop/node_modules/.bin/electron` 在 Git Bash 下是坏 shim，直接用 `node_modules/electron/dist/electron.exe`
+- 没做图标（`default Electron icon is used`）、没签名（Defender 可能报毒，README 待写）
+
+**改动文件**
+- 新：`backend/app/paths.py`、`backend/cairn-backend.spec`、`desktop/error.html`、`tools/prepare_ffmpeg.py`
+- 改：`backend/app/config.py`、`backend/app/main.py`、`backend/app/services/renderer.py`、
+  4 个 `backend/app/services/agents/*.py`、`desktop/main.js`、`desktop/package.json`、
+  `backend/pyproject.toml`（+pyinstaller dev dep）、`.gitignore`
+- 文档：`milestones/M5`（§2 / §4 / §6.3 / §6.4 前的新 §6.3.1 / §6.5 / §7 / 状态行）、`README`、本文件
+
+**遗留**
+- [ ] **安装包没在这台机器上装过**（`desktop/release/Cairn-0.1.0-setup.exe`）。NSIS 包里的
+      `win-unpacked` 已单独验过能跑，但"安装 → 双击 → 卸载重装数据还在"这三步要真装一次才算数
+- [ ] DoD 那条"装到**另一台没有 Python/Node** 的机器上可用"必须真机验证，我做不了
+- [ ] 无图标、无签名
+- [ ] `desktop/_smoke/` 里留了 dev 冒烟日志与截图（gitignored）
+
+**下一会话第一件事**
+> M5 T5.7（首次引导）：`views/Setup.vue`。后端已有 `scripts/env_check.py` 与 `GET /api/env/check`
+> 那套探测（ffmpeg / whisper 模型 / embedding 模型 / sqlite-vec / LLM Key），照着它的字段做三步清单。
+> 注意 T5.7 会改 `frontend/dist`，改完要重跑 `npm run build` 并重打安装包（`npm run dist`，约 2 分钟）。

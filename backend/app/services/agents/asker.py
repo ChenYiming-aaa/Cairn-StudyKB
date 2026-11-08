@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path
 from typing import Iterator
 
+from app.paths import app_path
 from app.services import llm
 
 log = logging.getLogger(__name__)
 
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPT_DIR = app_path("prompts")
 MAX_CONTEXT_CHARS = 9000     # 8 段 ×900 字 ≈ 7200，留一点余量
 
 _CITATION = re.compile(r"\[(\d+)\]")

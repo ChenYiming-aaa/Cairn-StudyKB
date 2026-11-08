@@ -11,11 +11,11 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import Path
 
+from app.paths import app_path
 from app.services import llm
 
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPT_DIR = app_path("prompts")
 
 MIN_SCORE = 0.6
 GRADER_TIMEOUT = 60          # 排障表：超时太短会全部「待人工判断」

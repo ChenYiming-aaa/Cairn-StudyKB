@@ -13,7 +13,6 @@ from __future__ import annotations
 import html as html_lib
 import re
 from datetime import datetime
-from pathlib import Path
 
 import bleach
 import markdown
@@ -21,9 +20,10 @@ from bleach.css_sanitizer import CSSSanitizer
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
 
+from app.paths import app_path
 from app.services import mindmap
 
-TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
+TEMPLATE_DIR = app_path("templates")
 _ENV = Environment(
     loader=FileSystemLoader(str(TEMPLATE_DIR)),
     autoescape=select_autoescape(["html"]),

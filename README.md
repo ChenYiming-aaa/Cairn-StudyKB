@@ -5,12 +5,13 @@
 个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
 形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
 
-**当前状态**：**M5（计时与交付）进行中**——T5.1–T5.4 已完成（2026-11-08，tag `m5-wip`）：
+**当前状态**：**M5（计时与交付）进行中**——T5.1–T5.5 已完成：
 番茄钟（时间戳口径 / 暂停 / 提前完成 / 放弃 / 结束写笔记 / 刷新恢复 / 15 秒心跳）、顶栏迷你计时器、
-条目与练习页「开始专注」、条目学习记录、仪表盘（6 区块 + 原生 CSS 周条形图）、`verify_m5.py`（50/50）。
-**T5.5–T5.8（打包、首次引导、README 安装段）未开始**，所以**还不能双击安装**。
+条目与练习页「开始专注」、条目学习记录、仪表盘（6 区块 + 原生 CSS 周条形图）、`verify_m5.py`（50/50）；
+**后端已能打成单目录 exe，桌面壳会拉起它并加载同源页面，`npm run dist` 能出 407MB 的 NSIS 安装包**
+（2026-11-08 实测：打包后首屏 4126ms、关窗无残留进程、首次启动自动建库）。
+**首次引导与安装段文档（T5.7–T5.8）未完成**，安装包也**还没在本机真装过**，所以暂不对外发。
 M1–M4 已验收（tag `m1-done` / `m2-done` / `m3-done` / `m4-done`）。
-**Electron 空壳包已验证**（2026-11-08）：随机端口 + HTTP 握手、页面与 `/api` 同源加载、进程按树收干净。
 
 **已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
 没有字幕才走 yt-dlp + faster-whisper 转录）；「检索问答」页里可以
@@ -47,7 +48,8 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 |---|---|
 | `backend/` | FastAPI + SQLite；表结构与端点在 `docs/contracts/`，脚本在 `backend/scripts/` |
 | `frontend/` | Vue 3 + Vite；`e2e/` 是浏览器回归，`src/styles/tokens.css` 是唯一配色/间距来源 |
-| `desktop/` | Electron 空壳（`main.js`）：spawn 后端 → 端口握手 → 窗口加载 `http://127.0.0.1:<port>/`，后端直接把 `frontend/dist` 吐出来（**页面与 `/api` 同源，不走 file://**）。同目录的 `index.html` 是早期 file:// 验证页，**已不参与加载**。**打包/图标/签名/托盘/自动更新都还没做**，见 `docs/HANDOFF.md` |
+| `desktop/` | Electron 壳（`main.js`）：spawn 后端 → 随机端口 + HTTP 握手 → 窗口加载 `http://127.0.0.1:<port>/`（**页面与 `/api` 同源，不走 file://**）。dev 用 `uv run python -m app`，打包后用 `resources/backend/cairn-backend.exe`；后端起不来时加载 `error.html` 兜底页而不是白窗。**图标/签名/托盘/自动更新、NSIS 安装包都还没做**，见 `docs/HANDOFF.md` |
+| `tools/` | `doc_check.py` 文档一致性检查；`prepare_ffmpeg.py` 把本机 ffmpeg 全套（exe + 7 个 DLL）复制进 `desktop/resources/ffmpeg/` 供打包 |
 | `data/` | 开发期数据库与日志，**永不入库** |
 | `docs/` | 总纲、契约（数据/接口/ADR）、里程碑、进度台账 |
 
@@ -91,12 +93,24 @@ Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · V
 | `cd frontend && npm run build` | 可构建 | 改前端后 |
 | `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
 | `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 19 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、选项字母只出现一次、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
-| `cd desktop && npm start` | Electron 空壳：spawn 后端 → 端口握手 → 窗口显示真实 UI（`http://127.0.0.1:<port>/`，页面与 `/api` 同源、无 CORS）→ 关窗后无 python 残留（实测日志 `desktop/_smoke/run.log`） | 动到桌面壳 / 后端启动方式 / 静态挂载 |
+| `cd desktop && npm start` | Electron 壳（dev）：spawn 后端 → 端口握手 → 窗口显示真实 UI（`http://127.0.0.1:<port>/`，页面与 `/api` 同源、无 CORS）→ 关窗后无 python 残留（日志 `desktop/_smoke/shell.log`，含握手耗时与首屏耗时） | 动到桌面壳 / 后端启动方式 / 静态挂载 |
+| `cd backend && uv run pyinstaller --noconfirm --distpath build/dist --workpath build/work cairn-backend.spec` | 把后端打成 `build/dist/cairn-backend/`（onedir，windowed，约 965MB） | 改了后端代码、要在桌面端验证 |
+| `cd desktop && npm run pack` | 打可执行目录（`electron-builder --dir`，不出安装包），产物在 `desktop/release/win-unpacked/Cairn.exe` | 验证"打包后能不能真跑起来" |
+| `cd desktop && npm run dist` | 出 NSIS 安装包 → `desktop/release/Cairn-<版本>-setup.exe`（约 407MB，2 分钟） | 交付前 |
 
 跑桌面壳前**必须先 `cd frontend && npm run build`**：没有 `frontend/dist` 时后端不挂静态路由，
 窗口会白屏（后端本身不会报错，只是 `GET /` 返回 404）。
 
-空壳验证加 `SMOKE_AUTOCLOSE_MS=5000` 会自动关窗，便于非交互地跑第 3、4 项（否则要人点关闭）。
+空壳验证加 `SMOKE_AUTOCLOSE_MS=5000` 会自动关窗并截图到 `desktop/_smoke/window.png`，便于非交互地验证。
+
+> **本机跑 Electron 必须去掉 `ELECTRON_RUN_AS_NODE`**：WorkBuddy 的 shell 里默认带
+> `ELECTRON_RUN_AS_NODE=1`，带着它启动 `electron.exe` / `Cairn.exe` 会退化成纯 Node，
+> 报 `Cannot read properties of undefined (reading 'isPackaged')` 且不写日志（看起来像"打包坏了"）。
+> 一律用 `env -u ELECTRON_RUN_AS_NODE <exe>` 启动。
+>
+> 装依赖与打包都必须走镜像：npm 加 `--registry=https://registry.npmmirror.com`
+> （直连卡 19 分钟，镜像 38 秒），electron-builder 二进制加
+> `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/`。
 
 `verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
 `verify_m3.py` 与 `verify_m4.py` 全程不联网：前者 `VECTOR_ENABLED=0` + 假 `asker.stream`，
@@ -153,5 +167,15 @@ cp .env.example .env
 
 ## 数据与备份
 
-所有数据在单个 SQLite 文件 `data/data.db`（生产环境为 `%APPDATA%/Cairn/data.db`）。
-备份 = 复制这个文件。`data/` 已在 `.gitignore` 中排除，**永不入库**。
+开发期所有数据在 `data/data.db`；**打包后固定在 `%APPDATA%/Cairn/`**（不是安装目录，
+否则卸载即丢数据，装在 `Program Files` 下还写不进去）。一个目录装下全部：
+
+| 路径 | 内容 |
+|---|---|
+| `%APPDATA%/Cairn/data.db` | 数据库（知识条目、题目、计时记录） |
+| `%APPDATA%/Cairn/logs/app.log` | 后端日志，按天滚动留 14 天 |
+| `%APPDATA%/Cairn/logs/shell.log` | 桌面壳日志（握手耗时、首屏耗时、后端退出码） |
+| `%APPDATA%/Cairn/models/` | 向量 / 语音模型缓存（各约 100MB / 500MB） |
+| `%APPDATA%/Cairn/.env` | 打包后读的配置（开发期读项目根 `.env`） |
+
+备份 = 复制这个目录（至少 `data.db`）。`data/` 已在 `.gitignore` 中排除，**永不入库**。

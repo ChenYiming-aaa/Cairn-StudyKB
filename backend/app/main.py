@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings, setup_logging
 from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
+from app.paths import install_root, is_frozen
 from app.routers import (
     ask, auth, env, health, html, ingest, knowledge, quiz, review, search, session,
     stats, tasks,
@@ -110,7 +111,15 @@ app.include_router(tasks.router)
 # 2) 必须条件挂载：dist 不存在（dev 没 build / 没装前端）就整段跳过，否则后端启动即报错。
 WEB_DIR = Path(
     os.environ.get("CAIRN_WEB_DIR")
-    or str(Path(__file__).resolve().parents[2] / "frontend" / "dist")
+    or str(
+        # 冻结后 `__file__` 指向 `_internal/` 里的假路径，不能再靠 parents[n] 硬算。
+        # onedir 布局是 `<安装目录>/resources/backend/cairn-backend.exe`，
+        # 页面在 `<安装目录>/resources/web`。Electron 会显式传 CAIRN_WEB_DIR，
+        # 这里只是没人传时的合理兜底。
+        (install_root().parent / "web")
+        if is_frozen()
+        else (Path(__file__).resolve().parents[2] / "frontend" / "dist")
+    )
 )
 
 if (WEB_DIR / "index.html").exists():
