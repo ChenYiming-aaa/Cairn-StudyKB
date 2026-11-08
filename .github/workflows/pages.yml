@@ -48,6 +48,13 @@ jobs:
       - name: 关掉 Jekyll（避免资源被二次处理）
         run: touch frontend/dist-demo/.nojekyll
 
+      # Pages 没启用时 build_type 是 none，直接 upload 会白跑；这一步会顺手开启。
+      # 前提：仓库必须 Public（免费账号私有仓库不支持 Pages）。
+      - name: 确认 Pages 已启用
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist-demo
