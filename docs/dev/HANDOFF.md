@@ -9,20 +9,26 @@
 > 3. 新会话**只读「当前状态」+ 最后 2 条**，不要从头读
 > 4. "遗留问题"必须写成可执行的一句话，不要写"还需优化"
 > 5. **归档**：某里程碑**已验收、且不再是下一里程碑的直接前置**时，把它的条目**原样**移入
->    `docs/archive/HANDOFF-<日期区间>.md`（一个字都不改），本文件只留索引；当前里程碑的直接前置
+>    `docs/dev/archive/HANDOFF-<日期区间>.md`（一个字都不改），本文件只留索引；当前里程碑的直接前置
 >    （如 M5 之于 M4）先留着，等下一个里程碑验收时再移
+>
+> **路径变更（2026-11-08）**：本文档与 `contracts/` `milestones/` `00-总纲.md` `会话提示词手册.md`
+> 一起从 `docs/` 迁到 `docs/dev/`，`docs/` 顶层只留给用户看的 `images/` 和 `README` 素材。
+> 下面**历史条目里写的 `docs/xxx` 路径一律读作 `docs/dev/xxx`**（历史条目按规矩不改）。
 
 ---
 
-## 当前状态（2026-11-08 19:10 · 每次会话结束更新这一段）
+## 当前状态（2026-11-08 19:40 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M5 代码完成，待真机验收**：T5.1–T5.10 全部做完（番茄钟 / 不丢计时 / 全局入口 / 仪表盘 / Electron 壳 / onedir 打包 / **带图标的 407MB NSIS 安装包** / 首次引导页 / README 安装段 / `verify_m5.py` 57/57），2026-11-08。本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**只剩一件要你做**：装到另一台没有 Python/Node 的机器。M1–M4 已验收 |
+| 里程碑 | **M5 代码完成 + v0.1.0 已发布（tag）**：功能到交付全链路打通，本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。README 已重写成面向用户版（含 8 张真实截图），docs 拆成 `docs/images/` + `docs/dev/`。**还差两件要你做**：① 装到另一台没有 Python/Node 的机器；② 在网页上建 GitHub Release 并上传安装包 |
 | 远程 | `origin/main` 以 `git ls-remote --heads origin` 为准；**本表不追每次提交** |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip`（验收过了再打 `m5-done`） |
-| 验收 | m1 **52/52**（2026-11-08 修掉写死任务数的脆弱断言）· m2 **118/118** · m3 **61/61** · m4 **69/69** · **m5 57/57** · e2e m4 19/19 · **UI m5 13/13（console 0 错误）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · **安装版首屏 4066ms（热启）/ 6680ms（冷启，已记例外）** |
-| 台账 | M0–M3 已归档到 `docs/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
+| 版本 | `v0.1.0`（desktop / frontend / backend 三处 `package.json`·`pyproject` 都是 0.1.0，与安装包文件名一致） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` **`v0.1.0`** |
+| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57（2026-11-08 全量重跑）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · 安装版首屏 4066ms（热启）/ 6680ms（冷启，已记例外） |
+| 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
+| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
 
@@ -37,14 +43,15 @@
 | 7 | `normalize_url` 只去 fragment 不去 query | 已知限制 | `?spm=` / `?utm_source=` 会让同一篇 CSDN 成两条 |
 | 8 | `e2e/m4_quiz.py` 需 `--db` 手改 ready | 工具便利 | 新建条目是 pending，练习页只列 ready |
 | 9 | `desktop/release/`、`release-verify/` 的 `app.asar` 被锁，删不掉 | 环境问题 | gitignored，重启后可手工清 |
-| 10 | 本轮改动**只在本地提交，未 push** | 等你在终端执行 | agent 会话读不到 git 凭据，`git push` 一律交给用户 |
+| 10 | **v0.1.0 只在本地打了 tag，远程未推** | 等你在终端执行 | `git push origin main && git push origin --tags`（agent 会话读不到凭据） |
+| 11 | GitHub Release 还没建 | 要你在网页做 | 正文直接用 `docs/dev/release-notes-v0.1.0.md`，安装包 `desktop/release/Cairn-0.1.0-setup.exe` 拖进去 |
 
 **下一会话第一件事**
-> 你先手工验收（约 10 分钟）：装 `desktop/release/Cairn-0.1.0-setup.exe` → 双击 →
-> 引导页填 Key（存完立刻变绿、不用重启）→ 建一条资料 → 卸载 → 重装看数据还在不在。
-> 通过后：① `git tag m5-done`；② `00-总纲.md` 里 M5 改"已验收"、文档版本升 v1.1；
-> ③ 把 M4+M5 的 HANDOFF 条目原样移到 `docs/archive/`，本文件只留索引。
-> 要真机验证就找台没装 Python/Node 的 Windows，跑一遍同一个安装包。
+> ① 终端里 `git push origin main && git push origin --tags`（`v0.1.0` 要一起推上去）；
+> ② 网页建 GitHub Release：tag 选 `v0.1.0`，正文整段拷 `docs/dev/release-notes-v0.1.0.md`，
+> 附件拖 `desktop/release/Cairn-0.1.0-setup.exe`（426MB，`git push` 推不了这么大的文件）；
+> ③ 找台没装 Python/Node 的 Windows 真机装一遍，跑通「填 Key → 建一条资料 → 重启还在」。
+> 之后才谈 M5 归档与 v2（模板 A 换里程碑）。
 
 ---
 
@@ -888,3 +895,34 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 - [ ] **本轮只在本地提交，没 push**：agent 会话读不到 git 凭据，`git push origin main` 请你在终端执行
 - [ ] M5 真机验收（另一台没有 Python/Node 的机器）仍未闭环，见当前状态
+
+## 2026-11-08 19:45 · 发布 · 整理 + 用户向 README + v0.1.0
+
+**完成**
+
+- **文档整理**：`00-总纲.md` / `HANDOFF.md` / `contracts/` / `milestones/` / `archive/` / `会话提示词手册.md`
+  全部 `git mv` 到 `docs/dev/`，`docs/` 顶层只留 `images/`（用户向）。`tools/doc_check.py` 的 `DOCS`
+  与 `allow_archive_ref` 跟着改，检查仍 6 PASS + 1 提示；代码里唯一一处注释路径（`desktop/main.js`）也改了。
+- **README 重写**：真实读了 AnythingLLM / Cherry Studio / Khoj / Quivr 四份原始 README（`curl` 拉 raw 文件，
+  不是凭印象），抽出它们的共识结构（一句定位 → 下载 → 截图图集 → 按场景分组的特性 → 首次配置 →
+  隐私/数据位置 → FAQ → 已知限制 → 开发 → 许可），按 Cairn 的实际能力重排。开发期台账内容全部退出 README。
+- **截图**：临时 `DATA_DIR` + 演示内容（6 篇学习方法短文，真跑整理 / 问答 / 出题 / 错两题）起 8760/5190，
+  Playwright 截 8 张 1440×900@2x 图存 `docs/images/`：知识库 / 条目详情 / 思维导图 / 检索问答 / 学习页 /
+  复习作答 / 仪表盘 / 练习配置。**没有拍用户真实知识库**，用完删掉临时数据目录。
+- **发布件**：`LICENSE`（MIT，与 AnythingLLM / Quivr 一致）、`CHANGELOG.md`（0.1.0）、
+  `docs/dev/release-notes-v0.1.0.md`（GitHub Release 正文 + 安装包 SHA-256 `58ec2d45…f107ebedf`）。
+- **全量回归**（发出前重跑）：m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · `npm run lint` 干净。
+- **tag `v0.1.0`**（annotated，指向本次提交）。
+
+**改动文件**
+
+- 新增：`LICENSE`、`CHANGELOG.md`、`docs/images/*.png`（9 张）、`docs/dev/release-notes-v0.1.0.md`
+- 重写：`README.md`
+- 移动：`docs/{00-总纲,HANDOFF,contracts,milestones,archive,会话提示词手册}` → `docs/dev/`
+- 改：`tools/doc_check.py`、`desktop/main.js`（注释路径）、`docs/dev/HANDOFF.md`
+
+**遗留**
+
+- [ ] **`git push origin main && git push origin --tags`** —— agent 会话读不到 git 凭据
+- [ ] GitHub Release 要你在网页建（正文用 release-notes，安装包手动上传）
+- [ ] 真机验收（另一台没有 Python/Node 的 Windows）仍未做

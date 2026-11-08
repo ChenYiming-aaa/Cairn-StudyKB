@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DOCS = ROOT / "docs"
+DOCS = ROOT / "docs" / "dev"   # 开发文档（总纲 / 台账 / 契约 / 里程碑）都在这里
 ARCHIVE = DOCS / "archive"
 
 FAIL: list[str] = []
@@ -169,7 +169,7 @@ def main() -> int:
         PASS.append(f"表结构一致性：共 {len(defined_tables)} 张表，无游离定义")
 
     # ── 检查 5：archive 引用 ──────────────────────────────
-    allow_archive_ref = {"docs/00-总纲.md", "docs/HANDOFF.md"}
+    allow_archive_ref = {"docs/dev/00-总纲.md", "docs/dev/HANDOFF.md"}
     bad_arch = 0
     for p, t in docs.items():
         if rel(p) in allow_archive_ref:

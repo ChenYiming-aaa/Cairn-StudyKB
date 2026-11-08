@@ -1,223 +1,272 @@
-# Cairn
+<p align="center">
+  <img src="docs/images/logo.png" width="88" alt="Cairn">
+</p>
 
-> cairn /kɛərn/ · 登山者沿途堆的石堆路标。走一段留一块石头，靠自己堆的标记找得回来。
+<h1 align="center">Cairn</h1>
 
-个人自用的学习闭环工具：把文本 / 网页 / 视频采集进本地知识库，由 LLM 自动分类、摘要、结构化，
-形成可阅读、可检索、可生成学习页、可出题练习的知识资产，并用番茄钟记录学习时间。
+<p align="center">
+  把看过的网页、视频、文章收进本地知识库，让 AI 整理成可检索、可复习的知识资产。<br/>
+  单机运行 · 数据在你自己的硬盘上 · Windows 桌面应用
+</p>
 
-**当前状态**：**M5（计时与交付）功能已全部完成**（T5.1–T5.8，2026-11-08）：
-番茄钟（时间戳口径 / 暂停 / 提前完成 / 放弃 / 结束写笔记 / 刷新恢复 / 15 秒心跳）、顶栏迷你计时器、
-条目与练习页「开始专注」、条目学习记录、仪表盘（6 区块 + 原生 CSS 周条形图）、
-`verify_m5.py`（57/57）；后端打成 onedir exe，桌面壳按 dev/prod 分流并加载同源页面，
-**首次引导页（缺 Key / 缺 ffmpeg 时自动进入，可当场填 Key 并热生效）**、
-**自绘应用图标（ico/png/svg 同源），`npm run dist` 出 407MB 的 NSIS 安装包**。
-M1–M4 已验收（tag `m1-done` / `m2-done` / `m3-done` / `m4-done`）。
-**还差两件（都要人工）**：安装包在本机真装一遍、装到一台没有 Python/Node 的机器上验一遍。
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/version-0.1.0-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/data-100%25%20local-success.svg" alt="Local first">
+</p>
 
-**已能做什么**：网页链接与视频链接都能入库（网页走 trafilatura 抽正文，视频优先用自带字幕，
-没有字幕才走 yt-dlp + faster-whisper 转录）；「检索问答」页里可以
-① 对整库提问，答案分条并带 `[n]` 引用，点引用/来源卡片直接跳到原文那一段并高亮；
-② 直接搜原文片段，两字词也能搜（自动走 LIKE），命中的关键词高亮、标出 `fts`/`like`/`vector`；
-③ 每次问答（含"库里没有"）自动存进「历史」抽屉，点一条就恢复当时的问题、答案与来源，
-**不会重新调模型**，也可以单条删除。
-检索是 FTS5（trigram）+ bge 向量两路召回再 RRF 融合，向量不可用时自动降级为纯全文检索
-（全文零命中时向量还要过距离阈值，否则判"库里没有"直接短路，不调模型）。
-④ 条目详情第 4 个 Tab「思维导图」按笔记标题层级现场出图（纯 Python 手写 SVG，不缓存）；
-⑤ 「学习页」页里多选条目 → 生成一份**单文件离线** HTML（内联样式 + 内嵌导图 + 代码高亮）→
-iframe 预览 → 下载分享，历史产物可回看与删除。
-⑥ 「练习」页：选一条 ready 条目 → 选题型（单选/多选/判断/简答）、难度、题数（5/10/20）→
-**题面逐题流式浮现**（可中途停止，已收到的题留着）→ 一题一屏作答，答完立刻看到对错与解析 →
-交卷后出总分/正确率与逐题回看。出题只依据材料（按 chunk 等距抽样覆盖全文）、坏 JSON 单题跳过、
-题数不足逐题补生成、同题撞指纹复用不重复入库；客观题判分在后端（多选按集合、顺序无关），
-简答走 LLM 批改给出"你提到了…但漏了…"，批改失败落 `is_correct = NULL`（**待人工判断**，不冤枉人）。
-⑦ 「复习」页：答错的题按 1 → 2 → 4 → 7 → 15 天自动回来（`due_at` 存 UTC，比较在 Python 侧），
-今日到期一次最多 20 题，直接进入作答；「错题本」标签页列出**最近一次仍答错**的题，复习答对即移出。
-⑧ 番茄钟：条目详情或练习页点「开始专注」（带入条目标题），或顶栏「专注」开一轮自由专注；
-15/25/50 分钟可选，可暂停/继续/提前完成/放弃，到点先冻结时长再让你写一句笔记；
-顶栏迷你计时器显示剩余时间，**刷新、切页面、重启后端都不会重置**（时长以 `start_time` 推算，
-15 秒心跳兜底强杀），一轮结束后出现在该条目的「学习记录」页签里。
-⑨ 「仪表盘」页：今日待整理 / 今日待复习 / 连续学习天数 / 今日正确率 / 本周专注（原生 CSS 条形图，
-7 天）/ 分类分布，数字全部由后端按固定口径算好，前端不做二次统计。
-⑩ 「环境」引导页：缺 Key 或 ffmpeg 时首次启动自动进入，三步清单（Key / ffmpeg / 本地模型），
-Key 在页面里填完**立刻生效、不用重启**，卸载重装也还在（写在 `%APPDATA%/Cairn/.env`）；
-配好之后顶栏的黄色「环境待配置」标记自动消失，随时可以点回来复查。
+<p align="center">
+  <a href="#下载与安装">下载</a> ·
+  <a href="#界面">截图</a> ·
+  <a href="#它能做什么">功能</a> ·
+  <a href="#第一次打开要配什么">配置</a> ·
+  <a href="#常见问题">常见问题</a>
+</p>
 
-`verify_m1.py` 52/52（2026-11-08 修掉了"写死任务数 3"的脆弱断言：向量索引任务会让全表任务数浮动，
-现在只断言「无 Key 时不派发 organize 任务，且不存在记着 `LLM_NO_KEY` 的失败任务」）、
-`verify_m2.py` 118/118、`verify_m3.py` 61/61、`verify_m4.py` 69/69、`verify_m5.py` 57/57 PASS。
+---
 
-## 安装与启动（Windows，给最终用户）
+> **cairn** /kɛərn/ · 登山者沿途堆的石堆路标。走一段留一块石头，靠自己堆的标记找得回来。
 
-前提：Windows 10/11 x64。**不需要装 Python、Node、ffmpeg**，安装包自带后端与 ffmpeg。
+## 这是什么
 
-1. 拿到 `Cairn-0.1.0-setup.exe`（约 400MB）
-2. 双击安装。若弹出蓝色的「Windows 已保护你的电脑」：点**更多信息 → 仍要运行**
-   （安装包未做代码签名，这不是病毒告警，是"没见过这个发布者"）
-3. 安装向导里可以改安装目录（默认装在当前用户目录下，不需要管理员权限）；
-   最后一步勾「运行 Cairn」即可
-4. 首次启动约 4–6 秒出界面（先起本地后端，握手成功才建窗口，所以不会白屏）。
-   如果还没配模型 Key，会自动进「环境」引导页：粘贴 Key → 保存并检查 → 变绿 → 去知识库
-5. 以后双击桌面 / 开始菜单的 **Cairn** 即可。第二次双击不会开第二个实例，只会把已有窗口叫到前面
+看过的东西大多留不下来：网页关掉就散了，视频看完只剩「我好像学过」的感觉，摘抄攒了一堆却从来没回头读过。
 
-**卸载**：设置 → 应用 → 已安装的应用 → Cairn → 卸载。
-**数据默认保留**在 `%APPDATA%\Cairn`（卸载重装不丢）；要彻底清除就手动删掉这个目录。
+Cairn 想把这条断掉的链路接上：**一个链接丢进去 → AI 抽正文、分类、写摘要和结构化笔记 → 之后能按语义搜出来、能生成学习页、能自动出题考你、答错的题按间隔重复回来找你。** 学多久也有记录，仪表盘上一眼看到今天该干什么。
 
-装完想确认装对了：窗口标题是 `Cairn`，右上角有「已连接」，第一次用「采集内容」粘一条链接
-能进库、能整理出摘要 —— 就说明后端、数据库、模型 Key 三条链路都通了。
+它是给一个人用的工具，不是一个平台：没有账号、没有云同步、没有多人协作。所有内容存在一个本地 SQLite 文件里，唯一出网的动作是调用你自己配置的大模型接口。
 
-## 目录
-
-| 目录 | 内容 |
+| 它不做 | 说明 |
 |---|---|
-| `backend/` | FastAPI + SQLite；表结构与端点在 `docs/contracts/`，脚本在 `backend/scripts/` |
-| `frontend/` | Vue 3 + Vite；`e2e/` 是浏览器回归，`src/styles/tokens.css` 是唯一配色/间距来源 |
-| `desktop/` | Electron 壳（`main.js`）：spawn 后端 → 随机端口 + HTTP 握手 → 窗口加载 `http://127.0.0.1:<port>/`（**页面与 `/api` 同源，不走 file://**）。dev 用 `uv run python -m app`，打包后用 `resources/backend/cairn-backend.exe`；后端起不来时加载 `error.html` 兜底页而不是白窗。`build/icon.ico` 是应用图标（`tools/make_icon.py` 生成），`package.json` 里有 electron-builder / NSIS 配置。**签名、托盘、自动更新没做** |
-| `tools/` | `doc_check.py` 文档一致性检查；`prepare_ffmpeg.py` 把本机 ffmpeg 全套（exe + 7 个 DLL）复制进 `desktop/resources/ffmpeg/` 供打包；`make_icon.py` 生成应用图标（多尺寸 ico / png / svg，需系统 Python 装 Pillow） |
-| `data/` | 开发期数据库与日志，**永不入库** |
-| `docs/` | 总纲、契约（数据/接口/ADR）、里程碑、进度台账 |
+| 不做云端存储 | 数据在 `%APPDATA%\Cairn\`，卸载也不删 |
+| 不支持多人 / 团队 | 单用户单机，后续也不会做 |
+| 不自动替你「读完」 | 采集是自动化，理解还得你自己看、自己写 |
 
-## 技术栈
+## 下载与安装
 
-Python 3.12 · FastAPI · SQLite（FTS5 + sqlite-vec）· bge-small-zh-v1.5 · Vue 3 · Electron
-采集侧：trafilatura + httpx（网页）· yt-dlp + ffmpeg + faster-whisper（视频）
+**系统要求**：Windows 10 / 11，x64。**不需要装 Python、Node 或 ffmpeg**，安装包自带运行时和 ffmpeg。
 
-## 先读这些
+1. 到 [Releases](https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases) 下载 `Cairn-0.1.0-setup.exe`（约 426 MB —— 里面塞了 Python 运行时、`torch` 和 `ffmpeg`，不是下载出错）
+2. 双击安装。若弹出蓝色的「Windows 已保护你的电脑」，点 **更多信息 → 仍要运行**
+   （安装包没有做代码签名，这不是病毒告警，只是"没见过这个发布者"）
+3. 安装向导可以改安装目录；默认装在当前用户目录下，**不需要管理员权限**，卸载也走「应用和功能」里的同名条目
+4. 首次启动约 4–6 秒出界面（先起本地后端，握手成功才建窗口，所以不会白屏）
+5. 如果还没配模型 Key，会自动进「环境」引导页：粘贴 Key → 保存并检查 → 变绿 → 去知识库
 
-| 文件 | 作用 |
-|---|---|
-| [`docs/00-总纲.md`](docs/00-总纲.md) | **入口**。红线、技术栈、里程碑地图、会话工作法 |
-| [`docs/milestones/`](docs/milestones/) | 每个里程碑的自包含执行文档 |
-| [`docs/contracts/`](docs/contracts/) | 数据契约、接口契约、决策记录（ADR） |
-| [`docs/HANDOFF.md`](docs/HANDOFF.md) | 进度台账：顶部「当前状态」表 + 最近条目（每次会话结尾追加） |
-| [`docs/archive/`](docs/archive/) | 归档：已完结且不再是前置的里程碑台账、v1.0 规格书。**只做追溯，不读** |
+以后双击桌面或开始菜单的 **Cairn** 即可。重复双击不会开第二个实例，只会把已有窗口叫到前面。
 
-## 开发约定
+## 界面
 
-- 技术栈定版见 `docs/00-总纲.md` §3，更换需先在 `决策记录.md` 追加 ADR
-- 红线见 §2，四条技术限制的解除条件见 §2.1
-- **每次完成改动后同步更新本 README**（当前状态、配置项、目录与用法），停更就等于写错；总纲 §6 已把它列为收尾动作之一
-- **每次 commit 都要推到 GitHub**：`git push origin main`，有标签再 `git push origin --tags`。别攒到里程碑结束——本地提交不算交付。推送要用 `"C:\Program Files\Git\cmd\git.exe"`，PATH 里的 WorkBuddy 精简版 git 缺 `git-remote-https`，`git push` 会直接报错
+**知识库** · 左边是自动生成的分类与标签树，中间是条目列表，右边是选中条目的摘要与要点（笔记、原文、思维导图、学习记录各占一个页签）。
 
-## 验证
+![知识库](docs/images/01-knowledge.png)
 
-| 命令 | 验什么 | 何时跑 |
+**条目详情** · AI 重写标题、给摘要、拆要点、写 Markdown 笔记；笔记可以手改，改完索引自动重建。
+
+![条目详情](docs/images/02-item-detail.png)
+
+**思维导图** · 按笔记的标题层级现场出图，用来检查自己的理解结构有没有断层。
+
+![思维导图](docs/images/03-mindmap.png)
+
+**检索问答** · 对整库提问，答案分条并带 `[n]` 引用；点引用直接跳到原文那一段并高亮。全文搜不到就坦白说"库里没有"，不硬编。
+
+![检索问答](docs/images/04-ask.png)
+
+**学习页** · 多选条目生成一份**单文件离线** HTML（内联样式、内嵌导图、代码高亮），能断网打开、能直接发给别人。
+
+![学习页](docs/images/05-pages.png)
+
+**复习** · 答错的题按 1 → 2 → 4 → 7 → 15 天回来；到期就出现在这里，一题一屏，答完立刻给判定和解析。
+
+![复习](docs/images/06-review.png)
+
+**练习** · 选一条 ready 条目，挑题型（单选 / 多选 / 判断 / 简答）、难度、题数（5 / 10 / 20），题面逐题流式浮现。
+
+![练习](docs/images/08-practice.png)
+
+**仪表盘** · 今日待整理、今日待复习、连续学习天数、今日正确率、本周专注、分类分布，全部由后端按固定口径算好。
+
+![仪表盘](docs/images/07-dashboard.png)
+
+## 它能做什么
+
+### 采集
+- **网页链接**：抽正文入库（`trafilatura`），自动去掉导航和广告
+- **视频链接**：优先用站点自带字幕，没有字幕才下载音频跑本地语音识别（`faster-whisper`）
+- **纯文本**：直接粘贴，适合笔记、摘录、短文
+- 视频站点的登录态可以放一份 `cookies.txt`，B 站这类必须登录才给字幕的站点才能拿到字幕
+
+### 整理
+- 大模型读完全文后：**重写标题**（≤20 字）、给**摘要**、拆 3–6 条**要点**、写一份带标题层级的**结构化笔记**、打**分类**和**标签**
+- 单条整理，或「整理全部」批量跑（后台队列，逐条派发独立任务，失败可重试）
+- 整理结果全部可手改；手改过的笔记不会被覆盖，索引会跟着重建
+
+### 检索
+- **两路召回**：SQLite FTS5（trigram，两字词也能搜）+ 本地 bge 向量，RRF 融合
+- 向量不可用时自动降级成纯全文检索，前端明说"已降级"，不假装
+- 全文零命中时向量还要过距离阈值，否则直接判"库里没有"**不调模型**（省钱也避免瞎编）
+
+### 问答
+- 对整库提问，答案分条 + `[n]` 引用；点引用/来源卡片跳到原文并高亮
+- 每次问答（含"库里没有"）自动存进历史，点一条就恢复当时的问题、答案与来源，**不会重新调模型**
+- 历史可单条删除
+
+### 学习页
+- 多条目 → 一份离线 HTML：内联样式、内嵌思维导图、代码高亮，iframe 预览后可下载分享
+- 产物有历史记录，可回看、可删除
+
+### 出题与练习
+- 四种题型（单选 / 多选 / 判断 / 简答），三档难度，材料按 chunk 等距抽样覆盖全文
+- 客观题判分在后端（多选按集合、顺序无关）；简答走大模型批改，给出"你提到了…但漏了…"
+- 批改失败时落「待人工判断」，**不冤枉人**
+
+### 复习
+- 答错自动进入间隔重复队列：1 → 2 → 4 → 7 → 15 天
+- 今日到期一次最多 20 题，直接进入作答；「错题本」只列**最近一次仍答错**的题，复习答对即移出
+
+### 专注
+- 条目或练习页点「开始专注」带入上下文，顶栏「专注」可开一轮自由专注
+- 15 / 25 / 50 分钟，可暂停、提前完成、放弃；到点先冻结时长再让你写一句笔记
+- **刷新、切页面、重启后端都不会重置**（时长以开始时间推算，15 秒心跳兜底）
+- 一轮结束后出现在该条目的「学习记录」页签里
+
+## 第一次打开要配什么
+
+| 项 | 必需 | 怎么弄 |
 |---|---|---|
-| `python tools/doc_check.py` | 文档一致性（作用域、ADR/端点/表引用、完结标记） | 改文档后、每次会话开场 |
-| `cd backend && uv run python scripts/status.py` | 数据目录 / 表行数 / 最近任务 / 环境自检（只读） | 每次会话开场与收尾 |
-| `cd backend && uv run python scripts/env_check.py` | ffmpeg / whisper / embedding / sqlite-vec / LLM Key（`--json` 机读，`--strict` 有阻塞项即 exit 1） | 排查"转录跑不起来" |
-| `cd backend && uv run python scripts/verify_m1.py` | M1 后端链路 51 项（含分类聚合端点），真实 LLM 调用 | 动到条目 / 整理 / chunk |
-| `cd backend && uv run python scripts/verify_m2.py` | M2 采集链路 118 项：网页/视频成功、去重、force、三类抓取失败、未登记 5xx 归类、四阶段进度、重试、并发、僵尸任务、字幕选取/解析/降级（**默认全用假 fetcher/transcriber，不打真实站点**） | 动到采集 / 任务状态机 / 字幕 |
-| `cd backend && uv run python scripts/verify_m2.py --online` | 上面 118 项 + 16 项真实链路：两个公开页真抓、真 404、真去重（**要外网，断了会红**） | 动到 fetcher / 抽取库 / 降级策略，或验收前 |
-| `cd backend && uv run python scripts/verify_m3.py` | M3 全链路 61 项：导图层级/折叠/转义/与笔记同步、学习页落库/内联样式/内嵌 SVG/净化与 XSS/断网自包含/下载、短词 LIKE、空检索不调模型、SSE 三事件顺序（**向量关闭 + LLM 用假实现**，不联网不烧钱） | 动到导图 / 渲染 / 检索 / 问答 |
-| `cd backend && uv run python scripts/verify_m4.py` | M4 全链路 69 项：增量括号扫描、逐题 emit、坏 JSON/越界答案/缺解析/重复只跳该题、补生成、撞指纹复用、多选乱序与少选、单选归一、判断布尔、空答案、简答反馈、批改失败落 NULL、错误码归一（超时/额度/其他 HTTP）、选项不带字母前缀（生成侧与读取侧都剥）、复习间隔 1→2→4→7→15、时间旅行查到期、错题本进出、参数校验（**出题与批改全用假实现**，不联网不烧钱） | 动到出题 / 判分 / 复习队列 |
-| `cd backend && uv run python scripts/verify_m5.py` | M5 计时与统计 57 项：start 并发 409 / current / 心跳卷账与锚点 / 暂停不计时 / finish 幂等与笔记 / abandon 不计入专注 / >4h 启动清理（模拟重启）/ 学习记录过滤 / `stats/today` 与**独立写的 SQL 聚合**逐项对账 / `stats/week` 七天与合计 / 口径边界（昨天的 pending 不算、NULL 不进分母、分类前 8、连续天数今天没学不算断）/ 首次引导保存 Key（拒换行注入、保留原有行、响应不含 Key 明文）（**临时库，不联网不烧钱**） | 动到计时 / 统计 / 仪表盘 / 引导页 |
-| `cd backend && uv run python scripts/backfill_embed.py` | 全库补向量（幂等，只处理缺向量的 chunk）；`--stats` 只看覆盖率 | 首次启用向量、换 embedding 模型后 |
-| `cd frontend && npm run lint` | 前端正确性问题（未定义/未使用变量、Vue 必备规则） | 改前端后 |
-| `cd frontend && npm run build` | 可构建 | 改前端后 |
-| `cd frontend && npm run e2e` | 浏览器端到端 24 项（需先起前后端，真实 LLM） | 动到 UI 主流程 |
-| `cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db <副本库>` | M4 练习页 19 项：5 道单选逐题浮现（每 200ms 采卡片数）、答完立即见对错与解析、选项字母只出现一次、结果页 N/5、复习角标与接口一致（需先起 8757 + 5174，真实 LLM 1 次调用） | 动到练习/复习页 |
-| `cd desktop && npm start` | Electron 壳（dev）：spawn 后端 → 端口握手 → 窗口显示真实 UI（`http://127.0.0.1:<port>/`，页面与 `/api` 同源、无 CORS）→ 关窗后无 python 残留（日志 `desktop/_smoke/shell.log`，含握手耗时与首屏耗时） | 动到桌面壳 / 后端启动方式 / 静态挂载 |
-| `cd backend && uv run pyinstaller --noconfirm --distpath build/dist --workpath build/work cairn-backend.spec` | 把后端打成 `build/dist/cairn-backend/`（onedir，windowed，约 965MB） | 改了后端代码、要在桌面端验证 |
-| `python tools/make_icon.py` | 重新生成 `desktop/build/icon.{ico,png}`、`frontend/public/{favicon.ico,logo.svg}`（四个文件同一套几何）。**产物已入库，只有改设计时才需要跑**；需系统 Python 装 Pillow | 改图标 |
-| `cd desktop && npm run pack` | 打可执行目录（`electron-builder --dir`，不出安装包），产物在 `desktop/release/win-unpacked/Cairn.exe` | 验证"打包后能不能真跑起来" |
-| `cd desktop && npm run dist` | 出 NSIS 安装包 → `desktop/release/Cairn-<版本>-setup.exe`（约 407MB，2 分钟） | 交付前 |
+| **模型 Key** | ✅ 必需 | 「环境」页粘贴任意 OpenAI 兼容服务的 Key（默认 DeepSeek）；填完**立刻生效，不用重启**，存在 `%APPDATA%\Cairn\.env`，重装也还在 |
+| ffmpeg | 已自带 | 安装包内置，无需配置 |
+| 向量模型（约 92 MB） | 首次检索时自动下载 | 从 `hf-mirror.com` 拉 `bge-small-zh-v1.5`；下不来就自动降级成纯全文检索 |
+| 语音识别模型（约 539 MB） | 首次转录音频时自动下载 | 只有「视频没有字幕」时才会用到；有字幕的视频不下载 |
 
-跑桌面壳前**必须先 `cd frontend && npm run build`**：没有 `frontend/dist` 时后端不挂静态路由，
-窗口会白屏（后端本身不会报错，只是 `GET /` 返回 404）。
+换模型/换服务商：在 `.env` 里改 `LLM_BASE_URL` / `LLM_MODEL` 即可，参考 [.env.example](.env.example)（里面写了硅基流动、阿里百炼、本地 Ollama 的例子）。
 
-空壳验证加 `SMOKE_AUTOCLOSE_MS=5000` 会自动关窗并截图到 `desktop/_smoke/window.png`，便于非交互地验证。
+## 你的数据在哪
 
-> **本机跑 Electron 必须去掉 `ELECTRON_RUN_AS_NODE`**：WorkBuddy 的 shell 里默认带
-> `ELECTRON_RUN_AS_NODE=1`，带着它启动 `electron.exe` / `Cairn.exe` 会退化成纯 Node，
-> 报 `Cannot read properties of undefined (reading 'isPackaged')` 且不写日志（看起来像"打包坏了"）。
-> 一律用 `env -u ELECTRON_RUN_AS_NODE <exe>` 启动。
->
-> 装依赖与打包都必须走镜像：npm 加 `--registry=https://registry.npmmirror.com`
-> （直连卡 19 分钟，镜像 38 秒），electron-builder 二进制加
-> `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/`。
-
-`verify_m1.py` 与 `npm run e2e` 都会真的调模型（各约 1–3 次调用），别当免费工具循环跑。
-`verify_m3.py` 与 `verify_m4.py` 全程不联网：前者 `VECTOR_ENABLED=0` + 假 `asker.stream`，
-后者把 `quizzer.stream` 与 `llm.chat` 都换成假实现，可以随便跑。
-`verify_m4.py` 的"待复习永远为空"用**时间旅行**验（直接改 `due_at` 或给仓库函数传 `now`），不改系统时间。
-`verify_m2.py` 默认全程注入假实现，不访问外部站点、不调模型，可以随便跑；只有加 `--online` 才发真实请求（两个公开页 + 一个 404）。
-前端 lint 只查正确性、不管格式：无分号、单引号这类风格靠人守。
-
-## 配置
-
-复制 `.env.example` 为 `.env`，填入 API Key（`.env` 已被 gitignore，永不入库）：
-
-```bash
-cp .env.example .env
+```
+%APPDATA%\Cairn\
+├─ data.db          # 全部内容：条目、chunk、索引、题目、作答、计时（一个 SQLite 文件）
+├─ models\          # 本地向量模型与语音模型
+├─ logs\            # 运行日志
+└─ .env             # 你的 Key（这一份不会跟着仓库走）
 ```
 
-必填项只有 `LLM_API_KEY`，其余已有默认值。取 Key：https://platform.deepseek.com → API keys → 创建。
+- **备份** = 复制整个目录；**迁移** = 把目录搬到新机器同一位置
+- 直接复制 `data.db` 在另一个进程里打开也没问题（WAL，`scripts/status.py --db` 就是这么读的）
+- **卸载不会删数据**，重装后内容还在；要彻底清空得手动删 `%APPDATA%\Cairn\`
+- 出网只有三件事：调用你配置的大模型接口、下载本地模型、采集你给的链接。**没有遥测、没有统计上报**
+- 仓库里的 `.gitignore` 把 `data/`、`*.db`、`.env`、`cookies.txt` 全部挡住，私人内容不会被误提交
 
-| 变量 | 说明 |
-|---|---|
-| `LLM_BASE_URL` | `https://api.deepseek.com` —— **注意 DeepSeek 不带 `/v1`**，换服务商时必改 |
-| `LLM_MODEL` | `deepseek-flash`（另有 `deepseek-v4-pro`） |
-| `LLM_EFFORT` | 思考档位 `low`／`high`／`max`，结构化任务用 `low` 省钱 |
-| `FFMPEG_DIR` | 本机 ffmpeg 在 Anaconda 下，显式指定避免 IDE 启动时找不到 |
-| `HF_ENDPOINT` | **别删**。直连 HuggingFace 不通，模型靠这个镜像下载 |
-| `YTDLP_COOKIES` | 可选。Netscape 格式 `cookies.txt` 的绝对路径。留空则用登录助手写出的 `data/cookies.txt`。**一般不用手工配**：在采集面板点「站点登录 → B 站」即可，见下 |
-| `BROWSER_CHANNEL` | `msedge`（默认）。浏览器渲染用的通道，可选 `chrome`；置空则用 playwright 自带 Chromium（需先 `playwright install chromium`） |
-| `BROWSER_HEADLESS` | `1`（默认）。置 `0` 时渲染也弹窗口，排障用 |
-| `VECTOR_ENABLED` | `1`（默认）。置 `0` 时检索只走 FTS/LIKE：问答照常可用，前端提示「向量不可用，已降级」。sqlite-vec 加载失败时同样自动降级，不用改这里 |
-| `EMBED_MODEL` | 默认 `BAAI/bge-small-zh-v1.5`。**换模型必须重建向量**（维度变了），见 M3 §6.3 |
-| `CAIRN_API_TARGET` | **只给前端开发用**（不是 `.env` 变量，是启动 Vite 时的环境变量）。默认 `/api` 反代到 `127.0.0.1:8756`；想在另一个后端实例（比如 8757 上的联调实例）上跑 UI 时设它，别去改 `vite.config.js` |
-| `CAIRN_WEB_DIR` | **只给 Electron 壳用**。后端启动时若该目录下存在 `index.html`，就挂 `/assets` 并让 `GET /` 返回它（页面与 `/api` 同源，绕开 `file://` 的 `null` origin）。默认 `frontend/dist`；目录不存在时整段跳过，不影响 dev 与 API |
-| `VECTOR_MIN_DISTANCE` | `1.05`（默认）。全文零命中时，向量最近片段的 L2 距离须 ≤ 此值才算命中，否则判「库里没有」直接返回空（不调模型）。调大更宽松、调小更严格；实测库内语义查询 0.958 能过、库外问题 1.10–1.17 被挡 |
+## 常见问题
 
-> **站点登录**：需要登录才给内容的站点（B 站字幕、知乎受限页）在采集面板的「链接采集」里
-> 点「站点登录」即可。后端会弹一个**独立**的浏览器窗口，登完自动导出 cookie 并立即生效，
-> 不用改 `.env`、不用重启，也不碰你日常用的浏览器。
-> 知乎这类站点光有 cookie 不够（它拦的是浏览器指纹），所以网页抓取在 httpx 失败时会
-> 自动改用同一个浏览器渲染再抓一次，多花 3–5 秒。
+<details>
+<summary><b>没有模型 Key 能用吗？</b></summary>
 
+能打开、能粘贴文本，但整理、问答、出题都要调模型，没 Key 时这些入口会直接返回 `LLM_NO_KEY` 并提示你去配 Key——**不会留一个注定失败的任务在队列里**。
+</details>
 
-> 语音模型不是环境变量：视频采集时由请求体 `model` 决定（默认 `small`），
-> 首次使用自动下载到 `data/models/whisper/`（约 500MB，删了下次会重下）。
->
-> 向量模型也不是环境变量：`BAAI/bge-small-zh-v1.5` 首次使用自动下载到
-> `data/models/embedding/`（约 100MB，走 `HF_ENDPOINT` 镜像）。入库与改笔记后由
-> `index_embed` 任务在后台补向量，不卡采集；首次启用或换模型时跑一次
-> `scripts/backfill_embed.py` 把历史 chunk 补齐。
->
-> 字幕优先是**默认行为**，不需要开关：有中英字幕就用，没有就转。人工字幕优先于自动字幕，
-> 简体优先于繁体。任务 `output_json.source` 会标明这次走的是 `subtitle` 还是 `asr`。
+<details>
+<summary><b>支持哪些模型服务？</b></summary>
 
-> API 规范以 https://api-docs.deepseek.com 为准，本表核对于 2026-11-05。
+任何 OpenAI 兼容的 `/chat/completions` 接口。默认 DeepSeek；硅基流动、阿里百炼、本地 Ollama 都有现成配置示例写在 [.env.example](.env.example) 里。换服务时注意 `base_url` 要不要带 `/v1`（DeepSeek 不带，多数服务带）。
+</details>
 
-## 数据与备份
+<details>
+<summary><b>安装包为什么有 426 MB？</b></summary>
 
-开发期所有数据在 `data/data.db`；**打包后固定在 `%APPDATA%/Cairn/`**（不是安装目录，
-否则卸载即丢数据，装在 `Program Files` 下还写不进去）。一个目录装下全部：
+为了让你不用装任何东西：里面打包了完整 Python 运行时、`torch`（本地向量与语音识别要用）、`ffmpeg` 二进制。代价是体积大、冷启动慢一点，换来的是"双击就能用"。
+</details>
 
-| 路径 | 内容 |
-|---|---|
-| `%APPDATA%/Cairn/data.db` | 数据库（知识条目、题目、计时记录） |
-| `%APPDATA%/Cairn/logs/app.log` | 后端日志，按天滚动留 14 天 |
-| `%APPDATA%/Cairn/logs/shell.log` | 桌面壳日志（握手耗时、首屏耗时、后端退出码） |
-| `%APPDATA%/Cairn/models/` | 向量 / 语音模型缓存（各约 100MB / 500MB） |
-| `%APPDATA%/Cairn/.env` | 打包后读的配置（开发期读项目根 `.env`） |
+<details>
+<summary><b>卸载为什么很慢？</b></summary>
 
-备份 = 复制这个目录（至少 `data.db`）。`data/` 已在 `.gitignore` 中排除，**永不入库**。
+要删 1.4 GB 文件，加上杀毒软件实时扫描，实测能到十分钟。数据目录不在卸载范围内，所以卸载不会碰你的知识库。
+</details>
 
-**换电脑 / 迁移**：装好新机器后先**退出** Cairn，再把旧机器的 `%APPDATA%\Cairn` 整个覆盖过去，
-重启即可（`.env` 里的 Key 也一起跟过去了）。模型目录可以不带，会重新下。
-单独备份数据库也行：`data.db` + `.env` 两个文件就够，`logs/` 与 `models/` 都不影响正确性。
+<details>
+<summary><b>B 站视频拿不到字幕？</b></summary>
 
-## 故障速查
+B 站的字幕接口必须登录。用浏览器扩展导出一份 `bilibili.com` 的 cookies（Netscape 格式），存成文件后把路径填到 `.env` 的 `YTDLP_COOKIES`。拿不到字幕也不会失败，会自动退回下载音频 + 本地语音识别，只是慢很多。
+</details>
 
-| 症状 | 原因 | 处理 |
-|---|---|---|
-| 双击后窗口闪一下 / 白窗 | 后端没起来，或起来后又崩了 | 兜底页会写原因码与日志路径；日志在 `%APPDATA%\Cairn\logs\shell.log`（握手耗时、后端退出码都在这） |
-| 一直停在"连接中" | 后端进程还在但没响应 | 关掉重开；连续两次不行就把 `logs\app.log` 最后 30 行捞出来 |
-| 顶栏黄标「环境待配置」 | 缺模型 Key 或 ffmpeg | 点它进引导页，填上立即生效 |
-| 出题/问答报"未配置模型 Key" | Key 过期或删了 | 同上，重新填一次 |
-| 视频采集报 `TRANSCRIBE_NO_FFMPEG` | 安装不完整（ffmpeg 没带上） | 重装安装包；单文件覆盖安装不会修好缺失的资源 |
-| 提示"模型额度不足或触发限流" | 服务商侧 402/429 | 查余额或稍后重试，与本地无关 |
-| Windows 提示"已保护你的电脑" | 安装包未签名 | 更多信息 → 仍要运行；介意的话把安装目录加进 Defender 排除项 |
-| 卸载后重装，数据没了 | 手动删过 `%APPDATA%\Cairn`，或用了"清理工具" | 只要没删这个目录就不会丢；重要数据自己定期复制 |
-| 任务栏出现两个 Cairn 图标 | 从不同路径各启动了一次 | 已加单实例锁，正常只会有一个；出现两个说明其中一个是从旧安装残留的 exe 起的 |
+<details>
+<summary><b>换了向量模型，检索结果不对了？</b></summary>
+
+换 `EMBED_MODEL` 必须重建 `chunk_vec` 表（维度变了），否则新旧向量混在一起。见 `docs/dev/milestones/M3-检索与学习页.md` §6.3。
+</details>
+
+## 已知限制
+
+诚实列一下，v0.1.0 就是这样：
+
+- **安装包没有代码签名**。SmartScreen 会拦一次，正式分发需要买证书
+- **冷启动约 6.7 秒**（热启动约 4 秒）。首启要建表 + 杀软扫 1.4 GB，重型导入已经延迟加载
+- **URL 规范化只去 fragment 不去 query**。带 `?spm=` / `?utm_source=` 的同一篇文章会被当成两条
+- **多选偶尔出现"四个选项全对"**。prompt 已约束，但没有量化断言拦住它
+- **题目、作答、复习记录无限增长**，没有保留策略；数据量很大之后仪表盘可能变慢
+- **只支持 Windows x64 的安装包**。源码本身跨平台，但打好的包只有 Windows 版
+- 前端交互与视觉还有一块优化空间（这一版优先保证功能正确）
+
+## 从源码运行
+
+<details>
+<summary><b>开发环境与命令</b></summary>
+
+**依赖**：Python 3.12（用 [uv](https://docs.astral.sh/uv/) 管理）、Node 20+、ffmpeg（可选，只在测视频采集时需要）。
+
+```bash
+# 后端（默认 127.0.0.1:8756）
+cd backend
+cp ../.env.example ../.env      # 填 LLM_API_KEY
+uv sync
+uv run python -m app
+
+# 前端（默认 5173，/api 反代到 8756）
+cd frontend
+npm install
+npm run dev
+
+# 桌面壳（dev 模式加载 vite 页面）
+cd desktop
+npm install
+npm start
+```
+
+**打包安装包**（会先把 ffmpeg 复制进 `desktop/resources/`）：
+
+```bash
+cd backend && uv run pyinstaller --noconfirm --distpath build/dist --workpath build/work cairn-backend.spec
+cd ../desktop && npm install && npm run dist     # 产物在 desktop/release/
+```
+
+**验收脚本**（真调模型，会自己建临时数据目录，不碰你的库）：
+
+```bash
+cd backend
+uv run python scripts/verify_m1.py    # 52/52
+uv run python scripts/verify_m2.py    # 118/118
+uv run python scripts/verify_m3.py    # 61/61
+uv run python scripts/verify_m4.py    # 69/69
+uv run python scripts/verify_m5.py    # 57/57
+```
+
+**目录结构**
+
+```text
+backend/    FastAPI 后端：SQLite + FTS5 + sqlite-vec，服务层在 app/services
+frontend/   Vue 3 + Vite，hash 路由（Electron 用 file:// 加载不会 404）
+desktop/    Electron 主进程、NSIS 打包配置、图标
+tools/      文档一致性检查、图标生成、ffmpeg 准备
+docs/       用户向图片（images/）+ 开发文档（dev/：总纲、台账、契约、里程碑）
+```
+
+开发文档、接口契约、数据契约、里程碑台账都在 [`docs/dev/`](docs/dev/)，代码层面的约定以那份为准。
+
+</details>
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。用、改、分发都行，保留版权声明即可；不提供任何担保。
+
+第三方组件遵循各自许可：FastAPI、Vue、Electron、`faster-whisper`、`sentence-transformers`、`sqlite-vec`、`trafilatura`、`yt-dlp` 等。

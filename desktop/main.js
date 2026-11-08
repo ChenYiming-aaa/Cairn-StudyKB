@@ -12,7 +12,7 @@
 // 明确不做：签名、托盘、自动更新。
 // 图标在 T5.10 补上（`tools/make_icon.py` → `desktop/build/icon.ico`）。
 // 也不注入 preload：契约 §4 已定「页面走相对路径，底座同源」，注入 baseUrl 只会多一层
-// 永远用不上的配置（docs/contracts/接口契约.md §4）。
+// 永远用不上的配置（docs/dev/contracts/接口契约.md §4）。
 'use strict'
 
 const { app, BrowserWindow, dialog, session } = require('electron')
