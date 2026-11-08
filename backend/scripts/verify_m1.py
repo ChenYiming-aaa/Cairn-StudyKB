@@ -237,13 +237,19 @@ def step_no_key(client: TestClient) -> None:
         probe = client.post("/api/knowledge", json={
             "title": "无 Key 探针", "raw_content": "这是一条用于验证未配置 Key 时整理行为的探针文本。",
         }).json()
+        # 只数 organize 任务：向量索引任务（index_embed）由后台按需派发，
+        # 拿全表总数做前后对比会被它干扰，断言就成了随机红。（2026-11-08 修 M1 遗留 1）
+        queued_before = sql("SELECT COUNT(*) FROM agent_task WHERE type='organize'")[0][0]
         resp = client.post(f"/api/knowledge/{probe['id']}/organize")
         err = resp.json().get("error", {})
         check("整理返回 400 LLM_NO_KEY", resp.status_code == 400 and err.get("code") == "LLM_NO_KEY",
               f"{resp.status_code} {err.get('code')}")
         check("失败后服务仍健康", client.get("/api/health").json().get("status") == "ok")
-        total = client.get("/api/tasks").json()["total"]
-        check("未留下注定失败的任务", total == 3, f"任务数 {total}")
+        queued_after = sql("SELECT COUNT(*) FROM agent_task WHERE type='organize'")[0][0]
+        check("未留下注定失败的任务（无 Key 时不派发 organize）",
+              queued_after == queued_before, f"organize 任务 {queued_before} → {queued_after}")
+        doomed = sql("SELECT COUNT(*) FROM agent_task WHERE error_code='LLM_NO_KEY'")[0][0]
+        check("没有记着 LLM_NO_KEY 的失败任务", doomed == 0, f"{doomed} 条")
         client.delete(f"/api/knowledge/{probe['id']}")
     finally:
         knowledge_router.get_settings = real

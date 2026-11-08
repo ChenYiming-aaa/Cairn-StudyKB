@@ -42,9 +42,9 @@ iframe 预览 → 下载分享，历史产物可回看与删除。
 Key 在页面里填完**立刻生效、不用重启**，卸载重装也还在（写在 `%APPDATA%/Cairn/.env`）；
 配好之后顶栏的黄色「环境待配置」标记自动消失，随时可以点回来复查。
 
-`verify_m1.py` 50/51（见 `HANDOFF.md` 2026-11-07 那条：有一条断言写死任务数 3，与实际 11 不符，
-属既有脆弱断言，未修）、`verify_m2.py` 116/118（同样两条 `force` 用例在 HEAD 上就红）、
-`verify_m3.py` 61/61、`verify_m4.py` 69/69、`verify_m5.py` 57/57 PASS。
+`verify_m1.py` 52/52（2026-11-08 修掉了"写死任务数 3"的脆弱断言：向量索引任务会让全表任务数浮动，
+现在只断言「无 Key 时不派发 organize 任务，且不存在记着 `LLM_NO_KEY` 的失败任务」）、
+`verify_m2.py` 118/118、`verify_m3.py` 61/61、`verify_m4.py` 69/69、`verify_m5.py` 57/57 PASS。
 
 ## 安装与启动（Windows，给最终用户）
 
