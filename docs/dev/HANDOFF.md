@@ -25,7 +25,7 @@
 | 里程碑 | **M7 布局与文案 · 已验收**（T7.0–T7.7 全部完成，tag `m7-done`）。下一个：**M8 体积与更新**（未开工） |
 | 当前里程碑 | **M7 第三部分完成**（`文案规范.md` / 全量替换两批 / `verify_m7.py` 30/30 + 10 张截图重拍）。下一步 **M8**（T8.0–T8.8） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
-| 远程 | `origin/main` = M7 第三部分提交（2026-11-10 00:20 已推）；**本表不追每次提交** |
+| 远程 | `origin/main` = `c2ced93`（M7 第三部分，2026-11-10 已推；标签 `m7-done` 已推）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` |
 | 验收 | **M7 `verify_m7.py` 30/30 PASS**（真起后端 + Playwright + 脚本内种子库 34 条 / 13 分类 / 59 标签；含 10 张截图重拍） · 回归 **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78**（2026-11-10 全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.09 kB / gzip 115.68 kB；CSS 89.47 kB / gzip 13.75 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · 安装包基线 426,428,660 字节（M7 未改后端依赖，体积不变） |
@@ -1395,9 +1395,10 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 **待裁决冲突**
 - 无。T7.7 第 6 条「不出现术语表右列的词」按可判定子集执行（`文案规范.md` §6 + 补充记录 S-21）。
 
-**推送状态：已推（2026-11-10 00:20）**
-- 提交见下一行 `git log`；裸命令 `git push origin main` + `git push origin --tags`
-- 新标签 `m7-done`
+**推送状态：已推（2026-11-10 00:25）**
+- 两个提交：`d5d41a1`（文案规范 + 批 1）/ `c2ced93`（批 2 + verify_m7 + 截图 + 文档）
+- `origin/main` = `c2ced93`；`git push origin main` 与 `git push origin --tags` 各一次成功（未设 GCM/TERMINAL 环境变量）
+- 新标签 `m7-done` 已推
 
 **下一会话第一件事**
 > 开 M8：读 `milestones/M8-体积与更新.md`，跑 `doc_check.py` + `scripts/status.py`，
