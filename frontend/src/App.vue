@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
 import Pomodoro from './components/Pomodoro.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import { useTimer } from './composables/useTimer'
 import { useToast } from './composables/useToast'
 import { useUi } from './composables/useUi'
@@ -16,6 +17,8 @@ const {
   pasteOpen, openPaste, closePaste, requestRefresh, openItem,
   // T5.7：环境自检结果在顶栏与引导页之间共用一份
   envBlocking, setupDismissed, loadEnv,
+  // T6.5：设置窗口（模态）由顶栏齿轮打开，状态在 useUi 里共享
+  openSettings,
 } = useUi()
 // 顶栏迷你计时器（T5.3）：状态在 useTimer 单例里，和番茄钟面板共用同一个计时
 const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = useTimer()
@@ -127,12 +130,23 @@ function onOpen(itemId) {
         <span class="mini-clock">{{ clock(remainingSeconds) }}</span>
       </button>
       <button v-else class="btn btn-sm btn-ghost" type="button" @click="openPanel()">专注</button>
+      <!-- 设置入口（T6.5）：模态窗口，不新增路由 -->
+      <button
+        class="btn btn-sm btn-ghost gear"
+        type="button"
+        title="设置：模型、外观"
+        aria-label="设置"
+        @click="openSettings()"
+      >
+        <span aria-hidden="true">⚙</span>
+      </button>
       <button class="btn btn-primary" type="button" @click="openPaste()">＋ 采集内容</button>
     </header>
 
     <router-view />
 
     <Pomodoro />
+    <SettingsDialog />
 
     <IngestPanel
       :open="pasteOpen"
@@ -227,6 +241,14 @@ function onOpen(itemId) {
 
 .env-flag:hover {
   border-color: var(--c-warning);
+}
+
+/* 齿轮：图标按钮，视觉重量要低于「采集内容」，所以用 ghost */
+.gear {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  color: var(--c-text-2);
 }
 
 .mini-timer {

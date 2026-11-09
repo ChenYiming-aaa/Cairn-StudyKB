@@ -15,6 +15,14 @@ const focusItemId = ref(null)
 // 问答来源卡片跳转：除了条目 id 还要知道落在哪一段（M3 T3.6）
 const focusChunk = ref(null)
 
+// ── 设置窗口（T6.5）──────────────────────────────────────
+// 打开状态与当前 tab 提到模块级：顶栏齿轮、引导页（T6.9）、设置窗口自己都要能开/切
+const SETTINGS_TAB_KEY = 'cairn.settings.tab'
+const settingsOpen = ref(false)
+const settingsTab = ref(
+  (typeof localStorage !== 'undefined' && localStorage.getItem(SETTINGS_TAB_KEY)) || 'model'
+)
+
 // ── 环境自检（T5.7）──────────────────────────────────────
 const SETUP_KEY = 'cairn.setup.dismissed'
 const envState = ref(null)          // 最近一次 /api/env/check 的结果，null = 还没查过
@@ -76,6 +84,24 @@ export function useUi() {
         ? { itemId, text: chunk.text || '', source: chunk.source || 'raw' }
         : null
       focusItemId.value = itemId
+    },
+    // 设置窗口（T6.5）：`openSettings('model')` 打开并直接切到某个 tab
+    settingsOpen,
+    settingsTab,
+    openSettings: (tab) => {
+      if (tab) settingsTab.value = tab
+      settingsOpen.value = true
+    },
+    closeSettings: () => {
+      settingsOpen.value = false
+    },
+    setSettingsTab: (tab) => {
+      settingsTab.value = tab
+      try {
+        localStorage.setItem(SETTINGS_TAB_KEY, tab)
+      } catch {
+        // 存储被禁只影响「下次打开停在哪个 tab」，不该让设置窗口报错
+      }
     },
     // 环境自检相关
     envState,

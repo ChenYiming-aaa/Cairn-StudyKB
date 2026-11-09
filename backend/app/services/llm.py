@@ -1,11 +1,12 @@
 """LLM 客户端（OpenAI 兼容 HTTP，不绑厂商 SDK）。
 
-调用规范见 M1 §6.11 / ADR-021：
-- POST {LLM_BASE_URL}/chat/completions，base_url 拼接前 rstrip('/')
+调用规范见 M1 §6.11 / ADR-021，路由规则见 ADR-026：
+- POST `{base_url}/chat/completions`，base_url 拼接前 rstrip('/')
 - 只取 message.content，丢弃 reasoning_content
 - 结构化输出带 response_format=json_object
-- 每次调用写 llm_call_log（含 reasoning_tokens，ADR-022）
-- API Key 只从 .env 读，绝不进日志、异常栈、前端（总纲红线 7）
+- `reasoning_effort` 只在 provider 声明 supports_effort 时发送；被 400 拒绝时自动去掉重试一次
+- 每次调用写 llm_call_log（含 reasoning_tokens，ADR-022），`model` 记**实际使用的**那个
+- API Key 只从 `.env` 读，绝不进日志、异常栈、前端（总纲红线 7）
 """
 from __future__ import annotations
 
@@ -13,13 +14,15 @@ import json
 import logging
 import re
 import time
-from typing import Any, Iterator
+from typing import Iterator
 
 import httpx
 
 from app.config import get_settings
 from app.db.conn import get_conn
 from app.db.repo.items import now_iso
+from app.services import llm_route
+from app.services.llm_route import Profile
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +66,39 @@ def error_from(exc: Exception) -> LLMError:
     return LLMError("LLM_HTTP_ERROR", "LLM 调用失败", _safe_detail(exc))
 
 
+def no_key_error(profile: Profile) -> LLMError:
+    """缺 Key 的提示必须指明是哪个 provider：双 provider 下只说「没配 Key」没法自查。"""
+    return LLMError(
+        "LLM_NO_KEY",
+        f"未配置 {profile.label} 的 API Key：打开设置 → 模型，填入后立即生效",
+        f"provider={profile.provider}",
+    )
+
+
+def _headers(profile: Profile) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {profile.api_key.strip()}",
+        "Content-Type": "application/json",
+    }
+
+
+def _effort_rejected(resp: httpx.Response, body: dict, *, stream: bool = False) -> bool:
+    """服务对 `reasoning_effort` 明确表示不支持时才返回 True（400 且错误体点名字段）。"""
+    if "reasoning_effort" not in body or resp.status_code != 400:
+        return False
+    try:
+        if stream:
+            resp.read()   # 流式响应体默认没读，不先读就拿不到错误文本
+        text = (resp.text or "").lower()
+    except Exception:  # noqa: BLE001 - 读不到错误体就当作"不是这个原因"
+        return False
+    return "reasoning_effort" in text or "unsupported" in text
+
+
+def _strip_effort(body: dict) -> dict:
+    return {k: v for k, v in body.items() if k != "reasoning_effort"}
+
+
 def _usage(data: dict) -> tuple[int | None, int | None, int | None]:
     usage = data.get("usage") or {}
     details = usage.get("completion_tokens_details") or {}
@@ -74,11 +110,11 @@ def _usage(data: dict) -> tuple[int | None, int | None, int | None]:
 
 
 def _write_log(
-    *, agent: str, ok: bool, duration_ms: int,
+    *, agent: str, model: str, ok: bool, duration_ms: int,
     prompt_tokens: int | None = None, completion_tokens: int | None = None,
     reasoning_tokens: int | None = None, error_msg: str | None = None,
 ) -> None:
-    cfg = get_settings()
+    """写 `llm_call_log`。`model` 是**本次实际用的**模型（T6.3 前记的是全局配置，会失真）。"""
     conn = get_conn()
     try:
         with conn:
@@ -87,7 +123,7 @@ def _write_log(
                    (agent, model, prompt_tokens, completion_tokens, reasoning_tokens,
                     duration_ms, ok, error_msg, created_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (agent, cfg.llm_model, prompt_tokens, completion_tokens,
+                (agent, model, prompt_tokens, completion_tokens,
                  reasoning_tokens, duration_ms, 1 if ok else 0, error_msg, now_iso()),
             )
     except Exception as exc:
@@ -95,34 +131,6 @@ def _write_log(
         log.error("llm_call_log 写入失败：%s", type(exc).__name__)
     finally:
         conn.close()
-
-
-def _payload(
-    messages: list[dict], *, json_mode: bool, stream: bool, max_tokens: int = 4096
-) -> dict:
-    cfg = get_settings()
-    body: dict[str, Any] = {
-        "model": cfg.llm_model,
-        "messages": messages,
-        "reasoning_effort": cfg.llm_effort,
-        "max_tokens": max_tokens,
-        "stream": stream,
-    }
-    if json_mode:
-        body["response_format"] = {"type": "json_object"}
-    if stream:
-        body["stream_options"] = {"include_usage": True}
-    return body
-
-
-def _headers() -> dict[str, str]:
-    cfg = get_settings()
-    if not cfg.has_llm_key:
-        raise LLMError("LLM_NO_KEY", "未配置 LLM API Key，请在 .env 中设置 LLM_API_KEY")
-    return {
-        "Authorization": f"Bearer {cfg.llm_api_key.strip()}",
-        "Content-Type": "application/json",
-    }
 
 
 def chat(
@@ -135,24 +143,35 @@ def chat(
     靠超时把「批改服务不可用」变成待人工判断，而不是让用户干等 120s。
     """
     cfg = get_settings()
-    if not cfg.has_llm_key:
-        _write_log(agent=agent, ok=False, duration_ms=0, error_msg="LLM_NO_KEY")
-        raise LLMError("LLM_NO_KEY", "未配置 LLM API Key，请在 .env 中设置 LLM_API_KEY")
+    profile = llm_route.resolve(agent)
+    if not profile.has_key:
+        _write_log(agent=agent, model=profile.model, ok=False, duration_ms=0,
+                   error_msg="LLM_NO_KEY")
+        raise no_key_error(profile)
 
-    url = cfg.chat_completions_url
-    body = _payload(messages, json_mode=json_mode, stream=False)
+    body = llm_route.payload(messages, profile, json_mode=json_mode, stream=False)
+    log.info("LLM 调用 agent=%s provider=%s model=%s effort=%s",
+             agent, profile.provider, profile.model,
+             body.get("reasoning_effort") or "none")
     started = time.monotonic()
     last: LLMError | None = None
+    retry_effort = True
 
     for attempt in range(len(RETRY_DELAYS) + 1):
         try:
             with httpx.Client(timeout=timeout or cfg.llm_timeout) as client:
-                resp = client.post(url, headers=_headers(), json=body)
+                resp = client.post(profile.url, headers=_headers(profile), json=body)
+                if retry_effort and _effort_rejected(resp, body):
+                    # 只去掉字段重来一次，不递归、不加退避：这是能力差异不是网络抖动
+                    retry_effort = False
+                    body = _strip_effort(body)
+                    log.warning("%s 不接受 reasoning_effort，去掉该字段重试", profile.provider)
+                    resp = client.post(profile.url, headers=_headers(profile), json=body)
                 resp.raise_for_status()
                 data = resp.json()
             content = (data["choices"][0]["message"].get("content") or "")
             pt, ct, rt = _usage(data)
-            _write_log(agent=agent, ok=True,
+            _write_log(agent=agent, model=profile.model, ok=True,
                        duration_ms=int((time.monotonic() - started) * 1000),
                        prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt)
             return content
@@ -168,7 +187,7 @@ def chat(
                 continue
             break
 
-    _write_log(agent=agent, ok=False,
+    _write_log(agent=agent, model=profile.model, ok=False,
                duration_ms=int((time.monotonic() - started) * 1000),
                error_msg=last.code if last else "LLM_HTTP_ERROR")
     # from None：切断原始 httpx 异常上下文，避免请求头（含 Key）进入异常栈
@@ -186,46 +205,61 @@ def chat_stream(
     `max_tokens`：出题要一次吐 20 题（≈4k+ token），调用方可以抬高；默认仍是 4096。
     """
     cfg = get_settings()
-    if not cfg.has_llm_key:
-        _write_log(agent=agent, ok=False, duration_ms=0, error_msg="LLM_NO_KEY")
-        raise LLMError("LLM_NO_KEY", "未配置 LLM API Key，请在 .env 中设置 LLM_API_KEY")
+    profile = llm_route.resolve(agent)
+    if not profile.has_key:
+        _write_log(agent=agent, model=profile.model, ok=False, duration_ms=0,
+                   error_msg="LLM_NO_KEY")
+        raise no_key_error(profile)
 
-    url = cfg.chat_completions_url
-    body = _payload(messages, json_mode=False, stream=True, max_tokens=max_tokens)
+    body = llm_route.payload(messages, profile, json_mode=False, stream=True,
+                             max_tokens=max_tokens)
+    headers = _headers(profile)
+    log.info("LLM 流式调用 agent=%s provider=%s model=%s effort=%s",
+             agent, profile.provider, profile.model,
+             body.get("reasoning_effort") or "none")
     started = time.monotonic()
     pt = ct = rt = None
     ok = False
+    retry_effort = True
     try:
-        with httpx.Client(timeout=cfg.llm_timeout) as client:
-            with client.stream("POST", url, headers=_headers(), json=body) as resp:
-                resp.raise_for_status()
-                for line in resp.iter_lines():
-                    if not line or not line.startswith("data:"):
-                        continue
-                    raw = line[5:].strip()
-                    if raw == "[DONE]":
-                        break
-                    try:
-                        data = json.loads(raw)
-                    except ValueError:
-                        continue
-                    if data.get("usage"):
-                        pt, ct, rt = _usage(data)
-                    for choice in data.get("choices") or []:
-                        delta = choice.get("delta") or {}
-                        piece = delta.get("content")
-                        if piece:
-                            yield piece
-        ok = True
+        while True:
+            with httpx.Client(timeout=cfg.llm_timeout) as client:
+                with client.stream("POST", profile.url, headers=headers, json=body) as resp:
+                    if retry_effort and _effort_rejected(resp, body, stream=True):
+                        retry_effort = False
+                        body = _strip_effort(body)
+                        log.warning("%s 不接受 reasoning_effort，去掉该字段重试",
+                                    profile.provider)
+                        continue          # 只可能回到这里一次
+                    resp.raise_for_status()
+                    for line in resp.iter_lines():
+                        if not line or not line.startswith("data:"):
+                            continue
+                        raw = line[5:].strip()
+                        if raw == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(raw)
+                        except ValueError:
+                            continue
+                        if data.get("usage"):
+                            pt, ct, rt = _usage(data)
+                        for choice in data.get("choices") or []:
+                            delta = choice.get("delta") or {}
+                            piece = delta.get("content")
+                            if piece:
+                                yield piece
+            ok = True
+            break
     except Exception as exc:
         err = error_from(exc)
-        _write_log(agent=agent, ok=False,
+        _write_log(agent=agent, model=profile.model, ok=False,
                    duration_ms=int((time.monotonic() - started) * 1000),
                    error_msg=err.code)
         raise err from None
     finally:
         if ok:
-            _write_log(agent=agent, ok=True,
+            _write_log(agent=agent, model=profile.model, ok=True,
                        duration_ms=int((time.monotonic() - started) * 1000),
                        prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt)
         if usage_out is not None:

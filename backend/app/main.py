@@ -22,7 +22,7 @@ from app.errors import ApiError, api_error_handler
 from app.paths import install_root, is_frozen
 from app.routers import (
     ask, auth, env, health, html, ingest, knowledge, quiz, review, search, session,
-    stats, tasks,
+    settings, stats, tasks,
 )
 from app.db.repo import sessions as sessions_repo
 from app.services import browser
@@ -89,6 +89,7 @@ app.add_middleware(
 app.add_exception_handler(ApiError, api_error_handler)
 app.include_router(health.router)
 app.include_router(env.router)
+app.include_router(settings.router)
 app.include_router(auth.router)
 app.include_router(ingest.router)
 app.include_router(knowledge.router)

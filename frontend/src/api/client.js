@@ -25,6 +25,10 @@ const FRIENDLY = [
   [/^ENV_NOTHING_TO_SAVE$/, '没有需要保存的内容'],
   [/^ENV_WRITE_FAILED$/, '写不进配置文件：确认数据目录可写，或用管理员身份重试'],
   [/^ENV_/, '保存配置失败，请稍后重试'],
+  [/^SETTINGS_INVALID$/, '这项设置的值不合法，改一下再试'],
+  [/^SETTINGS_WRITE_FAILED$/, '写不进设置文件：确认数据目录可写'],
+  [/^SETTINGS_/, '保存设置失败，请稍后重试'],
+  [/^LLM_MODELS_UNSUPPORTED$/, '这个服务不提供模型列表，手动填模型名即可'],
   [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，无法抽取音频：录制内容照常入库，转录不可用'],
   [/^TRANSCRIBE_/, '转录失败，详细原因见下方提示或任务记录'],
   [/^FETCH_BROWSER_UNAVAILABLE$/, '浏览器渲染不可用：请安装 Edge/Chrome，或让后端执行 playwright install chromium'],
@@ -205,6 +209,16 @@ export const api = {
   envCheck: () => get('/api/env/check'),
   /** 首次引导（T5.7）：把 llm 配置写进 .env 并热加载，返回 {saved, env_file, check} */
   saveEnvKey: (payload) => post('/api/env/key', payload),
+  /** 设置窗口（M6）：全量配置，不含任何密钥，只有 has_key */
+  settings: () => get('/api/settings'),
+  /** 局部更新配置；返回更新后全量 */
+  patchSettings: (payload) => patch('/api/settings', payload),
+  /** 探测 provider：{ok, models, latency_ms, error_code, hint} */
+  probeProvider: (payload) => post('/api/settings/probe', payload),
+  /** 写 provider 的 Key（.env）与地址（settings.json），返回 {saved, env_file, settings} */
+  saveProvider: (payload) => post('/api/settings/llm', payload),
+  /** 版本元数据 {version, commit, built_at}（T8.5 更新器用） */
+  version: () => get('/api/version'),
   /** 各站点登录态 + 当前登录任务进度（轮询用，只读文件很快） */
   authStatus: () => get('/api/auth/status'),
   /** 起一个受控浏览器窗口让用户登录，立即返回，结果靠 authStatus 轮询 */

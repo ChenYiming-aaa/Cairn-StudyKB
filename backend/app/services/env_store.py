@@ -20,6 +20,7 @@ from dotenv import set_key
 
 from app.config import get_settings, reload_settings
 from app.errors import ApiError
+from app.services import prefs
 
 log = logging.getLogger(__name__)
 
@@ -81,6 +82,71 @@ def update_llm(updates: dict[str, str]) -> Path:
         os.environ[env_key] = value
     reload_settings()
 
+    # 引导页改的 base_url / model 也要镜像进 settings.json：M6 之后路由以
+    # settings.json 为准，只写 .env 会出现「填了地址但调用还走旧的」。
+    _mirror_to_prefs(updates)
+
     # 日志只记"改了哪几项"，不记值（长度都不记：短 Key 的长度也是信息）
     log.info("已更新 .env：%s → %s", ", ".join(k for k, _ in pairs), path)
     return path
+
+
+def _mirror_to_prefs(updates: dict[str, str]) -> None:
+    """把引导页的三个键镜像成 settings.json 的 deepseek provider 配置。"""
+    base_url = (updates.get("llm_base_url") or "").strip()
+    model = (updates.get("llm_model") or "").strip()
+    patch: dict = {}
+    if base_url:
+        patch["base_url"] = base_url
+    if model:
+        patch["models"] = [model]
+    if not patch:
+        return
+    try:
+        prefs.save({"llm": {"providers": {"deepseek": patch}}})
+    except ApiError as exc:
+        # 镜像失败不该让"Key 存成功"变成失败：Key 已经落盘且已热加载
+        log.warning("镜像 llm 配置到 settings.json 失败：%s", exc.code)
+
+
+def update_provider(provider: str, api_key: str = "", base_url: str = "") -> Path:
+    """设置窗口的双 provider 入口（接口契约 `POST /api/settings/llm`）。
+
+    - Key 写 `.env` 的 `key_env`（deepseek = `LLM_API_KEY`，custom = `ALT_API_KEY`）
+    - `base_url` 只写 `settings.json`（两套 provider 的地址都在那里，单一真相）
+    - 写完热加载，`has_key` 立刻变 true
+    """
+    conf = prefs.provider(provider)
+    env_key = str(conf.get("key_env") or "")
+    if not env_key:
+        raise ApiError("SETTINGS_INVALID", f"provider {provider} 没有配置 key_env", status=400)
+
+    path = Path(get_settings().env_file)
+    wrote = False
+    if (api_key or "").strip():
+        value = _clean("api_key", api_key)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            set_key(str(path), env_key, value, quote_mode="always")
+        except OSError as exc:
+            log.warning("写 .env 失败：%s", exc)
+            raise ApiError("ENV_WRITE_FAILED", "无法写入配置文件",
+                           detail=type(exc).__name__, status=500) from exc
+        os.environ[env_key] = value
+        wrote = True
+
+    if (base_url or "").strip():
+        value = _clean("base_url", base_url)
+        if not value.startswith(("http://", "https://")):
+            raise ApiError("SETTINGS_INVALID", "接口地址必须以 http:// 或 https:// 开头",
+                           status=400)
+        prefs.save({"llm": {"providers": {provider: {"base_url": value}}}})
+        wrote = True
+
+    if not wrote:
+        raise ApiError("ENV_NOTHING_TO_SAVE", "没有需要保存的内容", status=400)
+
+    reload_settings()
+    log.info("已更新 provider=%s 的 %s", provider, "Key" if api_key else "接口地址")
+    return path
+

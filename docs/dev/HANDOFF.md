@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-09 16:55 · 每次会话结束更新这一段）
+## 当前状态（2026-11-09 19:30 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
 | 里程碑 | **M6 进行中（第一部分）**。M6 拆成两部分执行：**第一部分 = T6.0–T6.6**（基线、契约、`prefs`、LLM 按任务路由、provider 探测、设置窗口壳 + 模型 tab）；**第二部分 = T6.7–T6.9**（6 套主题 × 明暗、外观/关于 tab + 字号三档、引导页改造 + `verify_m6` 主题断言 + 回归 + tag `m6-done`） |
-| 当前里程碑 | M6 · 第一部分（T6.0–T6.6） |
+| 当前里程碑 | M6 · **第一部分（T6.0–T6.6）已完成**（2026-11-09 19:30）；下一步是第二部分 T6.7–T6.9 |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
-| 远程 | `origin/main` = `59c19ae`（2026-11-09 16:57，v0.2 计划）；**本表不追每次提交** |
+| 远程 | `origin/main` = `59c19ae` 之后有 M6 第一部分若干提交（见文末条目）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip`（M6 基线，2026-11-09） |
-| 验收 | **T6.0 基线（2026-11-09 18:30 全量重跑）：m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57** · `doc_check.py` 6 PASS + 1 提示 · 安装包基线 426,428,660 字节（`Cairn-0.1.0-setup.exe`） |
+| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 53/53（2026-11-09 19:25 全量重跑）** · `npm run lint` 干净 · `npm run build` 通过（287 kB / gzip 105 kB） · `doc_check.py` 6 PASS + 1 提示 · 安装包基线 426,428,660 字节 |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -60,9 +60,12 @@
 | 12 | ~~Pages 从没开过~~ | **已完成 2026-11-08 20:12** | 根因是**仓库私有**，转 Public 后 run #2 一次通过；`configure-pages` 步骤已加，以后会自动兜底 |
 
 **下一会话第一件事**
-> 只剩一件：找台**没装 Python/Node** 的 Windows 真机装一遍
-> `desktop/release/Cairn-0.1.0-setup.exe`（或从 Release 下），跑通「填 Key → 建一条资料 → 重启还在」。
-> 之后才谈 M5 归档与 v2（模板 A 换里程碑）。
+> 开 M6 **第二部分**（T6.7–T6.9）：先读 `milestones/M6-设置与个性化.md` §3 + §3.1（2026-11-09 修订的
+> 派生规则，照原规则算出来的 `text-3` 只有 2.19:1），再读 `M6-补充记录.md` 的 S-8～S-10
+> （27 处写死颜色要在这一轮全部令牌化）。顺序：`tokens.css` 六套 × 明暗 → `useTheme()` +
+> `index.html` 内联脚本（防白闪）→ `tools/check_contrast.py` → 外观/关于 tab + 字号三档 →
+> 引导页改造 + `verify_m6` 第七条 → 回归 + tag `m6-done`。
+> 另：M5 遗留 #2（找台没装 Python/Node 的真机装一遍）仍然开着，与 M6 并行不冲突。
 
 ---
 
@@ -1051,3 +1054,51 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 > 下一会话第一件事：**T6.0 基线固化**——跑 `verify_m1..m5` 记录通过数、打 `m6-wip`、然后 T6.1 契约先行。
 > 不要在 T6.1 之前写任何实现代码。四个待拍板项（导航精简 / 配色数量 / 选装默认 / 更新交互）见 `优化计划-v0.2.md` §2，用户不表态就按推荐走。
+
+---
+
+## 2026-11-09 19:35 · M6 · 第一部分（T6.0–T6.6）完成
+
+**完成**
+- T6.0 基线：m1–m5 全量重跑（52/118/61/69/57 全绿），tag `m6-wip`
+- T6.1 契约：`接口契约` 新增 `GET/PATCH /api/settings`、`POST /api/settings/probe`、`POST /api/settings/llm`、
+  `GET /api/version`；`数据契约` 新增「配置文件」「组件目录」两节；ADR-026（按任务路由）/ ADR-027（组件按需下载）；
+  总纲里程碑表补 M6–M8
+- T6.2 `services/prefs.py`：默认值深合并、损坏备份 `settings.json.bad-<时间戳>`、唯一临时名 + `os.replace` 原子写、
+  按 `(mtime_ns, size)` 失效缓存；**首次读取会用 `.env` 现值做初值**（否则老用户升级后 base_url 被悄悄换回官方地址）
+- T6.3 `services/llm_route.py` + `llm.py` 改造：`resolve(agent)` 解析 provider/model/effort；
+  `reasoning_effort` 只在 `supports_effort=true` 且 effort≠none 时进请求体；400 点名字段时去掉重试一次；
+  `llm_call_log.model` 记**实际使用的**模型；缺 Key 的提示点名 provider
+- T6.4 `env_probe.probe_provider()`：`/models` 优先，404/405 且给了模型名时退化成 `max_tokens=1` 的对话探测，
+  15s 超时、不重试；`LLM_MODELS_UNSUPPORTED` 表示「不提供列表但对话可用」
+- T6.5 `components/SettingsDialog.vue`：模态 880×620、左 4 tab（模型/外观/下载/关于）、焦点陷阱、Esc、遮罩点击关闭、
+  tab 记忆；顶栏齿轮入口；外观/下载/关于先给明确占位（Part 2 填）
+- T6.6 模型 tab：`ProviderForm.vue`（双卡、Key 状态只给「已配置/未配置」、探测三态）+ `TaskMatrix.vue`
+  （四任务 × provider/模型/思考强度，不支持时置灰）+ `ModelTab.vue`（顶部「当前生效」摘要、即时保存）
+- `verify_m6.py`（新）：53 条断言，覆盖文档 §4 T6.9 的前六条；**用本机 mock provider 跑，不联网**
+
+**改动文件**
+- 新增：`backend/app/services/prefs.py`、`llm_route.py`、`backend/app/routers/settings.py`、
+  `backend/scripts/verify_m6.py`、`frontend/src/composables/useSettings.js`、
+  `frontend/src/components/SettingsDialog.vue`、`frontend/src/components/settings/{ModelTab,ProviderForm,TaskMatrix}.vue`、
+  `docs/dev/M6-补充记录.md`
+- 改：`backend/app/services/{llm,env_probe,env_store}.py`、`backend/app/routers/health.py`、`backend/app/main.py`、
+  `frontend/src/{App.vue,api/client.js,composables/useUi.js}`、`README.md`、`00-总纲.md`、`M6-设置与个性化.md`
+
+**验证**
+- `verify_m6.py` → **53/53 PASS**（新增）
+- `verify_m1..m5` 回归 → 52/52 · 118/118 · 61/61 · 69/69 · 57/57
+- `npm run lint` 干净 · `npm run build` 通过（JS 287 kB / gzip 105 kB）
+- `doc_check.py` → 6 PASS + 1 提示（文档 20 份、端点 45 个）
+
+**遗留问题**
+- [ ] Part 2 开工前先看 `M6-补充记录.md` 的三条**待裁决**：S-1 探测有写盘副作用、S-2 `llm_call_log` 无 `effort` 列、
+      S-3 `--data-dir` 仍回落读项目根 `.env`（验收脚本写「没有 Key 会怎样」时会被真机 Key 干扰）
+- [ ] S-8：主题派生规则按原文档算，`text-3` 六套全部只有 2.19–2.24:1（要求 ≥3:1）；§3.1 已给出修订规则，Part 2 照它执行
+- [ ] `prefs.py`(319) / `llm.py`(316) 超 300 行红线，下次动它们时顺手拆
+
+**待裁决冲突**
+- 无（四条裁决已落在 HANDOFF「本轮裁决」与 M6 §3）
+
+**下一会话第一件事**
+> 见「当前状态」里的「下一会话第一件事」：开 T6.7 主题系统，先读 M6 §3.1 的修订规则。

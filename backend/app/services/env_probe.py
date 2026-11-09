@@ -8,12 +8,18 @@
 """
 from __future__ import annotations
 
+import logging
 import shutil
 import subprocess
+import time
 from pathlib import Path
+
+import httpx
 
 from app.config import get_settings
 from app.paths import is_frozen
+
+log = logging.getLogger(__name__)
 
 
 def _ffmpeg_hint() -> str:
@@ -110,6 +116,87 @@ def check_llm() -> dict:
             # 引导页就在这个 hint 下面放输入框，所以指路要指到"页面上"，不是"去改文件"。
             # 具体存到哪由页面单独显示（`check_all()` 的 env_file），这里不重复路径。
             "hint": "在下方填入 API Key，保存后立即生效，不用重启"}
+
+
+PROBE_TIMEOUT = 15.0
+
+
+def _status_error(status: int) -> tuple[str, str]:
+    """HTTP 状态码 → (错误码, 人话)。与 `llm.error_from` 保持同一套语义。"""
+    if status in (401, 403):
+        return "LLM_NO_KEY", "Key 无效或没有权限（401/403）"
+    if status in (402, 429):
+        return "LLM_QUOTA", "额度不足或触发限流（402/429）"
+    if status == 404:
+        return "LLM_MODELS_UNSUPPORTED", "该地址没有模型列表接口（404）"
+    return "LLM_HTTP_ERROR", f"服务返回 HTTP {status}"
+
+
+def _probe_fail(code: str, hint: str, started: float) -> dict:
+    return {"ok": False, "models": [], "latency_ms": int((time.monotonic() - started) * 1000),
+            "error_code": code, "hint": hint}
+
+
+def probe_provider(base_url: str, api_key: str, model: str = "") -> dict:
+    """探测一个 OpenAI 兼容服务：先列模型，列表拿不到再用 1 token 的 ping 判活。
+
+    **不重试**（探测要快，失败就直说）；**绝不回显 Key**（红线 7）——
+    返回里只有错误码与人话，`detail` 只允许出现状态码。
+    返回 `{ok, models, latency_ms, error_code, hint}`，形状见接口契约。
+    """
+    base = (base_url or "").strip().rstrip("/")
+    headers = {"Content-Type": "application/json"}
+    if (api_key or "").strip():
+        headers["Authorization"] = f"Bearer {api_key.strip()}"
+    started = time.monotonic()
+
+    try:
+        with httpx.Client(timeout=PROBE_TIMEOUT) as client:
+            resp = client.get(base + "/models", headers=headers)
+            if resp.status_code == 200:
+                try:
+                    data = resp.json()
+                    models = sorted({
+                        str(item.get("id")) for item in (data.get("data") or [])
+                        if isinstance(item, dict) and item.get("id")
+                    })
+                except ValueError:
+                    models = []
+                return {"ok": True, "models": models,
+                        "latency_ms": int((time.monotonic() - started) * 1000),
+                        "error_code": None if models else "LLM_MODELS_UNSUPPORTED",
+                        "hint": None if models
+                                else "服务没有返回模型列表，可以手动输入模型名"}
+            if resp.status_code not in (400, 404, 405, 501):
+                code, hint = _status_error(resp.status_code)
+                return _probe_fail(code, hint, started)
+
+            # 服务没有 /models：退化成真的发一句话，能通就说明 Key 与地址可用
+            if not model:
+                return _probe_fail(
+                    "LLM_MODELS_UNSUPPORTED",
+                    "该服务不提供模型列表；请手动填入模型名并保存，再点探测",
+                    started,
+                )
+            ping = client.post(
+                base + "/chat/completions",
+                headers=headers,
+                json={"model": model, "max_tokens": 1,
+                      "messages": [{"role": "user", "content": "ping"}]},
+            )
+            if ping.status_code in (200, 400):
+                # 400 也算通了：说明地址与 Key 有效，只是这个模型名不对
+                return {"ok": True, "models": [], "latency_ms": int(
+                    (time.monotonic() - started) * 1000),
+                    "error_code": "LLM_MODELS_UNSUPPORTED",
+                    "hint": "地址与 Key 可用，但服务不提供模型列表；模型名请手动确认"}
+            code, hint = _status_error(ping.status_code)
+            return _probe_fail(code, hint, started)
+    except httpx.TimeoutException:
+        return _probe_fail("LLM_TIMEOUT", f"超过 {int(PROBE_TIMEOUT)} 秒没有响应", started)
+    except Exception as exc:  # noqa: BLE001 - 只暴露异常类型，不带 URL 里的参数
+        log.warning("provider 探测失败：%s", type(exc).__name__)
+        return _probe_fail("LLM_HTTP_ERROR", "连不上这个地址，检查网络与 base_url", started)
 
 
 def check_all() -> dict:
