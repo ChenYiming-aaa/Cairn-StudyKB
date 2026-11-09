@@ -25,9 +25,9 @@
 | 里程碑 | **M7 布局与文案 · 进行中**（2026-11-09 第一部分 T7.0 + T7.1 完成）。M6 已验收并打过 `m6-done` |
 | 当前里程碑 | **M7 第一部分完成**；下一步 **T7.2–T7.4**（条目列表栏 / 其余三处侧栏 / 顶栏），再 **T7.5–T7.7**（文案与验收） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
-| 远程 | `origin/main` = `59c19ae` 之后有 M6 第一部分若干提交（见文末条目）；**本表不追每次提交** |
+| 远程 | `origin/main` = `c7e0394`（M7 第一部分，2026-11-09 21:5x 已推，含标签 `m7-wip`）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done`（M6 验收，2026-11-09） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip`（M7 第一部分，2026-11-09） |
 | 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78（m6 于 2026-11-09 21:29 回归，不受 M7 影响）** · **M7 第一部分浏览器实测 24/24**（临时脚本 `data/tmp/m7ui/check.py`，种子库 28 条 / 13 分类 / 67 标签；正式 `verify_m7.py` 在 T7.7 才建） · `npm run lint` 干净 · `npm run build` 通过（JS 312.3 kB / gzip 113.8 kB；CSS 86.4 kB / gzip 13.3 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · 安装包基线 426,428,660 字节（M7 未改后端依赖，体积不变） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
@@ -1282,6 +1282,10 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 **待裁决冲突**
 - 无（四条范围/口径问题开工前已问，见本条开头）
+
+**推送状态：已推（2026-11-09）**
+- `origin/main` = `c7e0394`（feat(m7) 第一部分），标签 `m7-wip` 已推
+- 裸命令 `git push origin main` 一次成功，**没有**设 `GCM_INTERACTIVE=never` / `GIT_TERMINAL_PROMPT=0`
 
 **下一会话第一件事**
 > 见「当前状态」里的「下一会话第一件事」：M7 第二部分 T7.2–T7.4。
