@@ -204,7 +204,7 @@ onMounted(loadItems)
             <p v-if="loading" class="cfg-note">加载中…</p>
             <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
             <p v-else-if="!items.length" class="cfg-note">
-              还没有可出题的条目（需要先整理成 ready）
+              还没有能出题的条目，先把它们整理完
             </p>
             <ul v-else class="item-list">
               <li v-for="item in items" :key="item.id">
@@ -316,7 +316,7 @@ onMounted(loadItems)
             </li>
           </ul>
           <p class="gen-note">
-            出完会自动进入作答；60 秒还没出完可以点「停止生成」，已收到的题留着作答
+            出完会自动进入作答。60 秒还没出完就点「停止生成」，已收到的题可以照常作答。
           </p>
         </div>
 

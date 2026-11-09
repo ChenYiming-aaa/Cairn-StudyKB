@@ -120,19 +120,19 @@ watch(() => route.path, refreshTasks)
 function onCreated(result) {
   closePaste()
   requestRefresh()
-  toastOk(result.duplicated ? `内容已存在，已定位到「${result.title}」` : `已加入「${result.title}」`)
+  toastOk(result.duplicated ? `这条已经在库里了，已帮你定位到「${result.title}」` : `「${result.title}」已经入库`)
 }
 
 /** 链接已在库里：**不关面板**，面板会切成完成态让用户自己点「去看看」 */
 function onExisting(itemId) {
   requestRefresh()
-  toastInfo(`该链接已在知识库中（条目 #${itemId}）`)
+  toastInfo(`这条已经在库里了（条目 #${itemId}），不用再采一次`)
 }
 
 /** 网页抓取 / 视频转录落库完成：刷新列表，但**不关面板**——让用户看到「已入库」再自己关 */
 function onIngested() {
   requestRefresh()
-  toastOk('采集完成，已加入知识库')
+  toastOk('采集完成，已经入库了')
 }
 
 /** 「去看看」：关面板 → 切到知识库 → 选中刚入库的条目 */
@@ -170,7 +170,7 @@ function onOpen(itemId) {
         v-if="envBlocking.length"
         class="env-flag"
         type="button"
-        title="有必填项还没配好，点开看清单"
+        title="有必填项还没配好，点开看要补哪一项"
         @click="router.push('/setup')"
       >
         <i class="dot" />
@@ -202,7 +202,7 @@ function onOpen(itemId) {
       <button
         class="btn btn-sm btn-ghost gear"
         type="button"
-        title="设置：模型、外观"
+        title="设置：模型、外观、关于"
         aria-label="设置"
         @click="openSettings()"
       >
@@ -239,7 +239,7 @@ function onOpen(itemId) {
     <!-- 静态演示横幅：常驻，不参与布局，避免遮挡内容 -->
     <div v-if="isDemo" class="demo-bar">
       <b>演示模式</b>
-      <span>页面用的是预置样例数据（真跑一遍整理/问答/出题后抓取的）。整理、采集、出题、问答需要本地后端。</span>
+      <span>这里用的是预置样例数据（预先跑了一遍整理、问答、出题后抓下来的）。整理、采集、出题、问答都要本地后端才能用。</span>
       <a href="https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases" target="_blank" rel="noreferrer">
         下载桌面版
       </a>

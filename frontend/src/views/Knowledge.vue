@@ -129,7 +129,7 @@ async function refreshAll() {
 
 function selectItem(itemId) {
   if (itemId === selectedId.value) return
-  if (editorDirty.value && !window.confirm('结构化笔记有未保存的修改，切换条目会丢失，继续？')) {
+  if (editorDirty.value && !window.confirm('笔记有没保存的修改，切换条目会丢。继续？')) {
     return
   }
   selectedId.value = itemId
@@ -171,10 +171,10 @@ async function organizePending() {
   try {
     const result = await api.organizePending()
     if (result.total) {
-      toast.ok(`已派发 ${result.total} 个整理任务`)
+      toast.ok(`开始整理了，${result.total} 条排队中`)
       await refreshAll()
     } else {
-      toast.info('没有待处理的条目')
+      toast.info('没有待整理的条目')
     }
   } catch (err) {
     toast.error(friendlyMessage(err))

@@ -71,7 +71,7 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
           {{ item.name }}
         </button>
       </div>
-      <p class="hint">选「跟随系统」时，系统切换深色这里会立刻跟着变，不用重开。</p>
+      <p class="hint">选「跟随系统」时，系统切到深色，这里会立刻跟着变，不用重开。</p>
     </section>
 
     <section class="block">

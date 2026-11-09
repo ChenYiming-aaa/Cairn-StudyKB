@@ -20,7 +20,7 @@ import ModelTab from './settings/ModelTab.vue'
 
 const TABS = [
   { id: 'model', label: '模型', hint: '服务、Key、每个任务用谁' },
-  { id: 'appearance', label: '外观', hint: '配色与明暗' },
+  { id: 'appearance', label: '外观', hint: '配色、明暗、字号' },
   { id: 'downloads', label: '下载', hint: '可选组件' },
   { id: 'about', label: '关于', hint: '版本与链接' },
 ]
@@ -143,8 +143,8 @@ onBeforeUnmount(() => {
             <div v-else class="pending">
               <p class="pending-title">可选组件（M8）</p>
               <p class="pending-body">
-                向量模型、语音识别、浏览器内核这三块重组件会从安装包里拆出来，按需下载、可卸载。
-                下载中心在 M8 做，现在装的是「全量包」，三个组件都已经在里面。
+                向量模型、语音识别、浏览器内核会从安装包里拆出来，按需下载、能卸载。
+                下载中心到 M8 才有；现在装的是全量包，三个组件都已经在里面。
               </p>
             </div>
           </div>

@@ -28,7 +28,7 @@ const TYPE_TEXT = {
 
 const STAGE_TEXT = {
   fetching: '抓取正文',
-  saving: '写入库',
+  saving: '写入知识库',
   metadata: '读取信息',
   downloading: '下载音频',
   transcribing: '语音识别',
@@ -90,7 +90,7 @@ async function retry(task) {
   retrying.value = task.id
   try {
     await api.retryTask(task.id)
-    toast.ok('已重新派发')
+    toast.ok('已重新排队，马上开始')
     await load()
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -119,8 +119,8 @@ onBeforeUnmount(() => {
 
     <p v-if="errorText" class="error">{{ errorText }}</p>
 
-    <p v-if="loading" class="empty">正在加载…</p>
-    <p v-else-if="!tasks.length" class="empty">还没有任务。用顶部「＋ 采集内容」添加第一条。</p>
+    <p v-if="loading" class="empty">加载中…</p>
+    <p v-else-if="!tasks.length" class="empty">还没有任务。点顶栏「＋ 采集内容」采一条，这里就有记录了。</p>
 
     <ul v-else class="rows">
       <li v-for="task in tasks" :key="task.id" class="row">
@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
             :disabled="retrying === task.id"
             @click="retry(task)"
           >
-            {{ retrying === task.id ? '派发中…' : '重试' }}
+            {{ retrying === task.id ? '重新排队…' : '重试' }}
           </button>
         </div>
       </li>

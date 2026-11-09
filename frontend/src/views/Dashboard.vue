@@ -61,7 +61,7 @@ onMounted(load)
     <header class="head">
       <div>
         <h1 class="page-title">仪表盘</h1>
-        <p class="page-sub">今天学了多少、还剩什么没整理，一屏看完</p>
+        <p class="page-sub">今天学了多久、还剩多少没整理，一屏看完</p>
       </div>
       <button class="btn btn-sm" type="button" :disabled="loading" @click="load">刷新</button>
     </header>
@@ -74,14 +74,14 @@ onMounted(load)
       <button class="card link" type="button" @click="router.push('/')">
         <span class="card-label">今日待整理</span>
         <span class="card-value">{{ today.pending_items }}</span>
-        <span class="card-sub">全库还有 {{ today.pending_total }} 条 pending</span>
+        <span class="card-sub">全库还有 {{ today.pending_total }} 条待整理</span>
       </button>
 
       <!-- 2 今日待复习 -->
       <button class="card link" type="button" @click="router.push('/review')">
         <span class="card-label">今日待复习</span>
         <span class="card-value" :class="{ hot: today.due_reviews > 0 }">{{ today.due_reviews }}</span>
-        <span class="card-sub">错题本 {{ today.wrong_questions }} 道</span>
+        <span class="card-sub">错题本 {{ today.wrong_questions }} 题</span>
       </button>
 
       <!-- 3 连续学习天数 -->

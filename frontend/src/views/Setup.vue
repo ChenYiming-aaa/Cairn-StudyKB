@@ -71,7 +71,7 @@ function onModels(list) {
 
 function later() {
   dismissSetup()
-  toast.info('可以随时从顶栏的「环境」回到这里')
+  toast.info('随时点顶栏的齿轮回到这里')
   router.push('/')
 }
 
@@ -88,7 +88,7 @@ onMounted(async () => {
       <div>
         <h1>把 Cairn 准备好</h1>
         <p class="hero-sub">
-          三件事，缺哪件补哪件。全部就绪后这个页面就不用再来了。
+          三件事，缺哪件补哪件。全部就绪后就不用再来了。
           <span v-if="blocking.length" class="hero-flag">现在卡在：{{ blocking.join('、') }}</span>
           <span v-else class="hero-done">已全部就绪 ✓</span>
         </p>
@@ -129,7 +129,7 @@ onMounted(async () => {
         </p>
 
         <p v-if="env.llm?.ok" class="step-foot ok-line">
-          当前模型：{{ env.llm.detail }} —— 已经生效，不用重启
+          当前模型：{{ env.llm.detail }}。已经生效，不用重启。
         </p>
         <p v-else-if="env.llm?.hint" class="step-foot">{{ env.llm.hint }}</p>
         <p v-if="envPath" class="step-foot">
@@ -147,7 +147,7 @@ onMounted(async () => {
           </span>
         </div>
         <p class="step-desc">
-          只有「视频链接转录」用它，网页采集和问答不需要。安装包自带，正常情况下这一项应该本来就是绿的。
+          只有「视频链接转录」用它，网页采集和问答都不用。安装包自带，正常情况下这一项本来就是绿的。
         </p>
         <p v-if="env.ffmpeg" class="step-foot">
           {{ env.ffmpeg.ok ? `版本 ${env.ffmpeg.detail}` : env.ffmpeg.hint || env.ffmpeg.detail }}
@@ -164,7 +164,7 @@ onMounted(async () => {
           </span>
         </div>
         <p class="step-desc">
-          不用管，第一次真正用到时会自动下载。提前知道一声，免得以为卡住了。
+          不用管，第一次真正用到时会自动下载。提前说一声，免得以为卡住了。
         </p>
         <div class="rows">
           <div class="row" :class="tone(env.whisper)">

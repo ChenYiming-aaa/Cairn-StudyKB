@@ -33,7 +33,7 @@ for (const q of [...(data.review_due?.items || []), ...(data.wrong?.items || [])
 }
 
 const DEMO_BLOCKED =
-  '这是静态演示版：整理、采集、出题、问答都要调本地后端和模型，请下载桌面版运行'
+  '这是静态演示版：整理、采集、出题、问答都要本地后端和模型。下载桌面版就能用'
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -247,7 +247,7 @@ const POST_ROUTES = [
       models: [],
       latency_ms: 0,
       error_code: 'DEMO_OFFLINE',
-      hint: '演示模式不会真的去连模型服务：下载桌面版后这里能列出对方的模型',
+      hint: '演示模式不会真的去连模型服务。下载桌面版后，这里能列出对方的模型',
     }),
   ],
   [

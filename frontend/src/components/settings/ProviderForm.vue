@@ -51,7 +51,7 @@ function commitBase() {
 
 async function saveKey() {
   if (!apiKey.value.trim()) {
-    toast.error('先填入 API Key')
+    toast.error('先填 API Key，再探测')
     return
   }
   saving.value = true

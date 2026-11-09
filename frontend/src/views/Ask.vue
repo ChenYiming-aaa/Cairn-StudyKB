@@ -122,8 +122,8 @@ async function ask() {
           noResult.value = true
           answer.value = ev.message || ''
         } else if (ev.type === 'error') {
-          askError.value = ev.message || '问答失败'
-          toast.error(`${ev.message || '问答失败'}${ev.detail ? `（${ev.detail}）` : ''}`)
+          askError.value = ev.message || '这次没问成'
+          toast.error(`${ev.message || '这次没问成'}${ev.detail ? `（${ev.detail}）` : ''}`)
         } else if (ev.type === 'done') {
           asking.value = false
         }
@@ -210,7 +210,7 @@ async function removeLog(id) {
     historyItems.value = historyItems.value.filter((h) => h.id !== id)
     historyTotal.value = Math.max(0, historyTotal.value - 1)
     if (currentLogId.value === id) currentLogId.value = null
-    toast.ok('已删除这条记录')
+    toast.ok('已删除这条问答记录')
   } catch (err) {
     toast.error(friendlyMessage(err))
   }
@@ -415,7 +415,7 @@ watch(question, () => {
 
         <div v-else class="state">
           <p class="state-title">搜原文片段</p>
-          <p>输入关键词后按回车；两字词也能搜（自动走模糊匹配）</p>
+          <p>输入关键词后按回车。两个字也能搜，会自动走模糊匹配。</p>
         </div>
       </template>
     </div>
@@ -554,7 +554,7 @@ watch(question, () => {
 }
 
 .stats {
-  margin: var(--space-5) 0 var(--space-2);
+  margin: var(--space-4) 0 var(--space-2);
   font-size: var(--fs-xs);
   color: var(--c-text-3);
 }
@@ -707,7 +707,7 @@ watch(question, () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
 }
 
 /* ── 问答历史（T3.12）──────────────────────────── */

@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-09 22:45 · 每次会话结束更新这一段）
+## 当前状态（2026-11-10 00:20 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M7 布局与文案 · 进行中**（T7.0–T7.4 完成，剩 T7.5–T7.7 文案与验收）。M6 已验收并打过 `m6-done` |
-| 当前里程碑 | **M7 第二部分完成**；下一步 **T7.5–T7.7**（文案规范 / 全量替换 / `verify_m7.py` + 截图重拍） |
+| 里程碑 | **M7 布局与文案 · 已验收**（T7.0–T7.7 全部完成，tag `m7-done`）。下一个：**M8 体积与更新**（未开工） |
+| 当前里程碑 | **M7 第三部分完成**（`文案规范.md` / 全量替换两批 / `verify_m7.py` 30/30 + 10 张截图重拍）。下一步 **M8**（T8.0–T8.8） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
-| 远程 | `origin/main` = `4e69773`（M7 第二部分，2026-11-09 22:45 已推）；**本表不追每次提交** |
+| 远程 | `origin/main` = M7 第三部分提交（2026-11-10 00:20 已推）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip`（M7 第一部分） |
-| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78（2026-11-09 22:40 回归）** · **M7 浏览器实测：第一部分 24/24 + 第二部分 52/52**（临时脚本 `data/tmp/m7ui/check.py` / `check2.py`，种子库 28 条 / 13 分类 / 67 标签；正式 `verify_m7.py` 在 T7.7 才建） · `npm run lint` 干净 · `npm run build` 通过（JS 316.20 kB / gzip 115.35 kB；CSS 89.47 kB / gzip 13.76 kB） · `VITE_DEMO=1` 构建通过 · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · 安装包基线 426,428,660 字节（M7 未改后端依赖，体积不变） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` |
+| 验收 | **M7 `verify_m7.py` 30/30 PASS**（真起后端 + Playwright + 脚本内种子库 34 条 / 13 分类 / 59 标签；含 10 张截图重拍） · 回归 **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78**（2026-11-10 全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.09 kB / gzip 115.68 kB；CSS 89.47 kB / gzip 13.75 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · 安装包基线 426,428,660 字节（M7 未改后端依赖，体积不变） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -61,11 +61,11 @@
 | 13 | 思维导图 SVG 的深色配色写死一套绿，不跟 6 套主题走 | 待裁决 | 见 `M6-补充记录.md` S-20 第 1 条；建议 M7 视觉统一时改 |
 | 14 | 徽标小字对比度 3.5–4.35:1，低于 AA 小字 4.5:1 | 待裁决 | S-20 第 2 条；§3 硬标准只要求 3:1，这一版不算违规 |
 | 15 | 深色界面里学习页预览 iframe 是全白（导出固定 light） | 待裁决 | S-20 第 3 条；建议加外框 + 一句说明，不改导出内容 |
-| 16 | `Ctrl+Shift+B` 能收列表，但**没有可见恢复入口**（顶栏按钮是 T7.2） | 半成品（T7.2 收口） | 见 `M7-补充记录.md` S-8；本轮用 `html[data-list="off"] .list-panel{display:none}` 临时桥，T7.2 接 `SidePanel(target="list")` 后**删掉这条** |
-| 17 | `< 1000px` 的「条目列表浮层化」未做 | T7.2 范围 | S-9；前两档响应式已实测（1100 → 44px） |
+| 16 | ~~`Ctrl+Shift+B` 收列表后没有恢复入口~~ | **已修 T7.2** | 顶栏 `RailToggle target="list"`，临时桥样式已删 |
+| 17 | ~~`< 1000px` 条目列表未浮层化~~ | **已做 T7.2** | S-9；960 宽实测 `position:absolute` + 选完自动收起 |
 | 18 | 状态计数是**全库口径**，叠加分类后数字不变 | 口径待你定 | S-10；要变分类口径需给 `GET /knowledge/categories` 加「每分类分状态计数」（契约变更） |
 | 19 | 分类全展开会把「常用标签」挤出首屏 | 观感待你定 | S-11；三种做法（限高滚动 / 标签区上移 / 维持现状）见补充记录 |
-| 20 | 相对 `--data-dir` 按**项目根**解析，不是 cwd | 文档缺口 | S-2；本轮踩到一次（空库起服务），建议 `运行与打包.md` 补一句 |
+| 20 | ~~相对 `--data-dir` 按项目根解析~~ | **文档已补 2026-11-10** | `运行与打包.md` 已写「用绝对路径」 |
 | 21 | 本轮在 `C:\Users\<你>\Desktop\data\tmp\m7ui` 留下一个空库与 `logs/` | 清理 | 项目根之外，可手工删；不是仓库内容 |
 | 22 | ~~`GET /theme-boot.js` 404（打包版防白闪失效）~~ | **已修 2026-11-09** | M6 回归：`main.py` 静态白名单漏了它；已加，实测 200 |
 
@@ -83,12 +83,11 @@
 - **规矩沉淀**：ADR-028「读的不写盘，写要你点了才算，日志只记实际发生的」
 
 **下一会话第一件事**
-> 接 **M7 第三部分（T7.5–T7.7）**：先写 `docs/dev/文案规范.md`（T7.5 只写能执行的部分：
-> 语气四条 / 术语表 / 空状态三段式 / 错误两层 / 反例），再按组件批 + 页面批分两次提交做全量替换（T7.6），
-> 最后建 `backend/scripts/verify_m7.py`（T7.7 六条断言）+ 重拍 README 截图。
-> 起手前读 `milestones/M7-布局与文案.md` **§6.2 末尾的三条提醒**（尤其第 1 条：整块可点的容器会污染可访问名），
-> 以及 `M7-补充记录.md` §六 的 S-16～S-20（其中 S-20 的两处 `--space-5` 还没改）。
-> M6 遗留的三条待裁决（导图配色 / 徽标对比度 / 学习页 iframe，S-20）留到 T7.5–T7.7 视觉统一时一起定。
+> 开 **M8 体积与更新**：先读 `docs/dev/milestones/M8-体积与更新.md` 全文 + 本表「当前状态」，
+> 再跑 `python tools/doc_check.py` 与 `cd backend && uv run python scripts/status.py`。
+> M7 出口已过（`verify_m7` 30/30，`m7-done`），M8 的起点是「安装包 426 MB → ≤170 MB + 更新器」。
+> 起手先确认体积账（`M7-布局与文案.md` §6.3 记了 JS 317.09 kB / CSS 89.47 kB），
+> 以及 `M7-补充记录.md` S-26 的三条观感裁决是否要在 M8 里一并处理。
 
 ---
 
@@ -1355,3 +1354,51 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 **下一会话第一件事**
 > 见「当前状态」里的「下一会话第一件事」：M7 第三部分 T7.5–T7.7。
+
+## 2026-11-10 00:20 · M7 · T7.5–T7.7 文案规范 + 全量替换 + 验收（**M7 完成**）
+
+**范围**：M7 最后一段。T7.5 写 `docs/dev/文案规范.md`；T7.6 分两批（组件 / 页面）改可见文案；
+T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + README/总纲/手册同步。
+
+**完成**
+- T7.5 `文案规范.md`：语气四条、术语表、两个搜索框分工、空状态三段式、错误两层、
+  8 条反例改法、**禁止词清单**、标点/数字、aria-label、自查命令
+- T7.6 批 1（组件 12 个）+ 批 2（8 个页面 + 设置四 tab + 演示层）：`FRIENDLY` 27 条按
+  「先说影响再说怎么办」全部重写；改掉 12 条典型旧文案（AI 生成 / 已派发 / 内容已存在 /
+  结构化笔记 / pending / ready / 待处理 / 确认作答 / 交卷中 …）
+- T7.7 `verify_m7.py`：真起 uvicorn + Playwright + 脚本内种子库（34 条 / 13 分类 / 59 标签），
+  断言 8 个路由与设置四 tab 无禁止词，并用 `--shots` 一次重拍 README 全部 10 张图
+- 顺手：`Ask.vue` 两处 `--space-5` → `--space-4`（S-20 关闭）
+
+**改动文件**
+- 新增：`docs/dev/文案规范.md`、`backend/scripts/verify_m7.py`
+- 前端：`App.vue`、`api/client.js`、`QuizRunner` / `ItemDetail` / `IngestPanel` / `ItemList` /
+  `NoteEditor` / `Pomodoro` / `SessionLog` / `SummaryPane` / `MindmapPane` / `TitleEditor` /
+  `CategoryTree` / `SettingsDialog`、`settings/*` 4 个、`views/*` 8 个、`demo/index.js`
+- 文档：`README.md`、`00-总纲.md`、`session`手册、`M7-布局与文案.md` §6.3、`M7-补充记录.md` §七、
+  `运行与打包.md`（补 verify_m6/m7 与 `--data-dir` 绝对路径）
+- 图片：`docs/images/01…10*.png` 全部重拍（1440×900）
+
+**验证**
+- `verify_m7.py` → **30/30 PASS**；`--shots ../docs/images` 再跑一次仍 30/30
+- 回归：m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78
+- `npm run lint` 干净；`npm run build` 通过（JS 317.09 kB / gzip 115.68；CSS 89.47 / 13.75）
+- 截图人工核对：知识库 / 条目详情 / 导图 / 深色 / 设置 / 仪表盘均正常
+
+**遗留问题**
+- [ ] S-26 三条观感待裁决：状态计数全库口径（S-10）、分类全展开挤走标签云（S-11）、
+      徽标小字对比度（S-15）——README「已知限制」已把前两条写成现状
+- [ ] 导图深色配色、学习页 iframe 白底（M6 S-20 第 1、3 条）仍待做，属视觉统一
+- [ ] `data/tmp/m7ui`（临时脚本与种子库）可删；verify_m7 已在临时目录自建种子，不再依赖它
+- [ ] `tools/audit_kb.py`、`tools/build_signed.py`、`backend/cairn-backend.spec` 仍是另一路未提交改动
+
+**待裁决冲突**
+- 无。T7.7 第 6 条「不出现术语表右列的词」按可判定子集执行（`文案规范.md` §6 + 补充记录 S-21）。
+
+**推送状态：已推（2026-11-10 00:20）**
+- 提交见下一行 `git log`；裸命令 `git push origin main` + `git push origin --tags`
+- 新标签 `m7-done`
+
+**下一会话第一件事**
+> 开 M8：读 `milestones/M8-体积与更新.md`，跑 `doc_check.py` + `scripts/status.py`，
+> 从体积账（426 MB → ≤170 MB）开始。

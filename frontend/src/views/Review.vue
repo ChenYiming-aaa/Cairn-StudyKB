@@ -143,8 +143,8 @@ onMounted(loadDue)
       <p v-if="loading" class="panel-note pad">加载中…</p>
       <p v-else-if="error" class="panel-note pad error">{{ error }}</p>
       <div v-else-if="!items.length" class="state">
-        <p class="state-title">今天没有要到期的题</p>
-        <p>去练习里答错几道，明天它们就出现在这里</p>
+        <p class="state-title">今天没有到期的题</p>
+        <p>去练习里答错几道，明天它们就回到这里。</p>
       </div>
       <ul v-else class="rows">
         <li v-for="item in items" :key="item.question_id" class="row">
@@ -163,7 +163,7 @@ onMounted(loadDue)
     <!-- 错题本 -->
     <section v-else class="panel">
       <div class="panel-bar">
-        <span class="panel-note">最近一次作答仍答错的题；复习答对后自动移出</span>
+        <span class="panel-note">最近一次作答仍答错的题。复习答对后自动移出。</span>
         <button class="btn btn-sm" type="button" @click="loadWrong">刷新</button>
       </div>
 
@@ -171,7 +171,7 @@ onMounted(loadDue)
       <p v-else-if="wrongError" class="panel-note pad error">{{ wrongError }}</p>
       <div v-else-if="!wrongItems.length" class="state">
         <p class="state-title">错题本是空的</p>
-        <p>没有「最近一次答错」的题，或者都已经复习对了</p>
+        <p>没有「最近一次答错」的题，或者都已经复习对了。</p>
       </div>
       <ul v-else class="rows">
         <li v-for="item in wrongItems" :key="item.question_id" class="row">

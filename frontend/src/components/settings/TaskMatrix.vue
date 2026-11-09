@@ -120,7 +120,7 @@ function changeProvider(agent, pid) {
     </div>
 
     <p class="foot">
-      换服务或换模型后下一次调用就生效；「思考强度」只对声明支持的服务发送。
+      换服务或换模型后，下一次调用就生效。「思考强度」只发给声明支持的服务。
     </p>
   </div>
 </template>

@@ -66,7 +66,7 @@ const cfgState = computed(() => {
 
 function checkUpdate() {
   // TODO(T8.5)：接桌面壳的更新器 —— 检查 → 下载（带进度）→ 打开安装程序 → 退出
-  toast.info('这一版还没有更新器：M8 接入后，这里能直接检查并下载新版本')
+  toast.info('这一版还没有更新器，检查不了新版本。M8 接入后，这里能直接检查并下载')
 }
 </script>
 
@@ -81,7 +81,7 @@ function checkUpdate() {
           <span class="tag">v0.2 开发预览</span>
         </h4>
         <p class="tagline">
-          把看过的网页、视频、文章收进本地知识库，让 AI 整理成可检索、可复习的知识资产。
+          把看过的网页、视频、文章收进本地知识库，让模型整理成可检索、可复习的知识资产。
         </p>
       </div>
     </header>
@@ -91,16 +91,16 @@ function checkUpdate() {
       <dl class="facts">
         <div class="fact">
           <dt>提交</dt>
-          <dd>{{ commit || '源码运行（未注入 commit）' }}</dd>
+          <dd>{{ commit || '源码运行，没有提交号' }}</dd>
         </div>
         <div class="fact">
           <dt>构建时间</dt>
-          <dd>{{ builtAt || '源码运行（未注入构建时间）' }}</dd>
+          <dd>{{ builtAt || '源码运行，没有构建时间' }}</dd>
         </div>
       </dl>
       <div class="update-row">
         <button class="btn btn-sm" type="button" @click="checkUpdate">检查更新</button>
-        <span class="update-note">当前版本已是最新的说法要等 M8 接上更新器；现在点了不会下载任何东西。</span>
+        <span class="update-note">现在点它不会下载任何东西。等 M8 接上更新器，才能真正检查新版本。</span>
       </div>
     </section>
 
