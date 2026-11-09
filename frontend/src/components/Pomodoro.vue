@@ -337,7 +337,7 @@ onBeforeUnmount(stopBreak)
 .preset.on {
   border-color: var(--c-primary);
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .note-box {
@@ -401,7 +401,7 @@ onBeforeUnmount(stopBreak)
 .break-time {
   font-family: var(--font-mono);
   font-size: 26px;
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .error {

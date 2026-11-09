@@ -127,7 +127,7 @@ function pick(category, tag) {
 
 .node.on {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-weight: 600;
 }
 
@@ -149,7 +149,7 @@ function pick(category, tag) {
 }
 
 .node.on .count {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .caret {

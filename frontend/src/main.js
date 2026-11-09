@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 
 import App from './App.vue'
+import { initTheme } from './composables/useTheme'
 import router from './router'
 import './styles/tokens.css'
 import './styles/app.css'
@@ -13,6 +14,9 @@ async function bootstrap() {
     const { installDemo } = await import('./demo')
     installDemo()
   }
+  // 主题要在挂载前落定：`theme-boot.js` 已经写过一次（防白闪），这里补上
+  // 「跟随系统」的监听，并保证 data-* 与 localStorage 一致
+  initTheme()
   createApp(App).use(router).mount('#app')
 }
 

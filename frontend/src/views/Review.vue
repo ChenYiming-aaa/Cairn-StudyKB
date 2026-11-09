@@ -238,7 +238,7 @@ onMounted(loadDue)
 }
 
 .stat.hot b {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .tabs {
@@ -259,7 +259,7 @@ onMounted(loadDue)
 
 .tab.on {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .panel {
@@ -322,7 +322,7 @@ onMounted(loadDue)
 
 .row-tag {
   font-size: var(--fs-xs);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .row-main {

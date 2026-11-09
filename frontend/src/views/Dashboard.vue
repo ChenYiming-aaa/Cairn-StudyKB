@@ -233,7 +233,7 @@ onMounted(load)
 }
 
 .card-value.hot {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .card-sub {
@@ -310,7 +310,7 @@ onMounted(load)
 }
 
 .col.today .col-label {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .col-label {

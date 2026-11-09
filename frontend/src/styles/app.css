@@ -122,11 +122,11 @@ textarea {
 .btn-primary {
   background: var(--c-primary);
   border-color: var(--c-primary);
-  color: #fff;
+  color: var(--c-on-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #35594c;
+  background: var(--c-primary-hover);
 }
 
 .btn-danger {
@@ -135,7 +135,7 @@ textarea {
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: #fbeeec;
+  background: var(--c-danger-soft);
 }
 
 .btn-ghost {
@@ -198,20 +198,20 @@ textarea {
 
 .badge-organizing {
   color: var(--c-warning);
-  background: #fdf3e3;
-  border-color: #f0dcbb;
+  background: var(--c-warning-soft);
+  border-color: var(--c-warning-border);
 }
 
 .badge-ready {
   color: var(--c-success);
-  background: #eaf4ee;
-  border-color: #cfe4d7;
+  background: var(--c-success-soft);
+  border-color: var(--c-success-border);
 }
 
 .badge-failed {
   color: var(--c-danger);
-  background: #fbeeec;
-  border-color: #f0cfcb;
+  background: var(--c-danger-soft);
+  border-color: var(--c-danger-border);
 }
 
 .badge-soft {
@@ -288,7 +288,7 @@ textarea {
 .skeleton {
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--c-bg-2) 25%, #f6f5f0 37%, var(--c-bg-2) 63%);
+  background: linear-gradient(90deg, var(--c-bg-2) 25%, var(--c-skeleton) 37%, var(--c-bg-2) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
 }

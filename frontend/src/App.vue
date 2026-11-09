@@ -6,6 +6,8 @@ import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
 import Pomodoro from './components/Pomodoro.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import { useSettings } from './composables/useSettings'
+import { useTheme } from './composables/useTheme'
 import { useTimer } from './composables/useTimer'
 import { useToast } from './composables/useToast'
 import { useUi } from './composables/useUi'
@@ -22,6 +24,9 @@ const {
 } = useUi()
 // 顶栏迷你计时器（T5.3）：状态在 useTimer 单例里，和番茄钟面板共用同一个计时
 const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = useTimer()
+// 主题（T6.7）：localStorage 已经在 theme-boot.js 里上过一次，这里用后端的真源对齐
+const { load: loadSettings } = useSettings()
+const { adopt: adoptAppearance } = useTheme()
 
 const backend = ref('checking')
 // 静态演示版（github.io）：数据是抓下来的 fixture，生成类操作会返回 DEMO_OFFLINE。
@@ -42,6 +47,9 @@ onMounted(async () => {
   // T5.7：缺 Key / 缺 ffmpeg 时把用户送到引导页。只在**本机从没配过**时自动跳一次，
   // 点过「稍后再说」就不再打扰——顶栏那个黄色状态点会一直留着，随时能回去。
   await loadEnv()
+  // 外观（主题/明暗/字号）的真源在 settings.json：首次启动或换机器时以它为准
+  await loadSettings()
+  adoptAppearance()
   const onSetup = router.currentRoute.value.path === '/setup'
   if (!onSetup && envBlocking.value.length && !setupDismissed.value) {
     router.push('/setup')
@@ -201,7 +209,7 @@ function onOpen(itemId) {
 
 .nav-item.on {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .conn {
@@ -227,9 +235,9 @@ function onOpen(itemId) {
   gap: var(--space-1);
   margin-right: var(--space-2);
   padding: var(--space-1) var(--space-2);
-  border: 1px solid #ecd9b8;
+  border: 1px solid var(--c-warning-border);
   border-radius: var(--radius-sm);
-  background: #fbf1e2;
+  background: var(--c-warning-soft);
   color: var(--c-warning);
   font-size: var(--fs-xs);
   cursor: pointer;
@@ -267,7 +275,7 @@ function onOpen(itemId) {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .mini-dot {
@@ -351,8 +359,8 @@ function onOpen(itemId) {
   justify-content: center;
   gap: var(--space-2);
   padding: 6px var(--space-4);
-  background: #fbf1e2;
-  border-top: 1px solid #ecd9b8;
+  background: var(--c-warning-soft);
+  border-top: 1px solid var(--c-warning-border);
   color: var(--c-warning);
   font-size: var(--fs-xs);
   line-height: 1.4;
@@ -368,7 +376,7 @@ function onOpen(itemId) {
 }
 
 .demo-bar a {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   text-decoration: none;
   border-bottom: 1px solid currentColor;
 }

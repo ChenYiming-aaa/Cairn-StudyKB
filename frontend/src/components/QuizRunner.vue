@@ -313,7 +313,7 @@ const accuracyText = computed(() => {
   padding: 0 6px;
   border-radius: 999px;
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .q-tag.ghost {
@@ -372,12 +372,12 @@ const accuracyText = computed(() => {
 
 .opt.right {
   border-color: var(--c-success);
-  background: #edf6ef;
+  background: var(--c-success-soft);
 }
 
 .opt.wrong {
   border-color: var(--c-danger);
-  background: #fbeeec;
+  background: var(--c-danger-soft);
 }
 
 .opt:disabled {
@@ -467,7 +467,7 @@ const accuracyText = computed(() => {
 
 .score-main b {
   font-size: 32px;
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .score-main span {
@@ -565,6 +565,6 @@ const accuracyText = computed(() => {
 }
 
 .review-feedback {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 </style>

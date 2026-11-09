@@ -73,7 +73,7 @@ watch(
 }
 
 .hit {
-  background: #fbeaa8;
+  background: var(--c-mark);
   color: var(--c-text-1);
   scroll-margin: 120px;
 }

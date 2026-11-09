@@ -115,8 +115,49 @@ function gradeOne(entry) {
 }
 
 /** 路由表：按 pathname 匹配，顺序有意义（更具体的放前面） */
+// 演示站也要能打开设置窗口（M6 T6.7/T6.8）：没有这两个接口，齿轮一点就是一片报错。
+// 外观读 localStorage 而不是写死，否则观众选了主题一刷新就被打回默认。
+const look = () => ({
+  theme: localStorage.getItem('cairn.theme') || 'paper',
+  mode: localStorage.getItem('cairn.mode') || 'system',
+  font_size: localStorage.getItem('cairn.fs') || 'md',
+})
+
+const DEMO_SETTINGS = () => ({
+  llm: {
+    active: 'deepseek',
+    providers: {
+      deepseek: {
+        label: 'DeepSeek',
+        base_url: 'https://api.deepseek.com',
+        has_key: true,
+        supports_effort: true,
+        models: ['deepseek-flash', 'deepseek-reasoner'],
+      },
+      custom: {
+        label: 'OpenAI 兼容',
+        base_url: '',
+        has_key: false,
+        supports_effort: false,
+        models: [],
+      },
+    },
+    tasks: {
+      organizer: { provider: 'deepseek', model: 'deepseek-flash', effort: 'low' },
+      asker: { provider: 'deepseek', model: 'deepseek-flash', effort: 'low' },
+      quizzer: { provider: 'deepseek', model: 'deepseek-flash', effort: 'low' },
+      grader: { provider: 'deepseek', model: 'deepseek-flash', effort: 'low' },
+    },
+  },
+  appearance: look(),
+  components: {},
+  env_file: '%APPDATA%\\Cairn\\.env',
+})
+
 const ROUTES = [
   [/^\/api\/health$/, () => data.health],
+  [/^\/api\/version$/, () => ({ version: '0.1.0', commit: null, built_at: null })],
+  [/^\/api\/settings$/, () => DEMO_SETTINGS()],
   [/^\/api\/env\/check$/, () => data.env],
   [/^\/api\/knowledge\/categories$/, () => data.categories],
   [
@@ -191,6 +232,24 @@ const ROUTES = [
 ]
 
 const POST_ROUTES = [
+  [
+    /^\/api\/settings$/,
+    (_m, { body }) => {
+      // PATCH 在演示里只回显，不落盘：界面「改完即时生效」的手感在，但刷新就复原
+      const merged = DEMO_SETTINGS()
+      return { ...merged, ...(body || {}) }
+    },
+  ],
+  [
+    /^\/api\/settings\/probe$/,
+    () => ({
+      ok: false,
+      models: [],
+      latency_ms: 0,
+      error_code: 'DEMO_OFFLINE',
+      hint: '演示模式不会真的去连模型服务：下载桌面版后这里能列出对方的模型',
+    }),
+  ],
   [
     /^\/api\/quiz\/submit$/,
     (_m, { body }) => {

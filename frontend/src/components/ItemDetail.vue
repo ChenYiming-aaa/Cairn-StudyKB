@@ -9,6 +9,7 @@ import RawPane from './RawPane.vue'
 import SessionLog from './SessionLog.vue'
 import SummaryPane from './SummaryPane.vue'
 import TitleEditor from './TitleEditor.vue'
+import { useTheme } from '../composables/useTheme'
 import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
@@ -23,6 +24,8 @@ const emit = defineEmits(['refresh', 'deleted'])
 
 const toast = useToast()
 const { focusChunk } = useUi()
+// 导图是后端现场出的 SVG，明暗得前端告诉它（T6.7）；让它自己判断会和界面脱节
+const { resolvedMode } = useTheme()
 
 const tab = ref('summary')
 const organizing = ref(false)
@@ -202,6 +205,7 @@ onBeforeUnmount(stop)
           v-if="tab === 'mindmap'"
           :item-id="item.id"
           :updated-at="item.updated_at || ''"
+          :theme="resolvedMode"
         />
 
         <!-- v-if 而非 v-show：每次切进来都重新拉一次，刚结束的一轮立刻能看到 -->
@@ -276,7 +280,7 @@ onBeforeUnmount(stop)
 }
 
 .chip-edit {
-  background: #fdf3e3;
+  background: var(--c-warning-soft);
   color: var(--c-warning);
 }
 
@@ -289,7 +293,7 @@ onBeforeUnmount(stop)
   margin: var(--space-3) 0 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  background: #fdf3e3;
+  background: var(--c-warning-soft);
   color: var(--c-warning);
   font-size: var(--fs-xs);
 }
@@ -316,7 +320,7 @@ onBeforeUnmount(stop)
 }
 
 .tab.on {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   border-bottom-color: var(--c-primary);
   font-weight: 600;
 }

@@ -504,7 +504,7 @@ watch(question, () => {
 }
 
 .tab.on {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   border-bottom-color: var(--c-primary);
   font-weight: 600;
 }
@@ -567,7 +567,7 @@ watch(question, () => {
   background: none;
   font-size: 12px;
   font-family: var(--font-ui);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   vertical-align: super;
   line-height: 1;
 }
@@ -606,14 +606,14 @@ watch(question, () => {
 
 .source:hover,
 .hit:hover {
-  border-color: #cfe0d7;
+  border-color: var(--c-primary-border);
   background: var(--c-primary-soft);
 }
 
 .source-n {
   flex: none;
   font-size: var(--fs-xs);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -674,7 +674,7 @@ watch(question, () => {
 }
 
 .hit-text mark {
-  background: #fbeaa8;
+  background: var(--c-mark);
   color: var(--c-text-1);
   padding: 0 1px;
 }
@@ -708,7 +708,7 @@ watch(question, () => {
 
 .hist-btn.on {
   border-color: var(--c-primary);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .hist-count {
@@ -716,7 +716,7 @@ watch(question, () => {
   padding: 0 5px;
   border-radius: 9px;
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-size: 11px;
   line-height: 18px;
   text-align: center;
@@ -850,7 +850,7 @@ watch(question, () => {
 }
 
 .badge-warn {
-  background: #f7e7cd;
+  background: var(--c-warning-soft);
   color: var(--c-warning);
   flex: none;
 }

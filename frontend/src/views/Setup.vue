@@ -2,9 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { api, friendlyMessage } from '../api/client'
 import { useToast } from '../composables/useToast'
+import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
+import ProviderForm from '../components/settings/ProviderForm.vue'
 
 /**
  * 首次引导（T5.7）。
@@ -14,25 +15,21 @@ import { useUi } from '../composables/useUi'
  *   2. ffmpeg  —— 安装包自带，正常就该是绿的；红了说明安装不完整
  *   3. 本地模型 —— 可选，首次用时自动下载，只是提前告诉用户"会下 600MB"
  *
- * 刻意不做的事：不做一个"通用设置页"。能改的只有 Key / 接口地址 / 模型名这三项，
- * 其余的键（FFMPEG_DIR、BROWSER_CHANNEL…）属于开发期配置，写进 UI 只会让人乱填。
+ * T6.9 改造：Key 表单换成设置窗口里那个 `ProviderForm`（两处共用一个组件，
+ * 校验/提示/错误文案只有一份），「接口地址 / 模型名」的折叠直接删掉 ——
+ * 那些属于设置窗口的「模型」tab，引导页只负责"把 Key 填进去、能立刻用"。
  */
 const router = useRouter()
 const toast = useToast()
-const { envState, envLoaded, loadEnv, setEnvState, dismissSetup } = useUi()
+const { envState, envLoaded, loadEnv, dismissSetup, openSettings } = useUi()
+const { settings, load: loadSettings, update, replace } = useSettings()
 
-const key = ref('')
-const baseUrl = ref('')
-const model = ref('')
-const advanced = ref(false)
-const saving = ref(false)
 const checking = ref(false)
-const savedOnce = ref(false)
-const envFile = ref('')
+// 引导页只暴露默认 provider 的 Key/地址；换服务商、按任务分模型都在设置里
+const deepseek = computed(() => settings.value?.llm?.providers?.deepseek || null)
 
 const env = computed(() => envState.value || {})
-// 保存响应里带一次，`GET /api/env/check` 的 `env_file` 也有，两个都收
-const envPath = computed(() => envFile.value || env.value.env_file || '')
+const envPath = computed(() => env.value.env_file || '')
 const llmOk = computed(() => Boolean(env.value.llm?.ok))
 const blocking = computed(() => {
   const list = []
@@ -50,34 +47,21 @@ function tone(item) {
 async function refresh() {
   checking.value = true
   try {
-    await loadEnv()
+    await Promise.all([loadEnv(), loadSettings(true)])
   } finally {
     checking.value = false
   }
 }
 
-async function save() {
-  if (!key.value.trim()) {
-    toast.error('先填入 API Key')
-    return
-  }
-  saving.value = true
-  try {
-    const res = await api.saveEnvKey({
-      llm_api_key: key.value.trim(),
-      llm_base_url: baseUrl.value.trim(),
-      llm_model: model.value.trim(),
-    })
-    setEnvState(res.check)
-    envFile.value = res.env_file || ''
-    key.value = ''
-    savedOnce.value = true
-    toast.ok('Key 已保存并生效，不用重启')
-  } catch (err) {
-    toast.error(friendlyMessage(err))
-  } finally {
-    saving.value = false
-  }
+/** 保存 Key 之后：配置换成服务端的新全量，再重新自检一次（顶栏黄点要跟着灭） */
+async function onSaved(next) {
+  if (next) replace(next)
+  await loadEnv()
+}
+
+/** 改接口地址：与设置页同一条路（即时保存），避免两处行为不一致 */
+function onBaseUrl(value) {
+  update({ llm: { providers: { deepseek: { base_url: value } } } })
 }
 
 function later() {
@@ -88,8 +72,7 @@ function later() {
 
 onMounted(async () => {
   if (!envLoaded.value) await loadEnv()
-  // 已配置过就把当前模型名填进去，让"高级"里看到的是真实值而不是空框
-  if (env.value.llm?.ok) model.value = env.value.llm.detail || ''
+  await loadSettings()
 })
 </script>
 
@@ -123,45 +106,23 @@ onMounted(async () => {
           问答、整理、出题全靠它。填一次就够，卸载重装也不会丢。
         </p>
 
-        <form class="key-form" @submit.prevent="save">
-          <input
-            v-model="key"
-            class="input"
-            type="password"
-            placeholder="粘贴 API Key（sk-…）"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button class="btn btn-primary" type="submit" :disabled="saving">
-            {{ saving ? '保存中…' : '保存并检查' }}
-          </button>
-        </form>
+        <!-- 与设置窗口共用同一个表单（M6 §4 T6.9 明令禁止两处各写一套） -->
+        <ProviderForm
+          v-if="deepseek"
+          pid="deepseek"
+          :conf="deepseek"
+          default-open
+          @base-url="onBaseUrl"
+          @saved="onSaved"
+        />
+        <p v-else class="step-foot">配置还没读出来，稍等一秒或点下面的「重新检查」。</p>
 
-        <button class="adv-toggle" type="button" @click="advanced = !advanced">
-          {{ advanced ? '收起高级选项' : '高级：接口地址 / 模型名' }}
-        </button>
-        <div v-if="advanced" class="adv">
-          <label class="adv-row">
-            <span>接口地址</span>
-            <input
-              v-model="baseUrl"
-              class="input"
-              placeholder="https://api.deepseek.com（留空则不改）"
-              spellcheck="false"
-            />
-          </label>
-          <label class="adv-row">
-            <span>模型名</span>
-            <input
-              v-model="model"
-              class="input"
-              placeholder="deepseek-flash（留空则不改）"
-              spellcheck="false"
-            />
-          </label>
-        </div>
+        <p class="step-foot">
+          想换服务商、或者给整理/问答/出题/批改分别挑模型？点这里
+          <button class="link-btn" type="button" @click="openSettings('model')">打开设置</button>
+        </p>
 
-        <p v-if="env.llm?.ok && savedOnce" class="step-foot ok-line">
+        <p v-if="env.llm?.ok" class="step-foot ok-line">
           当前模型：{{ env.llm.detail }} —— 已经生效，不用重启
         </p>
         <p v-else-if="env.llm?.hint" class="step-foot">{{ env.llm.hint }}</p>
@@ -340,17 +301,21 @@ onMounted(async () => {
 
 .chip.ok {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .chip.miss {
-  background: #fbf1e2;
+  background: var(--c-warning-soft);
   color: var(--c-warning);
 }
 
 .chip.optional {
   background: var(--c-bg-2);
   color: var(--c-text-3);
+}
+
+.step :deep(.pcard) {
+  margin-top: var(--space-3);
 }
 
 .step-desc {
@@ -369,45 +334,18 @@ onMounted(async () => {
   word-break: break-all;
 }
 
-.key-form {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-.key-form .input {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-}
-
-.adv-toggle {
-  margin-top: var(--space-2);
+.link-btn {
   padding: 0;
   border: none;
   background: none;
-  color: var(--c-text-3);
-  font-size: var(--fs-xs);
-  cursor: pointer;
+  color: var(--c-primary-ink);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
-.adv-toggle:hover {
-  color: var(--c-primary);
-}
-
-.adv {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.adv-row {
-  display: grid;
-  grid-template-columns: 72px 1fr;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--fs-xs);
-  color: var(--c-text-2);
+.link-btn:hover {
+  color: var(--c-primary-hover);
 }
 
 .step-foot {

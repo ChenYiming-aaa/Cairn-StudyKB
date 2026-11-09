@@ -199,7 +199,7 @@ function changeProvider(agent, pid) {
 
 .seg-btn.on {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-weight: 600;
 }
 

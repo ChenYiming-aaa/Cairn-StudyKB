@@ -68,7 +68,7 @@
 }
 
 .prose a {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .prose table {
@@ -90,13 +90,13 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d8d5ca;
+  background: var(--c-scrollbar);
   border-radius: 999px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #c3bfb2;
+  background: var(--c-scrollbar-hover);
   background-clip: content-box;
 }

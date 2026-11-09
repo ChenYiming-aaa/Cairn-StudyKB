@@ -193,7 +193,7 @@ function clearKeyword() {
 
 .row.on {
   background: var(--c-primary-soft);
-  border-color: #cfe0d7;
+  border-color: var(--c-primary-border);
 }
 
 .row-title {

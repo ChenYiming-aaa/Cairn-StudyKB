@@ -15,7 +15,7 @@
 // 永远用不上的配置（docs/dev/contracts/接口契约.md §4）。
 'use strict'
 
-const { app, BrowserWindow, dialog, session } = require('electron')
+const { app, BrowserWindow, dialog, session, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
@@ -247,6 +247,29 @@ function openWindow(base) {
       log(`console[${level}] ${String(msg).slice(0, 300)}`)
     })
   }
+
+  // 外链交给系统浏览器（T6.8 关于页的四个链接、演示横幅都靠它）。
+  // 不接管的话，`target="_blank"` 会在应用里弹一个没有 preload 的空白窗口，
+  // 用户会以为「点了没反应」或「应用坏了」；也只放行 http(s)，别的一律 deny。
+  const home = new URL(base)
+  const isExternal = (url) => {
+    try {
+      const target = new URL(url)
+      if (target.protocol !== 'http:' && target.protocol !== 'https:') return false
+      return target.origin !== home.origin
+    } catch {
+      return false
+    }
+  }
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternal(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (event, url) => {
+    if (!isExternal(url)) return
+    event.preventDefault()
+    shell.openExternal(url)
+  })
 
   win.loadURL(`${base}/`)
   win.on('closed', () => { win = null })

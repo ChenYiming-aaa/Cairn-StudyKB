@@ -343,7 +343,7 @@ onMounted(() => {
 
 .hist-btn.on {
   border-color: var(--c-primary);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .hist-count {
@@ -351,7 +351,7 @@ onMounted(() => {
   padding: 0 6px;
   border-radius: 999px;
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
@@ -396,7 +396,7 @@ onMounted(() => {
   border: none;
   background: none;
   padding: 0;
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-size: var(--fs-xs);
   cursor: pointer;
 }
@@ -526,7 +526,7 @@ onMounted(() => {
   min-height: 0;
   width: 100%;
   border: none;
-  background: #f6f5f1;
+  background: var(--c-bg-0);
 }
 
 .stage-empty {

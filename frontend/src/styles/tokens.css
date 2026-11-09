@@ -1,5 +1,17 @@
-/* Cairn design tokens —— M1 §6.7 定死，后续只增不改。
-   任何组件都不许写死颜色/字号/间距，一律引用这里的变量。 */
+/* Cairn design tokens。
+
+**配色部分是生成物**：`python tools/check_contrast.py --write`。
+改配色去改 `tools/check_contrast.py` 的 PALETTES 与派生函数，不要手改本文件——
+12 组色板（6 套 × 明暗）手算必错，Part 1 就是这么翻的车（text-3 实际只有 2.19:1）。
+
+结构：
+  :root                     间距 / 字号 / 圆角 / 字体 / 版面尺寸 / 阴影
+  [data-theme="x"]          浅色配色（6 套）
+  [data-theme="x"][data-mode="dark"]  深色配色
+  html[data-fs="sm|lg"]     字号三档（默认 md）
+
+任何组件都不许写死颜色，一律引用这里的变量。
+*/
 
 :root {
   /* 间距 */
@@ -10,7 +22,7 @@
   --space-6: 24px;
   --space-8: 32px;
 
-  /* 字号 */
+  /* 字号（标准档；`html[data-fs]` 覆盖） */
   --fs-xs: 12px;
   --fs-sm: 13px;
   --fs-md: 14px;
@@ -25,24 +37,6 @@
   --lh-body: 1.6;
   --lh-title: 1.4;
 
-  /* 语义色 —— 纸石色系，长时间阅读不刺眼 */
-  --c-primary: #3f6f5f;
-  --c-primary-soft: #e8efeb;
-  --c-success: #3f8f5f;
-  --c-warning: #b8791f;
-  --c-danger: #b3453a;
-
-  /* 文本 */
-  --c-text-1: #23211c;
-  --c-text-2: #5c574d;
-  --c-text-3: #97928a;
-
-  /* 背景与描边 */
-  --c-bg-0: #f6f5f1;
-  --c-bg-1: #fffefa;
-  --c-bg-2: #efeee7;
-  --c-border: #e2dfd5;
-
   /* 版面尺寸 */
   --w-sidebar: 232px;
   --w-list: 320px;
@@ -52,9 +46,404 @@
   --shadow-sm: 0 1px 2px rgba(35, 33, 28, 0.06);
   --shadow-md: 0 8px 24px rgba(35, 33, 28, 0.12);
 
-  /* 字体（§6.7 之外的新增项，只增不改） */
+  /* 字体 */
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
     "PingFang SC", "Hiragino Sans GB", sans-serif;
   --font-reading: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", Georgia, serif;
   --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+}
+/* ── 纸石绿（paper）· 浅色 — v0.1.0 现有 tokens.css ── */
+[data-theme="paper"] {
+  --c-primary: #3F6F5F;
+  --c-primary-soft: #F0F3EE;  /* 选中态底色 */
+  --c-primary-ink: #3F6F5F;  /* 主色作文本时用（primary 当底色时对比度不够） */
+  --c-primary-border: #C9D6CF;  /* 选中/悬停态的描边（比 border 更有指向性） */
+  --c-primary-hover: #365F52;
+  --c-on-primary: #FFFFFF;  /* 主色底上的文字（teal 是黑字） */
+  --c-success: #3F8F5F;
+  --c-success-soft: #ECF3EA;
+  --c-success-border: #C5DDCC;
+  --c-warning: #B45309;
+  --c-warning-soft: #F8EDE2;
+  --c-warning-border: #E8CBB2;
+  --c-danger: #B3453A;
+  --c-danger-soft: #F7ECE7;
+  --c-danger-border: #E8C6C0;
+  --c-text-1: #23211C;
+  --c-text-2: #5C574D;
+  --c-text-3: #8A877E;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-bg-0: #F6F5F1;
+  --c-bg-1: #FFFEFA;
+  --c-bg-2: #EFEEE7;
+  --c-border: #E2DFD5;
+  --c-mark: #FCDFAE;  /* 搜索命中高亮 */
+  --c-scrollbar: #DBDAD3;  /* 滚动条滑块 */
+  --c-scrollbar-hover: #CECDC7;
+  --c-skeleton: #F8F7F1;  /* 骨架屏渐变中间色 */
+}
+
+/* ── 纸石绿（paper）· 深色 ── */
+[data-theme="paper"][data-mode="dark"] {
+  --c-primary: #8DBEAE;
+  --c-primary-soft: #30403B;
+  --c-primary-ink: #8DBEAE;
+  --c-primary-border: #536F66;
+  --c-primary-hover: #A4CBBE;
+  --c-on-primary: #162721;
+  --c-success: #78C497;
+  --c-success-soft: #31473C;
+  --c-success-border: #406250;
+  --c-warning: #F39349;
+  --c-warning-soft: #443F30;
+  --c-warning-border: #6A5135;
+  --c-danger: #D0766D;
+  --c-danger-soft: #3F3A36;
+  --c-danger-border: #5E4741;
+  --c-text-1: #E9ECEB;
+  --c-text-2: #B2BDBA;
+  --c-text-3: #80938D;
+  --c-bg-0: #1A2320;
+  --c-bg-1: #232F2B;
+  --c-bg-2: #2C3A35;
+  --c-border: #394440;
+  --c-mark: #554A23;
+  --c-scrollbar: #45524D;
+  --c-scrollbar-hover: #56615D;
+  --c-skeleton: #3D4A45;
+  /* 深色下阴影要更重，否则卡片浮不起来 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* ── 暖墨（notes）· 浅色 — Notes & Writing App (93) ── */
+[data-theme="notes"] {
+  --c-primary: #78716C;
+  --c-primary-soft: #F4F4F3;  /* 选中态底色 */
+  --c-primary-ink: #756E6A;  /* 主色作文本时用（primary 当底色时对比度不够） */
+  --c-primary-border: #D9D7D6;  /* 选中/悬停态的描边（比 border 更有指向性） */
+  --c-primary-hover: #67615D;
+  --c-on-primary: #FFFFFF;  /* 主色底上的文字（teal 是黑字） */
+  --c-success: #3F8F5F;
+  --c-success-soft: #ECF4EF;
+  --c-success-border: #C5DDCF;
+  --c-warning: #B45309;
+  --c-warning-soft: #F8EEE6;
+  --c-warning-border: #E8CBB5;
+  --c-danger: #DC2626;
+  --c-danger-soft: #FCE9E9;
+  --c-danger-border: #F4BEBE;
+  --c-text-1: #0F172A;
+  --c-text-2: #475569;
+  --c-text-3: #848D9A;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-bg-0: #FFFBEB;
+  --c-bg-1: #FFFFFF;
+  --c-bg-2: #F6F6F6;
+  --c-border: #EEEDED;
+  --c-mark: #FCE0B1;  /* 搜索命中高亮 */
+  --c-scrollbar: #DFE0E2;  /* 滚动条滑块 */
+  --c-scrollbar-hover: #D1D2D5;
+  --c-skeleton: #FBFBFB;  /* 骨架屏渐变中间色 */
+}
+
+/* ── 暖墨（notes）· 深色 ── */
+[data-theme="notes"][data-mode="dark"] {
+  --c-primary: #AAA5A1;
+  --c-primary-soft: #3A3736;
+  --c-primary-ink: #AAA5A1;
+  --c-primary-border: #64605E;
+  --c-primary-hover: #BBB7B4;
+  --c-on-primary: #201E1D;
+  --c-success: #78C497;
+  --c-success-soft: #374139;
+  --c-success-border: #455D4D;
+  --c-warning: #F39349;
+  --c-warning-soft: #4B392C;
+  --c-warning-border: #6F4C33;
+  --c-danger: #E45858;
+  --c-danger-soft: #49302F;
+  --c-danger-border: #6A3838;
+  --c-text-1: #ECEAE9;
+  --c-text-2: #BDB7B2;
+  --c-text-3: #938880;
+  --c-bg-0: #201E1D;
+  --c-bg-1: #2B2827;
+  --c-bg-2: #363330;
+  --c-border: #403E3D;
+  --c-mark: #5B4420;
+  --c-scrollbar: #4E4B49;
+  --c-scrollbar-hover: #5E5C59;
+  --c-skeleton: #464341;
+  /* 深色下阴影要更重，否则卡片浮不起来 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* ── 栗墨（chestnut）· 浅色 — Diary & Journal App (100) ── */
+[data-theme="chestnut"] {
+  --c-primary: #92400E;
+  --c-primary-soft: #F6F0EC;  /* 选中态底色 */
+  --c-primary-ink: #92400E;  /* 主色作文本时用（primary 当底色时对比度不够） */
+  --c-primary-border: #E0CABC;  /* 选中/悬停态的描边（比 border 更有指向性） */
+  --c-primary-hover: #7E370C;
+  --c-on-primary: #FFFFFF;  /* 主色底上的文字（teal 是黑字） */
+  --c-success: #3F8F5F;
+  --c-success-soft: #ECF4EF;
+  --c-success-border: #C5DDCF;
+  --c-warning: #B45309;
+  --c-warning-soft: #F8EEE6;
+  --c-warning-border: #E8CBB5;
+  --c-danger: #DC2626;
+  --c-danger-soft: #FCE9E9;
+  --c-danger-border: #F4BEBE;
+  --c-text-1: #0F172A;
+  --c-text-2: #475569;
+  --c-text-3: #848C98;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-bg-0: #FFFBEB;
+  --c-bg-1: #FFFFFF;
+  --c-bg-2: #F8F3F0;
+  --c-border: #F8F2E6;
+  --c-mark: #FCE0B1;  /* 搜索命中高亮 */
+  --c-scrollbar: #E1DDDC;  /* 滚动条滑块 */
+  --c-scrollbar-hover: #D3D0D0;
+  --c-skeleton: #FCFAF8;  /* 骨架屏渐变中间色 */
+}
+
+/* ── 栗墨（chestnut）· 深色 ── */
+[data-theme="chestnut"][data-mode="dark"] {
+  --c-primary: #DB9970;
+  --c-primary-soft: #44352C;
+  --c-primary-ink: #DB9970;
+  --c-primary-border: #7C5A46;
+  --c-primary-hover: #E2AD8D;
+  --c-on-primary: #311A0C;
+  --c-success: #78C497;
+  --c-success-soft: #3B4036;
+  --c-success-border: #485C4A;
+  --c-warning: #F39349;
+  --c-warning-soft: #4E3829;
+  --c-warning-border: #724C30;
+  --c-danger: #E45858;
+  --c-danger-soft: #4C2F2B;
+  --c-danger-border: #6D3835;
+  --c-text-1: #ECEAE9;
+  --c-text-2: #BDB6B2;
+  --c-text-3: #938780;
+  --c-bg-0: #231E1A;
+  --c-bg-1: #2F2723;
+  --c-bg-2: #3A312C;
+  --c-border: #443D39;
+  --c-mark: #5F441D;
+  --c-scrollbar: #524A45;
+  --c-scrollbar-hover: #615A56;
+  --c-skeleton: #4A413D;
+  /* 深色下阴影要更重，否则卡片浮不起来 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* ── 石板蓝（docs）· 浅色 — Knowledge Base/Documentation (30) ── */
+[data-theme="docs"] {
+  --c-primary: #475569;
+  --c-primary-soft: #F0F1F3;  /* 选中态底色 */
+  --c-primary-ink: #475569;  /* 主色作文本时用（primary 当底色时对比度不够） */
+  --c-primary-border: #CBCFD5;  /* 选中/悬停态的描边（比 border 更有指向性） */
+  --c-primary-hover: #3D495A;
+  --c-on-primary: #FFFFFF;  /* 主色底上的文字（teal 是黑字） */
+  --c-success: #3F8F5F;
+  --c-success-soft: #ECF4EF;
+  --c-success-border: #C5DDCF;
+  --c-warning: #B45309;
+  --c-warning-soft: #F8EEE6;
+  --c-warning-border: #E8CBB5;
+  --c-danger: #DC2626;
+  --c-danger-soft: #FCE9E9;
+  --c-danger-border: #F4BEBE;
+  --c-text-1: #1E293B;
+  --c-text-2: #475569;
+  --c-text-3: #7E8897;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-bg-0: #F8FAFC;
+  --c-bg-1: #FFFFFF;
+  --c-bg-2: #EAEFF3;
+  --c-border: #EDF1F6;
+  --c-mark: #FCE0B1;  /* 搜索命中高亮 */
+  --c-scrollbar: #D6DBE1;  /* 滚动条滑块 */
+  --c-scrollbar-hover: #C9CFD6;
+  --c-skeleton: #F6F8FA;  /* 骨架屏渐变中间色 */
+}
+
+/* ── 石板蓝（docs）· 深色 ── */
+[data-theme="docs"][data-mode="dark"] {
+  --c-primary: #95A3B7;
+  --c-primary-soft: #31373F;
+  --c-primary-ink: #95A3B7;
+  --c-primary-border: #565F6C;
+  --c-primary-hover: #AAB5C5;
+  --c-on-primary: #191E25;
+  --c-success: #78C497;
+  --c-success-soft: #314140;
+  --c-success-border: #405D52;
+  --c-warning: #F39349;
+  --c-warning-soft: #443933;
+  --c-warning-border: #6A4C38;
+  --c-danger: #E45858;
+  --c-danger-soft: #423036;
+  --c-danger-border: #65383D;
+  --c-text-1: #E9EAEC;
+  --c-text-2: #B2B7BD;
+  --c-text-3: #808893;
+  --c-bg-0: #1A1E23;
+  --c-bg-1: #23282F;
+  --c-bg-2: #2C323A;
+  --c-border: #393E44;
+  --c-mark: #554426;
+  --c-scrollbar: #454B52;
+  --c-scrollbar-hover: #565B61;
+  --c-skeleton: #3D424A;
+  /* 深色下阴影要更重，否则卡片浮不起来 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* ── 学习紫（study）· 浅色 — Flashcard & Study Tool (103) ── */
+[data-theme="study"] {
+  --c-primary: #7C3AED;
+  --c-primary-soft: #F5EFFE;  /* 选中态底色 */
+  --c-primary-ink: #7C3AED;  /* 主色作文本时用（primary 当底色时对比度不够） */
+  --c-primary-border: #DAC8FA;  /* 选中/悬停态的描边（比 border 更有指向性） */
+  --c-primary-hover: #6315E8;
+  --c-on-primary: #FFFFFF;  /* 主色底上的文字（teal 是黑字） */
+  --c-success: #059669;
+  --c-success-soft: #E6F4F0;
+  --c-success-border: #B4E0D2;
+  --c-warning: #B45309;
+  --c-warning-soft: #F8EEE6;
+  --c-warning-border: #E8CBB5;
+  --c-danger: #DC2626;
+  --c-danger-soft: #FCE9E9;
+  --c-danger-border: #F4BEBE;
+  --c-text-1: #0F172A;
+  --c-text-2: #475569;
+  --c-text-3: #848C9D;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-bg-0: #FAF5FF;
+  --c-bg-1: #FFFFFF;
+  --c-bg-2: #F7F3FD;
+  --c-border: #F4EEFE;
+  --c-mark: #FCE0B1;  /* 搜索命中高亮 */
+  --c-scrollbar: #E0DDE8;  /* 滚动条滑块 */
+  --c-scrollbar-hover: #D2D0DB;
+  --c-skeleton: #FBFAFE;  /* 骨架屏渐变中间色 */
+}
+
+/* ── 学习紫（study）· 深色 ── */
+[data-theme="study"][data-mode="dark"] {
+  --c-primary: #9870DB;
+  --c-primary-soft: #352C44;
+  --c-primary-ink: #AA88E1;
+  --c-primary-border: #5A467C;
+  --c-primary-hover: #AC8DE2;
+  --c-on-primary: #1A0C31;
+  --c-success: #49F3BE;
+  --c-success-soft: #2C4446;
+  --c-success-border: #336A60;
+  --c-warning: #F39349;
+  --c-warning-soft: #483533;
+  --c-warning-border: #6C4938;
+  --c-danger: #E45858;
+  --c-danger-soft: #452B36;
+  --c-danger-border: #67353D;
+  --c-text-1: #EAE9EC;
+  --c-text-2: #B6B2BD;
+  --c-text-3: #878093;
+  --c-bg-0: #1D1A23;
+  --c-bg-1: #27232F;
+  --c-bg-2: #312C3A;
+  --c-border: #3D3944;
+  --c-mark: #584126;
+  --c-scrollbar: #4A4552;
+  --c-scrollbar-hover: #5A5661;
+  --c-skeleton: #413D4A;
+  /* 深色下阴影要更重，否则卡片浮不起来 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+/* ── 效率青（teal）· 浅色 — Productivity Tool (16) ── */
+[data-theme="teal"] {
+  --c-primary: #0D9488;
+  --c-primary-soft: #ECF6F5;  /* 选中态底色 */
+  --c-primary-ink: #0B7D72;  /* 主色作文本时用（primary 当底色时对比度不够） */
+  --c-primary-border: #BBE1DE;  /* 选中/悬停态的描边（比 border 更有指向性） */
+  --c-primary-hover: #0B7F75;
+  --c-on-primary: #000000;  /* 主色底上的文字（teal 是黑字） */
+  --c-success: #3F8F5F;
+  --c-success-soft: #ECF4EF;
+  --c-success-border: #C5DDCF;
+  --c-warning: #B45309;
+  --c-warning-soft: #F8EEE6;
+  --c-warning-border: #E8CBB5;
+  --c-danger: #DC2626;
+  --c-danger-soft: #FCE9E9;
+  --c-danger-border: #F4BEBE;
+  --c-text-1: #134E4A;
+  --c-text-2: #475569;
+  --c-text-3: #7D8998;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-bg-0: #F0FDFA;
+  --c-bg-1: #FFFFFF;
+  --c-bg-2: #E8F1F4;
+  --c-border: #C4FAEF;
+  --c-mark: #FCE0B1;  /* 搜索命中高亮 */
+  --c-scrollbar: #D3E1E3;  /* 滚动条滑块 */
+  --c-scrollbar-hover: #C6D7D9;
+  --c-skeleton: #F5F9FA;  /* 骨架屏渐变中间色 */
+}
+
+/* ── 效率青（teal）· 深色 ── */
+[data-theme="teal"][data-mode="dark"] {
+  --c-primary: #70DBD2;
+  --c-primary-soft: #2C4441;
+  --c-primary-ink: #70DBD2;
+  --c-primary-border: #467C77;
+  --c-primary-hover: #8DE2DB;
+  --c-on-primary: #0C312E;
+  --c-success: #78C497;
+  --c-success-soft: #31473E;
+  --c-success-border: #406251;
+  --c-warning: #F39349;
+  --c-warning-soft: #443F31;
+  --c-warning-border: #6A5137;
+  --c-danger: #E45858;
+  --c-danger-soft: #423634;
+  --c-danger-border: #653D3C;
+  --c-text-1: #E9ECEC;
+  --c-text-2: #B2BDBC;
+  --c-text-3: #809391;
+  --c-bg-0: #1A2322;
+  --c-bg-1: #232F2D;
+  --c-bg-2: #2C3A39;
+  --c-border: #394442;
+  --c-mark: #554A25;
+  --c-scrollbar: #455251;
+  --c-scrollbar-hover: #566161;
+  --c-skeleton: #3D4A49;
+  /* 深色下阴影要更重，否则卡片浮不起来 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+
+/* ── 字号三档（设置 → 外观）────────────────────────────── */
+html[data-fs="sm"] {
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+}
+
+html[data-fs="lg"] {
+  --fs-xs: 14px;
+  --fs-sm: 15px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 23px;
 }

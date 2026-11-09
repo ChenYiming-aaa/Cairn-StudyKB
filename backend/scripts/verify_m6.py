@@ -13,15 +13,19 @@
   6. 改任务模型后 `llm_call_log.model` 与所选一致；`supports_effort` 决定
      `reasoning_effort` 是否进请求体；服务拒绝该字段时自动去掉重试一次
 
-第七条（6 套主题的 CSS 变量可解析）属 Part 2，与主题系统（T6.7）一起验。
+  7. 6 套主题 × 明暗的 CSS 变量齐全可解析、对比度达标、深色底六套互不相同；
+     首屏防白闪的 boot 脚本在、`frontend/src` 里没有写死颜色
+     （主题这块的数学在 `tools/check_contrast.py`，这里直接复用，不抄第二份）
 
 **不联网**：起一个本机 mock provider（`/models`、`/chat/completions`），
 所有 LLM 请求都打它 —— 验收脚本依赖外网就等于没验收。
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -31,6 +35,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
+ROOT = BACKEND.parent
 sys.path.insert(0, str(BACKEND))
 TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-m6-"))
 os.environ["DATA_DIR"] = str(TMP)          # 必须早于 import app：get_settings() 首次调用即缓存
@@ -46,6 +51,18 @@ from app.db.conn import get_conn  # noqa: E402
 from app.db.migrate import init_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services import llm, prefs  # noqa: E402
+
+
+def _load_theme_tool():
+    """把 `tools/check_contrast.py` 当模块加载：配色数学只有一份，不在这里重写。"""
+    path = ROOT / "tools" / "check_contrast.py"
+    spec = importlib.util.spec_from_file_location("check_contrast", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+cc = _load_theme_tool()
 
 GOOD_KEY = "sk-verify-m6-good-0001"
 BAD_KEY = "sk-verify-m6-bad-9999"
@@ -439,6 +456,48 @@ def main() -> int:
                 code, message = exc.code, exc.message
             check("缺 Key → LLM_NO_KEY", code == "LLM_NO_KEY", code)
             check("缺 Key 的提示点名是哪个 provider", "OpenAI 兼容" in message, message)
+
+            # ── 7. 主题（T6.7）─────────────────────────────────
+            step("7. 六套主题 × 明暗")
+
+            tokens_css = (ROOT / "frontend/src/styles/tokens.css").read_text(encoding="utf-8")
+            problems = cc.check(tokens_css)
+            check("tokens.css：6 套 × 明暗令牌齐全、对比度全达标",
+                  not problems, "；".join(problems[:3]))
+
+            parsed = cc.parse_tokens(tokens_css)
+            check("六个主题块都在（浅色 + 深色 = 12 块）",
+                  len(parsed) == len(cc.THEME_ORDER) * 2, str(sorted(parsed)))
+
+            dark_bgs = {tid: parsed[(tid, "dark")].get("bg-0") for tid in cc.THEME_ORDER}
+            check("深色底六套互不相同（否则暗色下分不出主题）",
+                  len(set(dark_bgs.values())) == len(dark_bgs), str(dark_bgs))
+            check("每套都有 on-primary（teal 是黑字，不能写死白）",
+                  all(parsed[(tid, mode)].get("on-primary") for tid in cc.THEME_ORDER
+                      for mode in ("light", "dark")))
+
+            index_html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
+            boot = ROOT / "frontend/public/theme-boot.js"
+            check("首屏防白闪：index.html 在挂载前引了 theme-boot.js",
+                  'src="/theme-boot.js"' in index_html, index_html[:80])
+            check("theme-boot.js 存在且读的键与 useTheme 一致",
+                  boot.exists()
+                  and all(k in boot.read_text(encoding="utf-8")
+                          for k in ("cairn.theme", "cairn.mode", "cairn.fs")),
+                  str(boot))
+
+            # 组件里写死颜色 → 暗色会「白底白字」。这条断言就是防它复发。
+            hardcoded = []
+            for path in (ROOT / "frontend/src").rglob("*"):
+                if path.suffix not in {".vue", ".css", ".js"}:
+                    continue
+                if path.name == "tokens.css":
+                    continue
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                for match in re.finditer(r"#[0-9a-fA-F]{3,8}\b", text):
+                    hardcoded.append(f"{path.relative_to(ROOT)}:{match.group(0)}")
+            check("组件/样式里没有写死颜色（全部走 --c-* 令牌）",
+                  not hardcoded, "；".join(hardcoded[:5]))
     finally:
         server.shutdown()
         reload_settings()

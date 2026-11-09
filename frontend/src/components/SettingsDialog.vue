@@ -14,6 +14,8 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
+import AboutTab from './settings/AboutTab.vue'
+import AppearanceTab from './settings/AppearanceTab.vue'
 import ModelTab from './settings/ModelTab.vue'
 
 const TABS = [
@@ -134,21 +136,15 @@ onBeforeUnmount(() => {
 
           <div class="body-scroll" role="tabpanel" :aria-label="current.label">
             <ModelTab v-if="current.id === 'model'" />
+            <AppearanceTab v-else-if="current.id === 'appearance'" />
+            <AboutTab v-else-if="current.id === 'about'" />
 
-            <!-- 下面三块是 Part 2（T6.7 / T6.8）的活，先给明确占位而不是空白 -->
+            <!-- 「下载」是 M8 的活，这里先给明确占位而不是空白 -->
             <div v-else class="pending">
-              <p class="pending-title">
-                {{ current.id === 'appearance' ? '配色与明暗' : current.id === 'downloads' ? '可选组件' : '版本信息' }}
-                正在开发中
-              </p>
+              <p class="pending-title">可选组件（M8）</p>
               <p class="pending-body">
-                {{
-                  current.id === 'appearance'
-                    ? '6 套配色、浅色/深色/跟随系统、字号三档，在 M6 第二部分一起上。现在界面用的是默认「纸石绿」。'
-                    : current.id === 'downloads'
-                      ? '向量模型、语音识别、浏览器内核这三块重组件会做成按需下载，M8 才有真的下载器。'
-                      : '版本号、更新日志、反馈入口在 M6 第二部分补上。'
-                }}
+                向量模型、语音识别、浏览器内核这三块重组件会从安装包里拆出来，按需下载、可卸载。
+                下载中心在 M8 做，现在装的是「全量包」，三个组件都已经在里面。
               </p>
             </div>
           </div>
@@ -235,7 +231,7 @@ onBeforeUnmount(() => {
 }
 
 .tab-btn.on .tab-label {
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   font-weight: 600;
 }
 

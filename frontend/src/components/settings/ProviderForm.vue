@@ -212,7 +212,7 @@ async function runProbe() {
 
 .chip.ok {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .chip.miss {

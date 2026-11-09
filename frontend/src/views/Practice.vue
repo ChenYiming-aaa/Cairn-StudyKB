@@ -413,7 +413,7 @@ onMounted(loadItems)
 
 .item-row.on {
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .item-title {
@@ -449,7 +449,7 @@ onMounted(loadItems)
 .chip.on {
   border-color: var(--c-primary);
   background: var(--c-primary-soft);
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
 }
 
 .cfg-foot {

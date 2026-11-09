@@ -22,13 +22,13 @@
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M6 进行中（第一部分）**。M6 拆成两部分执行：**第一部分 = T6.0–T6.6**（基线、契约、`prefs`、LLM 按任务路由、provider 探测、设置窗口壳 + 模型 tab）；**第二部分 = T6.7–T6.9**（6 套主题 × 明暗、外观/关于 tab + 字号三档、引导页改造 + `verify_m6` 主题断言 + 回归 + tag `m6-done`） |
-| 当前里程碑 | M6 · **第一部分（T6.0–T6.6）已完成**（2026-11-09 19:30）；下一步是第二部分 T6.7–T6.9 |
+| 里程碑 | **M6 设置与个性化 · 已验收**（2026-11-09，tag `m6-done`）。T6.0–T6.9 全做完：契约、`prefs`、LLM 按任务路由、provider 探测、设置窗口 + 模型 tab、6 套配色 × 明暗 × 字号三档、外观/关于 tab、引导页共用表单 |
+| 当前里程碑 | **M6 完成**；下一步 **M7 布局与文案**（T7.0–T7.7，依赖 M6 的设置窗口） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
 | 远程 | `origin/main` = `59c19ae` 之后有 M6 第一部分若干提交（见文末条目）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip`（M6 基线，2026-11-09） |
-| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 53/53（2026-11-09 19:25 全量重跑）** · `npm run lint` 干净 · `npm run build` 通过（287 kB / gzip 105 kB） · `doc_check.py` 6 PASS + 1 提示 · 安装包基线 426,428,660 字节 |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done`（M6 验收，2026-11-09） |
+| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 60/60（2026-11-09 20:20 全量重跑）** · `npm run lint` 干净 · `npm run build` 通过（JS 294.5 kB / gzip 108 kB；CSS 79.5 kB / gzip 12.4 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · `doc_check.py` 见文末条目 · 安装包基线 426,428,660 字节（**M6 未改后端依赖，体积不变**） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -58,14 +58,15 @@
 | 10 | ~~v0.1.0 只在本地打了 tag，远程未推~~ | **已完成 2026-11-08 20:16** | 全部标签（含 `v0.1.0`）已在远程 |
 | 11 | ~~GitHub Release 还没建~~ | **已完成 2026-11-08 20:19** | Release id `438225599`，正文＋安装包已上传 |
 | 12 | ~~Pages 从没开过~~ | **已完成 2026-11-08 20:12** | 根因是**仓库私有**，转 Public 后 run #2 一次通过；`configure-pages` 步骤已加，以后会自动兜底 |
+| 13 | 思维导图 SVG 的深色配色写死一套绿，不跟 6 套主题走 | 待裁决 | 见 `M6-补充记录.md` S-20 第 1 条；建议 M7 视觉统一时改 |
+| 14 | 徽标小字对比度 3.5–4.35:1，低于 AA 小字 4.5:1 | 待裁决 | S-20 第 2 条；§3 硬标准只要求 3:1，这一版不算违规 |
+| 15 | 深色界面里学习页预览 iframe 是全白（导出固定 light） | 待裁决 | S-20 第 3 条；建议加外框 + 一句说明，不改导出内容 |
 
 **下一会话第一件事**
-> 开 M6 **第二部分**（T6.7–T6.9）：先读 `milestones/M6-设置与个性化.md` §3 + §3.1（2026-11-09 修订的
-> 派生规则，照原规则算出来的 `text-3` 只有 2.19:1），再读 `M6-补充记录.md` 的 S-8～S-10
-> （27 处写死颜色要在这一轮全部令牌化）。顺序：`tokens.css` 六套 × 明暗 → `useTheme()` +
-> `index.html` 内联脚本（防白闪）→ `tools/check_contrast.py` → 外观/关于 tab + 字号三档 →
-> 引导页改造 + `verify_m6` 第七条 → 回归 + tag `m6-done`。
-> 另：M5 遗留 #2（找台没装 Python/Node 的真机装一遍）仍然开着，与 M6 并行不冲突。
+> 开 **M7 布局与文案**（T7.0–T7.7）：先读 `milestones/M7-布局与文案.md` + `M6-补充记录.md` 的 S-20
+> （导图配色 / 徽标对比度 / 学习页 iframe 三条待裁决，M7 视觉统一时一起定）。
+> M7 会改 M6 建好的设置窗口布局与全站文案，**不要顺手动 M8 的组件化**。
+> 另：M5 遗留 #2（找台没装 Python/Node 的真机装一遍）仍然开着，与 M7 并行不冲突。
 
 ---
 
@@ -1102,3 +1103,55 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 **下一会话第一件事**
 > 见「当前状态」里的「下一会话第一件事」：开 T6.7 主题系统，先读 M6 §3.1 的修订规则。
+
+
+---
+
+## 2026-11-09 20:30 · M6 · 第二部分 T6.7–T6.9（主题 / 外观 / 关于 / 引导页）+ 验收
+
+**完成**
+- T6.7 主题系统：配色改为**生成物**，`tools/check_contrast.py` 是唯一真源
+  （`--write` 生成 `tokens.css`，不带参数则校验对比度并作为验收项）。
+  6 套配色 × 明暗，26 个令牌；`--c-on-primary` / `--c-primary-ink` / `--c-primary-border`
+  是这一轮新增的（原规则下 `teal` 白字 3.74:1、primary 作文本 3.1:1）。
+  `useTheme.js` + `public/theme-boot.js`（首屏防白闪，**外部文件而非内联**——CSP 是 `script-src 'self'`）；
+  `theme-color` 从计算样式读，不再写死。导图 `theme` 参数跟随 `resolvedMode`。
+- T6.8 外观 tab（6 张主题卡用 `data-theme` 自渲染预览、明暗三选、字号三档 `html[data-fs]`）+
+  关于 tab（`GET /api/version` 的真实版本/commit/构建时间、四个链接、检查更新占位 `TODO(T8.5)`）。
+  字号三档按裁决落进 `appearance.font_size`（后端 `FONT_SIZES = sm/md/lg` 早已就位）。
+- T6.9 引导页改造：删掉「高级：接口地址 / 模型名」折叠，改用设置窗口同一个 `ProviderForm`
+  （两处共用一个组件，校验/提示不再分叉），加「打开设置」直达模型 tab。
+  `verify_m6` 补第七条 → **60/60**。
+- 顺手（都记在 `M6-补充记录.md` S-15～S-21）：27 处写死颜色全部令牌化；
+  桌面壳接管外链（`setWindowOpenHandler` + `will-navigate`，否则关于页链接会开空白窗口）；
+  静态演示站补 `settings` / `version` / `probe` 假接口（否则齿轮一点全报错）。
+
+**改动文件**
+- 新增：`tools/check_contrast.py`、`frontend/src/composables/useTheme.js`、
+  `frontend/public/theme-boot.js`、`frontend/src/components/settings/{AppearanceTab,AboutTab}.vue`、
+  `docs/images/09-settings-appearance.png`、`docs/images/10-dark-mode.png`
+- 重写：`frontend/src/styles/tokens.css`（生成物，6 套 × 明暗 + 字号三档）
+- 改：`frontend/index.html`、`frontend/src/main.js`、`App.vue`、`views/Setup.vue`、`components/ItemDetail.vue`、
+  `components/SettingsDialog.vue`、`styles/app.css`、`styles/content.css` 与 9 个组件/页面的写死颜色、
+  `src/demo/index.js`、`desktop/main.js`、`backend/scripts/verify_m6.py`
+
+**验证**
+- `verify_m6.py` → **60/60 PASS**（+7 条主题断言：令牌齐全/对比度达标/深色底六套互不相同/
+  每套都有 on-primary/防白闪脚本在/键名一致/`frontend/src` 无写死颜色）
+- `verify_m1..m5` 回归 → 52/52 · 118/118 · 61/61 · 69/69 · 57/57
+- `check_contrast.py` → 6 套 × 明暗 × 10 组对比度全过（最低 3.08:1，为 `text-3/bg-2`）
+- `npm run lint` 干净 · `npm run build` 通过（JS 294.5 kB / gzip 108 kB · CSS 79.5 kB / gzip 12.4 kB）
+- `VITE_DEMO=1 vite build` 通过，本地起静态服务验过演示站四个设置页签无报错、切主题生效
+- 手工：Playwright 逐套截图（浅/深）核对六套互不粘连；深浅下侧栏/列表/徽标文字均可读
+
+**遗留问题**
+- [ ] S-20 三条待裁决：导图配色不跟主题、徽标小字对比度 3.5–4.35:1、学习页 iframe 在深色下全白
+- [ ] M5 遗留 #2（没有 Python/Node 的真机装一遍）仍开着
+- [ ] `prefs.py`(319) / `llm.py`(316) 仍超 300 行红线
+
+**待裁决冲突**
+- 无。§3 派生规则的三处修订已裁决并落地（S-15）：深色底取主色色相、深色主色饱和度封顶 60%、
+  高饱和描边与底色混半。
+
+**下一会话第一件事**
+> 开 M7 T7.0（`useLayout` + `SidePanel` + `SplitHandle` 三个布局原语），先读 `M7-布局与文案.md` §1–§2。

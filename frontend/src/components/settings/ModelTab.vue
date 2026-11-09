@@ -115,7 +115,7 @@ onMounted(() => load())
 
 .now-title {
   font-weight: 600;
-  color: var(--c-primary);
+  color: var(--c-primary-ink);
   margin-right: var(--space-1);
 }
 
