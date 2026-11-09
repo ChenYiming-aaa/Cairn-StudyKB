@@ -144,7 +144,9 @@ if (WEB_DIR / "index.html").exists():
 
         return _handler
 
-    for _name in ("favicon.ico", "logo.svg", "apple-touch-icon.png", "robots.txt"):
+    # theme-boot.js 是 T6.7 的首屏防白闪脚本（index.html 在挂载前同步引用），
+    # 漏掉它 → 桌面版里脚本加载不到，每次启动刷一条 404，防白闪形同虚设
+    for _name in ("favicon.ico", "logo.svg", "apple-touch-icon.png", "robots.txt", "theme-boot.js"):
         if (WEB_DIR / _name).is_file():
             app.get(f"/{_name}", include_in_schema=False, name=f"web-{_name}")(
                 _serve_root_file(_name)

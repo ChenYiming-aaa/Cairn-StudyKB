@@ -5,7 +5,9 @@ import { useRouter } from 'vue-router'
 import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
 import Pomodoro from './components/Pomodoro.vue'
+import RailToggle from './components/RailToggle.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import { installResponsiveLayout, useLayout } from './composables/useLayout'
 import { useSettings } from './composables/useSettings'
 import { useTheme } from './composables/useTheme'
 import { useTimer } from './composables/useTimer'
@@ -27,6 +29,8 @@ const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = us
 // 主题（T6.7）：localStorage 已经在 theme-boot.js 里上过一次，这里用后端的真源对齐
 const { load: loadSettings } = useSettings()
 const { adopt: adoptAppearance } = useTheme()
+// T7.0：左栏折叠/快捷键。Ctrl+B 收左栏，Ctrl+Shift+B 收条目列表（T7.2 接入列表栏）
+const { toggle } = useLayout()
 
 const backend = ref('checking')
 // 静态演示版（github.io）：数据是抓下来的 fixture，生成类操作会返回 DEMO_OFFLINE。
@@ -34,6 +38,22 @@ const backend = ref('checking')
 const isDemo = import.meta.env.VITE_DEMO === '1'
 // 恢复入口：`visibilitychange` 会临时挂监听，保存引用以便卸载时摘掉
 let onVisible = null
+let uninstallResponsive = null
+
+/** 输入框里按 Ctrl+B 是「加粗」之类的编辑器语义，不该折叠侧栏 */
+function isTyping(target) {
+  if (!target || !target.tagName) return false
+  const tag = target.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+}
+
+function onKeydown(event) {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return
+  if (String(event.key).toLowerCase() !== 'b') return
+  if (isTyping(event.target)) return
+  event.preventDefault()
+  toggle(event.shiftKey ? 'list' : 'sidebar')
+}
 
 onMounted(async () => {
   try {
@@ -64,11 +84,16 @@ onMounted(async () => {
   }
   document.addEventListener('visibilitychange', onVisible)
   window.addEventListener('beforeunload', beacon)
+  window.addEventListener('keydown', onKeydown)
+  // 窗口 < 1200 自动收左栏（用户自己动过就不再抢方向盘）
+  uninstallResponsive = installResponsiveLayout()
 })
 
 onBeforeUnmount(() => {
   if (onVisible) document.removeEventListener('visibilitychange', onVisible)
   window.removeEventListener('beforeunload', beacon)
+  window.removeEventListener('keydown', onKeydown)
+  if (uninstallResponsive) uninstallResponsive()
 })
 
 function onCreated(result) {
@@ -107,6 +132,8 @@ function onOpen(itemId) {
         Cairn
         <small>个人知识库</small>
       </div>
+      <!-- 左栏折叠（T7.0）：和左栏里的窄条按钮是同一个状态 -->
+      <RailToggle target="sidebar" />
       <nav class="nav">
         <router-link to="/" class="nav-item" exact-active-class="on">知识库</router-link>
         <router-link to="/dashboard" class="nav-item" active-class="on">仪表盘</router-link>

@@ -462,9 +462,10 @@ ROOT_BLOCK = ''':root {
   --lh-body: 1.6;
   --lh-title: 1.4;
 
-  /* 版面尺寸 */
+  /* 版面尺寸（--w-* 在 T7.0 起由 useLayout.js 运行时改写：折叠时左栏 = --w-rail，列表 = 0） */
   --w-sidebar: 232px;
   --w-list: 320px;
+  --w-rail: 44px;
   --h-topbar: 52px;
 
   /* 阴影（极轻，避免卡片堆叠感） */

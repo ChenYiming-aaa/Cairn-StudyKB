@@ -92,6 +92,24 @@ textarea {
   min-height: 0;
   display: grid;
   grid-template-columns: var(--w-sidebar) var(--w-list) minmax(0, 1fr);
+  /* T7.0：折叠/展开的宽度变化由 useLayout 改 CSS 变量，这里负责把它演成动画 */
+  transition: grid-template-columns 0.18s ease;
+}
+
+/* 拖动中禁用过渡：否则指针和边界之间有 180ms 延迟，手感像在拉橡皮筋 */
+body.is-resizing .workspace {
+  transition: none;
+}
+
+body.is-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* T7.0 → T7.2 的过渡：条目列表栏还没接 SidePanel，列宽变 0 时会留 1px 边框
+   和一个被压扁的搜索框。T7.2 把 ItemList 包进 SidePanel 后这条可以删掉。 */
+html[data-list="off"] .workspace > .list-panel {
+  display: none;
 }
 
 /* ── 按钮 ─────────────────────────────────────────── */

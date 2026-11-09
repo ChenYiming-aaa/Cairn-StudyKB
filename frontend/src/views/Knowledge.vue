@@ -9,7 +9,7 @@ import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 
 const toast = useToast()
-const { refreshTick, editorDirty, focusItemId } = useUi()
+const { refreshTick, editorDirty, focusItemId, openPaste } = useUi()
 
 const PAGE_SIZE = 50
 
@@ -29,15 +29,21 @@ const detailLoading = ref(false)
 const detailError = ref('')
 
 const organizingAll = ref(false)
-const filter = reactive({ category: '', tag: '', q: '' })
+// T7.1：状态快筛与分类/标签是叠加关系（三个条件一起进 WHERE）
+const filter = reactive({ category: '', tag: '', q: '', status: '' })
 
 let busyTimer = null
 let busyTicks = 0
 
 const categories = computed(() => tree.value.categories || [])
+const counts = computed(
+  () => tree.value.counts || { total: 0, pending: 0, organizing: 0 }
+)
 const totalItems = computed(() => tree.value.counts?.total || 0)
 const pendingCount = computed(() => tree.value.counts?.pending || 0)
-const isFiltered = computed(() => Boolean(filter.category || filter.tag || filter.q))
+const isFiltered = computed(() =>
+  Boolean(filter.category || filter.tag || filter.q || filter.status)
+)
 
 async function loadTree() {
   treeLoading.value = true
@@ -58,6 +64,7 @@ async function loadList() {
       page_size: PAGE_SIZE,
       category: filter.category || undefined,
       tag: filter.tag || undefined,
+      status: filter.status || undefined,
       q: filter.q || undefined,
     })
     items.value = data.items || []
@@ -119,10 +126,27 @@ function selectItem(itemId) {
   loadDetail(itemId)
 }
 
+// 左栏一次操作可能连发两个事件（点「全部条目」= 清分类 + 清状态），
+// 合并成一次请求，避免同一个动作打两遍列表接口
+let loadQueued = false
+function queueLoadList() {
+  if (loadQueued) return
+  loadQueued = true
+  Promise.resolve().then(() => {
+    loadQueued = false
+    loadList()
+  })
+}
+
 function onFilterSelect(payload) {
   filter.category = payload.category
   filter.tag = payload.tag
-  loadList()
+  queueLoadList()
+}
+
+function onStatus(next) {
+  filter.status = next || ''
+  queueLoadList()
 }
 
 function onSearch(keyword) {
@@ -167,10 +191,11 @@ watch(refreshTick, () => {
 /** 采集完成点「去看看」：跳过来时可能还带着筛选条件，条目不在当前列表里就看不到它，
  *  所以先清筛选再选中（清完列表必然包含最新入库的那条）。 */
 async function focusOnItem(itemId) {
-  if (filter.category || filter.tag || filter.q) {
+  if (filter.category || filter.tag || filter.q || filter.status) {
     filter.category = ''
     filter.tag = ''
     filter.q = ''
+    filter.status = ''
     await Promise.all([loadTree(), loadList()])
   }
   selectItem(itemId)
@@ -203,9 +228,13 @@ onBeforeUnmount(() => {
     <CategoryTree
       :categories="categories"
       :total="totalItems"
+      :counts="counts"
       :active="{ category: filter.category, tag: filter.tag }"
+      :status="filter.status"
       :loading="treeLoading"
       @select="onFilterSelect"
+      @status="onStatus"
+      @ingest="openPaste"
     />
 
     <ItemList
