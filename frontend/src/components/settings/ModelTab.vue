@@ -37,6 +37,11 @@ function onBaseUrl(pid, value) {
   update({ llm: { providers: { [pid]: { base_url: value } } } })
 }
 
+/** 用户在 provider 卡上点了「记住」才走这里：探测本身不写盘（S-1）。 */
+function onModels(pid, list) {
+  update({ llm: { providers: { [pid]: { models: list } } } })
+}
+
 function onSaved(next) {
   // 保存 Key 后服务端回了新全量；探测后只更新了模型列表，重新拉一次即可
   if (next) replace(next)
@@ -71,6 +76,7 @@ onMounted(() => load())
           :conf="providers[pid]"
           :default-open="index === 0"
           @base-url="(value) => onBaseUrl(pid, value)"
+          @models="(list) => onModels(pid, list)"
           @saved="onSaved"
         />
         <p class="tip">

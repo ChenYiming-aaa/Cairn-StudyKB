@@ -26,6 +26,7 @@ import importlib.util
 import json
 import os
 import re
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -40,13 +41,16 @@ sys.path.insert(0, str(BACKEND))
 TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-m6-"))
 os.environ["DATA_DIR"] = str(TMP)          # 必须早于 import app：get_settings() 首次调用即缓存
 os.environ["VECTOR_ENABLED"] = "0"
+# S-3：验收必须在「配置只来自这个临时目录」的前提下跑，否则项目根的 `.env`
+# 会把真机 Key 灌进进程环境 —— 那样"没有 Key 会怎样"永远验不出来。
+os.environ["CAIRN_ENV_STRICT"] = "1"
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.pop("LLM_API_KEY", None)
 os.environ.pop("ALT_API_KEY", None)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app.config import get_settings, reload_settings  # noqa: E402
+from app.config import config_audit, get_settings, load_settings, reload_settings  # noqa: E402
 from app.db.conn import get_conn  # noqa: E402
 from app.db.migrate import init_db  # noqa: E402
 from app.main import app  # noqa: E402
@@ -155,6 +159,11 @@ def check(name: str, ok: bool, detail: str = "") -> bool:
     return ok
 
 
+def skip(name: str, why: str) -> None:
+    """环境不满足时明确跳过（不计入通过数，也不伪装成 PASS）。"""
+    print(f"    [SKIP] {name} — {why}")
+
+
 def step(title: str) -> None:
     print(f"\n── {title} " + "─" * max(0, 46 - len(title)))
 
@@ -185,7 +194,8 @@ def last_log_row():
     conn = get_conn()
     try:
         return conn.execute(
-            "SELECT agent, model, ok, error_msg FROM llm_call_log ORDER BY id DESC LIMIT 1"
+            "SELECT agent, model, ok, error_msg, effort, effort_dropped "
+            "FROM llm_call_log ORDER BY id DESC LIMIT 1"
         ).fetchone()
     finally:
         conn.close()
@@ -222,6 +232,10 @@ def main() -> int:
             check("四个任务都在", set(body["llm"]["tasks"]) == set(prefs.AGENTS),
                   ", ".join(sorted(body["llm"]["tasks"])))
             check("响应正文里没有 Key 前缀", "sk-" not in r.text)
+            check("会告诉前端『配置只来自数据目录』（S-3）",
+                  body.get("config", {}).get("ok") is True
+                  and body["config"]["legacy_keys"] == [],
+                  str(body.get("config")))
 
             # ── 2. 非法值 ──────────────────────────────────────
             step("2. PATCH 非法值一律 400 SETTINGS_INVALID")
@@ -316,6 +330,10 @@ def main() -> int:
                   bad_probe.get("error_code") == "LLM_NO_KEY", str(bad_probe.get("error_code")))
             check("错 Key 的响应里没有 Key 明文", BAD_KEY not in resp.text)
 
+            before_probe = settings_file.read_bytes()
+            before_models = client.get("/api/settings").json()[
+                "llm"]["providers"]["custom"]["models"]
+
             resp = client.post("/api/settings/probe",
                                json={"provider": "custom", "base_url": f"{base}/v1",
                                      "api_key": GOOD_KEY})
@@ -325,9 +343,16 @@ def main() -> int:
                   str(good_probe.get("models")))
             check("带延迟（毫秒，非负）", isinstance(good_probe.get("latency_ms"), int)
                   and good_probe["latency_ms"] >= 0, str(good_probe.get("latency_ms")))
-            check("探测结果顺手记进配置（下次打开设置就有候选）",
-                  "mock-large" in client.get("/api/settings").json()
-                  ["llm"]["providers"]["custom"]["models"])
+            # S-1：探测是只读操作。以前这里会顺手把地址与模型列表写进配置，
+            # 用户"只是试试通不通"却被改了配置 —— 这条断言就是防它回来。
+            check("探测不改模型列表（S-1：读的不写盘）",
+                  client.get("/api/settings").json()["llm"]["providers"]["custom"]["models"]
+                  == before_models,
+                  str(client.get("/api/settings").json()
+                      ["llm"]["providers"]["custom"]["models"]))
+            check("探测不动 settings.json（文件字节完全没变）",
+                  settings_file.read_bytes() == before_probe,
+                  f"{len(before_probe)} → {len(settings_file.read_bytes())} 字节")
 
             resp = client.post("/api/settings/probe",
                                json={"provider": "custom", "base_url": f"{base}/nomodels",
@@ -388,6 +413,11 @@ def main() -> int:
             check("llm_call_log 记的是**实际用的**模型",
                   row and row[1] == "mock-small", str(row))
             check("llm_call_log 记的是这个 agent", row and row[0] == "organizer", str(row))
+            # S-2：设了 high 但 provider 不支持 → 没发出去，且必须留痕
+            check("不支持 effort → effort 记 NULL（不记设置值）",
+                  row and row[4] is None, str(row[4]))
+            check("不支持 effort → effort_dropped=1（本来要发却没发）",
+                  row and row[5] == 1, str(row[5]))
 
             client.patch("/api/settings", json={"llm": {"providers": {"custom": {
                 "supports_effort": True}}}})
@@ -396,6 +426,10 @@ def main() -> int:
             check("声明支持 effort → reasoning_effort 进请求体",
                   SEEN and SEEN[-1]["body"].get("reasoning_effort") == "high",
                   str(SEEN[-1]["body"].get("reasoning_effort")) if SEEN else "没收到请求")
+            row = last_log_row()
+            check("真的发出去了 → effort 记实际值 high",
+                  row and row[4] == "high", str(row[4]))
+            check("真的发出去了 → effort_dropped=0", row and row[5] == 0, str(row[5]))
 
             client.patch("/api/settings", json={"llm": {"tasks": {"organizer": {
                 "effort": "none"}}}})
@@ -404,6 +438,9 @@ def main() -> int:
             check("effort=none → 整条字段不发（而不是发空串）",
                   SEEN and "reasoning_effort" not in SEEN[-1]["body"],
                   str(sorted(SEEN[-1]["body"])) if SEEN else "没收到请求")
+            row = last_log_row()
+            check("用户主动关掉 → effort 为 NULL 但 dropped=0（不是「不支持」）",
+                  row and row[4] is None and row[5] == 0, str(row[4:6]))
 
             # 服务拒绝该字段：应当自动去掉重试一次，而不是把 400 甩给用户
             client.patch("/api/settings",
@@ -423,6 +460,9 @@ def main() -> int:
                   f"{len(SEEN)} 次请求")
             check("重试那次没带该字段",
                   len(SEEN) == 2 and "reasoning_effort" not in SEEN[1]["body"])
+            row = last_log_row()
+            check("被 400 拒掉那次：effort 记 NULL + dropped=1",
+                  row and row[4] is None and row[5] == 1, str(row[4:6]))
 
             # 四个任务各自的模型互不影响
             client.patch("/api/settings", json={"llm": {"tasks": {
@@ -498,6 +538,88 @@ def main() -> int:
                     hardcoded.append(f"{path.relative_to(ROOT)}:{match.group(0)}")
             check("组件/样式里没有写死颜色（全部走 --c-* 令牌）",
                   not hardcoded, "；".join(hardcoded[:5]))
+
+            # ── 8. 迁移 v2 → v3（S-2）───────────────────────────
+            step("8. 老库升级到 v3：加列不丢数据")
+
+            legacy = TMP / "legacy-v2.db"
+            raw = sqlite3.connect(str(legacy))
+            try:
+                raw.executescript("""
+                    CREATE TABLE llm_call_log (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      agent TEXT NOT NULL, model TEXT NOT NULL,
+                      prompt_tokens INTEGER, completion_tokens INTEGER,
+                      reasoning_tokens INTEGER, duration_ms INTEGER,
+                      ok INTEGER NOT NULL, error_msg TEXT, created_at TEXT NOT NULL
+                    );
+                    INSERT INTO llm_call_log (agent, model, ok, created_at)
+                    VALUES ('asker', 'old-model', 1, '2026-01-01T00:00:00');
+                    PRAGMA user_version=2;
+                """)
+                raw.commit()
+            finally:
+                raw.close()
+
+            init_db(legacy)
+            old = sqlite3.connect(str(legacy))
+            try:
+                version = old.execute("PRAGMA user_version").fetchone()[0]
+                cols = {row[1] for row in old.execute("PRAGMA table_info(llm_call_log)")}
+                kept = old.execute(
+                    "SELECT model, effort, effort_dropped FROM llm_call_log"
+                ).fetchall()
+            finally:
+                old.close()
+            check("升级后 user_version=3", version == 3, str(version))
+            check("两个新列都加上了",
+                  {"effort", "effort_dropped"} <= cols, str(sorted(cols)))
+            check("老数据没丢，新列按 NULL / 0 回填",
+                  kept == [("old-model", None, 0)], str(kept))
+
+            # ── 9. 严格模式（S-3）──────────────────────────────
+            step("9. 配置来源可检查：不再从老地方拿 Key")
+
+            audit = config_audit()
+            check("严格模式确实生效", audit["strict"] is True, str(audit["strict"]))
+            check("没有从老地方拿过配置（这就是那条必须被断言的东西）",
+                  audit["ok"] and audit["legacy_keys"] == [], str(audit))
+            check("审计结果带人话（看得见才会被检查）", bool(audit.get("hint")),
+                  audit.get("hint"))
+
+            env_resp = client.get("/api/env/check").json()
+            check("/api/env/check 也带 config 块",
+                  env_resp.get("config", {}).get("ok") is True
+                  and env_resp["config"]["legacy_file"] is None,
+                  str(env_resp.get("config")))
+
+            # 反证：把严格模式关掉，同一份布局会从项目根 `.env` 补值 —— 这正是 S-3 的病。
+            # 只在这一步临时关，且把污染的环境变量全部还原。
+            repo_env = ROOT / ".env"
+            repo_text = repo_env.read_text(encoding="utf-8") if repo_env.exists() else ""
+            if "LLM_API_KEY" in repo_text:
+                before_keys = set(os.environ)
+                saved_strict = os.environ.pop("CAIRN_ENV_STRICT", None)
+                os.environ.pop("LLM_API_KEY", None)
+                try:
+                    loose = load_settings()
+                    check("反证：不设严格模式时确实会从项目根 .env 补值",
+                          "LLM_API_KEY" in loose.env_legacy_keys,
+                          str(loose.env_legacy_keys))
+                    check("反证：那次补充还把值写进了 os.environ（所以要修根）",
+                          bool((os.environ.get("LLM_API_KEY") or "").strip()))
+                finally:
+                    for key in set(os.environ) - before_keys:
+                        os.environ.pop(key, None)
+                    if saved_strict is not None:
+                        os.environ["CAIRN_ENV_STRICT"] = saved_strict
+                    reload_settings()
+                check("反证做完，进程环境已还原且审计回到干净状态",
+                      config_audit()["legacy_keys"] == [],
+                      str(config_audit()["legacy_keys"]))
+            else:
+                skip("反证：不设严格模式时会从项目根 .env 补值",
+                     "仓库没有 .env（本机开发才有），换台机器也是同一个结论")
     finally:
         server.shutdown()
         reload_settings()

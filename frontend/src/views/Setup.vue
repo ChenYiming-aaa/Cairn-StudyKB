@@ -64,6 +64,11 @@ function onBaseUrl(value) {
   update({ llm: { providers: { deepseek: { base_url: value } } } })
 }
 
+/** 引导页也要能「记住模型列表」：与设置页同一个动作，只是 provider 固定是 deepseek */
+function onModels(list) {
+  update({ llm: { providers: { deepseek: { models: list } } } })
+}
+
 function later() {
   dismissSetup()
   toast.info('可以随时从顶栏的「环境」回到这里')
@@ -113,6 +118,7 @@ onMounted(async () => {
           :conf="deepseek"
           default-open
           @base-url="onBaseUrl"
+          @models="onModels"
           @saved="onSaved"
         />
         <p v-else class="step-foot">配置还没读出来，稍等一秒或点下面的「重新检查」。</p>
@@ -179,6 +185,12 @@ onMounted(async () => {
         </div>
       </li>
     </ol>
+
+    <!-- 配置来源（S-3）：正常情况下这里什么都不显示；出现说明配置被两处拼起来了 -->
+    <p v-if="env.config && !env.config.ok" class="src-warn">
+      配置并不完全来自本数据目录：<code>{{ env.config.legacy_keys.join('、') }}</code>
+      是从 <code>{{ env.config.legacy_file }}</code> 补进来的。
+    </p>
 
     <footer class="setup-foot">
       <button class="btn" type="button" :disabled="checking" @click="refresh">
@@ -402,6 +414,25 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-6);
+}
+
+.src-warn {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-warning-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-warning-soft);
+  color: var(--c-text-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-body);
+}
+
+.src-warn code {
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--c-bg-1);
+  font-family: var(--font-mono);
+  word-break: break-all;
 }
 
 .grow {

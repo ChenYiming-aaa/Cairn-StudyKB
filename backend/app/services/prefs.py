@@ -22,7 +22,7 @@ import time
 import uuid
 from pathlib import Path
 
-from app.config import get_settings
+from app.config import config_audit, env_value, get_settings
 from app.errors import ApiError
 
 log = logging.getLogger(__name__)
@@ -259,10 +259,13 @@ def provider(pid: str) -> dict:
 
 
 def has_key(pid: str) -> bool:
-    """该 provider 的 Key 配没配 —— 只看 `.env` 对应变量在不在，**绝不返回值**。"""
+    """该 provider 的 Key 配没配 —— 只看对应变量有没有值，**绝不返回值**。
+
+    走 `config.env_value` 而不是 `os.environ`：严格模式下 `.env` 的值不在进程环境里（S-3）。
+    """
     conf = provider(pid)
     env_name = str(conf.get("key_env") or "")
-    if env_name and (os.environ.get(env_name) or "").strip():
+    if env_name and env_value(env_name).strip():
         return True
     # 老口径兜底：v0.1.0 的 .env 一直用 LLM_API_KEY，Settings 里也留了一份快照
     return pid == "deepseek" and get_settings().has_llm_key
@@ -316,4 +319,6 @@ def public_view() -> dict:
         "appearance": data["appearance"],
         "components": data.get("components") or {},
         "env_file": str(get_settings().env_file),
+        # 配置来源（S-3）：设置窗口的「关于」直接显示「有没有从老地方拿过配置」
+        "config": config_audit(),
     }

@@ -11,11 +11,13 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { api } from '../../api/client'
+import { useSettings } from '../../composables/useSettings'
 import { useToast } from '../../composables/useToast'
 
 const toast = useToast()
 const info = ref(null)
 const loading = ref(true)
+const { settings, load: loadSettings } = useSettings()
 
 // 四个链接：仓库 / 演示 / 更新日志 / 反馈
 const LINKS = [
@@ -41,6 +43,8 @@ const builtAt = computed(() => {
 })
 
 onMounted(async () => {
+  // 配置来源要能看见（S-3）：光有开关没人检查，等于没修
+  loadSettings()
   try {
     info.value = await api.version()
   } catch {
@@ -49,6 +53,15 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+})
+
+/** 配置来源审计：`ok=false` 只表示"配置被两处拼起来过"，开发机才会出现 */
+const cfg = computed(() => settings.value?.config || null)
+const cfgState = computed(() => {
+  const c = cfg.value
+  if (!c) return { tone: '', text: '读取中…' }
+  if (!c.ok) return { tone: 'bad', text: `从 ${c.legacy_file} 补过值` }
+  return { tone: 'ok', text: c.strict ? '只读数据目录（严格模式）' : '只读数据目录' }
 })
 
 function checkUpdate() {
@@ -89,6 +102,23 @@ function checkUpdate() {
         <button class="btn btn-sm" type="button" @click="checkUpdate">检查更新</button>
         <span class="update-note">当前版本已是最新的说法要等 M8 接上更新器；现在点了不会下载任何东西。</span>
       </div>
+    </section>
+
+    <section class="block">
+      <h5 class="block-title">配置来源</h5>
+      <dl class="facts">
+        <div class="fact">
+          <dt>配置文件</dt>
+          <dd>{{ cfg?.env_file || '—' }}</dd>
+        </div>
+        <div class="fact">
+          <dt>有没有从老地方拿过配置</dt>
+          <dd>
+            <span class="src" :class="cfgState.tone">{{ cfgState.text }}</span>
+          </dd>
+        </div>
+      </dl>
+      <p v-if="cfg?.hint" class="update-note">{{ cfg.hint }}</p>
     </section>
 
     <section class="block">
@@ -209,6 +239,20 @@ function checkUpdate() {
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-2);
+}
+
+.src {
+  font-family: var(--font-body, inherit);
+  font-size: var(--fs-xs);
+  color: var(--c-text-1);
+}
+
+.src.ok {
+  color: var(--c-success);
+}
+
+.src.bad {
+  color: var(--c-warning);
 }
 
 .update-note {

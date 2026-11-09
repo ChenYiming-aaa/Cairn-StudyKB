@@ -131,6 +131,9 @@ CREATE TABLE study_session (
 CREATE INDEX idx_session_time ON study_session(start_time);
 
 -- ── LLM 调用日志（reasoning_tokens 见 ADR-022）────────────
+-- v3 追加 effort / effort_dropped（S-2）：记**实际发出去**的思考强度，
+-- 没发是 NULL（不是 'none'）；被丢弃的原因只有这里查得到，事后推不出来。
+-- 老库升级走 app/db/migrations/v3_llm_effort.sql，两处 DDL 必须一致。
 CREATE TABLE llm_call_log (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
   agent             TEXT NOT NULL,
@@ -141,6 +144,8 @@ CREATE TABLE llm_call_log (
   duration_ms       INTEGER,
   ok                INTEGER NOT NULL,
   error_msg         TEXT,
+  effort            TEXT,
+  effort_dropped    INTEGER NOT NULL DEFAULT 0,
   created_at        TEXT NOT NULL
 );
 

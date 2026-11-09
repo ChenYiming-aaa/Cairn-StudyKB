@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 from app.paths import install_root, is_frozen
 
@@ -84,6 +84,22 @@ class Settings:
     # 1.05 来自实测分布：库内语义查询 0.958 能过，库外问题 1.10–1.17 被挡。
     # 只作全文零命中时的门槛：全文有命中就不再卡向量（「番茄钟」这类库内问题距离 1.169）。
     vector_min_distance: float = 1.05
+
+    # ── 配置来源审计（S-3）────────────────────────────────
+    # `env_strict=True`（`CAIRN_ENV_STRICT=1`）：只读数据目录里的 `.env`，
+    # **不回落到布局默认的那份、也不把值写进 `os.environ`**。
+    env_strict: bool = False
+    # 实际从「老地方」（布局默认 `.env`）补进来的变量名。非空 = 配置被两处拼起来了。
+    # 只存变量名，**不存值**（红线 7）。
+    env_legacy_keys: tuple[str, ...] = ()
+    # 本次解析用到的完整环境快照：严格模式下从文件读到、但刻意没写进 os.environ
+    # 的值也在这里，否则 `has_key` / 取 Key 会看不到它们。
+    env_map: dict[str, str] = field(default_factory=dict, repr=False)
+
+    @property
+    def env_legacy_used(self) -> bool:
+        """有没有从老地方拿过配置 —— 自检页直接显示这一条。"""
+        return bool(self.env_legacy_keys)
 
     @property
     def models_dir(self) -> Path:
@@ -175,14 +191,28 @@ def load_settings(argv: list[str] | None = None) -> Settings:
     # 这条规则保证"另一个数据目录"不会把 Key 写进默认那一份 `.env`。
     env_file = (data_dir / ".env") if explicit_data else ENV_FILE
 
-    load_dotenv(env_file, override=False)
-    if env_file != ENV_FILE:
-        # 兜底：显式换了数据目录时，再把布局默认的 `.env`（源码下 = 项目根）补进来。
-        # `override=False` 只填空缺，绝不会盖掉数据目录里已有的值；
-        # 冻结版 ROOT 是安装目录、没有 `.env`，这一步自然不生效。
-        # 没有它，「换个临时数据目录跑验收」就拿不到开发用的 Key / FFMPEG_DIR。
-        load_dotenv(ENV_FILE, override=False)
-    env = dict(os.environ)
+    strict = _truthy(os.environ.get("CAIRN_ENV_STRICT", "0"))
+    legacy_keys: tuple[str, ...] = ()
+    if strict:
+        # 严格模式（S-3）：**不碰 os.environ**，也不看布局默认的 `.env`。
+        # 起因：`load_dotenv` 会把值塞进进程环境，即使之后跳过那次读取，
+        # 上一次塞进去的 Key 还留在里面 —— 「换个数据目录 = 干净配置」因此不成立，
+        # 验收脚本想验"没有 Key 会怎样"就得先手动删环境变量，那是打补丁不是修根。
+        file_values = {k: v for k, v in dotenv_values(env_file).items() if v is not None}
+        # 进程里已有的值优先，与 `override=False` 同义
+        env = {**file_values, **{k: str(v) for k, v in os.environ.items()}}
+    else:
+        load_dotenv(env_file, override=False)
+        if env_file != ENV_FILE:
+            # 兜底：显式换了数据目录时，再把布局默认的 `.env`（源码下 = 项目根）补进来。
+            # `override=False` 只填空缺，绝不会盖掉数据目录里已有的值；
+            # 冻结版 ROOT 是安装目录、没有 `.env`，这一步自然不生效。
+            # 没有它，「换个临时数据目录跑验收」就拿不到开发用的 Key / FFMPEG_DIR。
+            before = set(os.environ)
+            load_dotenv(ENV_FILE, override=False)
+            # 只记**真的贡献了值**的变量名；文件不存在时这里是空的，不会误报
+            legacy_keys = tuple(sorted(set(os.environ) - before))
+        env = {k: str(v) for k, v in os.environ.items()}
 
     def pick(env_key: str, default: str) -> str:
         for cli_key, mapped in _CLI_TO_ENV.items():
@@ -211,6 +241,9 @@ def load_settings(argv: list[str] | None = None) -> Settings:
         vector_enabled=_truthy(env.get("VECTOR_ENABLED", "1")),
         embed_model=pick("EMBED_MODEL", "BAAI/bge-small-zh-v1.5"),
         vector_min_distance=float(pick("VECTOR_MIN_DISTANCE", "1.05")),
+        env_strict=strict,
+        env_legacy_keys=legacy_keys,
+        env_map=env,
     )
 
 
@@ -233,6 +266,41 @@ def reload_settings() -> Settings:
     global _settings
     _settings = None
     return get_settings()
+
+
+def env_value(name: str) -> str:
+    """取一个环境变量的值。
+
+    为什么不用 `os.environ.get`：严格模式下 `.env` 的值**刻意没写进进程环境**
+    （S-3），只认 `os.environ` 会让「Key 配了但看不到」。这里统一走
+    `env_map`（本轮解析出的完整快照），两种模式行为一致。
+    """
+    if not name:
+        return ""
+    return str(get_settings().env_map.get(name) or "")
+
+
+def config_audit() -> dict:
+    """配置来源审计（S-3）：**看得见的东西才会被检查**。
+
+    自检页与设置窗口的「关于」都显示它。`ok=False` 只表示"配置被两处拼起来过"，
+    不是错误 —— 开发机/联调现场本来就长这样，安装包里不会出现。
+    """
+    cfg = get_settings()
+    legacy = list(cfg.env_legacy_keys)
+    if legacy:
+        hint = (f"这些项是从 {ENV_FILE} 补进来的（数据目录里的 .env 没给值）："
+                f"{'、'.join(legacy)}。想让配置彻底隔离，设 CAIRN_ENV_STRICT=1 后重启")
+    else:
+        hint = "只从数据目录的 .env 读配置" + ("（严格模式）" if cfg.env_strict else "")
+    return {
+        "ok": not legacy,
+        "strict": cfg.env_strict,
+        "env_file": str(cfg.env_file),
+        "legacy_file": str(ENV_FILE) if legacy else None,
+        "legacy_keys": legacy,
+        "hint": hint,
+    }
 
 
 def force_utf8_stdio() -> None:

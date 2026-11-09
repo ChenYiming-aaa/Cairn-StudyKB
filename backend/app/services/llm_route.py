@@ -9,11 +9,10 @@ model、effort、要不要发 `reasoning_effort`。**Key 只在内存里，repr 
 """
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.config import get_settings
+from app.config import env_value, get_settings
 from app.services import prefs
 
 
@@ -42,13 +41,14 @@ class Profile:
 def _key_for(provider: str, key_env: str) -> str:
     """按 provider 的 `key_env` 取 Key。
 
-    先看 `os.environ`（`.env` 启动时灌进去了，设置页写盘后也会即时更新），
+    走 `config.env_value`（本轮解析出的环境快照）而不是直接读 `os.environ`：
+    严格模式下 `.env` 的值刻意没写进进程环境（S-3），只认 `os.environ` 会「配了却说没配」。
     再看 `Settings` 的快照 —— 后者是 v0.1.0 的唯一来源，留着是为了「只配过
     `LLM_API_KEY` 的老用户升级后不用重新填」。
     """
     cfg = get_settings()
     if key_env:
-        value = (os.environ.get(key_env) or "").strip()
+        value = env_value(key_env).strip()
         if value:
             return value
     if provider == "deepseek":

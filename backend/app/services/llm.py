@@ -99,6 +99,31 @@ def _strip_effort(body: dict) -> dict:
     return {k: v for k, v in body.items() if k != "reasoning_effort"}
 
 
+# 会真正进请求体的三档；`none` 表示用户主动关掉，不算「被丢弃」（S-2）
+EFFORT_LEVELS = ("low", "medium", "high")
+
+
+def _effort_state(profile: Profile, body: dict) -> tuple[str | None, int]:
+    """日志要记的两件事：**实际发出去的值** 与 **是不是本来要发却没发**。
+
+    - 发了 → `(值, 0)`
+    - 用户设成 `none` / 空 → `(None, 0)`：「关掉思考」不是「不支持」
+    - 设了具体档位却没进请求体 → `(None, 1)`：provider 不支持，或被 400 拒掉后去掉。
+      这个信息只有日志里有，事后靠模型名和耗时绝对推不出来。
+    """
+    sent = body.get("reasoning_effort")
+    if sent:
+        return str(sent), 0
+    wanted = (profile.effort or "").strip().lower()
+    return None, 1 if wanted not in ("", "none") else 0
+
+
+def _effort_log_fields(profile: Profile, body: dict) -> dict:
+    """给 `_write_log` 用的两列，避免每个调用点都写一遍解包。"""
+    effort, dropped = _effort_state(profile, body)
+    return {"effort": effort, "effort_dropped": dropped}
+
+
 def _usage(data: dict) -> tuple[int | None, int | None, int | None]:
     usage = data.get("usage") or {}
     details = usage.get("completion_tokens_details") or {}
@@ -113,18 +138,25 @@ def _write_log(
     *, agent: str, model: str, ok: bool, duration_ms: int,
     prompt_tokens: int | None = None, completion_tokens: int | None = None,
     reasoning_tokens: int | None = None, error_msg: str | None = None,
+    effort: str | None = None, effort_dropped: int = 0,
 ) -> None:
-    """写 `llm_call_log`。`model` 是**本次实际用的**模型（T6.3 前记的是全局配置，会失真）。"""
+    """写 `llm_call_log`。
+
+    - `model` 是**本次实际用的**模型（T6.3 前记的是全局配置，会失真）
+    - `effort` 是**实际进请求体的**思考强度，没发就是 NULL（S-2：不记设置值）
+    - `effort_dropped=1` 表示本来要发却没发（provider 不支持 / 400 被拒后去掉）
+    """
     conn = get_conn()
     try:
         with conn:
             conn.execute(
                 """INSERT INTO llm_call_log
                    (agent, model, prompt_tokens, completion_tokens, reasoning_tokens,
-                    duration_ms, ok, error_msg, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    duration_ms, ok, error_msg, effort, effort_dropped, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (agent, model, prompt_tokens, completion_tokens,
-                 reasoning_tokens, duration_ms, 1 if ok else 0, error_msg, now_iso()),
+                 reasoning_tokens, duration_ms, 1 if ok else 0, error_msg,
+                 effort, int(bool(effort_dropped)), now_iso()),
             )
     except Exception as exc:
         # 日志写失败不能让业务调用崩，但也绝不静默（红线 8）
@@ -173,7 +205,8 @@ def chat(
             pt, ct, rt = _usage(data)
             _write_log(agent=agent, model=profile.model, ok=True,
                        duration_ms=int((time.monotonic() - started) * 1000),
-                       prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt)
+                       prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt,
+                       **_effort_log_fields(profile, body))
             return content
         except (KeyError, IndexError, ValueError) as exc:
             last = LLMError("LLM_BAD_RESPONSE", "LLM 响应结构异常", _safe_detail(exc))
@@ -189,7 +222,8 @@ def chat(
 
     _write_log(agent=agent, model=profile.model, ok=False,
                duration_ms=int((time.monotonic() - started) * 1000),
-               error_msg=last.code if last else "LLM_HTTP_ERROR")
+               error_msg=last.code if last else "LLM_HTTP_ERROR",
+               **_effort_log_fields(profile, body))
     # from None：切断原始 httpx 异常上下文，避免请求头（含 Key）进入异常栈
     raise (last or LLMError("LLM_HTTP_ERROR", "LLM 调用失败")) from None
 
@@ -255,13 +289,14 @@ def chat_stream(
         err = error_from(exc)
         _write_log(agent=agent, model=profile.model, ok=False,
                    duration_ms=int((time.monotonic() - started) * 1000),
-                   error_msg=err.code)
+                   error_msg=err.code, **_effort_log_fields(profile, body))
         raise err from None
     finally:
         if ok:
             _write_log(agent=agent, model=profile.model, ok=True,
                        duration_ms=int((time.monotonic() - started) * 1000),
-                       prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt)
+                       prompt_tokens=pt, completion_tokens=ct, reasoning_tokens=rt,
+                       **_effort_log_fields(profile, body))
         if usage_out is not None:
             usage_out.update({"prompt_tokens": pt, "completion_tokens": ct,
                               "reasoning_tokens": rt})

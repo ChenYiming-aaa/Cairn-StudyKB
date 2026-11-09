@@ -47,6 +47,12 @@ class ProbeBody(BaseModel):
 
 @router.post("/api/settings/probe")
 def probe(body: ProbeBody) -> dict:
+    """**只探测，不写任何文件**（S-1 裁决）。
+
+    曾经这里在探测成功后顺手把 `base_url` 与模型列表写进 `settings.json` ——
+    用户只是"试试这个地址通不通"，配置就被改了，而且关窗口也回不去。
+    现在：探测是只读操作，模型列表由前端在用户点「保存 / 记住」时随 PATCH 一起提交。
+    """
     if body.provider not in prefs.PROVIDER_IDS:
         raise ApiError("SETTINGS_INVALID", f"未知的 provider：{body.provider}", status=400)
     saved = prefs.provider(body.provider)
@@ -57,15 +63,7 @@ def probe(body: ProbeBody) -> dict:
     api_key = (body.api_key or "").strip() or llm_route.key_for(body.provider)
     models = saved.get("models") or []
     model = (body.model or "").strip() or (models[0] if models else "")
-    result = probe_provider(base_url, api_key, model)
-    # 探测成功且拿到列表：顺手记下来，下次打开设置页模型的候选就是真的（不落 Key）
-    if result.get("ok") and result.get("models"):
-        try:
-            prefs.save({"llm": {"providers": {body.provider: {
-                "models": result["models"], "base_url": base_url}}}})
-        except ApiError:
-            pass  # 记不下来只是候选列表空，不影响本次探测结论
-    return result
+    return probe_provider(base_url, api_key, model)
 
 
 class LlmBody(BaseModel):

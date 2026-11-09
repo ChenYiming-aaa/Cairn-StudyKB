@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-09 19:30 · 每次会话结束更新这一段）
+## 当前状态（2026-11-09 21:20 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M6 设置与个性化 · 已验收**（2026-11-09，tag `m6-done`）。T6.0–T6.9 全做完：契约、`prefs`、LLM 按任务路由、provider 探测、设置窗口 + 模型 tab、6 套配色 × 明暗 × 字号三档、外观/关于 tab、引导页共用表单 |
+| 里程碑 | **M6 设置与个性化 · 已验收**（2026-11-09，tag `m6-done`）。T6.0–T6.9 全做完。验收后又按你的裁决补了三条**行为修整**（S-1 探测不写盘 / S-2 记实际 effort / S-3 严格模式 + 配置来源可见，ADR-028） |
 | 当前里程碑 | **M6 完成**；下一步 **M7 布局与文案**（T7.0–T7.7，依赖 M6 的设置窗口） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
 | 远程 | `origin/main` = `59c19ae` 之后有 M6 第一部分若干提交（见文末条目）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done`（M6 验收，2026-11-09） |
-| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 60/60（2026-11-09 20:20 全量重跑）** · `npm run lint` 干净 · `npm run build` 通过（JS 294.5 kB / gzip 108 kB；CSS 79.5 kB / gzip 12.4 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · `doc_check.py` 见文末条目 · 安装包基线 426,428,660 字节（**M6 未改后端依赖，体积不变**） |
+| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78（2026-11-09 21:15 全量重跑；m6 因 S-1/S-2/S-3 新增 18 条断言）** · `npm run lint` 干净 · `npm run build` 通过（JS 296.6 kB / gzip 108.7 kB；CSS 80.1 kB / gzip 12.5 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · `doc_check.py` 见文末条目 · 安装包基线 426,428,660 字节（**M6 未改后端依赖，体积不变**） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -61,6 +61,19 @@
 | 13 | 思维导图 SVG 的深色配色写死一套绿，不跟 6 套主题走 | 待裁决 | 见 `M6-补充记录.md` S-20 第 1 条；建议 M7 视觉统一时改 |
 | 14 | 徽标小字对比度 3.5–4.35:1，低于 AA 小字 4.5:1 | 待裁决 | S-20 第 2 条；§3 硬标准只要求 3:1，这一版不算违规 |
 | 15 | 深色界面里学习页预览 iframe 是全白（导出固定 light） | 待裁决 | S-20 第 3 条；建议加外框 + 一句说明，不改导出内容 |
+
+**2026-11-09 21:15 补记 · 三条行为修整（都按你的裁决做）**
+
+- **S-2（先做，最独立）**：`llm_call_log` 加 `effort` + `effort_dropped`，`user_version` 2→3。
+  `effort` 记**实际进请求体**的值，没发是 `NULL`（不写 `'none'`）；`effort_dropped=1` 表示
+  「本来要发却没发」（provider 不支持 / 400 拒后去掉）。本机 `data/data.db` 已实测升级：59 行老数据无丢失
+- **S-1**：`POST /api/settings/probe` 删掉回写块，**探测不写任何文件**。前端探测成功才出现
+  「记住这 N 个模型」按钮（点保存 Key 且地址未变时也会一并提交）。代价是不保存关窗要重新探测
+- **S-3**：`CAIRN_ENV_STRICT=1` 时只读数据目录 `.env`、**不碰 `os.environ`**（`dotenv_values`）；
+  取 Key 改走 `config.env_value()`。审计可见：`GET /api/settings` 与 `/api/env/check` 都返回 `config`
+  块（`ok/strict/env_file/legacy_file/legacy_keys/hint`），引导页给黄条、关于页显示一行。
+  `verify_m6` 第九步断言「没从老地方拿过配置」，并做一次**反证**证明旧写法真会补 6 个变量
+- **规矩沉淀**：ADR-028「读的不写盘，写要你点了才算，日志只记实际发生的」
 
 **下一会话第一件事**
 > 开 **M7 布局与文案**（T7.0–T7.7）：先读 `milestones/M7-布局与文案.md` + `M6-补充记录.md` 的 S-20
@@ -1155,3 +1168,47 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 
 **下一会话第一件事**
 > 开 M7 T7.0（`useLayout` + `SidePanel` + `SplitHandle` 三个布局原语），先读 `M7-布局与文案.md` §1–§2。
+
+---
+
+## 2026-11-09 21:20 · M6 验收后补三条行为修整（S-1 / S-2 / S-3）
+
+**起因**：你在验收时给了三条结论（见 `M6-补充记录.md` S-1/S-2/S-3 的「裁决」段），
+并指定顺序 S-2 → S-1 → S-3，每步先跑 M6 验收再进下一步。
+
+**完成**
+- S-2：`user_version` 2→3，`migrations/v3_llm_effort.sql` 给 `llm_call_log` 加
+  `effort`（实际发出的值，没发为 NULL）与 `effort_dropped`（1 = 本来要发却没发）。
+  `llm.py` 新增 `_effort_state()` / `_effort_log_fields()`，6 个写日志点全部带上；
+  `chat` 与 `chat_stream` 在 400 去掉字段后都能正确记成 `(None, 1)`
+- S-1：`routers/settings.py` 删掉「探测成功后回写 base_url/models」的块；
+  `ProviderForm` 加「记住这 N 个模型」（只在探测到且与已存的不同的情况下出现），
+  保存 Key 且地址未变时一并提交；`ModelTab` / `Setup` 各接一个 `@models`
+- S-3：`config.py` 加严格模式（`CAIRN_ENV_STRICT=1`）+ `env_map` 快照 + `env_value()` +
+  `config_audit()`；`llm_route._key_for` / `prefs.has_key` 改走 `env_value()`（否则严格模式下
+  「Key 配了但看不见」）；`prefs.public_view` 与 `env_probe.check_all` 都带 `config` 块；
+  `AboutTab` 加「配置来源」一节、`Setup` 在异常时给黄条
+- 文档：`数据契约`（两列 + `user_version=3`）、`接口契约`（探测只读、`config` 块、严格模式）、
+  ADR-028、`.env.example` 登记 `CAIRN_ENV_STRICT`
+
+**验证**
+- `verify_m6.py` → **78/78 PASS**（60 → 78：S-2 六条 + 迁移一条 + S-1 两条 + S-3 四条，
+  另有一条反证会被计入）
+- 回归 `verify_m1..m5` → 52/52 · 118/118 · 61/61 · 69/69 · 57/57（**全部不受 S-3 影响**：
+  只有 `verify_m6` 开 strict，其余仍靠兜底拿本机 Key —— 这是选「加开关」而不是「默认严格」的直接原因）
+- `npm run lint` 干净 · `npm run build` 通过 · `doc_check.py` 6 PASS + 1 提示
+- 本机 `data/data.db` 实测 v2→v3：59 行老数据保留，新列按 NULL/0 回填
+
+**遗留问题**
+- [ ] `effort` 两列会从这一版起才有数据，**历史 59 行永远是 NULL/0** —— M7 做成本统计时别把它们
+      当成「用户关了思考」，要按「未知」处理
+- [ ] 探测结果不落盘后，「关窗重开要重新探测」是设计取舍（约 1 秒）。若用户抱怨，正确做法是
+      **后端内存缓存**（key 用 base_url + Key 指纹），不是恢复写盘
+- [ ] S-3 的严格模式是环境变量开关，默认关；`verify_m6` 之外的脚本仍在用兜底。若将来要「默认严格」，
+      得同时改 5 个验收脚本（`verify_m1` 要真调模型，必须先解决 Key 从哪来）
+
+**待裁决冲突**
+- 无
+
+**下一会话第一件事**
+> 见「当前状态」里的「下一会话第一件事」：开 M7 布局与文案。

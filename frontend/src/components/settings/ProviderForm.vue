@@ -17,7 +17,7 @@ const props = defineProps({
   conf: { type: Object, required: true },
   defaultOpen: { type: Boolean, default: false },
 })
-const emit = defineEmits(['base-url', 'saved'])
+const emit = defineEmits(['base-url', 'saved', 'models'])
 
 const toast = useToast()
 const baseUrl = ref(props.conf.base_url || '')
@@ -25,6 +25,7 @@ const apiKey = ref('')
 const saving = ref(false)
 const probing = ref(false)
 const probe = ref(null)   // {ok, models, latency_ms, error_code, hint}
+const probeUrl = ref('')  // 探测时用的地址：判断"这份列表能不能算在当前地址头上"
 const open = ref(props.defaultOpen)
 
 // 保存 Key 之后服务端会返回新配置（has_key 变 true），同步一下地址输入框
@@ -34,6 +35,13 @@ watch(() => props.conf.base_url, (value) => {
 
 const models = computed(() => props.conf.models || [])
 const canProbe = computed(() => Boolean((baseUrl.value || '').trim()))
+// 探测到列表，但和已保存的不一样 → 给一个明确的「记住」动作（S-1：不自动写盘）
+const canRemember = computed(() => {
+  const found = probe.value?.models || []
+  if (!probe.value?.ok || !found.length) return false
+  const saved = models.value
+  return found.length !== saved.length || found.some((m) => !saved.includes(m))
+})
 
 function commitBase() {
   const value = baseUrl.value.trim()
@@ -55,6 +63,10 @@ async function saveKey() {
     })
     apiKey.value = ''
     emit('saved', res.settings)
+    // 地址没换过才把探测到的列表一起存：换了地址，那份列表就不属于它了。
+    // 不额外弹提示 —— 保存 Key 的提示已经说了「已保存」。
+    const found = probe.value?.models || []
+    if (found.length && probeUrl.value === baseUrl.value.trim()) emit('models', found)
     toast.ok(`${props.conf.label} 的 Key 已保存，下一次调用就生效`)
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -63,18 +75,28 @@ async function saveKey() {
   }
 }
 
+/** 把探测到的模型列表交给父组件去存 —— 必须用户点，探测本身不写任何文件。 */
+function rememberModels() {
+  const found = probe.value?.models || []
+  if (!found.length) return
+  emit('models', found)
+  toast.ok(`已记住 ${found.length} 个模型，下拉框里可以直接选`)
+}
+
 async function runProbe() {
   probing.value = true
   probe.value = null
+  probeUrl.value = ''
   try {
     probe.value = await api.probeProvider({
       provider: props.pid,
       base_url: baseUrl.value.trim(),
       api_key: apiKey.value.trim(),
     })
+    probeUrl.value = baseUrl.value.trim()
     if (probe.value.ok) {
-      toast.ok(`探测成功：${probe.value.models.length} 个模型 · ${probe.value.latency_ms}ms`)
-      emit('saved', null)
+      const count = probe.value.models.length
+      toast.ok(`探测成功：${count ? `${count} 个模型 · ` : ''}${probe.value.latency_ms}ms`)
     }
   } catch (err) {
     probe.value = { ok: false, error_code: err.code, hint: friendlyMessage(err) }
@@ -134,22 +156,32 @@ async function runProbe() {
           class="btn btn-sm"
           type="button"
           :disabled="probing || !canProbe"
-          :title="canProbe ? '列出对方模型并测一次延迟' : '先填接口地址'"
+          :title="canProbe ? '列出对方模型并测一次延迟（只读，不改配置）' : '先填接口地址'"
           @click="runProbe"
         >
           {{ probing ? '探测中…' : '探测' }}
         </button>
         <span v-if="probe && probe.ok" class="probe-ok">
-          可用 · {{ probe.latency_ms }}ms
-          <template v-if="probe.models.length"> · {{ probe.models.join('、') }}</template>
+          可用 · {{ probe.latency_ms }}ms<template v-if="probe.models.length">
+            · {{ probe.models.length }} 个模型</template>
         </span>
         <span v-else-if="probe" class="probe-bad">
           {{ probe.hint || probe.error_code }}
         </span>
         <span v-else-if="models.length" class="probe-idle">
-          上次探测到 {{ models.length }} 个模型
+          已存 {{ models.length }} 个模型
         </span>
+        <button
+          v-if="canRemember"
+          class="btn btn-sm"
+          type="button"
+          title="把这次探测到的模型名字存下来，供下面的模型下拉框使用（不改接口地址与 Key）"
+          @click="rememberModels"
+        >
+          记住这 {{ probe.models.length }} 个模型
+        </button>
       </div>
+      <p class="hint">探测只读：不改地址、不改 Key、不写文件。要留下列表就点「记住」。</p>
     </div>
   </section>
 </template>

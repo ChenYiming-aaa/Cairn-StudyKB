@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 
-from app.config import get_settings
+from app.config import config_audit, get_settings
 from app.paths import is_frozen
 
 log = logging.getLogger(__name__)
@@ -202,6 +202,7 @@ def probe_provider(base_url: str, api_key: str, model: str = "") -> dict:
 def check_all() -> dict:
     # `env_file` 不是检查项，是给首次引导页显示"Key 会存到哪"的路径。
     # 放在最外层而不是塞进某一项里，因为它和任何一项的 ok/fail 都无关。
+    # `config` 是配置来源审计（S-3）：显示"有没有从老地方拿过配置"。
     return {
         "ffmpeg": check_ffmpeg(),
         "whisper": check_whisper(),
@@ -209,4 +210,5 @@ def check_all() -> dict:
         "sqlite_vec": check_sqlite_vec(),
         "llm": check_llm(),
         "env_file": str(get_settings().env_file),
+        "config": config_audit(),
     }
