@@ -36,7 +36,7 @@ let stopPolling = null
 
 const TABS = [
   { key: 'summary', label: '摘要与要点' },
-  { key: 'note', label: '结构化笔记' },
+  { key: 'note', label: '整理笔记' },
   { key: 'raw', label: '原文' },
   { key: 'mindmap', label: '思维导图' },
   { key: 'sessions', label: '学习记录' },
@@ -91,7 +91,7 @@ function organize() {
   const item = props.item
   if (!item || busy.value) return
   // 数据契约 §3：note_edited=1 时重新整理会覆盖手改内容，必须先确认
-  if (item.note_edited && !window.confirm('重新整理将覆盖你手动编辑过的笔记，并按正文重新生成标题，确定继续？')) return
+  if (item.note_edited && !window.confirm('重新整理会覆盖你手改过的笔记，并按正文重新生成标题。继续？')) return
 
   organizing.value = true
   api
@@ -107,7 +107,7 @@ function organize() {
           } else if (task.status === 'failed') {
             stop()
             organizing.value = false
-            toast.error(`整理失败：${task.error_msg || task.error_code || '未知原因'}`)
+            toast.error(`这次没整理成功：${task.error_msg || task.error_code || '原因没记下来'}。再点一次整理；还不行去任务中心看详情。`)
             emit('refresh', item.id)
           }
         },
@@ -123,11 +123,11 @@ function organize() {
 function remove() {
   const item = props.item
   if (!item) return
-  if (!window.confirm(`删除「${item.title}」？其分块与题目会一并删除，无法恢复。`)) return
+  if (!window.confirm(`删除「${item.title}」？它的分块和题目会一起删掉，无法恢复。`)) return
   api
     .deleteItem(item.id)
     .then(() => {
-      toast.ok('已删除')
+      toast.ok('已删除这条')
       emit('deleted', item.id)
     })
     .catch((err) => toast.error(friendlyMessage(err)))
@@ -154,7 +154,7 @@ onBeforeUnmount(stop)
 
     <div v-else-if="!item" class="detail-state state">
       <p class="state-title">从左侧选一条来读</p>
-      <p>或点右上角「采集内容」加入新的内容</p>
+      <p>还没有条目时，点右上角「采集内容」加一条。</p>
     </div>
 
     <template v-else>

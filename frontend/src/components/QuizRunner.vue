@@ -169,7 +169,7 @@ const accuracyText = computed(() => {
           class="textarea"
           rows="6"
           :disabled="revealed"
-          placeholder="凭记忆写下来，不用照抄原文；交卷后由模型指出漏掉的要点"
+          placeholder="凭记忆写下来，不用照抄原文。交卷后由模型指出漏掉的要点"
         />
       </div>
 
@@ -223,21 +223,21 @@ const accuracyText = computed(() => {
 
       <div class="q-actions">
         <button v-if="!revealed" class="btn btn-primary" type="button" :disabled="!canConfirm" @click="confirm">
-          确认作答
+          答完了
         </button>
         <button v-else class="btn btn-primary" type="button" @click="next">
           {{ isLast ? '交卷并看结果' : '下一题' }}
         </button>
         <span v-if="!revealed && !canConfirm" class="q-hint">
-          {{ isShort ? '写点东西再确认' : '选一个再确认' }}
+          {{ isShort ? '先写点什么再答' : '先选一个再答' }}
         </span>
       </div>
     </template>
 
     <!-- 交卷中 -->
     <div v-else-if="phase === 'submitting'" class="state">
-      <p class="state-title">交卷中…</p>
-      <p>客观题很快；有简答题时要等模型批改，最多一分钟</p>
+      <p class="state-title">正在判分…</p>
+      <p>客观题很快。有简答题时要等模型批改，最多一分钟。</p>
     </div>
 
     <!-- 结果 -->

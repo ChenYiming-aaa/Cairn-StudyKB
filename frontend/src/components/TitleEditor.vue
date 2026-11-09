@@ -37,7 +37,7 @@ async function save() {
   const next = draft.value.trim()
   if (!next) return cancel()
   if (next === props.title) return cancel()
-  if (next.length > MAX) return toast.error(`标题最多 ${MAX} 个字，请先截短`)
+  if (next.length > MAX) return toast.error(`标题最多 ${MAX} 个字，先截短一点再保存`)
   saving.value = true
   try {
     await api.patchItem(props.itemId, { title: next })

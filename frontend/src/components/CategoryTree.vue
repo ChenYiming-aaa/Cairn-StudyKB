@@ -142,10 +142,10 @@ function focusSection(which) {
 
       <div v-else-if="!categories.length" class="side-empty">
         <p>这里放你的条目。还没有采集过内容。</p>
-        <button class="btn btn-sm" type="button" @click="emit('ingest')">采集第一条内容</button>
+        <button class="btn btn-sm" type="button" @click="emit('ingest')">采集第一条</button>
       </div>
 
-      <p v-else-if="noMatch" class="side-empty">没有匹配的分类或标签。</p>
+      <p v-else-if="noMatch" class="side-empty">没有匹配的分类或标签。换个词，或清空上面的筛选。</p>
 
       <template v-else>
         <div ref="catRef">

@@ -65,7 +65,7 @@ function save() {
       dirty.value = false
       setEditorDirty(false)
       emit('saved', result)
-      toast.ok(`笔记已保存，重建 ${result.note_chunk_count} 个笔记片段`)
+      toast.ok(`笔记已保存，同时更新了 ${result.note_chunk_count} 个笔记片段`)
     })
     .catch((err) => toast.error(friendlyMessage(err)))
     .finally(() => {

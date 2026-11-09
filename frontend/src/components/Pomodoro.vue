@@ -215,7 +215,7 @@ onBeforeUnmount(stopBreak)
             {{ value }} 分钟
           </button>
         </div>
-        <p class="hint">计时以开始时间戳为准，刷新或切页面都不会重置；关掉再打开会接着上一轮。</p>
+        <p class="hint">从点下开始那一刻算起，刷新或切页都不会重置。关掉再打开，会接着上一轮。</p>
         <div class="actions">
           <button class="btn btn-primary" type="button" :disabled="busy" @click="startFree">
             开始专注

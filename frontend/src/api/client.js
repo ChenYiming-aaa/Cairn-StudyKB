@@ -16,43 +16,43 @@ export class ApiError extends Error {
 }
 
 const FRIENDLY = [
-  [/^LLM_NO_KEY$/, '未配置模型 Key：点顶栏「环境待配置」填入 Key 即可，不用重启'],
-  [/^LLM_QUOTA$/, '模型额度不足或触发限流：检查账户余额，或稍后再试'],
-  [/^LLM_TIMEOUT$/, '模型响应超时：可以重试；简答批改会记成「待人工判断」而不是判错'],
-  [/^LLM_BAD_JSON$/, '模型返回的内容不是合法 JSON，已自动重试过一次'],
-  [/^LLM_/, '模型调用失败，请稍后重试（详细原因见任务记录）'],
-  [/^ENV_INVALID_VALUE$/, '填写的内容不合法：去掉引号和换行再试'],
-  [/^ENV_NOTHING_TO_SAVE$/, '没有需要保存的内容'],
-  [/^ENV_WRITE_FAILED$/, '写不进配置文件：确认数据目录可写，或用管理员身份重试'],
-  [/^ENV_/, '保存配置失败，请稍后重试'],
-  [/^SETTINGS_INVALID$/, '这项设置的值不合法，改一下再试'],
-  [/^SETTINGS_WRITE_FAILED$/, '写不进设置文件：确认数据目录可写'],
-  [/^SETTINGS_/, '保存设置失败，请稍后重试'],
-  [/^LLM_MODELS_UNSUPPORTED$/, '这个服务不提供模型列表，手动填模型名即可'],
-  [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，无法抽取音频：录制内容照常入库，转录不可用'],
-  [/^TRANSCRIBE_/, '转录失败，详细原因见下方提示或任务记录'],
-  [/^FETCH_BROWSER_UNAVAILABLE$/, '浏览器渲染不可用：请安装 Edge/Chrome，或让后端执行 playwright install chromium'],
-  [/^FETCH_LOGIN_REQUIRED$/, '该页面需要登录才能看，请先在采集面板里登录对应站点'],
-  [/^FETCH_/, '采集失败：目标站点拒绝访问或没有有效正文'],
-  [/^ITEM_NOT_FOUND$/, '条目不存在，可能已被删除'],
-  [/^ITEM_BUSY$/, '该条目正在整理中，请等它结束'],
-  [/^TASK_NOT_RETRYABLE$/, '该任务不是失败状态，不能重试'],
-  [/^SESSION_ALREADY_RUNNING$/, '已经有一个计时在进行中，先把它结束或放弃'],
-  [/^SESSION_STATE$/, '计时状态已经变了，刷新一下就正确了'],
-  [/^SESSION_NOT_FOUND$/, '这次计时不存在，可能已经结束'],
-  [/^SESSION_/, '计时操作失败，请刷新后重试'],
-  [/^NETWORK$/, '连不上后端服务，请确认 uvicorn 已在 8756 端口启动'],
-  [/^POLL_TIMEOUT$/, '任务超时未返回，请稍后在任务记录里查看'],
+  [/^LLM_NO_KEY$/, '还没配模型 Key，整理、问答、出题都用不了。点顶栏「环境待配置」把 Key 填进去，不用重启'],
+  [/^LLM_QUOTA$/, '模型额度不够或触发了限流，这次没调成功。检查账户余额，或等一会儿再试'],
+  [/^LLM_TIMEOUT$/, '模型响应超时，这次没拿到结果。可以重试；简答会记成「待人工判断」，不会判错'],
+  [/^LLM_BAD_JSON$/, '模型返回的不是合法 JSON，已自动重试过一次。再点一次；还不行就换个模型'],
+  [/^LLM_/, '模型调用没成功。稍后重试；详细原因在任务中心'],
+  [/^ENV_INVALID_VALUE$/, '填的内容不合法，这次没保存。去掉引号和换行再试'],
+  [/^ENV_NOTHING_TO_SAVE$/, '这次没有可保存的内容。改了配置再点保存'],
+  [/^ENV_WRITE_FAILED$/, '配置文件写不进去，这次改动没保存。确认数据目录可写，或用管理员身份重试'],
+  [/^ENV_/, '配置没保存成功，改动会丢。再点一次保存；还不行看日志'],
+  [/^SETTINGS_INVALID$/, '这项设置的值不合法，这次没保存。改一下再试'],
+  [/^SETTINGS_WRITE_FAILED$/, '设置文件写不进去，这次改动没保存。确认数据目录可写'],
+  [/^SETTINGS_/, '设置没保存成功，改动会丢。稍后重试'],
+  [/^LLM_MODELS_UNSUPPORTED$/, '这个服务不提供模型列表。手动填模型名就能用'],
+  [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，抽不了音频。内容照常入库，只是没有转录'],
+  [/^TRANSCRIBE_/, '转录没成功，语音识别这一步中断了。详细原因见下方提示或任务中心'],
+  [/^FETCH_BROWSER_UNAVAILABLE$/, '浏览器渲染不可用，这条没采到。装好 Edge/Chrome，或让后端执行 playwright install chromium'],
+  [/^FETCH_LOGIN_REQUIRED$/, '这个站点要登录才给内容，这条没采到。先在采集面板登录对应站点，再点一次采集'],
+  [/^FETCH_/, '采集没成功：站点拒绝访问，或者没抓到有效正文。这种情况改用粘贴更稳'],
+  [/^ITEM_NOT_FOUND$/, '条目不存在，可能已经删掉了。刷新列表看看'],
+  [/^ITEM_BUSY$/, '这条正在整理中，等它结束再操作'],
+  [/^TASK_NOT_RETRYABLE$/, '这个任务不是失败状态，不用重试'],
+  [/^SESSION_ALREADY_RUNNING$/, '已经有一轮计时在跑。先结束或放弃它，再开新的'],
+  [/^SESSION_STATE$/, '计时状态在别处变过了。刷新一下就是当前状态'],
+  [/^SESSION_NOT_FOUND$/, '这次计时不存在，可能已经结束了。刷新看看'],
+  [/^SESSION_/, '计时操作没成功。刷新后重试'],
+  [/^NETWORK$/, '连不上后端服务。确认 uvicorn 已在 8756 端口启动'],
+  [/^POLL_TIMEOUT$/, '任务超过 20 分钟还没返回，这次不再等了。去任务中心看结果'],
   // 只有静态演示版（VITE_DEMO）会返回这个，正式运行永远不会命中
-  [/^DEMO_/, '这是静态演示版：生成、采集、整理、问答都要本地后端，请下载桌面版运行'],
+  [/^DEMO_/, '这是静态演示版：生成、采集、整理、问答都要本地后端。下载桌面版就能用'],
 ]
 
 export function friendlyMessage(err) {
-  if (!err) return '未知错误'
+  if (!err) return '这次没成功，再试一次；还不行去任务中心看详情'
   for (const [pattern, text] of FRIENDLY) {
     if (pattern.test(err.code || '')) return text
   }
-  return err.message || (err.code ? `请求失败（${err.code}）` : '请求失败')
+  return err.message || (err.code ? `请求没成功（${err.code}）` : '请求没成功')
 }
 
 function baseUrl() {
@@ -87,7 +87,7 @@ async function request(method, path, { body, params, signal } = {}) {
     })
   } catch (exc) {
     if (exc?.name === 'AbortError') throw exc
-    throw new ApiError({ code: 'NETWORK', message: '无法连接后端服务' })
+    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务' })
   }
 
   const raw = await res.text()
@@ -133,7 +133,7 @@ export async function streamSSE(path, body, onEvent, { signal } = {}) {
     })
   } catch (exc) {
     if (exc?.name === 'AbortError') throw exc
-    throw new ApiError({ code: 'NETWORK', message: '无法连接后端服务' })
+    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务' })
   }
 
   if (!res.ok || !res.body) {

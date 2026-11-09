@@ -46,7 +46,7 @@ const busy = computed(() => task.value?.status === 'queued' || task.value?.statu
 const done = computed(() => task.value?.status === 'done')
 const failed = computed(() => task.value?.status === 'failed')
 const progress = computed(() => task.value?.progress ?? 0)
-const stageLabel = computed(() => STAGE_TEXT[task.value?.stage] || '处理中')
+const stageLabel = computed(() => STAGE_TEXT[task.value?.stage] || '正在采集')
 const words = computed(() => paste.content.trim().length)
 const canPaste = computed(() => words.value > 0 && !submitting.value)
 const canLink = computed(() => link.url.trim().length > 0 && !submitting.value && !busy.value)
@@ -267,8 +267,8 @@ const authSummary = computed(() =>
 const authHint = computed(() => {
   // 任务因为"要登录/被拦"失败时，把话说在这儿，省得用户去别处找原因
   const code = task.value?.error_code
-  if (code === 'FETCH_BLOCKED') return '这条被站点拦下了，多半要登录；登录后再点一次重试。'
-  if (code === 'FETCH_LOGIN_REQUIRED') return '这条需要登录后才能看，先登录再重试。'
+  if (code === 'FETCH_BLOCKED') return '这条被站点拦下了，多半要登录。登录后再点一次采集。'
+  if (code === 'FETCH_LOGIN_REQUIRED') return '这条要登录后才能看。先登录，再点一次采集。'
   return ''
 })
 
@@ -353,7 +353,7 @@ function loginLabel(key, site) {
         <!-- 粘贴 -->
         <template v-if="mode === 'paste'">
           <label class="field">
-            <span class="field-label">标题（可留空，整理后由 AI 生成）</span>
+            <span class="field-label">标题（可留空，整理后由模型生成）</span>
             <input v-model="paste.title" class="input" type="text" maxlength="40" placeholder="可留空，整理时会自动生成标题" />
           </label>
           <label class="field">
@@ -415,8 +415,8 @@ function loginLabel(key, site) {
 
           <p class="note">
             {{ link.kind === 'video'
-              ? '视频会先下音频再转录，1 分钟视频大约 1 分钟；首次使用要下载模型（small 约 500MB）。'
-              : '只抓正文，导航与版权声明会被过滤；动态渲染的页面可能抓不到，建议改用粘贴。' }}
+              ? '视频会先下音频再转录，1 分钟视频大约 1 分钟。首次使用要下载模型（small 约 500MB）。'
+              : '只抓正文，导航与版权声明会被过滤。动态渲染的网页可能抓不到，这种情况改用粘贴更稳。' }}
           </p>
 
           <!-- 站点登录：只在需要时展开，不占正常采集的视线 -->
@@ -430,12 +430,12 @@ function loginLabel(key, site) {
 
             <div v-if="auth.open" class="auth-body">
               <p class="auth-tip">
-                需要登录才给内容的页面（B 站字幕、知乎受限页）共用这里的登录态。
-                点「登录」会弹出一个独立浏览器窗口，登完自动保存 —— 不碰你日常用的浏览器，
-                也不用再手工导出 cookies.txt。
+                需要登录才给内容的站点（B 站字幕、知乎受限页）共用这里的登录态。
+                点「登录」会弹出一个独立浏览器窗口，登完自动保存。不碰你日常用的浏览器，
+                也不用手工导出 cookies.txt。
               </p>
               <p v-if="!auth.browserAvailable" class="auth-warn">
-                后端没装上 playwright，浏览器能力不可用。装好后重启服务即可。
+                站点登录暂时用不了：后端缺 playwright。装好后重启服务即可。
               </p>
               <div v-else class="auth-list">
                 <div v-for="(site, key) in auth.sites" :key="key" class="auth-item">

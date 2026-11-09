@@ -58,7 +58,7 @@ function clearKeyword() {
           v-model="keyword"
           class="input"
           type="search"
-          placeholder="搜索标题"
+          placeholder="搜索条目标题"
           aria-label="搜索条目标题"
           @input="onInput"
         />
@@ -73,7 +73,7 @@ function clearKeyword() {
           :disabled="organizing"
           @click="emit('organize-pending')"
         >
-          {{ organizing ? '整理中…' : `整理待处理 ${pendingCount}` }}
+          {{ organizing ? '整理中…' : `开始整理 ${pendingCount} 条` }}
         </button>
       </div>
     </div>

@@ -27,7 +27,7 @@ watch(src, () => {
 
 <template>
   <div class="mindmap-pane">
-    <p class="mindmap-hint">由「结构化笔记」的标题层级生成，改完笔记保存后自动更新（不缓存）</p>
+    <p class="mindmap-hint">按「整理笔记」里的标题层级生成。改完笔记保存就会更新，不缓存旧图。</p>
     <div class="mindmap-box" :class="{ loading: state === 'loading' }">
       <img
         :src="src"
@@ -36,7 +36,7 @@ watch(src, () => {
         @load="state = 'ok'"
         @error="state = 'error'"
       />
-      <p v-if="state === 'error'" class="mindmap-error">导图生成失败，请确认后端在运行后重试</p>
+      <p v-if="state === 'error'" class="mindmap-error">导图没生成出来。确认后端在运行，再切回来重试。</p>
     </div>
   </div>
 </template>
