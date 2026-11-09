@@ -22,17 +22,25 @@
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **v0.2 计划已立**：`优化计划-v0.2.md` + `M6/M7/M8` 三份里程碑文档（36 个任务，含验收与风险），`doc_check.py` 6 PASS。**下一步从 T6.0 开始**（基线固化），不是直接写代码 |
-| 当前里程碑 | 无在建。v0.2 的 M6 待开始 |
+| 里程碑 | **M6 进行中（第一部分）**。M6 拆成两部分执行：**第一部分 = T6.0–T6.6**（基线、契约、`prefs`、LLM 按任务路由、provider 探测、设置窗口壳 + 模型 tab）；**第二部分 = T6.7–T6.9**（6 套主题 × 明暗、外观/关于 tab + 字号三档、引导页改造 + `verify_m6` 主题断言 + 回归 + tag `m6-done`） |
+| 当前里程碑 | M6 · 第一部分（T6.0–T6.6） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
-| 远程 | `origin/main` = `50c9348`（2026-11-08 20:16）；**本表不追每次提交** |
-| 版本 | `v0.1.0`（desktop / frontend / backend 三处 `package.json`·`pyproject` 都是 0.1.0，与安装包文件名一致） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` **`v0.1.0`**（本地/远程都是 `1a31a5b` → commit `299f72a`，全部已推） |
-| 验收 | **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57（2026-11-08 全量重跑）** · `npm run lint` 干净 · `doc_check.py` 6 PASS + 1 提示 · 安装版首屏 4066ms（热启）/ 6680ms（冷启，已记例外） |
+| 远程 | `origin/main` = `59c19ae`（2026-11-09 16:57，v0.2 计划）；**本表不追每次提交** |
+| 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip`（M6 基线，2026-11-09） |
+| 验收 | **T6.0 基线（2026-11-09 18:30 全量重跑）：m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57** · `doc_check.py` 6 PASS + 1 提示 · 安装包基线 426,428,660 字节（`Cairn-0.1.0-setup.exe`） |
+
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
 | 发布 | GitHub Release `v0.1.0`：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.1.0>（正文取 `release-notes-v0.1.0.md`，附件 `Cairn-0.1.0-setup.exe` 426,428,660 字节） |
 | 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
+
+**2026-11-09 本轮裁决（四条，都已落进文档，改主意要回写）**
+
+1. **配色**：`bread`「书卷」与「暖墨」四个主色完全相同 → 换成 Diary & Journal App（100），改名 **`chestnut`「栗墨」**（深栗棕 `#92400E` + 靛紫 `#6366F1`）。仍是 6 套，色相族互不重复。见 M6 §3
+2. **关于页版本号**：显示真实版本（现 `0.1.0`）**并标注「v0.2 开发预览」**，不提前硬写 0.2.0
+3. **字号档位**：**做**三档（小/标准/大），改 `--fs-*`，写进 `appearance.font_size`（第二部分 T6.8 实现）
+4. **`--c-warning` 取色**：原规则「用调色板 Accent」在 `docs`（蓝）/`chestnut`（靛）/`study`（绿）三套里语义是错的，改为**统一琥珀 `#B45309`**（第二部分 T6.7 实现，若你不同意就在这里改回去）
 
 **未结遗留（历史条目里的遗留已逐条核对，只有下面这些还开着）**
 
