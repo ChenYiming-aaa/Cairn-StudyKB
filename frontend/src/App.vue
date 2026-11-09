@@ -1,6 +1,6 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
@@ -9,6 +9,7 @@ import RailToggle from './components/RailToggle.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { installResponsiveLayout, useLayout } from './composables/useLayout'
 import { useSettings } from './composables/useSettings'
+import { useTasks } from './composables/useTasks'
 import { useTheme } from './composables/useTheme'
 import { useTimer } from './composables/useTimer'
 import { useToast } from './composables/useToast'
@@ -16,9 +17,10 @@ import { useUi } from './composables/useUi'
 import { clock } from './utils/format'
 
 const router = useRouter()
+const route = useRoute()
 const { toasts, error: toastError, ok: toastOk, info: toastInfo, dismiss } = useToast()
 const {
-  pasteOpen, openPaste, closePaste, requestRefresh, openItem,
+  pasteOpen, openPaste, closePaste, requestRefresh, openItem, refreshTick,
   // T5.7：环境自检结果在顶栏与引导页之间共用一份
   envBlocking, setupDismissed, loadEnv,
   // T6.5：设置窗口（模态）由顶栏齿轮打开，状态在 useUi 里共享
@@ -29,10 +31,14 @@ const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = us
 // 主题（T6.7）：localStorage 已经在 theme-boot.js 里上过一次，这里用后端的真源对齐
 const { load: loadSettings } = useSettings()
 const { adopt: adoptAppearance } = useTheme()
-// T7.0：左栏折叠/快捷键。Ctrl+B 收左栏，Ctrl+Shift+B 收条目列表（T7.2 接入列表栏）
-const { toggle } = useLayout()
+// T7.0：Ctrl+B 收左栏，Ctrl+Shift+B 收条目列表（T7.2 起列表按钮在顶栏）
+const { toggle, isPanelCollapsed, setPanel } = useLayout()
+// T7.4：任务挪到右侧图标组，角标是「未完成」（排队 + 进行中）
+const { activeTasks, refreshTasks } = useTasks()
 
 const backend = ref('checking')
+// 「列表」折叠按钮只在有条目列表的页面出现（知识库），别的页面按它没意义
+const hasList = computed(() => route.path === '/')
 // 静态演示版（github.io）：数据是抓下来的 fixture，生成类操作会返回 DEMO_OFFLINE。
 // 正式构建里 VITE_DEMO 未设，这个常量恒为 false，整块提示被摇掉。
 const isDemo = import.meta.env.VITE_DEMO === '1'
@@ -49,10 +55,18 @@ function isTyping(target) {
 
 function onKeydown(event) {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return
-  if (String(event.key).toLowerCase() !== 'b') return
   if (isTyping(event.target)) return
-  event.preventDefault()
-  toggle(event.shiftKey ? 'list' : 'sidebar')
+  const key = String(event.key).toLowerCase()
+  if (key === 'b') {
+    event.preventDefault()
+    toggle(event.shiftKey ? 'list' : 'sidebar')
+    return
+  }
+  // T7.3：问答历史的入口键统一成 Ctrl+H（和列表/左栏一样是「收展一个侧栏」）
+  if (key === 'h' && route.path === '/ask') {
+    event.preventDefault()
+    setPanel('chat', !isPanelCollapsed('chat'))
+  }
 }
 
 onMounted(async () => {
@@ -78,6 +92,9 @@ onMounted(async () => {
   // T5.2：刷新/重启后把进行中的那一轮接回来
   await restore()
 
+  // T7.4：任务角标先对齐一次，之后靠 refreshTick / 切页 / 有未完成时的轮询更新
+  refreshTasks()
+
   // 从后台切回来时用服务端状态对齐一次（系统休眠、长时间挂起会让本地时钟松）
   onVisible = () => {
     if (document.visibilityState === 'visible') restore()
@@ -95,6 +112,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
   if (uninstallResponsive) uninstallResponsive()
 })
+
+// 采集/整理落库、切页之后都可能有新任务进来，这两种时机顺手对齐角标
+watch(refreshTick, refreshTasks)
+watch(() => route.path, refreshTasks)
 
 function onCreated(result) {
   closePaste()
@@ -134,19 +155,15 @@ function onOpen(itemId) {
       </div>
       <!-- 左栏折叠（T7.0）：和左栏里的窄条按钮是同一个状态 -->
       <RailToggle target="sidebar" />
+      <!-- 列表折叠（T7.2）：只在知识库页有意义；收起后列宽 0，这是它的恢复入口 -->
+      <RailToggle v-if="hasList" target="list" />
       <nav class="nav">
         <router-link to="/" class="nav-item" exact-active-class="on">知识库</router-link>
-        <router-link to="/dashboard" class="nav-item" active-class="on">仪表盘</router-link>
-        <router-link to="/ask" class="nav-item" active-class="on">检索问答</router-link>
-        <router-link to="/pages" class="nav-item" active-class="on">学习页</router-link>
+        <router-link to="/ask" class="nav-item" active-class="on">检索</router-link>
+        <router-link to="/pages" class="nav-item" active-class="on">学习</router-link>
         <router-link to="/practice" class="nav-item" active-class="on">练习</router-link>
         <router-link to="/review" class="nav-item" active-class="on">复习</router-link>
-        <router-link to="/tasks" class="nav-item" active-class="on">任务</router-link>
       </nav>
-      <span class="conn" :class="backend" :title="backend === 'ok' ? '后端已连接' : '后端未连接'">
-        <i class="dot" />
-        {{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}
-      </span>
       <div class="topbar-spacer" />
       <!-- 环境待配置（T5.7）：只在缺 Key / 缺 ffmpeg 时出现，配好就消失 -->
       <button
@@ -159,13 +176,29 @@ function onOpen(itemId) {
         <i class="dot" />
         环境待配置
       </button>
+      <!-- 右侧顺序固定（T7.4）：连接状态 · 任务 · 专注 · 采集 · 齿轮 -->
+      <span class="conn" :class="backend" :title="backend === 'ok' ? '后端已连接' : '后端未连接'">
+        <i class="dot" />
+        <span class="conn-text">{{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}</span>
+      </span>
+      <!-- 任务（T7.4）：从导航挪过来，角标是未完成数量；仪表盘入口在知识库的「今日」条 -->
+      <button
+        class="btn btn-sm btn-ghost task-btn"
+        type="button"
+        title="任务中心：采集、整理、索引的执行记录"
+        @click="router.push('/tasks')"
+      >
+        任务
+        <span v-if="activeTasks" class="task-count">{{ activeTasks }}</span>
+      </button>
       <!-- 迷你计时器（T5.3）：任何页面都能看到剩余时间，点一下打开番茄钟面板 -->
       <button v-if="isActive" class="mini-timer" type="button" @click="openPanel()">
         <i class="mini-dot" :class="{ paused: !isRunning }" />
         <span class="mini-clock">{{ clock(remainingSeconds) }}</span>
       </button>
       <button v-else class="btn btn-sm btn-ghost" type="button" @click="openPanel()">专注</button>
-      <!-- 设置入口（T6.5）：模态窗口，不新增路由 -->
+      <button class="btn btn-primary" type="button" @click="openPaste()">＋ 采集内容</button>
+      <!-- 设置入口（T6.5）：模态窗口，不新增路由；齿轮固定放最后 -->
       <button
         class="btn btn-sm btn-ghost gear"
         type="button"
@@ -175,7 +208,6 @@ function onOpen(itemId) {
       >
         <span aria-hidden="true">⚙</span>
       </button>
-      <button class="btn btn-primary" type="button" @click="openPaste()">＋ 采集内容</button>
     </header>
 
     <router-view />
@@ -220,6 +252,9 @@ function onOpen(itemId) {
   display: flex;
   gap: var(--space-1);
   margin-left: var(--space-4);
+  /* T7.4：导航永不换行 —— 1280 与 1024 都要保持一行，宁可收字距 */
+  flex: none;
+  white-space: nowrap;
 }
 
 .nav-item {
@@ -253,6 +288,50 @@ function onOpen(itemId) {
 
 .conn.down {
   color: var(--c-danger);
+}
+
+/* 任务角标（T7.4）：未完成数量。用主色实心的小胶囊，和左侧「环境待配置」的黄点区分开 */
+.task-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.task-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 1024 宽（窗口下限 960）：导航仍要一行，先把不承载信息的字收掉 */
+@media (max-width: 1100px) {
+  .topbar {
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .conn-text {
+    display: none;
+  }
+
+  .nav {
+    margin-left: var(--space-2);
+  }
+
+  .nav-item {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
 }
 
 /* 环境待配置：用警示色但保持低饱和，别把顶栏变成报警灯 */

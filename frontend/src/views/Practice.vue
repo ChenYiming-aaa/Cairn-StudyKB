@@ -3,6 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 
 import { api, friendlyMessage, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
+import RailToggle from '../components/RailToggle.vue'
+import SidePanel from '../components/SidePanel.vue'
+import { useLayout } from '../composables/useLayout'
 import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { DIFFICULTY_LABELS, TYPE_LABELS } from '../utils/quiz'
@@ -25,6 +28,10 @@ const DIFFICULTIES = ['basic', 'understand', 'apply']
 const toast = useToast()
 // T5.3：练习页也能直接开一轮专注，目标带入当前选中的来源条目
 const { start: startSession } = useTimer()
+// T7.3：配置栏接入 SidePanel；出题开始后自动收成窄条（答题要的是屏占）
+const { collapse, expand, isCollapsed } = useLayout()
+// 只有「本页自动收的」才自动展开回来，用户自己收起的不抢方向盘
+let autoCollapsedConfig = false
 
 async function startFocus() {
   if (itemId.value === null) return
@@ -95,6 +102,9 @@ async function generate() {
   requested.value = count.value
   genError.value = ''
   controller = new AbortController()
+  // 开始出题后配置就不该再占屏占了；收成窄条，回来点一下就能展开
+  autoCollapsedConfig = !isCollapsed('config')
+  if (autoCollapsedConfig) collapse('config')
 
   try {
     await streamSSE(
@@ -118,6 +128,8 @@ async function generate() {
   } finally {
     controller = null
     phase.value = questions.value.length ? 'answering' : 'idle'
+    // 一题都没出出来（失败/手动停）：配置得还回去，否则用户改不了题型再来一次
+    if (phase.value === 'idle') restoreConfig()
     runKey.value += 1
     if (!questions.value.length && !genError.value) {
       toast.error('一题都没出出来，换个条目或题型再试')
@@ -130,11 +142,20 @@ function stopGenerating() {
   if (!questions.value.length) toast.info('已停止生成')
 }
 
+/** 本页自动收起的那一次，换回展开；用户自己收的不管 */
+function restoreConfig() {
+  if (!autoCollapsedConfig) return
+  autoCollapsedConfig = false
+  expand('config')
+}
+
 function backToIdle() {
   phase.value = 'idle'
   questions.value = []
   genError.value = ''
   skips.value = 0
+  // 「再来一组」要重新选题型/题数，本页自动收的那次顺手还回去
+  restoreConfig()
 }
 
 /** 交卷后自动回到 idle 之外的「再来一组」由 QuizRunner 抛 restart，这里只提示一下 */
@@ -164,104 +185,116 @@ onMounted(loadItems)
     </header>
 
     <div class="body">
-      <aside class="config">
-        <section class="cfg-block">
-          <h2 class="cfg-title">从哪条材料出题</h2>
-          <input
-            v-model="keyword"
-            class="input"
-            type="search"
-            placeholder="搜条目标题…"
-            @keydown.enter="loadItems"
-          />
-          <p v-if="loading" class="cfg-note">加载中…</p>
-          <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
-          <p v-else-if="!items.length" class="cfg-note">
-            还没有可出题的条目（需要先整理成 ready）
-          </p>
-          <ul v-else class="item-list">
-            <li v-for="item in items" :key="item.id">
+      <SidePanel target="config" class="config" rail title="出题配置">
+        <div class="config-body">
+          <div class="panel-bar">
+            <span class="panel-name">出题配置</span>
+            <RailToggle target="config" />
+          </div>
+
+          <section class="cfg-block">
+            <h2 class="cfg-title">从哪条材料出题</h2>
+            <input
+              v-model="keyword"
+              class="input"
+              type="search"
+              placeholder="搜条目标题…"
+              @keydown.enter="loadItems"
+            />
+            <p v-if="loading" class="cfg-note">加载中…</p>
+            <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
+            <p v-else-if="!items.length" class="cfg-note">
+              还没有可出题的条目（需要先整理成 ready）
+            </p>
+            <ul v-else class="item-list">
+              <li v-for="item in items" :key="item.id">
+                <button
+                  class="item-row"
+                  type="button"
+                  :class="{ on: item.id === itemId }"
+                  :disabled="phase === 'generating'"
+                  @click="itemId = item.id"
+                >
+                  <span class="item-title">{{ item.title }}</span>
+                  <span class="item-cat">{{ item.category || '未分类' }}</span>
+                </button>
+              </li>
+            </ul>
+            <p v-if="!loading && total > items.length" class="cfg-note">
+              仅显示前 {{ items.length }} / {{ total }} 条，用关键词缩小范围
+            </p>
+          </section>
+
+          <section class="cfg-block">
+            <h2 class="cfg-title">题型</h2>
+            <div class="chips">
               <button
-                class="item-row"
+                v-for="type in TYPES"
+                :key="type"
+                class="chip"
                 type="button"
-                :class="{ on: item.id === itemId }"
+                :class="{ on: types.includes(type) }"
                 :disabled="phase === 'generating'"
-                @click="itemId = item.id"
+                @click="toggleType(type)"
               >
-                <span class="item-title">{{ item.title }}</span>
-                <span class="item-cat">{{ item.category || '未分类' }}</span>
+                {{ TYPE_LABELS[type] }}
               </button>
-            </li>
-          </ul>
-          <p v-if="!loading && total > items.length" class="cfg-note">
-            仅显示前 {{ items.length }} / {{ total }} 条，用关键词缩小范围
-          </p>
-        </section>
+            </div>
+          </section>
 
-        <section class="cfg-block">
-          <h2 class="cfg-title">题型</h2>
-          <div class="chips">
+          <section class="cfg-block">
+            <h2 class="cfg-title">难度</h2>
+            <div class="chips">
+              <button
+                v-for="level in DIFFICULTIES"
+                :key="level"
+                class="chip"
+                type="button"
+                :class="{ on: difficulty === level }"
+                :disabled="phase === 'generating'"
+                @click="difficulty = level"
+              >
+                {{ DIFFICULTY_LABELS[level] }}
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-block">
+            <h2 class="cfg-title">题数</h2>
+            <div class="chips">
+              <button
+                v-for="n in COUNTS"
+                :key="n"
+                class="chip"
+                type="button"
+                :class="{ on: count === n }"
+                :disabled="phase === 'generating'"
+                @click="count = n"
+              >
+                {{ n }} 题
+              </button>
+            </div>
+          </section>
+
+          <div class="cfg-foot">
             <button
-              v-for="type in TYPES"
-              :key="type"
-              class="chip"
+              class="btn btn-primary"
               type="button"
-              :class="{ on: types.includes(type) }"
-              :disabled="phase === 'generating'"
-              @click="toggleType(type)"
+              :disabled="!canGenerate || phase !== 'idle'"
+              :title="phase === 'answering' ? '先做完这一组，或点结果页的「再来一组」' : ''"
+              @click="generate"
             >
-              {{ TYPE_LABELS[type] }}
+              {{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}
             </button>
+            <p class="cfg-note">{{ estimate }}</p>
           </div>
-        </section>
-
-        <section class="cfg-block">
-          <h2 class="cfg-title">难度</h2>
-          <div class="chips">
-            <button
-              v-for="level in DIFFICULTIES"
-              :key="level"
-              class="chip"
-              type="button"
-              :class="{ on: difficulty === level }"
-              :disabled="phase === 'generating'"
-              @click="difficulty = level"
-            >
-              {{ DIFFICULTY_LABELS[level] }}
-            </button>
-          </div>
-        </section>
-
-        <section class="cfg-block">
-          <h2 class="cfg-title">题数</h2>
-          <div class="chips">
-            <button
-              v-for="n in COUNTS"
-              :key="n"
-              class="chip"
-              type="button"
-              :class="{ on: count === n }"
-              :disabled="phase === 'generating'"
-              @click="count = n"
-            >
-              {{ n }} 题
-            </button>
-          </div>
-        </section>
-
-        <div class="cfg-foot">
-          <button
-            class="btn btn-primary"
-            type="button"
-            :disabled="!canGenerate || phase !== 'idle'"
-            :title="phase === 'answering' ? '先做完这一组，或点结果页的「再来一组」' : ''"
-            @click="generate"
-          >
-            {{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}
-          </button>
-          <p class="cfg-note">{{ estimate }}</p>
         </div>
-      </aside>
+
+        <template #rail>
+          <RailToggle target="config" />
+          <span class="rail-label">出题配置</span>
+        </template>
+      </SidePanel>
 
       <section class="stage">
         <!-- 出题中：题面逐题浮现 -->
@@ -340,21 +373,21 @@ onMounted(loadItems)
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  /* T7.3：配置栏宽度归 useLayout（可拖可记），收起时是 44px 窄条 */
+  grid-template-columns: var(--w-config) minmax(0, 1fr);
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
 
-.config {
+/* 边框与底色由 SidePanel 给，这里只管滚动与内间距 */
+.config-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-height: 0;
   overflow-y: auto;
   padding: var(--space-3);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  background: var(--c-bg-1);
 }
 
 .cfg-block {

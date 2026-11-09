@@ -462,9 +462,12 @@ ROOT_BLOCK = ''':root {
   --lh-body: 1.6;
   --lh-title: 1.4;
 
-  /* 版面尺寸（--w-* 在 T7.0 起由 useLayout.js 运行时改写：折叠时左栏 = --w-rail，列表 = 0） */
+  /* 版面尺寸（--w-* 在 useLayout.js 里运行时改写：折叠时左栏/选择器/配置栏 = --w-rail，列表 = 0；
+     这里的默认值只保证脚本未跑前的首帧不缺变量） */
   --w-sidebar: 232px;
   --w-list: 320px;
+  --w-picker: 280px;
+  --w-config: 300px;
   --w-rail: 44px;
   --h-topbar: 52px;
 

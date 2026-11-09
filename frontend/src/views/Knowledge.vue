@@ -4,12 +4,16 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import CategoryTree from '../components/CategoryTree.vue'
 import ItemDetail from '../components/ItemDetail.vue'
 import ItemList from '../components/ItemList.vue'
+import TodayBar from '../components/TodayBar.vue'
 import { api, friendlyMessage } from '../api/client'
+import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 
 const toast = useToast()
 const { refreshTick, editorDirty, focusItemId, openPaste } = useUi()
+// T7.2：列表收起后顶栏按钮负责叫回来；窗口 < 1000 时选完条目自动收（浮层会让出屏占）
+const { collapse } = useLayout()
 
 const PAGE_SIZE = 50
 
@@ -27,6 +31,10 @@ const selectedId = ref(null)
 const detail = ref(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+
+// T7.2 空状态用：最近采集的 3 条。只在「没加筛选」的那次请求里更新，
+// 这样筛到空的时候还能给出「点一条直接跳回去」的出口。
+const recent = ref([])
 
 const organizingAll = ref(false)
 // T7.1：状态快筛与分类/标签是叠加关系（三个条件一起进 WHERE）
@@ -59,6 +67,7 @@ async function loadTree() {
 async function loadList() {
   listLoading.value = true
   listError.value = ''
+  const unrefined = !(filter.category || filter.tag || filter.q || filter.status)
   try {
     const data = await api.listItems({
       page_size: PAGE_SIZE,
@@ -69,6 +78,7 @@ async function loadList() {
     })
     items.value = data.items || []
     total.value = data.total || 0
+    if (unrefined) recent.value = items.value.slice(0, 3)
   } catch (err) {
     listError.value = friendlyMessage(err)
     items.value = []
@@ -124,6 +134,8 @@ function selectItem(itemId) {
   }
   selectedId.value = itemId
   loadDetail(itemId)
+  // < 1000px 时列表是浮层，选完就该让出屏占把详情露出来（M7 §3.3 第三档）
+  if (window.innerWidth < 1000) collapse('list')
 }
 
 // 左栏一次操作可能连发两个事件（点「全部条目」= 清分类 + 清状态），
@@ -224,41 +236,59 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="workspace">
-    <CategoryTree
-      :categories="categories"
-      :total="totalItems"
-      :counts="counts"
-      :active="{ category: filter.category, tag: filter.tag }"
-      :status="filter.status"
-      :loading="treeLoading"
-      @select="onFilterSelect"
-      @status="onStatus"
-      @ingest="openPaste"
-    />
+  <div class="knowledge-page">
+    <!-- T7.4：「仪表盘」不再占一个导航位，改成这里的一行卡片，点进完整仪表盘 -->
+    <TodayBar />
 
-    <ItemList
-      :items="items"
-      :total="total"
-      :loading="listLoading"
-      :error="listError"
-      :active-id="selectedId"
-      :q="filter.q"
-      :pending-count="pendingCount"
-      :organizing="organizingAll"
-      :filtered="isFiltered"
-      @select="selectItem"
-      @search="onSearch"
-      @retry="loadList"
-      @organize-pending="organizePending"
-    />
+    <div class="workspace">
+      <CategoryTree
+        :categories="categories"
+        :total="totalItems"
+        :counts="counts"
+        :active="{ category: filter.category, tag: filter.tag }"
+        :status="filter.status"
+        :loading="treeLoading"
+        @select="onFilterSelect"
+        @status="onStatus"
+        @ingest="openPaste"
+      />
 
-    <ItemDetail
-      :item="detail"
-      :loading="detailLoading"
-      :error="detailError"
-      @refresh="onDetailRefresh"
-      @deleted="onDeleted"
-    />
+      <ItemList
+        :items="items"
+        :total="total"
+        :loading="listLoading"
+        :error="listError"
+        :active-id="selectedId"
+        :q="filter.q"
+        :pending-count="pendingCount"
+        :organizing="organizingAll"
+        :filtered="isFiltered"
+        :recent="recent"
+        @select="selectItem"
+        @search="onSearch"
+        @retry="loadList"
+        @organize-pending="organizePending"
+        @select-recent="focusOnItem"
+        @create="openPaste"
+      />
+
+      <ItemDetail
+        :item="detail"
+        :loading="detailLoading"
+        :error="detailError"
+        @refresh="onDetailRefresh"
+        @deleted="onDeleted"
+      />
+    </div>
   </div>
 </template>
+
+<style scoped>
+/* 页面从「一个 .workspace」变成「今日条 + .workspace」，外壳只负责把剩余高度给 workspace */
+.knowledge-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+</style>

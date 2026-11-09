@@ -106,10 +106,48 @@ body.is-resizing {
   user-select: none;
 }
 
-/* T7.0 → T7.2 的过渡：条目列表栏还没接 SidePanel，列宽变 0 时会留 1px 边框
-   和一个被压扁的搜索框。T7.2 把 ItemList 包进 SidePanel 后这条可以删掉。 */
-html[data-list="off"] .workspace > .list-panel {
-  display: none;
+/* < 1000px：条目列表浮层化（M7 §3.3 第三档）。
+   列表从栅格里脱出来盖在详情上；选中条目由 Knowledge.vue 自动收起，
+   再打开靠顶栏的「列表」按钮。宽度仍读 --w-list，所以拖拽与记忆照旧生效。 */
+@media (max-width: 999px) {
+  .workspace {
+    position: relative;
+    grid-template-columns: var(--w-sidebar) minmax(0, 1fr);
+  }
+
+  .workspace > .list-panel {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--w-sidebar);
+    z-index: 20;
+    width: var(--w-list);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* 窄条里的竖排标签（学习页选择器 / 练习配置栏收起时用）：横排文字塞不进 44px */
+.rail-label {
+  margin-top: var(--space-2);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.16em;
+  color: var(--c-text-3);
+  writing-mode: vertical-rl;
+}
+
+/* 侧栏顶部条：名字 + 收起按钮。窄条状态的 RailToggle 只在收起后可见，
+   展开时必须有这一颗，否则只能靠快捷键才能收起来 */
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.panel-name {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
 }
 
 /* ── 按钮 ─────────────────────────────────────────── */

@@ -10,13 +10,17 @@ import { computed } from 'vue'
 import { useLayout } from '../composables/useLayout'
 
 const props = defineProps({
-  target: { type: String, default: 'sidebar' }, // 'sidebar' | 'list'
+  target: { type: String, default: 'sidebar' }, // 'sidebar' | 'list' | 'picker' | 'config'
 })
 
 const { state, toggle } = useLayout()
 
+const LABELS = { sidebar: '左栏', list: '列表', picker: '条目选择', config: '出题配置' }
+// 这几栏都在左边（折叠后是左侧窄条），图标里的分隔线画在左侧
+const ON_LEFT = ['sidebar', 'picker', 'config']
+
 const collapsed = computed(() => state[props.target].collapsed)
-const name = computed(() => (props.target === 'sidebar' ? '左栏' : '列表'))
+const name = computed(() => LABELS[props.target] || '侧栏')
 const tip = computed(() => `${collapsed.value ? '展开' : '收起'}${name.value}`)
 </script>
 
@@ -41,9 +45,9 @@ const tip = computed(() => `${collapsed.value ? '展开' : '收起'}${name.value
         stroke-width="1.2"
       />
       <line
-        :x1="target === 'sidebar' ? 6 : 10"
+        :x1="ON_LEFT.includes(target) ? 6 : 10"
         y1="2.5"
-        :x2="target === 'sidebar' ? 6 : 10"
+        :x2="ON_LEFT.includes(target) ? 6 : 10"
         y2="13.5"
         stroke="currentColor"
         stroke-width="1.2"

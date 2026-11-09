@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { api, friendlyMessage } from '../api/client'
+import RailToggle from '../components/RailToggle.vue'
+import SidePanel from '../components/SidePanel.vue'
 import { useToast } from '../composables/useToast'
 import { shortTime } from '../utils/format'
 
@@ -173,47 +175,61 @@ onMounted(() => {
     </header>
 
     <div class="html-body">
-      <aside class="picker">
-        <div class="picker-head">
-          <input
-            v-model="keyword"
-            class="input picker-search"
-            type="search"
-            placeholder="搜条目标题…"
-            @keydown.enter="onSearch"
-          />
-          <div class="picker-meta">
-            <span>已选 {{ pickedCount }} 篇</span>
-            <button v-if="pickedCount" class="link-btn" type="button" @click="clearPicked">
-              清空
-            </button>
+      <SidePanel target="picker" class="picker" rail title="条目选择">
+        <div class="picker-body">
+          <div class="picker-head">
+            <div class="panel-bar">
+              <span class="panel-name">条目选择</span>
+              <RailToggle target="picker" />
+            </div>
+            <input
+              v-model="keyword"
+              class="input picker-search"
+              type="search"
+              placeholder="搜条目标题…"
+              @keydown.enter="onSearch"
+            />
+            <div class="picker-meta">
+              <span>已选 {{ pickedCount }} 篇</span>
+              <button v-if="pickedCount" class="link-btn" type="button" @click="clearPicked">
+                清空
+              </button>
+            </div>
           </div>
+
+          <ul v-if="!listError" class="picker-list">
+            <li v-if="loading" class="picker-empty">加载中…</li>
+            <li v-else-if="!items.length" class="picker-empty">
+              没有条目。先去知识库采集或粘贴内容。
+            </li>
+            <template v-else>
+              <li v-for="item in items" :key="item.id">
+                <label class="pick-row" :class="{ on: picked.includes(item.id) }">
+                  <input
+                    type="checkbox"
+                    :checked="picked.includes(item.id)"
+                    @change="toggle(item.id)"
+                  />
+                  <span class="pick-title">{{ item.title }}</span>
+                  <span class="pick-tag">{{ item.category || '未分类' }}</span>
+                </label>
+              </li>
+            </template>
+          </ul>
+          <p v-else class="picker-empty">{{ listError }}</p>
+          <p v-if="!loading && !listError && total > items.length" class="picker-more">
+            仅显示前 {{ items.length }} / {{ total }} 条
+          </p>
         </div>
 
-        <ul v-if="!listError" class="picker-list">
-          <li v-if="loading" class="picker-empty">加载中…</li>
-          <li v-else-if="!items.length" class="picker-empty">
-            没有条目。先去知识库采集或粘贴内容。
-          </li>
-          <template v-else>
-            <li v-for="item in items" :key="item.id">
-              <label class="pick-row" :class="{ on: picked.includes(item.id) }">
-                <input
-                  type="checkbox"
-                  :checked="picked.includes(item.id)"
-                  @change="toggle(item.id)"
-                />
-                <span class="pick-title">{{ item.title }}</span>
-                <span class="pick-tag">{{ item.category || '未分类' }}</span>
-              </label>
-            </li>
-          </template>
-        </ul>
-        <p v-else class="picker-empty">{{ listError }}</p>
-        <p v-if="!loading && !listError && total > items.length" class="picker-more">
-          仅显示前 {{ items.length }} / {{ total }} 条
-        </p>
-      </aside>
+        <template #rail>
+          <RailToggle target="picker" />
+          <span v-if="pickedCount" class="rail-count" :title="`已选 ${pickedCount} 篇`">
+            {{ pickedCount }}
+          </span>
+          <span class="rail-label">条目选择</span>
+        </template>
+      </SidePanel>
 
       <section class="stage">
         <div class="stage-bar">
@@ -360,18 +376,31 @@ onMounted(() => {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  /* T7.3：选择器接入 SidePanel，宽度归 useLayout（可拖可记），收起留 44px 窄条 */
+  grid-template-columns: var(--w-picker) minmax(0, 1fr);
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
 
-.picker {
+/* 边框与底色由 SidePanel 给，这里只管内部排列 */
+.picker-body {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-  background: var(--c-bg-1);
+}
+
+.rail-count {
+  margin-top: var(--space-2);
+  min-width: 20px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-ink);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .picker-head {

@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage, streamSSE } from '../api/client'
+import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 import { shortTime } from '../utils/format'
@@ -10,6 +11,8 @@ import { shortTime } from '../utils/format'
 const router = useRouter()
 const toast = useToast()
 const { openItemAt } = useUi()
+// T7.3：历史抽屉的开关搬到 useLayout（和左栏/列表同一套记忆），Ctrl+H 在 App.vue 触发
+const { isPanelCollapsed, setPanel } = useLayout()
 
 const TABS = [
   { key: 'ask', label: '问答' },
@@ -34,7 +37,8 @@ const hitsFallback = ref('none')
 const hitsQuery = ref('')
 
 // 问答历史（T3.12）：抽屉里的列表只用来"找回来"，不参与检索
-const historyOpen = ref(false)
+// T7.3：开关状态放 useLayout（`panels.chat`），顶栏 Ctrl+H 与这里的按钮共用同一个
+const historyOpen = computed(() => !isPanelCollapsed('chat'))
 const historyLoading = ref(false)
 const historyError = ref('')
 const historyItems = ref([])
@@ -166,8 +170,17 @@ async function loadHistory() {
 }
 
 function toggleHistory() {
-  historyOpen.value = !historyOpen.value
-  if (historyOpen.value) loadHistory()
+  setPanel('chat', historyOpen.value)   // 传「折叠后」的状态：开着就关
+}
+
+// 不管入口是页面按钮还是 Ctrl+H，打开就拉一次列表
+watch(historyOpen, (open) => {
+  if (open) loadHistory()
+})
+
+// 抽屉没有遮罩了（M7 §4 T7.3），Esc 是它唯一的「点外面关掉」替代
+function onKeydown(event) {
+  if (event.key === 'Escape' && historyOpen.value) setPanel('chat', true)
 }
 
 /** 点一条历史：把当时的问题、答案、来源恢复到主视图，**不再调模型** */
@@ -185,7 +198,7 @@ async function openLog(id) {
     askFallback.value = log.fallback || 'none'
     currentLogId.value = log.id
     tab.value = 'ask'
-    historyOpen.value = false
+    setPanel('chat', true)   // 恢复完就关抽屉，别挡着答案
   } catch (err) {
     toast.error(friendlyMessage(err))
   }
@@ -203,7 +216,12 @@ async function removeLog(id) {
   }
 }
 
-onMounted(refreshHistoryCount)
+onMounted(() => {
+  refreshHistoryCount()
+  window.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 async function runSearch() {
   const q = question.value.trim()
@@ -279,6 +297,7 @@ watch(question, () => {
             class="btn btn-sm hist-btn"
             type="button"
             :class="{ on: historyOpen }"
+            title="问答历史（Ctrl+H）"
             @click="toggleHistory"
           >
             历史
@@ -401,53 +420,52 @@ watch(question, () => {
       </template>
     </div>
 
-    <!-- 问答历史抽屉（T3.12） -->
-    <div v-if="historyOpen" class="hist-mask" @click.self="historyOpen = false">
-      <aside class="hist-drawer">
-        <header class="hist-head">
-          <h2 class="section-title">问答历史</h2>
-          <span class="hist-total">共 {{ historyTotal }} 条</span>
-          <button class="btn btn-sm" type="button" @click="toggleHistory">关闭</button>
-        </header>
+    <!-- 问答历史抽屉（T3.12 / T7.3）：保留浮层形态，但不铺半透明遮罩 —— 抽屉关掉后
+         页面上不残留任何挡住点击的层；开着时按 Esc 或点「关闭」收起 -->
+    <aside v-if="historyOpen" class="hist-drawer" aria-label="问答历史">
+      <header class="hist-head">
+        <h2 class="section-title">问答历史</h2>
+        <span class="hist-total">共 {{ historyTotal }} 条</span>
+        <button class="btn btn-sm" type="button" @click="toggleHistory">关闭</button>
+      </header>
 
-        <p v-if="historyLoading" class="state-empty">加载中…</p>
-        <p v-else-if="historyError" class="state-error">{{ historyError }}</p>
-        <p v-else-if="!historyItems.length" class="state-empty">
-          还没有问答记录，问一次就会出现在这里
-        </p>
+      <p v-if="historyLoading" class="state-empty">加载中…</p>
+      <p v-else-if="historyError" class="state-error">{{ historyError }}</p>
+      <p v-else-if="!historyItems.length" class="state-empty">
+        还没有问答记录，问一次就会出现在这里
+      </p>
 
-        <ul v-else class="hist-list">
-          <li
-            v-for="log in historyItems"
-            :key="log.id"
-            class="hist-item"
-            :class="{ on: currentLogId === log.id }"
+      <ul v-else class="hist-list">
+        <li
+          v-for="log in historyItems"
+          :key="log.id"
+          class="hist-item"
+          :class="{ on: currentLogId === log.id }"
+        >
+          <button class="hist-main" type="button" @click="openLog(log.id)">
+            <span class="hist-q">
+              <span v-if="log.no_result" class="badge badge-warn">无结果</span>
+              <span v-else-if="log.error_code" class="badge badge-warn">出错</span>
+              {{ log.question }}
+            </span>
+            <span class="hist-preview">{{ log.answer_preview }}</span>
+            <span class="hist-meta">
+              {{ shortTime(log.created_at) }}
+              <template v-if="log.source_count"> · 来源 {{ log.source_count }} 段</template>
+              <template v-if="log.completion_tokens"> · {{ log.completion_tokens }} tokens</template>
+            </span>
+          </button>
+          <button
+            class="hist-del"
+            type="button"
+            title="删除这条记录"
+            @click.stop="removeLog(log.id)"
           >
-            <button class="hist-main" type="button" @click="openLog(log.id)">
-              <span class="hist-q">
-                <span v-if="log.no_result" class="badge badge-warn">无结果</span>
-                <span v-else-if="log.error_code" class="badge badge-warn">出错</span>
-                {{ log.question }}
-              </span>
-              <span class="hist-preview">{{ log.answer_preview }}</span>
-              <span class="hist-meta">
-                {{ shortTime(log.created_at) }}
-                <template v-if="log.source_count"> · 来源 {{ log.source_count }} 段</template>
-                <template v-if="log.completion_tokens"> · {{ log.completion_tokens }} tokens</template>
-              </span>
-            </button>
-            <button
-              class="hist-del"
-              type="button"
-              title="删除这条记录"
-              @click.stop="removeLog(log.id)"
-            >
-              ×
-            </button>
-          </li>
-        </ul>
-      </aside>
-    </div>
+            ×
+          </button>
+        </li>
+      </ul>
+    </aside>
   </div>
 </template>
 
@@ -732,18 +750,15 @@ watch(question, () => {
   color: var(--c-text-2);
 }
 
-.hist-mask {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  justify-content: flex-end;
-  background: rgba(35, 33, 28, 0.28);
-}
-
+/* T7.3：从「遮罩 + 抽屉」改成纯浮层。遮罩会盖住整页（连顶栏都点不到），
+   而历史抽屉不是模态 —— 用户还可能想边看历史边改问题。 */
 .hist-drawer {
+  position: fixed;
+  top: var(--h-topbar);
+  right: 0;
+  bottom: 0;
+  z-index: 40;
   width: min(420px, 92vw);
-  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--c-bg-1);

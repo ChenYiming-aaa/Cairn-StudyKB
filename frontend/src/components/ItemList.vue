@@ -1,6 +1,15 @@
 <script setup>
+/**
+ * 条目列表栏（T7.0 原样保留 → T7.2 接入 SidePanel）。
+ *
+ * 三件事：
+ * - 宽度/折叠交给 SidePanel + useLayout（列宽 0 时整栏干净收起，不再靠过渡样式兜）
+ * - 搜索框留在顶部：位置不变，用户已经形成肌肉记忆
+ * - 空状态给「下一步」：一句话 + 最近 3 条（点一条直接跳过去）+ 采集按钮
+ */
 import { ref, watch } from 'vue'
 
+import SidePanel from './SidePanel.vue'
 import StatusBadge from './StatusBadge.vue'
 import { shortTime } from '../utils/format'
 
@@ -14,8 +23,10 @@ const props = defineProps({
   pendingCount: { type: Number, default: 0 },
   organizing: { type: Boolean, default: false },
   filtered: { type: Boolean, default: false },
+  // 最近采集的 3 条（不受当前筛选影响）：列表因筛选变空时用来「跳回去」
+  recent: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['select', 'search', 'retry', 'organize-pending'])
+const emit = defineEmits(['select', 'search', 'retry', 'organize-pending', 'select-recent', 'create'])
 
 const keyword = ref(props.q)
 let timer = null
@@ -40,7 +51,7 @@ function clearKeyword() {
 </script>
 
 <template>
-  <section class="list-panel">
+  <SidePanel target="list" class="list-panel" title="条目列表">
     <div class="list-toolbar">
       <div class="search">
         <input
@@ -48,6 +59,7 @@ function clearKeyword() {
           class="input"
           type="search"
           placeholder="搜索标题"
+          aria-label="搜索条目标题"
           @input="onInput"
         />
         <button v-if="keyword" class="clear" type="button" title="清空" @click="clearKeyword">×</button>
@@ -83,8 +95,22 @@ function clearKeyword() {
       </div>
 
       <div v-else-if="!items.length" class="state">
-        <p class="state-title">{{ filtered ? '没有匹配的条目' : '知识库还是空的' }}</p>
-        <p>{{ filtered ? '换个关键词或点左侧「全部条目」' : '点右上角「采集内容」开始' }}</p>
+        <p class="state-title">{{ filtered ? '没有匹配的条目' : '这里放你的条目' }}</p>
+        <p>{{ filtered ? '换个关键词，或点左栏「全部条目」。' : '还没有采集过内容。' }}</p>
+
+        <ul v-if="recent.length" class="recent">
+          <li class="recent-label">最近采集的</li>
+          <li v-for="item in recent" :key="item.id">
+            <button class="recent-row" type="button" @click="emit('select-recent', item.id)">
+              <span class="recent-title">{{ item.title }}</span>
+              <span class="recent-time">{{ shortTime(item.created_at) }}</span>
+            </button>
+          </li>
+        </ul>
+
+        <button class="btn btn-primary btn-sm" type="button" @click="emit('create')">
+          ＋ 采集内容
+        </button>
       </div>
 
       <ul v-else class="rows">
@@ -105,19 +131,18 @@ function clearKeyword() {
         </li>
       </ul>
     </div>
-  </section>
+  </SidePanel>
 </template>
 
 <style scoped>
+/* 根节点是 SidePanel 的 .side-panel：背景与右边框它已经给了，这里只管内容排列。
+   .list-panel 这个类同时是 <1000px 浮层化的 CSS 钩子（见 styles/app.css）。 */
 .list-panel {
-  display: flex;
-  flex-direction: column;
   min-height: 0;
-  background: var(--c-bg-1);
-  border-right: 1px solid var(--c-border);
 }
 
 .list-toolbar {
+  flex: 0 0 auto;
   padding: var(--space-3) var(--space-3) var(--space-2);
   border-bottom: 1px solid var(--c-border);
   display: flex;
@@ -161,9 +186,62 @@ function clearKeyword() {
   overflow-y: auto;
 }
 
+/* 空态里有最近 3 条与按钮，垂直居中会把按钮推到屏幕外，改成从顶部排 */
 .list-body .state {
   min-height: 100%;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: var(--space-8);
+}
+
+.recent {
+  width: 100%;
+  list-style: none;
+  margin: var(--space-3) 0 var(--space-4);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.recent-label {
+  padding: 0 var(--space-2) var(--space-1);
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+.recent-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-sm);
+  color: var(--c-text-1);
+}
+
+.recent-row:hover {
+  background: var(--c-bg-0);
+  border-color: var(--c-border);
+}
+
+.recent-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-time {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .rows {
