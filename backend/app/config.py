@@ -292,7 +292,8 @@ def config_audit() -> dict:
         hint = (f"这些项是从 {ENV_FILE} 补进来的（数据目录里的 .env 没给值）："
                 f"{'、'.join(legacy)}。想让配置彻底隔离，设 CAIRN_ENV_STRICT=1 后重启")
     else:
-        hint = "只从数据目录的 .env 读配置" + ("（严格模式）" if cfg.env_strict else "")
+        # 别写「只从数据目录读」：源码直跑时 env_file 就是项目根那份，说"数据目录"会误导
+        hint = "配置只来自上面这一个文件" + ("（严格模式）" if cfg.env_strict else "")
     return {
         "ok": not legacy,
         "strict": cfg.env_strict,
