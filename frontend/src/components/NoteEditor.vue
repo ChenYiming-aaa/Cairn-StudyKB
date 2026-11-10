@@ -175,7 +175,7 @@ onBeforeUnmount(() => {
 
 .dirty {
   font-size: var(--fs-xs);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .editor-body {

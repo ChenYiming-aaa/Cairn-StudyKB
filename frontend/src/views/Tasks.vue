@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
 }
 
 .error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
   font-size: var(--fs-sm);
 }
 
@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
   gap: var(--space-2);
   margin-top: var(--space-2);
   font-size: var(--fs-xs);
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .err-text {

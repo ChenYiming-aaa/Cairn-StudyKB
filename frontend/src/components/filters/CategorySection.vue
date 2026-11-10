@@ -7,6 +7,10 @@
  * - 展开后最多露出 6 个标签，其余折成「更多 N 个」
  * - 分类数 > 10 时先显示 10 个，其余折成「显示全部 N 个分类」
  * 搜索时不受上面三条限制：命中就要全看见，否则等于没搜。
+ *
+ * **手风琴**（2026-11-10）：同时只展开一个分类，点开另一个自动收起上一个。
+ * 这样「显示全部 13 个分类」之后高度也有界（13 行 + 6 个标签），
+ * 下面的「常用标签」不会被挤出首屏，也避免了给左栏再加一层滚动。
  */
 import { computed, reactive, ref } from 'vue'
 
@@ -42,13 +46,23 @@ function isOpen(name) {
   return searching.value || openCats[name] === true
 }
 
+/** 只留一个展开的分类（手风琴）：清掉别的再开这个 */
+function openOnly(name) {
+  for (const key of Object.keys(openCats)) openCats[key] = false
+  openCats[name] = true
+}
+
 function toggleCat(name) {
-  openCats[name] = !isOpen(name)
+  if (isOpen(name)) {
+    openCats[name] = false
+    return
+  }
+  openOnly(name)
 }
 
 function pick(name) {
   // 点分类名 = 筛选，同时也展开它（用户下一步大概率要选里面的标签）
-  openCats[name] = true
+  openOnly(name)
   emit('select', { category: name, tag: '' })
 }
 

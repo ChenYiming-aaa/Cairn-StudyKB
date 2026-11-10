@@ -11,10 +11,12 @@
 **改配色只改本文件顶部的 PALETTES 与派生函数，然后 `--write`**，
 tokens.css 是产物，不要手改（手改会在下一次 --write 时被覆盖）。
 
-校验的口径来自 `docs/dev/milestones/M6-设置与个性化.md` §3 的硬标准：
-  text-1 / text-2 on bg-1 ≥ 4.5     text-3 on bg-1、bg-2 ≥ 3
+校验的口径来自 `docs/dev/milestones/M6-设置与个性化.md` §3 的硬标准，
+2026-11-10 起对 12px 小字一律按 AA 4.5:1 收（原 text-3 只要求 3:1，实测 3.1–3.6:1，
+徽标 success/warning/danger 在 soft 底上 3.2–4.4:1，都低于小字线）：
+  text-1 / text-2 / text-3 on bg-1、bg-2 ≥ 4.5
   on-primary on primary ≥ 4.5       primary-ink on primary-soft ≥ 4.5
-  success / warning / danger on bg-1 ≥ 3
+  *-ink on *-soft ≥ 4.5             success / warning / danger on bg-1 ≥ 3（图形/描边）
   text-1 on mark ≥ 4.5
 """
 from __future__ import annotations
@@ -134,13 +136,16 @@ BORDER_SAT_LIMIT = 0.25             # 描边饱和度超过这条就与底色混
 PAIRS = (
     ("text-1/bg-1", "text-1", "bg-1", 4.5),
     ("text-2/bg-1", "text-2", "bg-1", 4.5),
-    ("text-3/bg-1", "text-3", "bg-1", 3.0),
-    ("text-3/bg-2", "text-3", "bg-2", 3.0),
+    ("text-3/bg-1", "text-3", "bg-1", 4.5),
+    ("text-3/bg-2", "text-3", "bg-2", 4.5),
     ("on-primary/primary", "on-primary", "primary", 4.5),
     ("primary-ink/primary-soft", "primary-ink", "primary-soft", 4.5),
     ("success/bg-1", "success", "bg-1", 3.0),
     ("warning/bg-1", "warning", "bg-1", 3.0),
     ("danger/bg-1", "danger", "bg-1", 3.0),
+    ("success-ink/success-soft", "success-ink", "success-soft", 4.5),
+    ("warning-ink/warning-soft", "warning-ink", "warning-soft", 4.5),
+    ("danger-ink/danger-soft", "danger-ink", "danger-soft", 4.5),
     ("text-1/mark", "text-1", "mark", 4.5),
 )
 
@@ -305,8 +310,12 @@ def light_tokens(tid: str) -> dict:
     bg0, bg1, bg2 = palette["bg"], palette["card"], palette["muted"]
     primary = palette["primary"]
     success, warning, danger = accent_of(tid), FIXED_WARNING, palette["destructive"]
-    text3 = fade_to_pass(palette["muted_fg"], bg2, 3.08)
+    # 4.55 而不是 4.50：留一点取整余量，实测值别因为四舍五入掉回线下
+    text3 = fade_to_pass(palette["muted_fg"], bg2, 4.55)
     soft = mix(bg1, primary, 0.08)
+    success_soft = mix(bg1, success, 0.10)
+    warning_soft = mix(bg1, warning, 0.10)
+    danger_soft = mix(bg1, danger, 0.10)
     # 调色板 Border 若是高饱和（teal 的 #99F6E4），直接当描边会扎眼 → 与底色混一半
     border = palette["border"]
     if hsl(border)[1] > BORDER_SAT_LIMIT:
@@ -319,14 +328,18 @@ def light_tokens(tid: str) -> dict:
         "primary-hover": shift_lightness(primary, factor=0.86),
         "on-primary": palette["on_primary"],
         "success": success,
-        "success-soft": mix(bg1, success, 0.10),
+        "success-soft": success_soft,
         "success-border": mix(bg1, success, 0.30),
+        # 徽标文字：浅底上纯语义色只有 3.3–4.4，压暗到 AA 小字线（S-15 收口）
+        "success-ink": darken_until(success, success_soft, 4.7),
         "warning": warning,
-        "warning-soft": mix(bg1, warning, 0.10),
+        "warning-soft": warning_soft,
         "warning-border": mix(bg1, warning, 0.30),
+        "warning-ink": darken_until(warning, warning_soft, 4.7),
         "danger": danger,
-        "danger-soft": mix(bg1, danger, 0.10),
+        "danger-soft": danger_soft,
         "danger-border": mix(bg1, danger, 0.30),
+        "danger-ink": darken_until(danger, danger_soft, 4.7),
         "text-1": palette["fg"],
         "text-2": palette["muted_fg"],
         "text-3": text3,
@@ -334,6 +347,8 @@ def light_tokens(tid: str) -> dict:
         "bg-1": bg1,
         "bg-2": bg2,
         "border": border,
+        # 学习页预览底板：产物固定浅色排版，这块白不跟主题走（深色下配外框当「一张纸」）
+        "page": "#FFFFFF",
         "mark": mix(bg1, FIXED_MARK, 0.32),
         "scrollbar": mix(bg2, palette["fg"], 0.10),
         "scrollbar-hover": mix(bg2, palette["fg"], 0.16),
@@ -357,13 +372,13 @@ def dark_tokens(tid: str) -> dict:
     success = lift_until(accent_of(tid), bg1, 3.0)
     warning = lift_until(FIXED_WARNING, bg1, 3.0)
     danger = lift_until(palette["destructive"], bg1, 3.0)
+    success_soft = mix(bg1, success, 0.16)
+    warning_soft = mix(bg1, warning, 0.16)
+    danger_soft = mix(bg1, danger, 0.16)
     text1 = from_hsl(hue, DARK_TEXT_S, 0.92)
     text2 = from_hsl(hue, DARK_TEXT_S, 0.72)
-    text3 = from_hsl(hue, DARK_TEXT_S, 0.54)
-    # text-3 若在 bg-2（凹陷面）上不够，继续压明度
-    while contrast(text3, bg2) < 3.05:
-        _h, _s, level = hsl(text3)
-        text3 = from_hsl(_h, _s, max(0.30, level - 0.01))
+    # 深色下 bg-2 比 bg-1 更亮，弱化文字必须**提亮**才够对比（2026-11-10：目标提到 AA 4.5）
+    text3 = lighten_until(from_hsl(hue, DARK_TEXT_S, 0.54), bg2, 4.55)
     on_primary = darken_until(
         shift_lightness(palette["primary"], light=0.12, sat_cap=DARK_PRIMARY_SAT_CAP), primary, 4.5
     )
@@ -377,14 +392,17 @@ def dark_tokens(tid: str) -> dict:
         ),
         "on-primary": on_primary,
         "success": success,
-        "success-soft": mix(bg1, success, 0.16),
+        "success-soft": success_soft,
         "success-border": mix(bg1, success, 0.34),
+        "success-ink": lighten_until(success, success_soft, 4.7),
         "warning": warning,
-        "warning-soft": mix(bg1, warning, 0.16),
+        "warning-soft": warning_soft,
         "warning-border": mix(bg1, warning, 0.34),
+        "warning-ink": lighten_until(warning, warning_soft, 4.7),
         "danger": danger,
-        "danger-soft": mix(bg1, danger, 0.16),
+        "danger-soft": danger_soft,
         "danger-border": mix(bg1, danger, 0.34),
+        "danger-ink": lighten_until(danger, danger_soft, 4.7),
         "text-1": text1,
         "text-2": text2,
         "text-3": text3,
@@ -392,6 +410,7 @@ def dark_tokens(tid: str) -> dict:
         "bg-1": bg1,
         "bg-2": bg2,
         "border": mix(bg1, "#FFFFFF", 0.10),
+        "page": "#FFFFFF",
         "mark": mix(bg1, FIXED_MARK, 0.24),
         "scrollbar": mix(bg2, "#FFFFFF", 0.12),
         "scrollbar-hover": mix(bg2, "#FFFFFF", 0.20),
@@ -403,19 +422,23 @@ def dark_tokens(tid: str) -> dict:
 
 TOKEN_ORDER = (
     "primary", "primary-soft", "primary-ink", "primary-border", "primary-hover", "on-primary",
-    "success", "success-soft", "success-border",
-    "warning", "warning-soft", "warning-border",
-    "danger", "danger-soft", "danger-border",
+    "success", "success-soft", "success-border", "success-ink",
+    "warning", "warning-soft", "warning-border", "warning-ink",
+    "danger", "danger-soft", "danger-border", "danger-ink",
     "text-1", "text-2", "text-3",
     "bg-0", "bg-1", "bg-2",
-    "border", "mark", "scrollbar", "scrollbar-hover", "skeleton",
+    "border", "page", "mark", "scrollbar", "scrollbar-hover", "skeleton",
 )
 TOKEN_NOTE = {
     "primary-soft": "选中态底色",
     "primary-ink": "主色作文本时用（primary 当底色时对比度不够）",
     "primary-border": "选中/悬停态的描边（比 border 更有指向性）",
     "on-primary": "主色底上的文字（teal 是黑字）",
-    "text-3": "弱化文字，已按 ≥3:1 反解混合比例",
+    "success-ink": "徽标文字用：在 success-soft 上 ≥4.5:1",
+    "warning-ink": "徽标文字用：在 warning-soft 上 ≥4.5:1",
+    "danger-ink": "徽标文字用：在 danger-soft 上 ≥4.5:1",
+    "text-3": "弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例",
+    "page": "学习页预览底板（固定白，不跟主题）",
     "mark": "搜索命中高亮",
     "scrollbar": "滚动条滑块",
     "skeleton": "骨架屏渐变中间色",

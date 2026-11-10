@@ -550,7 +550,7 @@ watch(question, () => {
 .hint-line {
   margin: var(--space-2) 0 0;
   font-size: var(--fs-xs);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .stats {
@@ -860,13 +860,13 @@ watch(question, () => {
 }
 
 .hist-del:hover {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
   background: var(--c-bg-2);
 }
 
 .badge-warn {
   background: var(--c-warning-soft);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
   flex: none;
 }
 </style>

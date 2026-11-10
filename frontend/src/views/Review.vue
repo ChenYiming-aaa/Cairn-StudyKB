@@ -294,7 +294,7 @@ onMounted(loadDue)
 }
 
 .panel-note.error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .rows {

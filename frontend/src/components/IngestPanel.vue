@@ -744,7 +744,7 @@ function loginLabel(key, site) {
 }
 
 .auth-state.on {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .auth-item .btn {
@@ -763,7 +763,7 @@ function loginLabel(key, site) {
 }
 
 .auth-warn {
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .dropzone {
@@ -839,11 +839,11 @@ function loginLabel(key, site) {
 }
 
 .fail-msg {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .ok-msg {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .wait-msg {
@@ -873,6 +873,6 @@ function loginLabel(key, site) {
 
 .error {
   font-size: var(--fs-xs);
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 </style>

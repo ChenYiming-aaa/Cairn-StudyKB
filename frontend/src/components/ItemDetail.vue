@@ -25,7 +25,7 @@ const emit = defineEmits(['refresh', 'deleted'])
 const toast = useToast()
 const { focusChunk } = useUi()
 // 导图是后端现场出的 SVG，明暗得前端告诉它（T6.7）；让它自己判断会和界面脱节
-const { resolvedMode } = useTheme()
+const { theme, resolvedMode } = useTheme()
 
 const tab = ref('summary')
 const organizing = ref(false)
@@ -205,7 +205,8 @@ onBeforeUnmount(stop)
           v-if="tab === 'mindmap'"
           :item-id="item.id"
           :updated-at="item.updated_at || ''"
-          :theme="resolvedMode"
+          :theme="theme"
+          :mode="resolvedMode"
         />
 
         <!-- v-if 而非 v-show：每次切进来都重新拉一次，刚结束的一轮立刻能看到 -->
@@ -281,7 +282,7 @@ onBeforeUnmount(stop)
 
 .chip-edit {
   background: var(--c-warning-soft);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .time {
@@ -294,7 +295,7 @@ onBeforeUnmount(stop)
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--c-warning-soft);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
   font-size: var(--fs-xs);
 }
 

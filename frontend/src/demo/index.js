@@ -322,7 +322,8 @@ export function installDemo() {
   }
 
   // 这两类 URL 由 <img>/<iframe> 直接请求，不经过 fetch，只能把地址指到静态资源
-  api.mindmapUrl = (_id, theme) => `${BASE}demo/mindmap-${theme === 'dark' ? 'dark' : 'light'}.svg`
+  api.mindmapUrl = (_id, _theme, mode) =>
+    `${BASE}demo/mindmap-${mode === 'dark' ? 'dark' : 'light'}.svg`
   api.htmlUrl = (id) => `${BASE}demo/page-${id}.html`
   api.htmlDownloadUrl = (id) => `${BASE}demo/page-${id}.html`
 

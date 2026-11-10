@@ -267,15 +267,19 @@ onMounted(() => {
         <div v-if="current" class="stage-frame-wrap">
           <div class="frame-head">
             <span class="frame-title">{{ current.title }}</span>
-            <span class="frame-meta">{{ humanSize(current.size_bytes) }} · 单文件离线</span>
+            <span class="frame-meta">
+              {{ humanSize(current.size_bytes) }} · 单文件离线 · 浅色排版（便于打印）
+            </span>
           </div>
-          <iframe
-            :key="previewKey"
-            class="stage-frame"
-            :src="previewSrc"
-            sandbox="allow-same-origin"
-            title="学习页预览"
-          />
+          <div class="stage-frame-clip">
+            <iframe
+              :key="previewKey"
+              class="stage-frame"
+              :src="previewSrc"
+              sandbox="allow-same-origin"
+              title="学习页预览"
+            />
+          </div>
         </div>
         <div v-else class="stage-empty state">
           <p class="state-title">还没有生成</p>
@@ -550,12 +554,24 @@ onMounted(() => {
   flex: none;
 }
 
+/* 学习页固定浅色排版（导出/打印友好），深色界面里给它一圈「桌面」，
+   让白底看起来是刻意的一张纸，而不是没加载完的空白 */
+.stage-frame-clip {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  padding: var(--space-3);
+  background: var(--c-bg-2);
+}
+
 .stage-frame {
   flex: 1;
   min-height: 0;
   width: 100%;
   border: none;
-  background: var(--c-bg-0);
+  border-radius: var(--radius-sm);
+  background: var(--c-page);
+  box-shadow: var(--shadow-md);
 }
 
 .stage-empty {
@@ -597,7 +613,7 @@ onMounted(() => {
 }
 
 .drawer-note.error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .drawer-list {
@@ -657,6 +673,6 @@ onMounted(() => {
 }
 
 .drawer-del:hover {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 </style>

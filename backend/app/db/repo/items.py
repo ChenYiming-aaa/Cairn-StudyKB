@@ -187,11 +187,38 @@ def delete_item(conn: sqlite3.Connection, item_id: int) -> bool:
     return cur.rowcount > 0
 
 
-def category_tree(conn: sqlite3.Connection) -> dict:
+def _scope_clause(category: str | None, tag: str | None) -> tuple[str, list]:
+    """左栏「当前筛选」→ WHERE 片段（2026-11-10：计数与批量整理共用一套口径）。
+
+    分类名按展示名比（`COALESCE(NULLIF(category,''),'未分类')`），这样和分类树里的
+    数字逐条对得上；标签仍走 json_each，非法 JSON 退化空数组。
+    """
+    where: list[str] = []
+    args: list = []
+    if category:
+        where.append("COALESCE(NULLIF(category,''),'未分类') = ?")
+        args.append(category)
+    if tag:
+        where.append(
+            "EXISTS (SELECT 1 FROM json_each("
+            "CASE WHEN json_valid(knowledge_item.tags) THEN knowledge_item.tags ELSE '[]' END)"
+            " WHERE json_each.value = ?)"
+        )
+        args.append(tag)
+    return (" WHERE " + " AND ".join(where)) if where else "", args
+
+
+def category_tree(
+    conn: sqlite3.Connection, *, category: str | None = None, tag: str | None = None
+) -> dict:
     """分类 → 标签两级计数 + 状态计数，供左侧树使用。
 
     之前前端拿最近 100 条自己聚合，条目破百后计数就偏低（M1 已知限制）。
     这里直接由 SQL 聚合全库，不再有上限，也省掉前端一次全量拉取。
+
+    `category` / `tag` **只收窄 `counts`**，分类树本身始终是全库的：树是导航，
+    不该因为选中了某一支就把别的分支藏掉。选中分类后左栏状态行显示该分类下的数量，
+    与列表、与「开始整理 N 条」三处口径一致。
     """
     rows = conn.execute(
         """SELECT COALESCE(NULLIF(category,''),'未分类') AS name, COUNT(*) AS cnt
@@ -212,11 +239,13 @@ def category_tree(conn: sqlite3.Connection) -> dict:
         if bucket is not None:
             bucket["tags"].append({"name": r["tag"], "count": r["cnt"]})
 
+    clause, scoped = _scope_clause(category, tag)
     counts = conn.execute(
         """SELECT COUNT(*) AS total,
                   COALESCE(SUM(status='pending'), 0)    AS pending,
                   COALESCE(SUM(status='organizing'), 0) AS organizing
-           FROM knowledge_item"""
+           FROM knowledge_item""" + clause,
+        scoped,
     ).fetchone()
     return {
         "categories": list(buckets.values()),
@@ -250,10 +279,21 @@ def set_status(conn: sqlite3.Connection, item_id: int, status: str) -> None:
 
 
 def list_ids_by_status(
-    conn: sqlite3.Connection, status: str, limit: int = 50
+    conn: sqlite3.Connection,
+    status: str,
+    limit: int = 50,
+    *,
+    category: str | None = None,
+    tag: str | None = None,
 ) -> list[int]:
+    clause, args = _scope_clause(category, tag)
+    if clause:
+        clause += " AND status=?"
+    else:
+        clause = " WHERE status=?"
     rows = conn.execute(
-        "SELECT id FROM knowledge_item WHERE status=? ORDER BY id LIMIT ?", (status, limit)
+        "SELECT id FROM knowledge_item" + clause + " ORDER BY id LIMIT ?",
+        [*args, status, limit],
     ).fetchall()
     return [r["id"] for r in rows]
 

@@ -105,7 +105,7 @@ onMounted(() => load())
 }
 
 .state.bad {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .now {

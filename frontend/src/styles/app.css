@@ -186,7 +186,7 @@ body.is-resizing {
 }
 
 .btn-danger {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
   border-color: var(--c-border);
 }
 
@@ -253,19 +253,19 @@ body.is-resizing {
 }
 
 .badge-organizing {
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
   background: var(--c-warning-soft);
   border-color: var(--c-warning-border);
 }
 
 .badge-ready {
-  color: var(--c-success);
+  color: var(--c-success-ink);
   background: var(--c-success-soft);
   border-color: var(--c-success-border);
 }
 
 .badge-failed {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
   background: var(--c-danger-soft);
   border-color: var(--c-danger-border);
 }
@@ -328,7 +328,7 @@ body.is-resizing {
 }
 
 .state-error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .state-title {

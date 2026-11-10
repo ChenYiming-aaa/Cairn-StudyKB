@@ -180,10 +180,14 @@ def step_mindmap(client: TestClient) -> int:
     check("无标题时用 key_points 退化",
           set(kp_texts) == {"只有标题的条目", "要点一", "要点二", "要点三"}, str(kp_texts))
 
-    # 主题
+    # 主题：2026-11-10 起配色按主题派生，这里改成「跟 palette() 对齐且两档不同」，
+    # 不再钉死具体十六进制（配色该由 tools/check_contrast.py 与 palette() 负责）
     dark = client.get(f"/api/knowledge/{item_id}/mindmap?theme=dark").text
     light = client.get(f"/api/knowledge/{item_id}/mindmap?theme=light").text
-    check("dark 主题换配色", dark != light and "#2E8B6F" in dark and "#1D9E75" in light)
+    dark_root = mindmap.palette("paper", "dark")[0][0]
+    light_root = mindmap.palette("paper", "light")[0][0]
+    check("dark 主题换配色",
+          dark != light and dark_root in dark and light_root in light and light_root not in dark)
 
     check("条目不存在 → 404 ITEM_NOT_FOUND",
           client.get("/api/knowledge/999999/mindmap").status_code == 404)

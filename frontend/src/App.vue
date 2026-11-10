@@ -283,11 +283,11 @@ function onOpen(itemId) {
 }
 
 .conn.ok {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .conn.down {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 /* 任务角标（T7.4）：未完成数量。用主色实心的小胶囊，和左侧「环境待配置」的黄点区分开 */
@@ -344,7 +344,7 @@ function onOpen(itemId) {
   border: 1px solid var(--c-warning-border);
   border-radius: var(--radius-sm);
   background: var(--c-warning-soft);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
   font-size: var(--fs-xs);
   cursor: pointer;
 }
@@ -467,7 +467,7 @@ function onOpen(itemId) {
   padding: 6px var(--space-4);
   background: var(--c-warning-soft);
   border-top: 1px solid var(--c-warning-border);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
   font-size: var(--fs-xs);
   line-height: 1.4;
   text-align: center;

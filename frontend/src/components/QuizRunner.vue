@@ -444,7 +444,7 @@ const accuracyText = computed(() => {
 
 .runner-error {
   margin: var(--space-3) 0 0;
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
   font-size: var(--fs-sm);
 }
 
@@ -490,7 +490,7 @@ const accuracyText = computed(() => {
 .score-hold {
   margin: 0;
   font-size: var(--fs-xs);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .review-list {
@@ -524,15 +524,15 @@ const accuracyText = computed(() => {
 }
 
 .mark.ok {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .mark.bad {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .mark.hold {
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .review-index {

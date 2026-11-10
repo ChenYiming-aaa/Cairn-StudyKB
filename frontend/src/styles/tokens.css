@@ -67,19 +67,23 @@
   --c-success: #3F8F5F;
   --c-success-soft: #ECF3EA;
   --c-success-border: #C5DDCC;
+  --c-success-ink: #34764F;  /* 徽标文字用：在 success-soft 上 ≥4.5:1 */
   --c-warning: #B45309;
   --c-warning-soft: #F8EDE2;
   --c-warning-border: #E8CBB2;
+  --c-warning-ink: #AA4F09;  /* 徽标文字用：在 warning-soft 上 ≥4.5:1 */
   --c-danger: #B3453A;
   --c-danger-soft: #F7ECE7;
   --c-danger-border: #E8C6C0;
+  --c-danger-ink: #B3453A;  /* 徽标文字用：在 danger-soft 上 ≥4.5:1 */
   --c-text-1: #23211C;
   --c-text-2: #5C574D;
-  --c-text-3: #8A877E;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-text-3: #706B61;  /* 弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例 */
   --c-bg-0: #F6F5F1;
   --c-bg-1: #FFFEFA;
   --c-bg-2: #EFEEE7;
   --c-border: #E2DFD5;
+  --c-page: #FFFFFF;  /* 学习页预览底板（固定白，不跟主题） */
   --c-mark: #FCDFAE;  /* 搜索命中高亮 */
   --c-scrollbar: #DBDAD3;  /* 滚动条滑块 */
   --c-scrollbar-hover: #CECDC7;
@@ -97,19 +101,23 @@
   --c-success: #78C497;
   --c-success-soft: #31473C;
   --c-success-border: #406250;
+  --c-success-ink: #78C497;
   --c-warning: #F39349;
   --c-warning-soft: #443F30;
   --c-warning-border: #6A5135;
+  --c-warning-ink: #F49953;
   --c-danger: #D0766D;
   --c-danger-soft: #3F3A36;
   --c-danger-border: #5E4741;
+  --c-danger-ink: #DB9790;
   --c-text-1: #E9ECEB;
   --c-text-2: #B2BDBA;
-  --c-text-3: #80938D;
+  --c-text-3: #95A5A0;
   --c-bg-0: #1A2320;
   --c-bg-1: #232F2B;
   --c-bg-2: #2C3A35;
   --c-border: #394440;
+  --c-page: #FFFFFF;
   --c-mark: #554A23;
   --c-scrollbar: #45524D;
   --c-scrollbar-hover: #56615D;
@@ -130,19 +138,23 @@
   --c-success: #3F8F5F;
   --c-success-soft: #ECF4EF;
   --c-success-border: #C5DDCF;
+  --c-success-ink: #34764F;  /* 徽标文字用：在 success-soft 上 ≥4.5:1 */
   --c-warning: #B45309;
   --c-warning-soft: #F8EEE6;
   --c-warning-border: #E8CBB5;
+  --c-warning-ink: #AA4F09;  /* 徽标文字用：在 warning-soft 上 ≥4.5:1 */
   --c-danger: #DC2626;
   --c-danger-soft: #FCE9E9;
   --c-danger-border: #F4BEBE;
+  --c-danger-ink: #C82020;  /* 徽标文字用：在 danger-soft 上 ≥4.5:1 */
   --c-text-1: #0F172A;
   --c-text-2: #475569;
-  --c-text-3: #848D9A;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-text-3: #667182;  /* 弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例 */
   --c-bg-0: #FFFBEB;
   --c-bg-1: #FFFFFF;
   --c-bg-2: #F6F6F6;
   --c-border: #EEEDED;
+  --c-page: #FFFFFF;  /* 学习页预览底板（固定白，不跟主题） */
   --c-mark: #FCE0B1;  /* 搜索命中高亮 */
   --c-scrollbar: #DFE0E2;  /* 滚动条滑块 */
   --c-scrollbar-hover: #D1D2D5;
@@ -160,19 +172,23 @@
   --c-success: #78C497;
   --c-success-soft: #374139;
   --c-success-border: #455D4D;
+  --c-success-ink: #78C497;
   --c-warning: #F39349;
   --c-warning-soft: #4B392C;
   --c-warning-border: #6F4C33;
+  --c-warning-ink: #F39349;
   --c-danger: #E45858;
   --c-danger-soft: #49302F;
   --c-danger-border: #6A3838;
+  --c-danger-ink: #EB8686;
   --c-text-1: #ECEAE9;
   --c-text-2: #BDB7B2;
-  --c-text-3: #938880;
+  --c-text-3: #A59B95;
   --c-bg-0: #201E1D;
   --c-bg-1: #2B2827;
   --c-bg-2: #363330;
   --c-border: #403E3D;
+  --c-page: #FFFFFF;
   --c-mark: #5B4420;
   --c-scrollbar: #4E4B49;
   --c-scrollbar-hover: #5E5C59;
@@ -193,19 +209,23 @@
   --c-success: #3F8F5F;
   --c-success-soft: #ECF4EF;
   --c-success-border: #C5DDCF;
+  --c-success-ink: #34764F;  /* 徽标文字用：在 success-soft 上 ≥4.5:1 */
   --c-warning: #B45309;
   --c-warning-soft: #F8EEE6;
   --c-warning-border: #E8CBB5;
+  --c-warning-ink: #AA4F09;  /* 徽标文字用：在 warning-soft 上 ≥4.5:1 */
   --c-danger: #DC2626;
   --c-danger-soft: #FCE9E9;
   --c-danger-border: #F4BEBE;
+  --c-danger-ink: #C82020;  /* 徽标文字用：在 danger-soft 上 ≥4.5:1 */
   --c-text-1: #0F172A;
   --c-text-2: #475569;
-  --c-text-3: #848C98;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-text-3: #657080;  /* 弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例 */
   --c-bg-0: #FFFBEB;
   --c-bg-1: #FFFFFF;
   --c-bg-2: #F8F3F0;
   --c-border: #F8F2E6;
+  --c-page: #FFFFFF;  /* 学习页预览底板（固定白，不跟主题） */
   --c-mark: #FCE0B1;  /* 搜索命中高亮 */
   --c-scrollbar: #E1DDDC;  /* 滚动条滑块 */
   --c-scrollbar-hover: #D3D0D0;
@@ -223,19 +243,23 @@
   --c-success: #78C497;
   --c-success-soft: #3B4036;
   --c-success-border: #485C4A;
+  --c-success-ink: #78C497;
   --c-warning: #F39349;
   --c-warning-soft: #4E3829;
   --c-warning-border: #724C30;
+  --c-warning-ink: #F39349;
   --c-danger: #E45858;
   --c-danger-soft: #4C2F2B;
   --c-danger-border: #6D3835;
+  --c-danger-ink: #EB8686;
   --c-text-1: #ECEAE9;
   --c-text-2: #BDB6B2;
-  --c-text-3: #938780;
+  --c-text-3: #A39993;
   --c-bg-0: #231E1A;
   --c-bg-1: #2F2723;
   --c-bg-2: #3A312C;
   --c-border: #443D39;
+  --c-page: #FFFFFF;
   --c-mark: #5F441D;
   --c-scrollbar: #524A45;
   --c-scrollbar-hover: #615A56;
@@ -256,19 +280,23 @@
   --c-success: #3F8F5F;
   --c-success-soft: #ECF4EF;
   --c-success-border: #C5DDCF;
+  --c-success-ink: #34764F;  /* 徽标文字用：在 success-soft 上 ≥4.5:1 */
   --c-warning: #B45309;
   --c-warning-soft: #F8EEE6;
   --c-warning-border: #E8CBB5;
+  --c-warning-ink: #AA4F09;  /* 徽标文字用：在 warning-soft 上 ≥4.5:1 */
   --c-danger: #DC2626;
   --c-danger-soft: #FCE9E9;
   --c-danger-border: #F4BEBE;
+  --c-danger-ink: #C82020;  /* 徽标文字用：在 danger-soft 上 ≥4.5:1 */
   --c-text-1: #1E293B;
   --c-text-2: #475569;
-  --c-text-3: #7E8897;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-text-3: #606D7E;  /* 弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例 */
   --c-bg-0: #F8FAFC;
   --c-bg-1: #FFFFFF;
   --c-bg-2: #EAEFF3;
   --c-border: #EDF1F6;
+  --c-page: #FFFFFF;  /* 学习页预览底板（固定白，不跟主题） */
   --c-mark: #FCE0B1;  /* 搜索命中高亮 */
   --c-scrollbar: #D6DBE1;  /* 滚动条滑块 */
   --c-scrollbar-hover: #C9CFD6;
@@ -286,19 +314,23 @@
   --c-success: #78C497;
   --c-success-soft: #314140;
   --c-success-border: #405D52;
+  --c-success-ink: #78C497;
   --c-warning: #F39349;
   --c-warning-soft: #443933;
   --c-warning-border: #6A4C38;
+  --c-warning-ink: #F39349;
   --c-danger: #E45858;
   --c-danger-soft: #423036;
   --c-danger-border: #65383D;
+  --c-danger-ink: #EB8282;
   --c-text-1: #E9EAEC;
   --c-text-2: #B2B7BD;
-  --c-text-3: #808893;
+  --c-text-3: #939AA3;
   --c-bg-0: #1A1E23;
   --c-bg-1: #23282F;
   --c-bg-2: #2C323A;
   --c-border: #393E44;
+  --c-page: #FFFFFF;
   --c-mark: #554426;
   --c-scrollbar: #454B52;
   --c-scrollbar-hover: #565B61;
@@ -319,19 +351,23 @@
   --c-success: #059669;
   --c-success-soft: #E6F4F0;
   --c-success-border: #B4E0D2;
+  --c-success-ink: #047854;  /* 徽标文字用：在 success-soft 上 ≥4.5:1 */
   --c-warning: #B45309;
   --c-warning-soft: #F8EEE6;
   --c-warning-border: #E8CBB5;
+  --c-warning-ink: #AA4F09;  /* 徽标文字用：在 warning-soft 上 ≥4.5:1 */
   --c-danger: #DC2626;
   --c-danger-soft: #FCE9E9;
   --c-danger-border: #F4BEBE;
+  --c-danger-ink: #C82020;  /* 徽标文字用：在 danger-soft 上 ≥4.5:1 */
   --c-text-1: #0F172A;
   --c-text-2: #475569;
-  --c-text-3: #848C9D;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-text-3: #667083;  /* 弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例 */
   --c-bg-0: #FAF5FF;
   --c-bg-1: #FFFFFF;
   --c-bg-2: #F7F3FD;
   --c-border: #F4EEFE;
+  --c-page: #FFFFFF;  /* 学习页预览底板（固定白，不跟主题） */
   --c-mark: #FCE0B1;  /* 搜索命中高亮 */
   --c-scrollbar: #E0DDE8;  /* 滚动条滑块 */
   --c-scrollbar-hover: #D2D0DB;
@@ -349,19 +385,23 @@
   --c-success: #49F3BE;
   --c-success-soft: #2C4446;
   --c-success-border: #336A60;
+  --c-success-ink: #49F3BE;
   --c-warning: #F39349;
   --c-warning-soft: #483533;
   --c-warning-border: #6C4938;
+  --c-warning-ink: #F39349;
   --c-danger: #E45858;
   --c-danger-soft: #452B36;
   --c-danger-border: #67353D;
+  --c-danger-ink: #EA8080;
   --c-text-1: #EAE9EC;
   --c-text-2: #B6B2BD;
-  --c-text-3: #878093;
+  --c-text-3: #9B95A5;
   --c-bg-0: #1D1A23;
   --c-bg-1: #27232F;
   --c-bg-2: #312C3A;
   --c-border: #3D3944;
+  --c-page: #FFFFFF;
   --c-mark: #584126;
   --c-scrollbar: #4A4552;
   --c-scrollbar-hover: #5A5661;
@@ -382,19 +422,23 @@
   --c-success: #3F8F5F;
   --c-success-soft: #ECF4EF;
   --c-success-border: #C5DDCF;
+  --c-success-ink: #34764F;  /* 徽标文字用：在 success-soft 上 ≥4.5:1 */
   --c-warning: #B45309;
   --c-warning-soft: #F8EEE6;
   --c-warning-border: #E8CBB5;
+  --c-warning-ink: #AA4F09;  /* 徽标文字用：在 warning-soft 上 ≥4.5:1 */
   --c-danger: #DC2626;
   --c-danger-soft: #FCE9E9;
   --c-danger-border: #F4BEBE;
+  --c-danger-ink: #C82020;  /* 徽标文字用：在 danger-soft 上 ≥4.5:1 */
   --c-text-1: #134E4A;
   --c-text-2: #475569;
-  --c-text-3: #7D8998;  /* 弱化文字，已按 ≥3:1 反解混合比例 */
+  --c-text-3: #606D7F;  /* 弱化文字，已按 ≥4.5:1（AA 小字）反解混合比例 */
   --c-bg-0: #F0FDFA;
   --c-bg-1: #FFFFFF;
   --c-bg-2: #E8F1F4;
   --c-border: #C4FAEF;
+  --c-page: #FFFFFF;  /* 学习页预览底板（固定白，不跟主题） */
   --c-mark: #FCE0B1;  /* 搜索命中高亮 */
   --c-scrollbar: #D3E1E3;  /* 滚动条滑块 */
   --c-scrollbar-hover: #C6D7D9;
@@ -412,19 +456,23 @@
   --c-success: #78C497;
   --c-success-soft: #31473E;
   --c-success-border: #406251;
+  --c-success-ink: #78C497;
   --c-warning: #F39349;
   --c-warning-soft: #443F31;
   --c-warning-border: #6A5137;
+  --c-warning-ink: #F49953;
   --c-danger: #E45858;
   --c-danger-soft: #423634;
   --c-danger-border: #653D3C;
+  --c-danger-ink: #EC8A8A;
   --c-text-1: #E9ECEC;
   --c-text-2: #B2BDBC;
-  --c-text-3: #809391;
+  --c-text-3: #95A5A3;
   --c-bg-0: #1A2322;
   --c-bg-1: #232F2D;
   --c-bg-2: #2C3A39;
   --c-border: #394442;
+  --c-page: #FFFFFF;
   --c-mark: #554A25;
   --c-scrollbar: #455251;
   --c-scrollbar-hover: #566161;

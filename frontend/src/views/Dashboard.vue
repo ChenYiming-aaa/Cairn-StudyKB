@@ -184,7 +184,7 @@ onMounted(load)
 }
 
 .note.error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .grid {

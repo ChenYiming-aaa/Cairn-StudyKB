@@ -188,7 +188,7 @@ function checkUpdate() {
   border: 1px solid var(--c-warning-border);
   border-radius: 999px;
   background: var(--c-warning-soft);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
   font-size: var(--fs-xs);
   font-weight: 400;
 }
@@ -248,11 +248,11 @@ function checkUpdate() {
 }
 
 .src.ok {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .src.bad {
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .update-note {

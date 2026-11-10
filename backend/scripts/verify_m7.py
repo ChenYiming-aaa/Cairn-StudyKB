@@ -17,6 +17,11 @@
   6. 逐页 innerText 不出现 `docs/dev/文案规范.md` §6 的禁止词
   7. 两个搜索框的 placeholder / aria-label 可区分（S-12）
   8. 设置窗口四个 tab 的可见文案同样过禁止词
+  9. 选中分类后状态计数收窄到该类（分类树仍是全库）、点「全部条目」回到全库
+ 10. 分类手风琴：展开第二个分类时第一个自动收起
+ 11. 导图请求带主题 id 与明暗，不同主题产出不同配色
+ 12. 徽标文字与背景的实测对比度 ≥ 4.5（AA 小字）
+ 13. 学习页预览有深色外框（白底是刻意的「一张纸」）
 
 **不联网、不调模型**：起一个临时数据目录 + 种子库（13 分类 / 59 个不同标签 / 34 条），
 所有请求都打在 127.0.0.1 的本进程上。
@@ -36,6 +41,7 @@ import traceback
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
@@ -235,6 +241,11 @@ def get_json(base: str, path: str):
         return json.load(resp)
 
 
+def get_text(base: str, path: str) -> str:
+    with urllib.request.urlopen(base + path, timeout=10) as resp:
+        return resp.read().decode("utf-8")
+
+
 def check(name: str, ok: bool, detail: str = "") -> None:
     RESULTS.append((bool(ok), name, detail))
     print(("PASS " if ok else "FAIL ") + name + (f"  [{detail}]" if detail else ""))
@@ -311,6 +322,40 @@ def main() -> int:
             more.click()
             page.wait_for_timeout(200)
             check("再点一次回到 8 个", chips.count() == 8, str(chips.count()))
+
+            # ── 9 状态计数跟筛选走（2026-11-10）───────────────
+            status_total = page.locator("aside[aria-label='知识库导航'] .status-filter .row").first
+            total_before = int(status_total.locator(".count").inner_text())
+            cats = page.locator("aside[aria-label='知识库导航'] .cat")
+            cat_name = cats.nth(0).locator(".node .label").first.inner_text()
+            cats.nth(0).locator(".node").first.click()
+            page.wait_for_timeout(600)
+            total_after = int(
+                page.locator("aside[aria-label='知识库导航'] .status-filter .row")
+                .first.locator(".count").inner_text()
+            )
+            scoped = get_json(
+                base, f"api/knowledge/categories?category={quote(cat_name)}"
+            )
+            check("选中分类后状态计数收窄到该类",
+                  total_after == scoped["counts"]["total"] and total_after < total_before,
+                  f"{total_before} → {total_after}（接口 {scoped['counts']['total']}）")
+            check("分类树本身仍是全库", len(scoped["categories"]) == len(tree["categories"]),
+                  f"{len(scoped['categories'])} / {len(tree['categories'])}")
+
+            # ── 10 分类手风琴（同时只展开一个）───────────────
+            check("点分类会展开它的标签", cats.nth(0).locator(".tags").count() == 1)
+            cats.nth(1).locator(".caret-btn").click()
+            page.wait_for_timeout(300)
+            check("展开第二个分类后第一个自动收起",
+                  cats.nth(0).locator(".tags").count() == 0)
+            page.locator("aside[aria-label='知识库导航'] .status-filter .row").first.click()
+            page.wait_for_timeout(500)
+            back = int(
+                page.locator("aside[aria-label='知识库导航'] .status-filter .row")
+                .first.locator(".count").inner_text()
+            )
+            check("点「全部条目」后计数回到全库", back == total_before, f"{back} / {total_before}")
 
             # ── 7 两个搜索框能区分（S-12）────────────────────
             side_box = page.locator("aside[aria-label='知识库导航'] input[type='search']")
@@ -403,6 +448,76 @@ def main() -> int:
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
 
+            # ── 11 导图配色跟主题（S-20 第 1 条）─────────────
+            page.goto(base, wait_until="networkidle")
+            page.wait_for_selector(".list-body .row")
+            page.locator(".list-body").get_by_text("费曼技巧：用输出倒逼输入").click()
+            page.wait_for_timeout(500)
+            page.get_by_role("button", name="思维导图").click()
+            page.wait_for_timeout(700)
+            mm_src = page.locator(".mindmap-img").get_attribute("src") or ""
+            check("导图请求带上主题 id 与明暗",
+                  "theme=paper" in mm_src and "mode=light" in mm_src, mm_src)
+
+            found = get_json(base, "api/knowledge?page_size=10&q=" + quote("费曼技巧"))
+            item_id = found["items"][0]["id"]
+            paper_svg = get_text(base, f"api/knowledge/{item_id}/mindmap?theme=paper")
+            study_svg = get_text(base, f"api/knowledge/{item_id}/mindmap?theme=study")
+            check("不同主题产出不同配色", paper_svg != study_svg)
+            check("老契约 theme=dark 仍当成明暗",
+                  get_text(base, f"api/knowledge/{item_id}/mindmap?theme=dark") != paper_svg)
+
+            # ── 12 徽标实测对比度（S-15 收口）────────────────
+            ratios = page.evaluate(
+                """() => {
+                  const lum = (c) => {
+                    const p = (c.match(/[\\d.]+/g) || []).slice(0, 3).map(Number)
+                      .map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) });
+                    return 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+                  };
+                  const bgOf = (el) => {
+                    let n = el;
+                    while (n) {
+                      const bg = getComputedStyle(n).backgroundColor;
+                      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+                      n = n.parentElement;
+                    }
+                    return 'rgb(255, 255, 255)';
+                  };
+                  const out = {};
+                  for (const cls of ['badge-ready', 'badge-pending', 'badge-failed', 'badge-organizing']) {
+                    const el = document.querySelector('.' + cls);
+                    if (!el) continue;
+                    const a = lum(getComputedStyle(el).color);
+                    const b = lum(bgOf(el));
+                    out[cls] = Math.round(((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)) * 100) / 100;
+                  }
+                  return out;
+                }"""
+            )
+            check("界面上徽标文字对比度 ≥ 4.5:1",
+                  bool(ratios) and all(v >= 4.5 for v in ratios.values()),
+                  " · ".join(f"{k} {v}" for k, v in ratios.items()))
+
+            # ── 13 学习页预览外框（S-20 第 3 条）─────────────
+            page.goto(base.rstrip("/") + "/#/pages", wait_until="networkidle")
+            page.wait_for_selector(".pick-row")
+            page.locator(".pick-row").first.click()
+            page.get_by_role("button", name=re.compile("生成学习页")).click()
+            page.wait_for_selector(".stage-frame-clip iframe", timeout=15000)
+            page.wait_for_timeout(600)
+            check("学习页预览有「一张纸」外框", page.locator(".stage-frame-clip").count() == 1)
+            clip_color = page.evaluate(
+                "() => getComputedStyle(document.querySelector('.stage-frame-clip')).backgroundColor"
+            )
+            check("外框底色不跟 iframe 白底混在一起", clip_color != "rgb(255, 255, 255)", clip_color)
+            # 这条只为验收生成的那份别留在库里（后面截图还要生成一份，历史里只该有 1 条）
+            for artifact in get_json(base, "api/html")["items"]:
+                req = urllib.request.Request(
+                    base + f"api/html/{artifact['id']}", method="DELETE"
+                )
+                urllib.request.urlopen(req, timeout=10)
+
             # ── 截图（可选）──────────────────────────────────
             if shots:
                 page.goto(base, wait_until="networkidle")
@@ -417,7 +532,6 @@ def main() -> int:
 
                 for name, path in (
                     ("04-ask.png", "/#/ask"),
-                    ("05-pages.png", "/#/pages"),
                     ("06-review.png", "/#/review"),
                     ("07-dashboard.png", "/#/dashboard"),
                     ("08-practice.png", "/#/practice"),
@@ -425,6 +539,21 @@ def main() -> int:
                     page.goto(base.rstrip("/") + path, wait_until="networkidle")
                     page.wait_for_timeout(500)
                     page.screenshot(path=str(shots / name))
+
+                # 学习页：真的生成一份，截图里才有「一张纸」的预览，不是空态
+                # 用已整理好的那条（有摘要/笔记），生成出来的页面才完整
+                page.goto(base.rstrip("/") + "/#/pages", wait_until="networkidle")
+                page.wait_for_selector(".pick-row")
+                page.locator(".picker-search").fill("费曼")
+                page.locator(".picker-search").press("Enter")
+                page.wait_for_timeout(700)
+                page.locator(".pick-row").first.click()
+                page.get_by_role("button", name=re.compile("生成学习页")).click()
+                page.wait_for_selector(".stage-frame-clip iframe", timeout=15000)
+                page.wait_for_timeout(900)
+                # 等「已生成」提示自己消失，截图里别浮着一块 toast
+                page.wait_for_timeout(2200)
+                page.screenshot(path=str(shots / "05-pages.png"))
 
                 # 深色模式：走真实设置路径（改完即时保存），不是偷偷改 localStorage
                 page.goto(base, wait_until="networkidle")

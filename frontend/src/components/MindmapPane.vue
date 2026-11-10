@@ -14,11 +14,15 @@ import { api } from '../api/client'
 const props = defineProps({
   itemId: { type: Number, required: true },
   updatedAt: { type: String, default: '' },
-  theme: { type: String, default: 'light' },
+  // 主题 id（paper / notes / chestnut / docs / study / teal）：导图配色跟着主题走
+  theme: { type: String, default: 'paper' },
+  mode: { type: String, default: 'light' },
 })
 
 const state = ref('loading') // loading | ok | error
-const src = computed(() => api.mindmapUrl(props.itemId, props.theme, props.updatedAt))
+const src = computed(() =>
+  api.mindmapUrl(props.itemId, props.theme, props.mode, props.updatedAt)
+)
 
 watch(src, () => {
   state.value = 'loading'
@@ -79,7 +83,7 @@ watch(src, () => {
 .mindmap-error {
   margin: 0;
   font-size: var(--fs-sm);
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 @keyframes shimmer {

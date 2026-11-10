@@ -56,7 +56,11 @@ const isFiltered = computed(() =>
 async function loadTree() {
   treeLoading.value = true
   try {
-    tree.value = await api.categories()
+    // 带上当前筛选：分类树仍是全库，但状态计数收窄到当前范围（2026-11-10）
+    tree.value = await api.categories({
+      category: filter.category || undefined,
+      tag: filter.tag || undefined,
+    })
   } catch (err) {
     toast.error(friendlyMessage(err))
   } finally {
@@ -166,10 +170,19 @@ function onSearch(keyword) {
   loadList()
 }
 
+// 分类 / 标签变了才需要重取计数（状态快筛不影响三个数字）；分类树本身还是全库
+watch(
+  [() => filter.category, () => filter.tag],
+  () => loadTree()
+)
+
 async function organizePending() {
   organizingAll.value = true
   try {
-    const result = await api.organizePending()
+    const result = await api.organizePending({
+      category: filter.category || undefined,
+      tag: filter.tag || undefined,
+    })
     if (result.total) {
       toast.ok(`开始整理了，${result.total} 条排队中`)
       await refreshAll()
@@ -183,8 +196,7 @@ async function organizePending() {
   }
 }
 
-async function onDetailRefresh(itemId) {
-  await refreshAll()
+async function onDetailRefresh(itemId) {  await refreshAll()
   if (itemId) await loadDetail(itemId)
 }
 
@@ -208,7 +220,8 @@ async function focusOnItem(itemId) {
     filter.tag = ''
     filter.q = ''
     filter.status = ''
-    await Promise.all([loadTree(), loadList()])
+    // 计数由上面的 watch 重取（清空筛选后回到全库口径），这里只等列表
+    await loadList()
   }
   selectItem(itemId)
 }

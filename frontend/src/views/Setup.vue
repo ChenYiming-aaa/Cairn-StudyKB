@@ -241,11 +241,11 @@ onMounted(async () => {
 }
 
 .hero-flag {
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .hero-done {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .steps {
@@ -318,7 +318,7 @@ onMounted(async () => {
 
 .chip.miss {
   background: var(--c-warning-soft);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .chip.optional {
@@ -368,7 +368,7 @@ onMounted(async () => {
 }
 
 .ok-line {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .rows {
@@ -402,7 +402,7 @@ onMounted(async () => {
 }
 
 .row.ok .row-value {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .row.miss .row-value {

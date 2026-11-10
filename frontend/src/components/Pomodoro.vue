@@ -378,7 +378,7 @@ onBeforeUnmount(stopBreak)
   margin: 0;
   font-size: 30px;
   font-family: var(--font-mono);
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .done-time.muted {
@@ -408,6 +408,6 @@ onBeforeUnmount(stopBreak)
   margin: 0;
   padding-top: var(--space-2);
   font-size: var(--fs-xs);
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 </style>

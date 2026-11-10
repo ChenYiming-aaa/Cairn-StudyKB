@@ -103,14 +103,17 @@ def list_items(
 
 
 @router.get("/categories")
-def list_categories() -> dict:
+def list_categories(category: str | None = None, tag: str | None = None) -> dict:
     """分类 / 标签两级计数 + 状态计数（左侧树与「整理全部」的气泡都用它）。
+
+    `category` / `tag` 只收窄 `counts`，分类树本身仍是全库（树是导航，不该自我截断）。
+    左栏选中筛选后，状态行与「开始整理 N 条」都跟着变成当前范围的数量。
 
     必须注册在 `/{item_id}` 之前，否则 "categories" 会被当成 item_id 解析成 422。
     """
     conn = get_conn()
     try:
-        return repo.category_tree(conn)
+        return repo.category_tree(conn, category=category, tag=tag)
     finally:
         conn.close()
 
@@ -122,12 +125,20 @@ def _require_llm_key() -> None:
 
 
 @router.post("/organize-pending")
-def organize_pending(limit: int = Query(default=20, ge=1, le=100)) -> dict:
-    """批量整理 status='pending' 的条目。逐条派发独立任务，返回 item→task 映射。"""
+def organize_pending(
+    limit: int = Query(default=20, ge=1, le=100),
+    category: str | None = None,
+    tag: str | None = None,
+) -> dict:
+    """批量整理 status='pending' 的条目。逐条派发独立任务，返回 item→task 映射。
+
+    `category` / `tag` 与列表筛选同一口径：左栏筛着某分类时，「开始整理 N 条」
+    整理的就是这 N 条，不是全库的待整理。
+    """
     _require_llm_key()
     conn = get_conn()
     try:
-        item_ids = repo.list_ids_by_status(conn, "pending", limit)
+        item_ids = repo.list_ids_by_status(conn, "pending", limit, category=category, tag=tag)
         queued: list[dict] = []
         for item_id in item_ids:
             with conn:
@@ -164,8 +175,15 @@ def organize_item(item_id: int):
 
 
 @router.get("/{item_id}/mindmap")
-def get_mindmap(item_id: int, theme: Literal["light", "dark"] = "light"):
+def get_mindmap(
+    item_id: int,
+    theme: str = "paper",
+    mode: Literal["light", "dark"] = "light",
+):
     """T3.7：现场从 structured_note 生成 SVG（ADR-019 不落库、不缓存）。
+
+    `theme` 传主题 id（paper / notes / chestnut / docs / study / teal），配色按该主题派生；
+    也兼容老契约 `theme=light|dark`（直接当明暗处理）。`mode` 只在传主题 id 时生效。
 
     `no-store` 是刻意的：笔记一改导图必须立刻变，浏览器缓存会直接违背这条 DoD。
     """
@@ -175,7 +193,7 @@ def get_mindmap(item_id: int, theme: Literal["light", "dark"] = "light"):
         if row is None:
             return _not_found()
         svg = mindmap.render_item_svg(
-            row["title"], row["structured_note"], repo.loads(row["key_points"]) or [], theme
+            row["title"], row["structured_note"], repo.loads(row["key_points"]) or [], theme, mode
         )
         return Response(
             content=svg,

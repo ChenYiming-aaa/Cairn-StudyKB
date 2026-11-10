@@ -191,13 +191,16 @@ export const api = {
   deleteAskHistory: (id) => del(`/api/ask/history/${id}`),
   listItems: (params) => get('/api/knowledge', params),
   /** 分类/标签两级计数 + 状态计数（左侧树与「整理全部」气泡） */
-  categories: () => get('/api/knowledge/categories'),
+  // category / tag 只让 counts 跟着筛选走（分类树本身仍是全库）
+  categories: (params) => get('/api/knowledge/categories', params),
   getItem: (id) => get(`/api/knowledge/${id}`),
   createItem: (payload) => post('/api/knowledge', payload),
   patchItem: (id, payload) => patch(`/api/knowledge/${id}`, payload),
   deleteItem: (id) => del(`/api/knowledge/${id}`),
   organize: (id) => post(`/api/knowledge/${id}/organize`),
-  organizePending: () => post('/api/knowledge/organize-pending'),
+  // 带当前筛选：左栏筛着某分类时，整理的就是这一批
+  organizePending: (params) =>
+    post(`/api/knowledge/organize-pending${buildQuery(params)}`),
   getTask: (taskId) => get(`/api/tasks/${taskId}`),
   /** 最近任务列表（T2.9 任务中心），失败项可 retry */
   listTasks: (params) => get('/api/tasks', params),
@@ -224,8 +227,9 @@ export const api = {
   /** 起一个受控浏览器窗口让用户登录，立即返回，结果靠 authStatus 轮询 */
   authLogin: (site) => post(`/api/auth/login/${site}`),
   /** 思维导图（T3.7）：后端出 SVG，直接当图片用；v 是缓存戳，笔记一改就要换 */
-  mindmapUrl: (id, theme = 'light', version = '') =>
-    `${baseUrl()}/api/knowledge/${id}/mindmap?theme=${theme}&v=${encodeURIComponent(version)}`,
+  mindmapUrl: (id, theme = 'paper', mode = 'light', version = '') =>
+    `${baseUrl()}/api/knowledge/${id}/mindmap?theme=${encodeURIComponent(theme)}` +
+    `&mode=${encodeURIComponent(mode)}&v=${encodeURIComponent(version)}`,
   /** 学习页（T3.9）：生成是同步的，返回 {id,title,size_bytes} */
   htmlGenerate: (payload) => post('/api/html/generate', payload),
   htmlPages: (params) => get('/api/html', params),

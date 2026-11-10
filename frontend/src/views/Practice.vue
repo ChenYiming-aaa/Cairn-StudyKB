@@ -412,7 +412,7 @@ onMounted(loadItems)
 }
 
 .cfg-note.error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .item-list {

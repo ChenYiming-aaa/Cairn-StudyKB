@@ -97,7 +97,7 @@ onMounted(load)
 }
 
 .state-note.error {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .rows {
@@ -125,7 +125,7 @@ onMounted(load)
 
 .row-status {
   font-size: var(--fs-xs);
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .row-status.abandoned {

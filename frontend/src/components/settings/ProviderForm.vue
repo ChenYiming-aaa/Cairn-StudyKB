@@ -249,7 +249,7 @@ async function runProbe() {
 
 .chip.miss {
   background: var(--c-bg-2);
-  color: var(--c-warning);
+  color: var(--c-warning-ink);
 }
 
 .pcard-body {
@@ -304,11 +304,11 @@ async function runProbe() {
 }
 
 .probe-ok {
-  color: var(--c-success);
+  color: var(--c-success-ink);
 }
 
 .probe-bad {
-  color: var(--c-danger);
+  color: var(--c-danger-ink);
 }
 
 .probe-idle {
