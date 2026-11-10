@@ -189,7 +189,8 @@ const DEMO_COMPONENTS = () => ({
 const ROUTES = [
   [/^\/api\/health$/, () => data.health],
   [/^\/api\/components$/, () => DEMO_COMPONENTS()],
-  [/^\/api\/version$/, () => ({ version: '0.1.0', commit: null, built_at: null })],
+  // 版本号由 vite.config.js 的 define 从 package.json 注入，别写死（发版会忘）
+  [/^\/api\/version$/, () => ({ version: __APP_VERSION__, commit: null, built_at: null })],
   [/^\/api\/settings$/, () => DEMO_SETTINGS()],
   [/^\/api\/env\/check$/, () => data.env],
   [/^\/api\/knowledge\/categories$/, () => data.categories],

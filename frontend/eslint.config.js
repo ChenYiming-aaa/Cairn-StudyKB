@@ -12,7 +12,7 @@ export default [
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',
-      globals: { ...globals.browser, ...globals.es2021 },
+      globals: { ...globals.browser, ...globals.es2021, __APP_VERSION__: 'readonly' },
     },
     rules: {
       // Vue 模板里的 ref 会自动解包，no-unused-vars 对模板使用识别不全，交给 vue 插件判断

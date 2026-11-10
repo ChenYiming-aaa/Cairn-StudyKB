@@ -34,6 +34,8 @@ const LINKS = [
 ]
 
 const version = computed(() => info.value?.version || '—')
+// 演示站没有打包元数据，写「源码运行」会让人以为这是本地跑起来的实例
+const isDemo = import.meta.env.VITE_DEMO === '1'
 const commit = computed(() => {
   const value = (info.value?.commit || '').trim()
   return value ? value.slice(0, 7) : ''
@@ -140,11 +142,11 @@ const hint = computed(() => {
       <dl class="facts">
         <div class="fact">
           <dt>提交</dt>
-          <dd>{{ commit || '源码运行，没有提交号' }}</dd>
+          <dd>{{ commit || (isDemo ? '在线演示，不含构建信息' : '源码运行，没有提交号') }}</dd>
         </div>
         <div class="fact">
           <dt>构建时间</dt>
-          <dd>{{ builtAt || '源码运行，没有构建时间' }}</dd>
+          <dd>{{ builtAt || (isDemo ? '在线演示，不含构建信息' : '源码运行，没有构建时间') }}</dd>
         </div>
       </dl>
       <div class="update">
