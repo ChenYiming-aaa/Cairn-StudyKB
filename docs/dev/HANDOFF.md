@@ -1611,10 +1611,13 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 - [ ] `desktop/release-m8`、`release-m8b`、`release-m8c` 三个试打目录留在本地（gitignored），
       可手工删；`release-components/` 也要确认已在 `.gitignore` 里
 
-**推送状态：本地已提交，远程未推（待你确认后推）**
-- 本轮改动跨 `backend/` `desktop/` `tools/` `docs/` 四块，`backend/cairn-backend.spec`
-  上原有的未提交改动（torch.distributed 那段）已被本轮 T8.1 整体取代，可以一起提交
-- 计划标签 `m8-wip` 打在 L2 落地的提交上（等你点头）
+**推送状态：本地已提交，远程未推（agent 会话里 push 挂了 8 分钟）**
+- 提交 `5321056`（本轮全部代码与文档，一个 commit）
+- 裸命令 `git push origin main`（未设 GCM/TERMINAL 变量）**卡住 8 分钟无任何输出**，
+  只能 kill；不是我改了凭据环境，是这台机器此刻的凭据/GCM 交互拿不到（2026-11-07 出现过同一现象）
+- **请你在普通终端跑一次**：`git push origin main`
+- 计划标签 `m8-wip` 打在 `5321056` 上（等你点头后再打并 `git push origin --tags`）
+- `backend/cairn-backend.spec` 上原有的未提交改动（torch.distributed 那段）已被本轮 T8.1 整体取代，一并提交
 
 **下一会话第一件事**
 > 先跑 `python tools/doc_check.py`，再按你的裁决处理 172 MB 那 2 MB（或直接进 L3）。
