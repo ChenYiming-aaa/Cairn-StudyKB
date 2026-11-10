@@ -25,7 +25,7 @@ import httpx
 import numpy as np
 
 from app.config import get_settings
-from app.services import browser, subtitles, video_sites, zh_text
+from app.services import browser, components, subtitles, video_sites, zh_text
 from app.services.fetch_errors import FetchError
 
 if TYPE_CHECKING:                             # 只给类型标注用，运行期不 import
@@ -164,6 +164,12 @@ _load_lock = threading.Lock()
 
 def _load_model(size: str) -> WhisperModel:
     """按 size 缓存模型；CUDA 建不起来就回落 CPU int8（M2 §7 排障表）。"""
+    # M8：语音栈可能整个不在安装包里（组件化）。缺了就报人话，别让它涨成 ImportError
+    # 后落进"采集失败"的兜底文案里 —— 用户看不出该去装什么。
+    if components.resolve("asr") is None:
+        raise FetchError("COMPONENT_MISSING",
+                         detail="asr",
+                         message="视频转录组件还没装，这条只存了标题和封面")
     from faster_whisper import WhisperModel   # 延迟导入：约 1.5s，只在真要转录时才付
 
     with _load_lock:

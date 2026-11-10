@@ -7,6 +7,8 @@
 - 向量写 `chunk_vec`（vec0，可选表）。扩展不可用时**整条链路降级为纯 FTS**，
   不报错、不阻塞问答（DoD：关掉向量问答仍正常返回）
 - 入库补向量走 `agent_task` type=`index_embed`，不卡采集流程（M3 §6.2）
+- **M8 起推理可能不在本进程**：`components.resolve("embed")` 决定走子进程还是本进程，
+  两者都不可用才算降级（见 `components.py` 顶部的三态说明）
 """
 from __future__ import annotations
 
@@ -17,6 +19,7 @@ from typing import Iterable
 
 from app.config import get_settings
 from app.db.conn import get_conn, table_exists
+from app.services import components
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +34,17 @@ _model_lock = threading.Lock()
 # 每请求重复 load 既慢又会把告警日志刷满。
 _vec_probe: bool | None = None
 _vec_lock = threading.Lock()
+
+
+# ── 可用性 ──────────────────────────────────────────────
+def usable() -> bool:
+    """这一路能不能算出向量：组件进程 或 本进程内模型，至少有一个在。
+
+    与 `vec_available()`（扩展/表能不能用）是两件事，判断顺序必须是**先有嘴再吃饭**：
+    没有推理能力时 `vector_ready()` 要返回 False，否则检索会先报"能"、再在
+    `encode_query` 炸掉，问答页就成了 500（M8 §2.2 要的正是"降级而不是崩"）。
+    """
+    return components.resolve("embed") is not None
 
 
 # ── 模型 ────────────────────────────────────────────────
@@ -51,10 +65,21 @@ def get_model():
         return _model
 
 
+def _encode_remote(texts: list[str], kind: str) -> list[list[float]]:
+    """交给组件进程。前缀由组件加（`kind=query` 时），主程序不掺和。"""
+    reply = components.call("embed", "encode", {"kind": kind, "texts": texts}, timeout=120.0)
+    return reply.get("vectors") or []
+
+
 def encode_docs(texts: Iterable[str]) -> list[list[float]]:
     batch = [t for t in texts if t and t.strip()]
     if not batch:
         return []
+    mode = components.resolve("embed")
+    if mode == "component":
+        return _encode_remote(batch, "doc")
+    if mode is None:
+        raise components.ComponentError("COMPONENT_MISSING", "向量检索组件还没装")
     vectors = get_model().encode(
         batch, batch_size=BATCH_SIZE, normalize_embeddings=True, show_progress_bar=False
     )
@@ -63,6 +88,9 @@ def encode_docs(texts: Iterable[str]) -> list[list[float]]:
 
 def encode_query(query: str) -> list[float]:
     """查询必须加前缀；文档不加。加反了召回会明显变差（M3 §1 约束 3）。"""
+    if components.resolve("embed") == "component":
+        vectors = _encode_remote([query], "query")     # 前缀在组件里加
+        return vectors[0] if vectors else []
     vectors = encode_docs([QUERY_PREFIX + query])
     return vectors[0] if vectors else []
 
@@ -180,7 +208,7 @@ def count_vectors(conn: sqlite3.Connection) -> int:
 
 # ── 补索引 ──────────────────────────────────────────────
 def index_chunks(conn: sqlite3.Connection, chunk_ids: list[int]) -> int:
-    if not chunk_ids or not _table_ready(conn):
+    if not chunk_ids or not _table_ready(conn) or not usable():
         return 0
     marks = ",".join("?" * len(chunk_ids))
     rows = conn.execute(
@@ -227,6 +255,10 @@ def run(task_input: dict | None = None) -> dict:
         if not _table_ready(conn):
             # 不是失败：降级本来就是允许的（M3 §6.3）。但要让任务记录说清原因
             return {"indexed": 0, "skipped": "vector_unavailable"}
+        if not usable():
+            # 表在、扩展在，但算不出向量（没装向量组件）。原因要和上一条分开记，
+            # 否则排障时分不清"向量表坏了"和"组件没装"
+            return {"indexed": 0, "skipped": "component_missing"}
         ids = _missing_chunk_ids(conn, 20_000, item_id)
         if not ids:
             return {"indexed": 0, "item_id": item_id}
@@ -241,7 +273,8 @@ def run(task_input: dict | None = None) -> dict:
 
 def schedule(item_id: int | None = None) -> str | None:
     """派一个 index_embed 任务。向量不可用 / 派发失败都不影响主流程。"""
-    if not get_settings().vector_enabled:
+    if not get_settings().vector_enabled or not usable():
+        # 没装向量组件时不必派：任务只会立刻 skip，白占任务中心的版面
         return None
     try:
         from app.services import dispatch  # 延迟 import：dispatch 会反向依赖采集模块

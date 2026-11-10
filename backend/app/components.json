@@ -1,0 +1,35 @@
+{
+  "manifest_version": 1,
+  "min_app_version": "0.2.0",
+  "release_tag": "components-v1",
+  "repo": "ChenYiming-aaa/Cairn-StudyKB",
+  "components": [
+    {
+      "id": "embed",
+      "name": "向量检索",
+      "size": 199000000,
+      "sha256": "",
+      "asset": "cairn-embed-0.2.0.zip",
+      "unpack_dir": "embed",
+      "why": "让问答能按意思找，而不只是按字面。不装也能用，搜得糙一点。"
+    },
+    {
+      "id": "asr",
+      "name": "视频转录",
+      "size": 62000000,
+      "sha256": "",
+      "asset": "cairn-asr-0.2.0.zip",
+      "unpack_dir": "asr",
+      "why": "没有字幕的视频也能转成文字。不装的话，只支持本来就带字幕的视频。"
+    },
+    {
+      "id": "browser",
+      "name": "网页渲染",
+      "size": 40000000,
+      "sha256": "",
+      "asset": "cairn-browser-0.2.0.zip",
+      "unpack_dir": "browser",
+      "why": "知乎这类必须跑脚本才出正文的站点要用。不装也能采大部分网页。"
+    }
+  ]
+}

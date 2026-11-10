@@ -55,6 +55,7 @@ const itemCount = computed(() => new Set(sources.value.map((s) => s.item_id)).si
 const fallbackHint = computed(() => {
   const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
   if (value === 'vector_disabled') return '向量不可用，已降级为全文检索（功能不受影响）'
+  if (value === 'vector_component_missing') return '现在是纯文字检索。去「设置 → 下载」装上向量检索，就能按意思搜'
   if (value === 'like_short_query') return '关键词少于 3 字，已改用模糊匹配'
   return ''
 })

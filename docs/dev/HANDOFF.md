@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-10 11:10 · 每次会话结束更新这一段）
+## 当前状态（2026-11-10 11:45 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M7 布局与文案 · 已验收**（T7.0–T7.7 全部完成，tag `m7-done`）。下一个：**M8 体积与更新**（未开工） |
-| 当前里程碑 | **M7 收口轮完成**（S-26 四条：计数口径 / 手风琴 / 对比度 / 导图配色 + 学习页外框），`verify_m7` **41/41**。下一步 **M8**（T8.0–T8.8） |
-| 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
-| 远程 | `origin/main` = `ce8bd5a`（M7 收口轮，2026-11-10 11:20 已推）；**本表不追每次提交** |
-| 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` |
-| 验收 | **M7 `verify_m7.py` 41/41 PASS**（新增计数口径 3 / 手风琴 3 / 导图主题 3 / 徽标实测 1 / 学习页外框 2） · 回归 **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78**（2026-11-10 全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.49 kB / gzip 115.82 kB；CSS 90.94 kB / gzip 13.90 kB） · `check_contrast.py` 6 套 × 明暗 × **13 组**全过（text-3 提到 4.5，新增 3 组 `*-ink`） · 安装包基线 426,428,660 字节（本轮仍只改前端） |
+| 里程碑 | **M8 体积与更新 · 进行中（六层中的 L0 已完成）**。分层计划见 `M8-补充记录.md` §1；下一层 **L1 = T8.1 主包瘦身** |
+| 当前里程碑 | **M8 L0（T8.0 组件协议与降级）完成**：`services/components.py` + `component_proc.py`、`app/components.json`、三个空壳 worker（`backend/components/<id>/entry.py`，`--selftest` 各自 exit 0）、`embed` 已接真管道、`asr`/`browser` 只做降级判定（管道留给 L2）、`COMPONENT_MISSING` + `vector_component_missing`。`verify_m8` **37/37**（auto / process / local 三种模式各跑一遍） |
+| 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；**M5 + v0.1.0 已发布**，唯一未闭环项仍是遗留 #2（装到没有 Python/Node 的真机） |
+| 远程 | `origin/main` = 见本文件最后一条的「推送状态」；**本表不追每次提交** |
+| 版本 | `v0.1.0`（三处都是 0.1.0）。统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done`。**M8 未打标签**（L0 只是地基，等 L1 出体积数字再打 `m8-wip`） |
+| 验收 | **M8 `verify_m8.py` 37/37 PASS**（清单 5 / 三态 3 / 协议往返 11 / 降级 6 / 文案 3 / HTTP 5 / 生命周期 4） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41**（2026-11-10 拆分模块后全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.88 kB / gzip 116.01；CSS 90.94 / 13.90） · 安装包基线**仍是 426,428,660 字节**（本轮不打包，L1 才动） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -1455,3 +1455,82 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 > 开 M8：读 `milestones/M8-体积与更新.md`，跑 `python tools/doc_check.py` 与
 > `cd backend && uv run python scripts/status.py`，从体积账（426 MB → ≤170 MB）起手。
 > 备注：本轮只改前端与后端少量代码，**安装包基线仍是 426,428,660 字节**，M8 的第一步照旧是量体积。
+
+## 2026-11-10 11:45 · M8 · L0 分层规划 + T8.0 组件协议与降级（**M8 第一层完成**）
+
+**范围**：先做 M8 的分层规划（六层，落进 `M8-补充记录.md` §1），再做 L0 = T8.0。
+**边界**：`embed` 接真管道，`asr` / `browser` 只做降级判定，管道调用留给 L2（理由见补充记录 §1.2）。
+
+**完成**
+- **分层规划**：L0 地基(T8.0) → L1 削体(T8.1) → L2 造件(T8.2) → L3 装件(T8.3+T8.4) →
+  L4 自更新(T8.5+T8.6) → L5 发布(T8.7+T8.8)。**L1 提到 L2 之前**：削体不依赖组件包存在，
+  只依赖"缺组件能优雅降级"，先削体能早拿到真体积、早发现 excludes 误伤
+- `services/components.py`（清单 / 三态判定 / 状态 / 卸载）+ `component_proc.py`
+  （进程、管道、id 配对、超时、崩溃重启一次）
+- `app/components.json`：三组件清单（`size` 是预估下载字节，**`sha256` 还是空的，T8.2 填**）
+- `backend/components/{embed,asr,browser}/entry.py` + `_protocol.py`：空实现 worker，
+  各自 `--selftest`（真起子进程握手 + 跑一次最小任务），三个都 exit 0
+- 三态判定 `resolve()`：组件（目录 + hello）> 本进程内库 > None。**冻结包剔除那三个库后
+  `find_spec` 自然返回 None → 自动落到组件**，不需要 `if is_frozen` 分支
+- `embed` 端到端：`encode_docs` / `encode_query` 走组件，查询前缀改由组件加（`kind=query`）
+- 降级：`COMPONENT_MISSING`（`detail=组件 id`）登记进 `fetch_errors` + 前端 `FRIENDLY`；
+  `browser` 两处文案从「跑 playwright install chromium」改成「设置 → 下载」
+- `stop_all()` 挂进 FastAPI lifespan shutdown（孤儿进程会锁住组件目录）
+- `verify_m8.py` 建起来，只含 `§1 protocol` 一组，`--only` 可单跑
+
+**顺手修的真缺陷（两处，详见补充记录 S-1 / S-7）**
+- `retriever.hybrid()`：`ready=False` 时把"没跑向量"报成 `vector_below_threshold`，
+  前端对该值没有文案 → 用户一句提示都看不到。加 `ready` 前提，并新增
+  `fallback=vector_component_missing`（`Ask.vue` 给一句「去设置 → 下载装上」）
+- `Session.stop()`：`kill()` 后不 `wait()`，Windows 上 `poll()` 仍返回 `None`，
+  验收脚本「进程真的退出了」偶发 FAIL（换 `CAIRN_COMPONENT_MODE=process` 才复现）
+
+**改动文件**
+- 新增：`backend/app/components.json`、`backend/app/services/components.py`、
+  `backend/app/services/component_proc.py`、`backend/components/{_protocol,embed/entry,asr/entry,browser/entry}.py`、
+  `backend/scripts/verify_m8.py`、`docs/dev/M8-补充记录.md`
+- 后端：`app/main.py`（lifespan + stop_all）、`app/services/{embedder,retriever,transcriber,fetch_errors}.py`
+- 前端：`api/client.js`（FRIENDLY 两条）、`views/Ask.vue`（一条降级提示）
+- 文档：`00-总纲.md`（M8 状态 + 目录结构）、`contracts/接口契约.md`（错误码 + fallback 枚举）、
+  `contracts/数据契约.md` §10（`TRANSCRIBE_NO_ASR` → `COMPONENT_MISSING`）、
+  `milestones/M8-体积与更新.md`（层进度表）、`会话提示词手册.md`、`运行与打包.md`（组件与三模式）
+
+**验证**
+- `verify_m8.py` → **37/37 PASS**，三种模式各跑一遍：`auto` / `CAIRN_COMPONENT_MODE=process` / `=local`
+  （process 模式连跑 3 次稳定，第 1 次就是它抓出了 S-7）
+- 回归：m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41 全绿（模块拆分后重跑）
+- 三个 worker `--selftest` 各自 exit 0；`npm run lint` 干净；build JS 317.88 kB / CSS 90.94 kB
+- `doc_check.py` 6 项通过（作用域 23 份 → 24 份，新增 `M8-补充记录.md`）
+
+**遗留问题**
+- [ ] L1（T8.1）：改 `spec` 的 `excludes` 前先看它现在**带着另一路未提交改动**
+      （`backend/cairn-backend.spec` 在 `git status` 里一直是 ` M`）；`app/components.json`
+      会被现成的 `DATA_SUFFIXES` rglob 自动收进包，不用另加 add-data
+- [ ] `components.json` 的 `size` 是预估、`sha256` 为空 —— **只有 T8.2 打完包才有真值**，
+      L3 的下载校验依赖它
+- [ ] `asr` / `browser` 的管道调用未接（补充记录 S-3 有缝合点清单），L2 必须补，
+      否则「冻结包 + 只装 asr」仍然不能转录
+- [ ] `browser.available()` 仍只看本进程 playwright —— L2 要改成 `resolve("browser") is not None`，
+      现在改了会"说能用但用不了"
+- [ ] 「去设置 → 下载」这句文案与设置里 M6 的占位说明（"全量包都已在里面"）暂时并存，
+      T8.4 用真卡片替掉占位后自然一致
+- [ ] `data/tmp/m7ui` 仍在（旧临时库）；`tools/audit_kb.py`、`tools/build_signed.py`、
+      `docs/dev/真机实测-v0.1.0.md` 仍是另一路的未跟踪文件，本轮未碰
+- [ ] README 本轮**故意不改**：L0 没有用户可见变化（体积、下载、更新三节都要等 L1–L5），
+      T8.7 统一改；`.env.example` 也不加 `CAIRN_COMPONENT_MODE`（那是开发/验收开关，
+      已写进 `运行与打包.md`）
+
+**待裁决冲突**
+- 无。数据契约 §10 的 `TRANSCRIBE_NO_ASR` 与任务书 `COMPONENT_MISSING` 不一致，
+  已按 M8 定案统一并回写契约（理由见补充记录 S-5），不算待你裁决项。
+
+**推送状态：已推（见下）**
+- 提交见下一条 `git log`；`origin/main` 同步更新
+
+**下一会话第一件事**
+> 开 M8 的 L1（T8.1）：读 `M8-补充记录.md` §1（层边界）与 `milestones/M8-体积与更新.md` §2.4，
+> 改 spec 的 `excludes` 剔掉 torch / transformers / sentence_transformers / scipy / sklearn /
+> faster_whisper / ctranslate2 / av / onnxruntime / playwright / hf_xet，删掉那三行
+> `collect_data_files`，打包量体积（目标 ≤170 MB 安装包 / ≤750 MB 解包），
+> 在「无组件」状态下重跑 `verify_m1..m7` + `verify_m8`。**注意 spec 上有另一路未提交改动，
+> 落笔前先看 `git diff backend/cairn-backend.spec` 分清哪些不是你的。**

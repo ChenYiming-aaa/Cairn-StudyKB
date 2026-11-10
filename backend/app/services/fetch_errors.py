@@ -19,7 +19,7 @@ FETCH_MESSAGES: dict[str, str] = {
     "FETCH_NOT_FOUND": "目标页面不存在或已删除",
     "FETCH_INVALID": "该链接不是网页",
     "FETCH_EMPTY": "未能提取到正文（可能是动态渲染页面），建议改用粘贴文本",
-    "FETCH_BROWSER_UNAVAILABLE": "浏览器渲染不可用：请安装 Edge/Chrome，或执行 playwright install chromium",
+    "FETCH_BROWSER_UNAVAILABLE": "网页渲染不可用：装好 Edge/Chrome，或去「设置 → 下载」装上网页渲染组件",
     "FETCH_LOGIN_REQUIRED": "该页面需要登录后才能看，请先在采集面板登录对应站点",
     "URL_INVALID": "链接格式不正确，请粘贴完整的 http(s) 地址",
 }
@@ -33,8 +33,10 @@ TRANSCRIBE_MESSAGES: dict[str, str] = {
     "TRANSCRIBE_MODEL_FAIL": "语音模型加载或识别失败，可换更小的模型重试",
     "TRANSCRIBE_UNSUPPORTED": "暂不支持该链接（播放列表、直播、图文笔记或非常规站点）",
     "TRANSCRIBE_BLOCKED": "该平台要求登录或限制下载，暂不支持",
-    "TRANSCRIBE_BROWSER_UNAVAILABLE": "抖音需要真实浏览器取数据：请安装 Edge/Chrome，或执行 playwright install chromium",
+    "TRANSCRIBE_BROWSER_UNAVAILABLE": "抖音需要真实浏览器取数据：装好 Edge/Chrome，或去「设置 → 下载」装上网页渲染组件",
     "TRANSCRIBE_EMPTY": "未识别到语音内容（可能是纯音乐或静音）",
+    # M8：组件化后"缺组件"是一个独立原因，和"转录失败"分开说（M8 §2.2）
+    "COMPONENT_MISSING": "缺一个可选组件，这次没做成：去「设置 → 下载」装上再试",
 }
 
 MESSAGES: dict[str, str] = {**FETCH_MESSAGES, **TRANSCRIBE_MESSAGES}

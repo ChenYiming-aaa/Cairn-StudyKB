@@ -141,13 +141,15 @@ def search_terms(terms: list[str], limit: int = CANDIDATES) -> tuple[list[dict],
 
 
 def vector_ready() -> bool:
-    """向量这一路到底能不能用：开关 + 模型文件 + 扩展/表。
+    """向量这一路到底能不能用：开关 + 有推理能力 + 模型文件 + 扩展/表。
 
     注意判的是**能力**而不是"这次有没有向量命中"——空库时也可能一个都不命中，
-    但降级提示不该因此误报。
+    但降级提示不该因此误报。`embedder.usable()` 是 M8 加的：装了组件、
+    或本进程能 import 到模型库，二者都没有就算没能力（否则下一步会抛异常而不是降级）。
     """
     return (
         get_settings().vector_enabled
+        and embedder.usable()
         and embedder.model_ready()
         and embedder.vec_available()
     )
@@ -274,7 +276,10 @@ def hybrid(query: str, top: int = TOP_K) -> dict:
     # 向量距离 1.169，卡了会误判成没有）。
     limit_distance = None if fts_rows else get_settings().vector_min_distance
     vec_ids = vector_ids(text, CANDIDATES, max_distance=limit_distance) if ready else []
-    if not vec_ids and limit_distance is not None:
+    # `ready` 为假时 vec_ids 必空，但那是"根本没跑向量"而不是"跑了没够着门槛"。
+    # 不加这个前提，没装向量组件的用户会拿到 `vector_below_threshold`，
+    # 前端对它没有文案 → 一句提示都不显示，用户不知道自己在用纯文字检索（M8 S-1）
+    if ready and not vec_ids and limit_distance is not None:
         fallback = "vector_below_threshold"
     for chunk_id in vec_ids:
         tag.setdefault(chunk_id, "vector")
@@ -307,6 +312,16 @@ def hybrid(query: str, top: int = TOP_K) -> dict:
 
 
 def _fallback(text: str, ready: bool) -> str:
+    """没跑向量的原因，要能一眼分辨"用户关了"和"没装组件"（M8 S-1）。
+
+    - `vector_disabled`：开关关了，或开关开着但还没模型 —— M3 起就是这个语义
+    - `vector_component_missing`：M8 新增，向量组件没装（原先把这种情况也报成
+      `vector_disabled`，界面提示不了"去装"）
+    """
     if len(text) < FTS_MIN_CHARS:
         return "like_short_query"
-    return "none" if ready else "vector_disabled"
+    if ready:
+        return "none"
+    if not get_settings().vector_enabled or embedder.usable():
+        return "vector_disabled"
+    return "vector_component_missing"

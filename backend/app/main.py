@@ -25,7 +25,7 @@ from app.routers import (
     settings, stats, tasks,
 )
 from app.db.repo import sessions as sessions_repo
-from app.services import browser
+from app.services import browser, components
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
 
@@ -73,6 +73,9 @@ async def lifespan(_: FastAPI):
         # 先让登录线程收手，再关线程池：否则退出时可能留下一个孤立的浏览器窗口
         browser.shutdown()
         shutdown()
+        # M8 D3：组件进程必须跟着死。留着孤儿 exe 会锁住 components/<id>/，
+        # 卸载时 Windows 删不掉（v0.1.0 的 app.asar 就是这么被锁过的）
+        components.stop_all()
 
 
 app = FastAPI(title="Cairn", version="0.1.0", lifespan=lifespan)
