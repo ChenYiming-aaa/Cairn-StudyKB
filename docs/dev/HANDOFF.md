@@ -1722,6 +1722,13 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 - UI 走查：正常 / 下载中 / 失败 / 已安装 / 演示版 五张截图逐个核对
 - `doc_check.py` 通过（6 项 + 1 条既有 WARN）
 
+**已知缺口（不是 bug，是顺序问题）**
+- `app/components.json` 里的清单元信息指向 `release_tag = components-v1`，那个 Release
+  **要 T8.7 才建**。所以在今天点「安装」会拿到 `COMPONENT_DOWNLOAD_FAILED (HTTP 404)` ——
+  链路本身已用本地源验过（`verify_m8 §3`），真包下载要等 T8.7 传完 zip 再走一遍
+- 真包（262 / 100 / 49 MB）的端到端安装按 T8.8 在干净机器上做；本轮 UI 走查用的是
+  拦截出来的假状态，不是真下载
+
 **推送状态：已推送 ✅**
 - 远程 `origin/main` = 本轮提交；标签 `m8-wip` 已推（`2e65e46`）
 
