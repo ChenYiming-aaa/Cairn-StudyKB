@@ -18,21 +18,21 @@
 
 ---
 
-## 当前状态（2026-11-10 14:20 · 每次会话结束更新这一段）
+## 当前状态（2026-11-10 19:15 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M8 体积与更新 · 进行中（六层中的 L0/L1/L2/L3 已完成）**。分层计划见 `M8-补充记录.md` §1；下一层 **L4 = T8.5 + T8.6 更新器与版本元数据** |
-| 当前里程碑 | **L3（T8.3 下载中心后端 + T8.4 UI）完成**：5 个端点（install 立即 202 / progress 轮询 / cancel / DELETE 卸载 / 列表）、断点续传（`Range` 不被支持时从头写）、sha256 校验失败拒绝并清干净、解压到临时目录再整体改名、`COMPONENT_*` 错误码 6 个；UI 三张卡（安装中进度条 / 失败原因 + 重试 / 卸载回升）＋ 欢迎页第 3 步选装 ＋ 问答页「去安装」；`verify_m8` **71/71**。｜ **L1（T8.1）+ L2（T8.2）**：安装包 **426 → 172 MB**（解包 965 → 474 MB），**目标已裁决为 ≤175 MB → ✅ 达标**（原 170 MB 差 2 MB 不做补救，理由见补充记录 §三 1.1）；三个组件包真管道（bge / faster-whisper / playwright）打完，`--selftest` 各自 exit 0，zip **262 / 100 / 49 MB**，`sha256` 已回写 `app/components.json`；新增 `backend/shared/`（playwright 与 cookie 格式主程序/组件共用一份）；协议补 `idle=True` 空闲超时 |
-| 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；**M5 + v0.1.0 已发布**，唯一未闭环项仍是遗留 #2（装到没有 Python/Node 的真机） |
-| 远程 | `origin/main` = 见本文件最后一条的「推送状态」（含 M8 L1/L2/L3）；标签 `m8-wip` 已推（打在 L2 落地的提交上）；**本表不追每次提交** |
-| 版本 | `v0.1.0`（三处都是 0.1.0）。统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0）。**组件包内部自报 0.2.0**（协议里 `version`/`min_app_version` 不跟主包版本号走） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip`(→`2e65e46`，L1/L2 + 体积裁决)。**`m8-done` 等 L5 发布时打** |
-| 验收 | **M8 `verify_m8.py` 71/71 PASS**（§1 protocol 38：清单 5 / 三态 3 / 协议往返 12 / 降级 6 / 文案 3 / HTTP 5 / 生命周期 4；§3 install 33：安装 / 续传 / 源不支持 Range / 坏包 / 取消 / 卸载 / 5 个端点） · 回归**在 `CAIRN_COMPONENT_MODE=none`（模拟没装组件）下全绿**：**m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · 安装包 **172,035,473 B**、安装后整目录 **474 MB** · 组件自检三个 exit 0 · 前端 `npm run lint` 干净、`npm run build` 通过（JS 325.54 kB / gzip 119.07；CSS 95.48 / 14.38） |
+| 里程碑 | **M8 体积与更新 · 已完成（L0–L5 六层全部收口，2026-11-10）**。出口 `v0.2.1` 已发布；下一里程碑未定（backlog 见本文件「未结遗留」） |
+| 当前里程碑 | **L5（T8.7 发布 + T8.8 干净机验收）完成**：`v0.2.0` 与 `components-v1` 已发、演示站上线；T8.8 用 `tools/e2e_clean.py` 在本机模拟干净机走查 **28/28**，途中逮到「装完组件不回填历史向量」真缺陷（`M8-补充记录.md` §7.1），修复后发 **v0.2.1**；`verify_m8` **105/105** |
+| 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；M6 已验收（`m6-done`） |
+| 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
+| 版本 | **0.2.1**（四处一致，`tools/bump_version.py --check` 通过） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` |
+| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
-| 发布 | GitHub Release `v0.1.0`：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.1.0>（正文取 `release-notes-v0.1.0.md`，附件 `Cairn-0.1.0-setup.exe` 426,428,660 字节） |
+| 发布 | 最新 Release **`v0.2.1`**：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>（正文取 `release-notes-v0.2.1.md`，附件 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256`）。历史：`v0.2.0`（172,075,794 B）、`v0.1.0`（426,428,660 B，0.1.0 里没有更新器，只能手动下）。组件包在 **`components-v1`**（三个 zip，`make_latest=false`，别设 latest 否则更新器会认错） |
 | 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
 
 **2026-11-09 本轮裁决（四条，都已落进文档，改主意要回写）**
@@ -47,7 +47,7 @@
 | # | 遗留 | 类型 | 备注 |
 |---|---|---|---|
 | 1 | ~~`verify_m1.py` 写死 `total == 3`~~ | **已修 2026-11-08** | 改成「organize 任务数前后不变 + 无 `LLM_NO_KEY` 失败任务」，m1 现在 52/52 |
-| 2 | 装到**另一台没有 Python/Node** 的 Windows 机器 | DoD 唯一未闭环项 | 我只能用干净 PATH 模拟（已过），真机得你找 |
+| 2 | 装到**另一台没有 Python/Node** 的 Windows 机器 | 仍开着（降级为可选） | 2026-11-10 已用 `tools/e2e_clean.py` 在本机模拟干净机走查 **28/28**（干净 PATH + 全新数据目录 + 真下组件/模型），T8.8 据此判通过；换一台物理机器仍值得做一次，但不是发布的阻塞项 |
 | 3 | 冷启 6680ms 未达 DoD 的 5 秒（热启 4066ms 达标） | 已记例外 | 原因是首启建 21 张表 + 杀软扫 1.4GB；重型导入已延迟，8.9s → 6.7s |
 | 4 | 安装包**未签名** | 发布前必办 | SmartScreen 会拦，README 已写"更多信息 → 仍要运行"；正式分发要买证书 |
 | 5 | 多选可能出「四个选项全对」 | 模型质量 | prompt 已约束，无量化断言 |
@@ -1880,3 +1880,61 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
   （`m8-wip` 已在远程 `2e65e46`；下一个标签是 L5 的 `v0.2.0`）
 - 工作区另有两路**不属于 L4** 的未跟踪文件：`docs/dev/真机实测-v0.1.0.md`、`tools/audit_kb.py`、
   `tools/build_signed.py` —— 我一个都没动、也没提交，你决定它们的归属
+
+---
+
+## 2026-11-10 19:15 · M8 · L5 收口：T8.8 干净机走查 + 0.2.1 缺陷修复（**M8 六层全部完成**）
+
+**范围**：T8.8 干净机验收 + T8.7 剩余项（`e2e_update --only real`）+ 缺陷修复与新补丁版发布。
+**不做**：清理 backlog（#6/#7/#13–15 等），留给下一个里程碑。
+
+**T8.8 怎么做的（没有第二台机器）**
+- 新增 `tools/e2e_clean.py`：把已装目录整份复制到临时目录 → `--user-data-dir` 指到全新目录
+  （壳会当 `--data-dir` 传下去）→ `PATH` 削到只剩 `System32`。脚本自己断言"没有 python / 没有 node"
+- 真下 262 MB 组件、真下 92 MB 模型、真调模型问答；与 `e2e_update.py` 同属"发布前手工跑一次"
+
+**第一轮 25/29，逮到一个真缺陷（已修，已发 0.2.1）**
+- 四条 FAIL 同一根因：**装完 embed 不给历史 chunk 补向量**。`embedder.schedule()` 在组件缺失时
+  直接 `return None`，而组件装完只 `reset_cache()` —— 于是"先攒内容、后装组件"的用户，
+  老条目的语义检索永远不生效，模型也不会被拉下来
+- 修法：`component_install._backfill_vectors()`，装完 done 后对 embed 派一次全库补向量
+  （`schedule()` 不带 item_id），且**只有 `resolve() == "component"` 才派**（坏包不派，免得任务中心红）
+- `verify_m8` 新增 `§3.1b` 三条（假包不派 / 能跑派一次 / asr·browser 不派）→ **102 → 105**
+
+**两处只记录、没改的观察**（理由：补丁版不加新行为）
+- 装完那一瞬间（模型还没下完，实测 **29 s**）界面仍写「向量不可用，已降级为全文检索」。
+  建议加 `vector_preparing` 状态，要动 Ask / 检索 / 设置三处文案
+- 卸载时若正在建索引，`DELETE /api/components/embed` 会等一次编码（首轮客户端 30 s 超时）；
+  等补向量跑完再卸是 **10.9 s**。要改就让 `stop()` 抢锁带 3 s 超时、抢不到直接 kill
+
+**改动文件**
+- 后端：`app/services/component_install.py`（`_backfill_vectors` + 装完调用）、`scripts/verify_m8.py`（§3.1b）
+- 工具：新增 `tools/e2e_clean.py`（299 行）
+- 版本：`tools/bump_version.py --to 0.2.1`（四处）
+- 物料：`CHANGELOG.md`（`[0.2.1]`）、`README.md`（徽章/安装包名/已知限制口径）、
+  新增 `docs/dev/release-notes-v0.2.1.md`
+- 文档：`M8-补充记录.md` §七、`milestones/M8`（L5 行 + T8.8 结果 + 出口）、`00-总纲.md`、
+  `会话提示词手册.md`、本文件「当前状态」
+
+**验证**
+- `tools/e2e_clean.py` → **28/28 PASS**（0.2.1 的 `win-unpacked`；④ 等 29 s 命中向量，⑤ 卸载 10.9 s 释放 690 MB）
+- `tools/e2e_update.py --only real` → **4/4 PASS**（关于页 `v0.2.0`/`485bf6b`/构建时间 + 真 API「已是最新版本」）
+- `verify_m8` → **105/105**；回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41**
+- `npm run lint` 干净、`npm run build` 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）
+- `python tools/doc_check.py` 通过
+
+**物料**
+- `desktop/release-m81/Cairn-0.2.1-setup.exe` **172,078,997 B**，
+  sha256 `2a6f238efa2fb3bd61d564b972917c530dc90a95354edd02eebb6c8d8c7b9397`
+- 同目录 `.sha256`（标准 `hash  filename`，88 B）
+- **组件包不用重发**：`components-v1` 三个 zip 没变，`min_app_version` 仍是 0.2.0
+
+**这台机器被改了什么**
+- 本机 `D:\知识库\Cairn` 的 Cairn 被我结束过（你同意的），现在没在跑；数据目录 `%APPDATA%\Cairn` 没动
+- 临时目录 `D:\cairn-t88` / `D:\cairn-t881` / `D:\cairn-t882`（复制出来的"干净机" + 各自的数据目录，
+  含 690 MB 组件与 92 MB 模型）—— 验收证据，用完可整个删掉
+
+**下一会话第一件事**
+> M8 已完结，没有进行中的里程碑。要开新工作，先从本文件「未结遗留」里挑（建议顺序：
+> ① 装到一台真机（遗留 #2）② 三条只记录未改的观察（补充记录 §7.2 / §7.3）③ backlog #6/#7）。
+> 定新里程碑前先写 `docs/dev/milestones/M9-*.md`，不要在 M8 文档里打补丁。

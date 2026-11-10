@@ -348,6 +348,18 @@ def group_install() -> None:
 
     try:
         step("§3.1 安装（正常路径）")
+        from app.db.conn import get_conn
+        from app.services import embedder
+
+        def index_task_count() -> int:
+            c = get_conn()
+            try:
+                return int(c.execute(
+                    "SELECT COUNT(*) FROM agent_task WHERE type='index_embed'").fetchone()[0])
+            finally:
+                c.close()
+
+        baseline = index_task_count()       # 装之前先记一笔，才能证明"装的过程没派"
         task_id = component_install.start("embed")
         check("install 立刻返回 task_id", bool(task_id), task_id[:8])
         check("装的过程中 progress 是 running",
@@ -367,6 +379,25 @@ def group_install() -> None:
               and not component_install.part_path("embed").exists())
         check("没有留下临时解压目录",
               not [p for p in components.root().glob(".tmp-*")], "残留 .tmp-*")
+
+        step("§3.1b 装完补向量（只在组件真能跑时才派）")
+        # T8.8 干净机走查逮到的：装完 embed 不回填历史向量，老条目永远只有全文命中。
+        # 这里验两半：① 假包握手不通时不许派（否则任务中心一条红）；② 能跑时派一次全库。
+        check("假包握手不通 → 不派补向量任务", index_task_count() == baseline,
+              f"index_embed {baseline} → {index_task_count()}")
+
+        calls: list = []
+        real_resolve, real_schedule = components.resolve, embedder.schedule
+        components.resolve = lambda cid: "component"          # 假装握手通过
+        embedder.schedule = lambda item_id=None: calls.append(item_id)
+        try:
+            component_install._backfill_vectors("embed")
+            component_install._backfill_vectors("asr")
+            component_install._backfill_vectors("browser")
+        finally:
+            components.resolve, embedder.schedule = real_resolve, real_schedule
+        check("能跑时给 embed 派一次全库补（item_id=None）", calls == [None], str(calls))
+        check("asr / browser 不补索引（只补一次）", len(calls) == 1, str(calls))
 
         step("§3.2 断点续传（源支持 Range）")
         components.uninstall("embed")

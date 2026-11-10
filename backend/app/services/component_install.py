@@ -157,6 +157,36 @@ def _check_cancel(cid: str) -> None:
         raise Cancelled()
 
 
+def _backfill_vectors(cid: str) -> None:
+    """装完向量组件要给**已经入库**的 chunk 补向量（T8.8 干净机走查逮到的）。
+
+    装组件之前采集的条目一条向量都没有：`embedder.schedule()` 在组件缺失时直接
+    `return None`（连任务都不派，怕任务中心全是立刻 skip 的红条目）。于是用户花了
+    262 MB 下载、界面也显示「已安装」，检索却仍然只有全文，92 MB 的 bge 模型
+    也永远不会被拉下来 —— 静默的质量损失，比报错难发现得多。
+
+    顺手把模型下载也带起来：`index_embed` 任务里第一次 `encode_docs()` 会去拉模型，
+    所以**补向量和"让向量真正可用"是同一个动作**。
+
+    两道前置不是防呆：
+    1. 只有 embed 需要补 —— asr / browser 不产出索引
+    2. `resolve()` 必须真握手通过。装上但跑不起来（坏包 / 缺 dll）时派任务，
+       只会在任务中心留一条失败条目，用户还得自己判断"到底装没装上"
+    """
+    if cid != "embed":
+        return
+    if components.resolve("embed") != "component":
+        log.info("embed 已落位但握手未通过，跳过补向量（界面会显示组件不可用）")
+        return
+    try:
+        from app.services import embedder
+
+        embedder.schedule()          # 不带 item_id = 全库补
+        log.info("embed 装完，已派全库补向量任务")
+    except Exception as exc:          # 补不补得上都不该让安装算失败
+        log.warning("装完组件补向量派发失败（%s），组件本身仍可用", type(exc).__name__)
+
+
 # ── 主流程（在任务线程里跑） ────────────────────────────
 def run(payload: dict, task_id: str | None = None) -> dict:
     cid = str((payload or {}).get("id") or "")
@@ -195,6 +225,7 @@ def run(payload: dict, task_id: str | None = None) -> dict:
         log.info("组件 %s 安装完成，占 %.1f MB", cid, size / 1e6)
         if task_id:
             task_queue.update_progress(task_id, 100, stage="已安装")
+        _backfill_vectors(cid)
         return {"id": cid, "bytes": size, "url": url}
 
     except Cancelled:
