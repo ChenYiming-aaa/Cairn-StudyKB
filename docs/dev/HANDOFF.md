@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-10 00:20 · 每次会话结束更新这一段）
+## 当前状态（2026-11-10 11:10 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
 | 里程碑 | **M7 布局与文案 · 已验收**（T7.0–T7.7 全部完成，tag `m7-done`）。下一个：**M8 体积与更新**（未开工） |
-| 当前里程碑 | **M7 第三部分完成**（`文案规范.md` / 全量替换两批 / `verify_m7.py` 30/30 + 10 张截图重拍）。下一步 **M8**（T8.0–T8.8） |
+| 当前里程碑 | **M7 收口轮完成**（S-26 四条：计数口径 / 手风琴 / 对比度 / 导图配色 + 学习页外框），`verify_m7` **41/41**。下一步 **M8**（T8.0–T8.8） |
 | 上一里程碑 | **M5 代码完成 + v0.1.0 已发布（tag + GitHub Release + 安装包）**：本机「安装 → 干净 PATH 启动 → 卸载 → 重装数据保留」已闭环。**唯一未闭环项仍是遗留 #2**：装到一台没有 Python/Node 的真机 |
 | 远程 | `origin/main` = `c2ced93`（M7 第三部分，2026-11-10 已推；标签 `m7-done` 已推）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（desktop / frontend / backend 三处都是 0.1.0）。**M6 关于页显示真实版本 + 「v0.2 开发预览」标注**，统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` |
-| 验收 | **M7 `verify_m7.py` 30/30 PASS**（真起后端 + Playwright + 脚本内种子库 34 条 / 13 分类 / 59 标签；含 10 张截图重拍） · 回归 **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78**（2026-11-10 全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.09 kB / gzip 115.68 kB；CSS 89.47 kB / gzip 13.75 kB） · `check_contrast.py` 6 套 × 明暗 × 10 组全过 · 安装包基线 426,428,660 字节（M7 未改后端依赖，体积不变） |
+| 验收 | **M7 `verify_m7.py` 41/41 PASS**（新增计数口径 3 / 手风琴 3 / 导图主题 3 / 徽标实测 1 / 学习页外框 2） · 回归 **m1 52/52 · m2 118/118 · m3 61/61 · m4 69/69 · m5 57/57 · m6 78/78**（2026-11-10 全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.49 kB / gzip 115.82 kB；CSS 90.94 kB / gzip 13.90 kB） · `check_contrast.py` 6 套 × 明暗 × **13 组**全过（text-3 提到 4.5，新增 3 组 `*-ink`） · 安装包基线 426,428,660 字节（本轮仍只改前端） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -1403,3 +1403,51 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 **下一会话第一件事**
 > 开 M8：读 `milestones/M8-体积与更新.md`，跑 `doc_check.py` + `scripts/status.py`，
 > 从体积账（426 MB → ≤170 MB）开始。
+
+## 2026-11-10 11:10 · M7 收口轮（S-26 全关，进 M8 前清洁）
+
+**范围**：M7 出口时留下的四条观感问题 + M6 两条遗留（导图配色 / 学习页白底）。
+四条方案都是先问你、再动手（S-26 的选项表 → 你选了四个「推荐」项）。
+
+**完成**
+- **计数口径**：`GET /api/knowledge/categories` 加可选 `category`/`tag`，只收窄 `counts`；
+  `organize-pending` 同参数，「开始整理 N 条」与真正整理的范围一致
+- **分类溢出**：手风琴（`openOnly()`），同时只展开一个分类，13 个分类全展开也不再挤走标签云
+- **对比度**：`text-3` 目标 3.08 → 4.55；新增 `--c-success-ink` / `--c-warning-ink` / `--c-danger-ink`
+  （对 soft 底按 4.7 反解）；徽标 + 19 个组件的语义色文字统一改用 ink
+- **导图配色**：`mindmap.palette(theme, mode)` 按主题派生；接口 `theme=<主题 id>&mode=`，
+  老写法 `theme=light|dark` 仍可用；前端传当前主题 id
+- **学习页白底**：预览套 `.stage-frame-clip`「一张纸」外框（`--c-bg-2` 桌面 + 阴影），
+  标题栏注明「浅色排版（便于打印）」；产物本身不动
+- 新增令牌 `--c-page`（12 套色板统一白）：M6 的「不许写死颜色」检查拦下了 `#ffffff`
+
+**改动文件**
+- 后端：`app/db/repo/items.py`（`_scope_clause` / `category_tree` / `list_ids_by_status`）、
+  `app/routers/knowledge.py`（2 个端点）、`app/services/mindmap.py`（调色板重写）
+- 前端：`api/client.js`、`views/Knowledge.vue`、`views/HtmlPages.vue`、
+  `components/filters/CategorySection.vue`、`components/MindmapPane.vue`、
+  `components/ItemDetail.vue`、`demo/index.js`、`styles/app.css`、`styles/tokens.css`（生成物）、
+  以及 19 个把语义色文字改成 ink 的文件
+- 工具/验收：`tools/check_contrast.py`、`backend/scripts/verify_m7.py`（30 → 41 条）、
+  `backend/scripts/verify_m3.py`（深色断言改成跟 `palette()` 对齐）
+- 文档：`README.md`（删两条已知限制、补导图/学习页说明）、`contracts/接口契约.md`（3 个端点）、
+  `M7-布局与文案.md` §6.4、`M7-补充记录.md` §八、`00-总纲.md`
+
+**验证**
+- `verify_m7.py` → **41/41 PASS**（`--shots` 再跑一遍仍 41/41，10 张图重拍）
+- 回归：m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 全绿
+- `check_contrast.py`：6 套 × 明暗 × 13 组全过；`npm run lint` 干净；build JS 317.49 kB / CSS 90.94 kB
+- 截图人工核对：知识库（计数/手风琴）、导图（绿色系派生）、学习页（一张纸）、深色模式
+
+**遗留问题**
+- [ ] `data/tmp/m7ui`（旧临时脚本与种子库）可删；`verify_m7` 已自建种子
+- [ ] `tools/audit_kb.py`、`tools/build_signed.py`、`backend/cairn-backend.spec` 仍是另一路未提交改动
+- [ ] S-26 之后没有新开的观感项；M6-S20 第 2 条（深色按钮亮底深字）当年就定为「不改」
+
+**待裁决冲突**
+- 无。
+
+**下一会话第一件事**
+> 开 M8：读 `milestones/M8-体积与更新.md`，跑 `python tools/doc_check.py` 与
+> `cd backend && uv run python scripts/status.py`，从体积账（426 MB → ≤170 MB）起手。
+> 备注：本轮只改前端与后端少量代码，**安装包基线仍是 426,428,660 字节**，M8 的第一步照旧是量体积。
