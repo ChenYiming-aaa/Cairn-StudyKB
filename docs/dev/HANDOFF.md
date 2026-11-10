@@ -1938,3 +1938,11 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 > M8 已完结，没有进行中的里程碑。要开新工作，先从本文件「未结遗留」里挑（建议顺序：
 > ① 装到一台真机（遗留 #2）② 三条只记录未改的观察（补充记录 §7.2 / §7.3）③ backlog #6/#7）。
 > 定新里程碑前先写 `docs/dev/milestones/M9-*.md`，不要在 M8 文档里打补丁。
+
+**发布完成（2026-11-10 19:20）**
+- `v0.2.1`（annotated tag）与 `m8-done` 都已推；Release **<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>**（id `440262282`）
+  - 资产 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256` **88 B**，线上回读大小与 sha256 内容都与本地一致
+  - 流程按 0.2.0 的教训走：**先 draft → 传完 asset → 再 publish + make_latest**；`/releases/latest` 实测 = `v0.2.1`
+  - `components-v1` 没动（组件包未变），它仍是 `make_latest=false`
+- 演示站：push 触发 `demo-pages`（`404acbb`）**success**，用 Edge 打开线上站点确认关于页标题是 **`Cairn v0.2.1`**
+- **升级链路实测**：本机装着的 0.2.0 打开「设置 → 关于 → 检查更新」，界面显示 **「0.2.1 可用（当前 0.2.0）」** —— 补丁版对老用户可见
