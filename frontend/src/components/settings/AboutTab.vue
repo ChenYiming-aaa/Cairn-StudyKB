@@ -1,23 +1,29 @@
 <script setup>
 /**
- * 「关于」tab（M6 T6.8）。
+ * 「关于」tab（M6 T6.8 + T8.5 接线）。
  *
  * 版本号取 `GET /api/version`（不是前端 package.json）：关于页要回答的是
  * 「**这个二进制**是哪一版」，前端版本只说明「界面代码是哪一版」，两者打包后可能不一致。
  * 拿不到就显示 `—`，绝不写死一个数字充数。
  *
- * 「检查更新」在这一版是占位：真逻辑要桌面壳的 IPC（T8.5），M6 只把入口和形状定下来。
+ * 「检查更新」的实现在主进程（`desktop/updater.js`），这里只管状态机与文案；
+ * 状态挂在 `useUpdater` 的模块级单例上 —— 切 tab / 关窗口不会把 170 MB 的下载弄丢。
+ * 浏览器里跑（vite dev、静态演示页）没有 `window.cairn`，按钮禁用并写明原因。
  */
 import { computed, onMounted, ref } from 'vue'
 
 import { api } from '../../api/client'
 import { useSettings } from '../../composables/useSettings'
-import { useToast } from '../../composables/useToast'
+import { useUpdater } from '../../composables/useUpdater'
 
-const toast = useToast()
 const info = ref(null)
 const loading = ref(true)
 const { settings, load: loadSettings } = useSettings()
+
+const {
+  state, result, progress, error, verify, current, latest, notes,
+  fmtBytes, check, download, cancel, install, openManual,
+} = useUpdater()
 
 // 四个链接：仓库 / 演示 / 更新日志 / 反馈
 const LINKS = [
@@ -65,9 +71,53 @@ const cfgState = computed(() => {
 })
 
 function checkUpdate() {
-  // TODO(T8.5)：接桌面壳的更新器 —— 检查 → 下载（带进度）→ 打开安装程序 → 退出
-  toast.info('这一版还没有更新器，检查不了新版本。M8 接入后，这里能直接检查并下载')
+  // 没打包（源码跑 electron .）时主进程会直接回 DEV，这里不必自己判断一次
+  check()
 }
+
+/** 主按钮随状态走：同一时刻只有一个"下一步"，不摆一排按钮让人猜 */
+const primary = computed(() => {
+  switch (state.value) {
+    case 'checking':
+      return { label: '正在检查…', action: checkUpdate, disabled: true }
+    case 'available':
+      return { label: `下载 ${fmtBytes(result.value?.size)}`, action: download, disabled: false }
+    case 'downloading':
+      return { label: '取消下载', action: cancel, disabled: false }
+    case 'ready':
+      return { label: '打开安装程序', action: install, disabled: false }
+    case 'latest':
+      return { label: '重新检查', action: checkUpdate, disabled: false }
+    case 'error':
+      // 已经拿到版本信息了（下载阶段出错）→ 重试下载；否则重试检查
+      return { label: '重试', action: result.value ? download : checkUpdate, disabled: false }
+    case 'unavailable':
+      return { label: '检查更新', action: () => {}, disabled: true }
+    default:
+      return { label: '检查更新', action: checkUpdate, disabled: false }
+  }
+})
+
+const hint = computed(() => {
+  switch (state.value) {
+    case 'checking':
+      return '正在连 GitHub…'
+    case 'latest':
+      return '已是最新版本'
+    case 'available':
+      return `${latest.value} 可用（当前 ${current.value}）`
+    case 'downloading':
+      return `${progress.value.pct || 0}%（${fmtBytes(progress.value.got)} / ${fmtBytes(progress.value.total)}）`
+    case 'ready':
+      return '已下载完成，可以安装了'
+    case 'error':
+      return ''
+    case 'unavailable':
+      return '桌面版才能检查更新；浏览器里（含在线演示）没有更新器'
+    default:
+      return '看看 GitHub 上有没有新版本'
+  }
+})
 </script>
 
 <template>
@@ -78,7 +128,6 @@ function checkUpdate() {
         <h4 class="name">
           Cairn
           <span class="ver">v{{ loading ? '…' : version }}</span>
-          <span class="tag">v0.2 开发预览</span>
         </h4>
         <p class="tagline">
           把看过的网页、视频、文章收进本地知识库，让模型整理成可检索、可复习的知识资产。
@@ -98,9 +147,48 @@ function checkUpdate() {
           <dd>{{ builtAt || '源码运行，没有构建时间' }}</dd>
         </div>
       </dl>
-      <div class="update-row">
-        <button class="btn btn-sm" type="button" @click="checkUpdate">检查更新</button>
-        <span class="update-note">现在点它不会下载任何东西。等 M8 接上更新器，才能真正检查新版本。</span>
+      <div class="update">
+        <div class="update-row">
+          <button
+            class="btn btn-sm"
+            type="button"
+            :disabled="primary.disabled"
+            @click="primary.action"
+          >
+            {{ primary.label }}
+          </button>
+          <span class="update-note" :class="{ ok: state === 'latest', warn: state === 'error' }">
+            {{ hint }}
+          </span>
+        </div>
+
+        <div
+          v-if="state === 'downloading'"
+          class="bar"
+          role="progressbar"
+          :aria-valuenow="progress.pct || 0"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <span class="bar-fill" :style="{ width: (progress.pct || 0) + '%' }"></span>
+        </div>
+
+        <!-- 更新说明只给前 20 行，多的自己滚动：设置窗口只有 620px 高 -->
+        <p v-if="state === 'available' && notes" class="notes">{{ notes }}</p>
+
+        <p v-if="state === 'error'" class="err">
+          <span>{{ error?.message }}</span>
+          <a class="manual" href="#" @click.prevent="openManual">手动下载安装包</a>
+        </p>
+
+        <p v-if="state === 'ready'" class="update-note">
+          已下载 {{ fmtBytes(progress.got) }}，
+          {{ verify === 'sha256' ? '校验值一致' : '这个版本没附 .sha256，只比对了大小' }}。
+        </p>
+        <p v-if="state === 'ready'" class="update-note warn">
+          应用没有代码签名，安装时 Windows 可能提示「已保护你的电脑」，选「更多信息 → 仍要运行」。
+          安装前会先关掉当前窗口，不会动 `%APPDATA%\Cairn` 里的内容。
+        </p>
       </div>
     </section>
 
@@ -183,16 +271,6 @@ function checkUpdate() {
   color: var(--c-text-2);
 }
 
-.tag {
-  padding: 1px var(--space-2);
-  border: 1px solid var(--c-warning-border);
-  border-radius: 999px;
-  background: var(--c-warning-soft);
-  color: var(--c-warning-ink);
-  font-size: var(--fs-xs);
-  font-weight: 400;
-}
-
 .tagline {
   margin: var(--space-1) 0 0;
   font-size: var(--fs-sm);
@@ -234,11 +312,63 @@ function checkUpdate() {
   word-break: break-all;
 }
 
+.update {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
 .update-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+}
+
+.bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--c-bg-2);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  transition: width 0.2s linear;
+}
+
+/* 更新说明可能很长：限高 + 自己滚，别把窗口撑出滚动条 */
+.notes {
+  max-height: 76px;
+  margin: 0;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-1);
+  color: var(--c-text-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.err {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--space-2);
+  margin: 0;
+  color: var(--c-danger-ink);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.manual {
+  color: var(--c-primary-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .src {
@@ -259,6 +389,14 @@ function checkUpdate() {
   font-size: var(--fs-xs);
   color: var(--c-text-3);
   line-height: 1.45;
+}
+
+.update-note.ok {
+  color: var(--c-success-ink);
+}
+
+.update-note.warn {
+  color: var(--c-warning-ink);
 }
 
 .links {

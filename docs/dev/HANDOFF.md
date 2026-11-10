@@ -1737,3 +1737,85 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 > §4.3 需要的 Electron 改动、§4.4 版本元数据）。T8.5 的实测方法是**本地把
 > `desktop/package.json` 改成 0.1.9 打一个包装上**，点检查更新应发现 0.2.0；
 > 三个断言别省：断网给人话 / 取消下载文件删净 / 装完无孤儿 `cairn-backend.exe`。
+
+---
+
+## 2026-11-10 14:55 · M8 · L4 更新器 + 版本元数据（T8.5 + T8.6，**六层中的第五层完成**）
+
+**范围**：T8.6 版本元数据（先做，更新器要用它当比较基准）、T8.5 更新器（检查 / 下载 / 校验 /
+起安装器 / 无孤儿后端）+ 关于页接线。**不做**：发布物料（L5 / T8.7）、干净机器走查（T8.8）。
+
+**T8.6 结果**
+- `app/version.py` 成为运行时唯一真源（`app/__init__.py` 只转发 `__version__`）；
+  `tools/bump_version.py --to/--check` 一次改四处（pyproject / version.py / 两个 package.json）
+- `commit` / `built_at` 改由 `cairn-backend.spec` 在 Analysis 前写进 `app/_build_info.py`
+  （gitignored）随包带走。**M6 那版读环境变量是错的**：只有构建机那条命令里存在，
+  用户机器上永远是 null —— 关于页会永远显示"源码运行"
+- 装机版实测：关于页显示 `485bf6b` / `2026-11-10 14:40`；源码直跑如实显示"源码运行"
+
+**T8.5 结果（三个"不能省"的断言全部实测）**
+- `desktop/updater.js`（GitHub API + `net.request` 下载 + sha256 + 起安装器）、
+  `semver.js`（纯函数，node 可直测）、`preload.js`（4 个方法 + 3 个只读字段）、
+  `main.js` 4 个 IPC 通道（校验来源 / 不收入参）、`useUpdater` 单例 + 关于页状态机
+- 真机链路走通：**装 0.1.9 → 发现 0.2.0 → 下载 164 MB → sha256 一致 → 打开安装程序 →
+  壳 exit=0 → NSIS 装成 0.2.0**（`D:\知识库\Cairn`，ProductVersion 已确认 0.2.0.0）
+- `tools/e2e_update.py` **26/26 PASS**：
+  - 断网（DNS 必然失败的 `.invalid`）→ 「连不上 GitHub，请检查网络或代理设置。」+
+    「手动下载安装包」链接，**没有任何异常码**（4 条）
+  - 下载到 3% 点取消 → `%TEMP%\cairn-update\` **一个 exe 都不剩**，按钮回到「下载」（6 条）
+  - 点「打开安装程序」→ 壳 `exit=0`、`cairn-backend.exe` 计数 **0**、`Cairn.exe` 计数 **0**、
+    安装器进程在跑（12 条，含静默装完后再查一次）
+  - 真 api.github.com → 「已是最新版本」+ 关于页构建信息（4 条）
+
+**本轮踩到的四个真缺陷（详见 `M8-补充记录.md` §六）**
+- **S-10** `updater.js` 里 `const { parseVersion } = require('./semver')` 与残留的
+  `function parseVersion()` 同名 → SyntaxError → **整个壳只弹一个标题为 "Error" 的框，
+  `shell.log` 一行不写**（`log()` 在 require 之后）。两次误判（先疑安装包坏，再疑环境变量）。
+  防线：`verify_m8 §5.4` 用假 electron 模块真 `require` 一次 updater.js
+- **S-11** 取消下载只 `req.abort()` 不够：响应流继续推数据，进度还在涨、文件删不掉。
+  要 `abort()` + `res.destroy()` + `close` 兜底；删文件必须等 `out.close()` 回调之后（Windows EBUSY）
+- **S-12** `bump_version.py` 正则漏了 `group(3)`，四处文件被写成 `"0.1.90.1.0`。已修，
+  注释写明"第一次跑先 `--check`"
+- **S-13** `%TEMP%\cairn-update` 里成功安装后的包会留到下次启动才清（原阈值 1 小时），
+  验"取消删净"时会被误判成残留。阈值改 10 分钟，端到端脚本每次开跑前先清空该目录
+
+**改动文件**
+- 后端：新增 `app/version.py`；改 `app/__init__.py`、`app/routers/health.py`、
+  `cairn-backend.spec`（构建时戳）、`scripts/verify_m8.py`（新增 §5 update 31 条，总 **102/102**）
+- 桌面：新增 `preload.js`、`updater.js`、`semver.js`；改 `main.js`（preload + 4 个 IPC + 安装流程）、
+  `package.json`（`files` 加三个 js、`publish` 改 github）
+- 前端：新增 `composables/useUpdater.js`；改 `AboutTab.vue`（更新状态机 + 错误行 + 说明区）
+- 工具：新增 `tools/bump_version.py`、`tools/e2e_update.py`；`.gitignore` 加 `_build_info.py`
+- 文档：`M8-补充记录.md` §六、`milestones/M8`（层状态 + T8.5/T8.6 完成 + §4.3 表）、
+  `contracts/接口契约.md`（version 段重写 + preload 暴露面）、`contracts/决策记录.md`（ADR-029/030）、
+  `00-总纲.md`、`会话提示词手册.md`、`运行与打包.md`
+
+**验证**
+- `verify_m8.py` → **102/102 PASS**（§1 38 + §3 33 + §5 31）
+- `tools/e2e_update.py` → **26/26 PASS**（四幕，真装真升级）
+- `verify_m6` 78/78、`verify_m7` 41/41（回归；`m1..m5` 本轮**未重跑** —— 没动 `config.py` /
+  配置加载，只动了版本元数据与 health，按约定不强制）
+- `npm run lint` 干净；`npm run build` 通过（JS 330.26 kB / gzip 120.72；CSS 96.42 / 14.48）
+- `python tools/doc_check.py` 通过（见下）
+
+**这台机器被改了什么（要知会）**
+- 机器上原本装着 **Cairn 0.1.0 在 `D:\知识库\Cairn`**（注册表里早有卸载项，我没有先发现）。
+  NSIS 会记住上次安装目录，所以 `0.1.9` / `0.2.0` 的静默安装都装到了那个目录 ——
+  现在 D 盘那个是**本轮打出来的 0.2.0 候选包**，卸载项显示 `Cairn 0.2.0`
+- 数据目录 `%APPDATA%\Cairn` 没被删改；测前已备份 `data.db` + `.env` 到
+  `data/backup/pre-update-test-20261110/`（gitignored）。备份里的 `.env` 含 Key，确认后请删
+- 关掉这个安装请用 `D:\知识库\Cairn\Uninstall Cairn.exe`（卸载不删数据目录）
+- 结论：`/S` 的落点由注册表决定，**不能拿它验证"默认装到哪"**；那条要等 T8.8 干净机器
+
+**已知缺口（都不是本轮该修的）**
+- 关于页还挂着 `v0.2 开发预览` 标签，正式发布前摘掉（T8.7）
+- `app/components.json` 的 `release_tag = components-v1` 那个 Release 仍未建，
+  「安装组件」今天会 404；T8.7 传完 zip 再走一遍真下载
+- README / CHANGELOG 仍不改（T8.7 统一）
+
+**下一会话第一件事**
+> 进 L5（T8.7 发布 + T8.8 验收）。先把 `AboutTab.vue` 的「v0.2 开发预览」标签摘掉，
+> 再按 `M8-体积与更新.md` §5 T8.7 的七步走：三处版本 0.2.0（已是）→ CHANGELOG 补 0.2.0 →
+> README 全面更新（含体积/组件/更新三节 + 截图重拍）→ release notes（首行写"v0.1.0 用户这次要手动下一次"）
+> → 打 `v0.2.0` 并传 `Cairn-0.2.0-setup.exe` + `.sha256` → 建 `components-v1`（不设为 latest）→ 重建演示站。
+> 传完 Release 后**用真 API 再跑一次 `e2e_update.py --only real`**（那时 0.1.9 包应能真发现 0.2.0 并下载）。

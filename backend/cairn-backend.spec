@@ -54,6 +54,35 @@ for pkg in ('uvicorn', 'fastapi', 'sqlite_vec', 'zhconv'):
     except Exception:  # noqa: BLE001
         pass
 
+# ── 版本元数据：构建时戳（T8.6）──────────────────────────────────────
+# 装机版的关于页要显示"这个二进制是哪次提交、什么时候打的"，但运行时读不到 `.git`，
+# 也读不到 `pyproject.toml`（不参与打包）。曾经用环境变量注入，结果是**只有构建机看得见**：
+# 用户双击 Cairn.exe 时 `CAIRN_COMMIT` 根本不存在，页面永远显示"源码运行"。
+# 所以在 Analysis 之前把两行常量写进 `app/_build_info.py`，随包带走；gitignored，
+# 每次打包覆盖。源码直跑没有这个文件，`app/version.py` 就如实回 null。
+import datetime
+import subprocess
+
+_HERE = pathlib.Path(globals().get('SPECPATH') or '.')
+_BUILD_INFO = _HERE / 'app' / '_build_info.py'
+try:
+    _commit = subprocess.check_output(
+        ['git', 'rev-parse', '--short', 'HEAD'],
+        cwd=str(_HERE), stderr=subprocess.DEVNULL,
+    ).decode().strip()
+except Exception:  # noqa: BLE001 - 没有 git 也能打包，只是 commit 为空
+    _commit = ''
+_built_at = datetime.datetime.now().astimezone().isoformat(timespec='seconds')
+_BUILD_INFO.write_text(
+    '"""构建时戳（由 cairn-backend.spec 生成，勿手改，gitignored）。"""\n'
+    f'COMMIT = {_commit!r}\n'
+    f'BUILT_AT = {_built_at!r}\n',
+    encoding='utf-8',
+)
+print(f'[spec] 版本元数据 -> {_BUILD_INFO}  commit={_commit or "(无 git)"}  built_at={_built_at}')
+# 显式登记：`app/version.py` 里是函数内 import（可能失败），静态分析不保证跟得到
+hiddenimports.append('app._build_info')
+
 # ── 重栈全部挪进组件（M8 §2.4 / T8.1）─────────────────────────────────
 # 下面这些包在 v0.1.0 里占了约 560 MB 解包体积（torch 一家 367 MB），而它们只在
 # 特定场景用得上。M8 把它们从主包剔掉，改成 `components/<id>/` 下的独立 exe，

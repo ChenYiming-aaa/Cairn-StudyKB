@@ -9,18 +9,20 @@
 //      （`file://` 的 origin 是 null，会撞上后端只放行 5173 的 CORS 白名单）
 //   5. 关窗/退出时按**进程树**杀掉后端，不留孤儿进程
 //
-// 明确不做：签名、托盘、自动更新。
+// 明确不做：签名、托盘。更新器在 T8.5 接入（`updater.js` + `preload.js`）。
 // 图标在 T5.10 补上（`tools/make_icon.py` → `desktop/build/icon.ico`）。
-// 也不注入 preload：契约 §4 已定「页面走相对路径，底座同源」，注入 baseUrl 只会多一层
-// 永远用不上的配置（docs/dev/contracts/接口契约.md §4）。
+// preload 是 T8.5 加的：更新器需要下载文件、起安装器、退进程，这些能力不能给渲染进程，
+// 所以开了一条**只有四个方法**的窄通道（`preload.js` 顶部写了为什么改掉契约 §4 的旧决定）。
 'use strict'
 
-const { app, BrowserWindow, dialog, session, shell } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, session, shell } = require('electron')
 const { spawn, spawnSync } = require('node:child_process')
 const http = require('node:http')
 const net = require('node:net')
 const fs = require('node:fs')
 const path = require('node:path')
+
+const updater = require('./updater')
 
 const isDev = !app.isPackaged
 // 数据目录必须是 %APPDATA%/Cairn（M5 §1 约束 4）。
@@ -225,7 +227,14 @@ function openWindow(base) {
     backgroundColor: '#faf8f4',
     show: false,                 // 等 ready-to-show，避免启动时先白一帧
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js'),
+      // 版本号同步给 preload：关于页要在首帧就显示版本，不值得为它绕一次 IPC。
+      // 只读、不可改；真实比较仍以主进程 `app.getVersion()` 为准。
+      additionalArguments: [`--cairn-version=${app.getVersion()}`, `--cairn-packaged=${isDev ? 0 : 1}`],
+    },
   })
 
   win.once('ready-to-show', () => {
@@ -315,6 +324,88 @@ function showError({ reason, detail }) {
   win.loadFile(path.join(__dirname, 'error.html'), { query: Object.fromEntries(params) })
 }
 
+// ── 更新器 IPC（T8.5）──────────────────────────────────────
+// 两条硬约束：
+// 1. **入参一律不收**。下载与安装只认主进程里缓存的那次检查结果，渲染进程就算被注入
+//    也指不到别的 URL（否则「下载并运行」就是个任意代码执行口子）。
+// 2. **校验来源**。只接受来自本窗口（`http://127.0.0.1:<port>`）的调用；
+//    别的 frame 一律拒。
+function registerUpdater(base) {
+  const trusted = (event) => {
+    const url = (event.senderFrame && event.senderFrame.url) || ''
+    return url.startsWith(base)
+  }
+  const guard = (name, handler) => async (event, ...args) => {
+    if (!trusted(event)) {
+      log(`拒绝更新器调用 ${name}：来源 ${(event.senderFrame && event.senderFrame.url) || '?'}`)
+      return { ok: false, code: 'FORBIDDEN', message: '来源不受信任。' }
+    }
+    try {
+      return await handler(...args)
+    } catch (e) {
+      log(`更新器 ${name} 抛异常：${e && e.stack ? e.stack : e}`)
+      return { ok: false, code: 'EXCEPTION', message: `更新器内部出错：${(e && e.message) || e}` }
+    }
+  }
+
+  ipcMain.handle('update:check', guard('check', async () => {
+    log('检查更新…')
+    const r = await updater.check()
+    log(`检查更新 -> ok=${r.ok} code=${r.code || ''} current=${r.current || ''} latest=${r.latest || ''} hasUpdate=${r.hasUpdate || false}`)
+    return r
+  }))
+
+  ipcMain.handle('update:download', guard('download', async () => {
+    log('开始下载更新')
+    const r = await updater.download((p) => {
+      if (win && !win.isDestroyed()) win.webContents.send('update:progress', p)
+    })
+    log(`下载结束 -> ok=${r.ok} code=${r.code || ''} verify=${r.verify || ''} bytes=${r.bytes || 0}`)
+    return r
+  }))
+
+  ipcMain.handle('update:cancel', guard('cancel', async () => {
+    const ok = updater.cancel()
+    log(`取消下载 -> ${ok}`)
+    return { ok }
+  }))
+
+  ipcMain.handle('update:install', guard('install', async () => {
+    const file = updater.downloadedFile()
+    if (!file) {
+      return { ok: false, code: 'NO_FILE', message: '安装包已经不在临时目录里了，请重新下载。' }
+    }
+    log(`准备装更新：${file}`)
+    // 先置 quitting，否则杀后端会触发「后端意外退出」的错误页（装上更新却先看到红字）
+    quitting = true
+    killBackend()
+    let child
+    try {
+      // 不传 /S：辅助式安装器，让用户自己点下一步（M8 §4.2，静默覆盖不在默认行为里）
+      child = spawn(file, [], { detached: true, stdio: 'ignore', windowsHide: false })
+    } catch (e) {
+      quitting = false
+      return { ok: false, code: 'SPAWN', message: `打不开安装程序：${e.message}` }
+    }
+    const spawned = await new Promise((resolve) => {
+      child.once('spawn', () => resolve(true))
+      child.once('error', (e) => {
+        log(`安装器启动失败：${e.message}`)
+        resolve(false)
+      })
+    })
+    if (!spawned) {
+      quitting = false
+      return { ok: false, code: 'SPAWN', message: '打不开安装程序，可能是文件被杀毒软件删了。请手动下载安装。' }
+    }
+    child.unref()
+    log(`安装器已启动 pid=${child.pid}，壳即将退出`)
+    // 留 500ms 让安装向导先把窗口画出来；壳退出后安装器是独立进程，不会被带走
+    setTimeout(() => app.exit(0), 500)
+    return { ok: true }
+  }))
+}
+
 // ── 启动 ────────────────────────────────────────────────
 async function boot() {
   log(`Cairn 启动 mode=${isDev ? 'dev' : 'packaged'} electron=${process.versions.electron}`)
@@ -335,6 +426,9 @@ async function boot() {
 
   const base = `http://127.0.0.1:${backendPort}`
   injectCsp(base)
+  registerUpdater(base)
+  // 上次升级留下的临时包：只在启动时清一小时之前的（见 updater.cleanup 的说明）
+  if (updater.cleanup()) log('清掉过期更新包')
   openWindow(base)
 }
 

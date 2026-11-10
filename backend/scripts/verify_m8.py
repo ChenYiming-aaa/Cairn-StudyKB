@@ -10,7 +10,7 @@
   §1 protocol   T8.0/T8.2 组件清单 / 三态可用性 / 协议往返（真子进程）/ 缺组件降级 / HTTP 不 500
   §3 install    T8.3 下载中心（安装 / 续传 / 源不支持 Range / 坏包 / 取消 / 卸载 / 端点）
   §4 slim       T8.1 主包瘦身（体积与 excludes）—— 见 tools/ 与 HANDOFF，不在本脚本里
-  §5 update     T8.5 更新器与版本元数据 —— 待 L4 落地后填
+  §5 update     T8.5/T8.6 版本元数据形状、四处版本一致、更新器接线、版本比较边界
 
 **不联网、不调模型**：组件用的是真子进程但只做最小任务；下载走本地 HTTP 服务器
 （`CAIRN_COMPONENT_BASE_URL` 只为本脚本存在），后端起在 127.0.0.1 的临时端口上。
@@ -22,7 +22,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -495,6 +497,148 @@ def group_install() -> None:
 
 
 # ── 环境 ────────────────────────────────────────────────────
+# ── §5 update（T8.5 更新器 / T8.6 版本元数据）────────────────────
+def group_update() -> None:
+    """验的是"能在源码里验的部分"。
+
+    三个真机断言（断网人话 / 取消删净 / 无孤儿后端）需要装一个包、拉 170 MB、起 NSIS，
+    放在 `tools/e2e_update.py` 里单独跑 —— 本脚本的底线是"不装东西、不联网、随时能跑"。
+    这里替它们守住的是**形状与常量**：版本四处一致、IPC 通道齐、preload 没敞开、
+    版本比较的边界都对。
+    """
+    from app import version as version_meta
+
+    step("§5.1 版本元数据（T8.6）")
+    info = version_meta.info()
+    check("GET /api/version 形状固定",
+          set(info) == {"version", "commit", "built_at"}, str(sorted(info)))
+    check("version 与 app.version.VERSION 同源",
+          info["version"] == version_meta.VERSION, info["version"])
+    check("源码运行不给编造的 commit / built_at",
+          info["commit"] is None and info["built_at"] is None, str(info))
+
+    port = _free_port()
+    server = _start_server(port)
+    base = f"http://127.0.0.1:{port}"
+    try:
+        with urllib.request.urlopen(base + "/api/version", timeout=10) as resp:
+            body = json.load(resp)
+        check("HTTP GET /api/version 200 且同形", set(body) == {"version", "commit", "built_at"},
+              str(sorted(body)))
+        with urllib.request.urlopen(base + "/api/health", timeout=10) as resp:
+            health = json.load(resp)
+        check("health.version 与 version.version 一致",
+              health.get("version") == body.get("version"),
+              f'{health.get("version")} vs {body.get("version")}')
+    finally:
+        server.should_exit = True
+        time.sleep(0.4)
+
+    step("§5.2 四处版本号一致（bump_version --check）")
+    r = subprocess.run([sys.executable, str(ROOT / "tools" / "bump_version.py"), "--check"],
+                       capture_output=True, text=True)
+    tail = (r.stdout or "").strip().splitlines()
+    check("tools/bump_version.py --check 通过", r.returncode == 0, tail[-1] if tail else r.stderr[:80])
+    check("四处文件都读到了（不是空串算过）",
+          all(line.split()[-1] not in ("", "(未读到)") for line in tail if line.strip()),
+          " / ".join(tail[:4]))
+
+    step("§5.3 更新器接线（desktop/）")
+    desktop = ROOT / "desktop"
+    main_js = (desktop / "main.js").read_text(encoding="utf-8")
+    preload_js = (desktop / "preload.js").read_text(encoding="utf-8")
+    updater_js = (desktop / "updater.js").read_text(encoding="utf-8")
+    pkg = json.loads((desktop / "package.json").read_text(encoding="utf-8"))
+    files = pkg.get("build", {}).get("files", [])
+    for name in ("preload.js", "updater.js", "semver.js"):
+        check(f"打包清单包含 {name}", name in files, str(files))
+    check("窗口真的挂了 preload", "preload.js" in main_js and "preload:" in main_js)
+    for ch in ("update:check", "update:download", "update:cancel", "update:install"):
+        check(f"main 注册通道 {ch}", f"ipcMain.handle('{ch}'" in main_js)
+    check("preload 暴露四个方法（不多不少）",
+          preload_js.count("ipcRenderer.invoke") == 4, str(preload_js.count("ipcRenderer.invoke")))
+    check("preload 不把 ipcRenderer 本身递出去",
+          "ipcRenderer," not in preload_js and "ipcRenderer:" not in preload_js)
+    check("IPC 校验调用来源", "trusted" in main_js and "FORBIDDEN" in main_js)
+    check("下载只认主进程缓存的检查结果（不收渲染进程传的 URL）",
+          "ipcMain.handle('update:download', guard('download', async () =>" in main_js)
+    check("安装前先杀后端（避免目录被占用/孤儿）",
+          "quitting = true" in main_js and "killBackend()" in main_js)
+    check("更新源默认 api.github.com（不是假地址）",
+          "api.github.com" in updater_js and "example.invalid" not in json.dumps(pkg),
+          "example.invalid" if "example.invalid" in json.dumps(pkg) else "ok")
+    check("有 sha256 校验分支", "createHash('sha256')" in updater_js or 'createHash("sha256")' in updater_js)
+    check("取消/失败会删半截文件", "rmSync(file, { force: true })" in updater_js)
+    check("安装器不带 /S 静默（默认让用户点下一步）",
+          "spawn(file, [], {" in main_js and "'/S'" not in main_js)
+    check("关于页已接更新器（不再是要 M8 才接的占位）",
+          "useUpdater" in (ROOT / "frontend" / "src" / "components" / "settings" / "AboutTab.vue")
+          .read_text(encoding="utf-8"))
+
+    step("§5.4 版本比较（node 直接跑 semver.js）")
+    node = shutil.which("node")
+    if not node:
+        check("这台机器有 node 可跑比较断言", False, "PATH 里没有 node")
+    else:
+        script = TMP / "semver_check.js"
+        script.write_text(
+            "const { compareVersions: c, parseVersion: p } = require("
+            + json.dumps(str(desktop / "semver.js")) + ");\n"
+            "const cases = [\n"
+            "  [['0.2.0', '0.1.9'], 1, '新版比旧版新'],\n"
+            "  [['0.1.9', '0.2.0'], -1, '旧版不报新'],\n"
+            "  [['0.2.0', '0.2.0'], 0, '同版相等'],\n"
+            "  [['v0.2.0', '0.2.0'], 0, 'v 前缀忽略'],\n"
+            "  [['0.10.0', '0.9.9'], 1, '按数值不按字符串'],\n"
+            "  [['1.0', '1.0.0'], 0, '缺段补零'],\n"
+            "  [['0.2.0', '0.2.0-rc1'], 1, '正式版高于预发布'],\n"
+            "  [['0.2.0-rc1', '0.2.0'], -1, '预发布低于正式版'],\n"
+            "  [['garbage', '0.2.0'], 0, '解析不出来不误报'],\n"
+            "];\n"
+            "let bad = 0;\n"
+            "for (const [args, want, label] of cases) {\n"
+            "  const got = c(args[0], args[1]);\n"
+            "  if (got !== want) { bad += 1; console.log('FAIL', label, got); }\n"
+            "}\n"
+            "if (!p('0.2.0-alpha.1')) { bad += 1; console.log('FAIL 预发布解析'); }\n"
+            "console.log(bad ? 'bad=' + bad : 'ok');\n",
+            encoding="utf-8")
+        out = subprocess.run([node, str(script)], capture_output=True, text=True)
+        check("九条版本比较边界全对", out.stdout.strip().endswith("ok"), out.stdout.strip()[:120])
+
+        # 这条是拿真实教训换来的：updater.js 里既 `const { parseVersion } = require('./semver')`
+        # 又留着一份 `function parseVersion()`，语法检查报了 duplicate declaration，
+        # 而打包不会报错 —— 装出来双击只弹一个标题为 "Error" 的框，`shell.log` 一行都不写。
+        load = TMP / "updater_load.js"
+        load.write_text(
+            "const Module = require('module');\n"
+            "const orig = Module._load;\n"
+            "Module._load = function (req) {\n"
+            "  if (req === 'electron') return {\n"
+            "    app: { getVersion: () => '0.1.9', getPath: () => require('os').tmpdir(), isPackaged: false },\n"
+            "    net: { request: () => { throw new Error('不该在这里发请求') } },\n"
+            "  };\n"
+            "  return orig.apply(this, arguments);\n"
+            "};\n"
+            "const u = require(" + json.dumps(str(desktop / "updater.js")) + ");\n"
+            "const ok = u.compareVersions('0.2.0', '0.1.9') === 1 && typeof u.check === 'function'\n"
+            "  && typeof u.download === 'function' && typeof u.cancel === 'function';\n"
+            "console.log(ok ? 'ok' : 'bad');\n",
+            encoding="utf-8")
+        out2 = subprocess.run([node, str(load)], capture_output=True, text=True)
+        check("updater.js 能真的加载起来（假 electron 模块）",
+              out2.stdout.strip() == "ok", (out2.stderr or out2.stdout).strip()[:160])
+
+    step("§5.5 三个真机断言在别处（不是漏了）")
+    e2e = ROOT / "tools" / "e2e_update.py"
+    check("存在端到端实测脚本", e2e.exists(), str(e2e.relative_to(ROOT)))
+    if e2e.exists():
+        text = e2e.read_text(encoding="utf-8")
+        for key, label in (("连不上", "断网人话"), ("取消后临时目录没有 exe 残留", "取消删净"),
+                           ("没有孤儿 cairn-backend.exe", "无孤儿后端")):
+            check(f"端到端脚本里有「{label}」断言", key in text)
+
+
 def _blank_wav(path: Path, seconds: float = 1.0) -> None:
     """静音 wav 当转录素材：验的是"管道通"，不是识别准确率（见 asr 组件自检的说明）。"""
     import wave
@@ -530,7 +674,7 @@ def _start_server(port: int):
     raise RuntimeError("后端没能在 30 秒内起来")
 
 
-GROUPS = {"protocol": group_protocol, "install": group_install}
+GROUPS = {"protocol": group_protocol, "install": group_install, "update": group_update}
 
 
 def main() -> int:
