@@ -1828,6 +1828,23 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
   `tools/shots_settings.py`（复用 verify_m7 的临时数据目录，不碰真实库）
 - 三处版本号确认都是 `0.2.0`（`bump_version.py --check` 通过）
 
+**物料核对（2026-11-10 晚，已做）**
+- `desktop/release-m8m/Cairn-0.2.0-setup.exe` = **172,075,794 B**，
+  sha256 `380ad1772eefdce68c72c9966b8245253bbbbb284b3930ef85ab145b81b3c402`
+- 已生成 `Cairn-0.2.0-setup.exe.sha256`（标准 `hash  filename` 格式，更新器取其中第一个 64 位 hex，
+  所以格式对得上）。**这个文件是 T8.7 要传的第二个 asset**
+- 三个组件 zip 与 `backend/app/components.json` 的 `size` + `sha256` **逐个比过，完全一致**
+  （embed 261,959,001 / asr 99,980,567 / browser 48,922,004 B）→ 传 `components-v1` 时**不用再回写清单**
+
+**演示站（2026-11-10 晚，本地已验）**
+- `VITE_DEMO=1 vite build --base=./ --outDir dist-demo` 构建通过（118 modules），起静态服务实测：
+  下载页写「这是静态演示版：装组件要…演示版做不到」，三张卡按钮旁都是「演示版不能装」→ T8.7 第 6 条满足
+- **顺手修掉一个真问题**：关于页在演示站显示 `v0.1.0` —— `demo/index.js` 里 `/api/version` 是硬编码。
+  改成 vite define `__APP_VERSION__`（读 `package.json`），以后发版自动跟。见提交 `e93e41d`。
+  同时把演示站的「构建信息」从「源码运行，没有提交号」改成「在线演示，不含构建信息」（不然像本地实例）
+- 正式产物行为不变（`isDemo` 恒 false），**已打的 0.2.0 安装包不需要重打**；`npm run build` + `verify_m7`
+  重跑 **41/41** 仍全绿
+
 **还没做（都要 GitHub 写权限）**
 > 打 `v0.2.0` 标签 → 传 `Cairn-0.2.0-setup.exe` + `.sha256` → 建 `components-v1`（**不设为 latest**）
 > → 重建演示站 → 传完 Release 后用真 API 跑一次 `e2e_update.py --only real` → T8.8 干净机验收。
