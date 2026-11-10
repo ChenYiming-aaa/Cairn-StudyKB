@@ -36,6 +36,9 @@ os.environ["DATA_DIR"] = str(TMP)            # 必须早于 import app
 os.environ["VECTOR_ENABLED"] = "1"           # 故意开着：验的是"算不出向量也别 500"
 os.environ["CAIRN_ENV_STRICT"] = "1"
 os.environ.setdefault("LOG_LEVEL", "WARNING")
+# 组件的默认模型目录（payload 没带 cache_dir 时用它）。指到项目自己的
+# data/models，验收就不会因为"这台机器没下过 bge"去拉 90 MB。
+os.environ.setdefault("CAIRN_MODELS_DIR", str(ROOT / "data" / "models"))
 os.environ.pop("LLM_API_KEY", None)
 # CAIRN_COMPONENT_MODE 刻意**不清**：`CAIRN_COMPONENT_MODE=process` 跑本脚本是验
 # 「走组件管道」那条路的标准做法（见 运行与打包.md），清掉就等于那条命令是假的
@@ -108,7 +111,11 @@ def group_protocol() -> None:
     check("不同文本给不同向量", vectors[0] != vectors[1])
 
     again = components.call("embed", "encode", {"kind": "doc", "texts": ["番茄工作法"]}, timeout=30)
-    check("同样的文本给同样的向量（可复现）", again["vectors"][0] == vectors[0])
+    # 真模型（bge）不是"逐位可复现"的：这次只送 1 条，上一次是 2 条，批大小不同
+    # 会让 BLAS 的归约顺序变，末位会差 1e-7 量级。要求的是"同一个模型稳定输出"，
+    # 所以比容差而不是比相等（空实现时期这条比的是相等，T8.2 起放宽）。
+    delta = max(abs(a - b) for a, b in zip(again["vectors"][0], vectors[0]))
+    check("同样的文本给同样的向量（容差 1e-4）", delta < 1e-4, f"max|Δ|={delta:.2e}")
 
     query = components.call("embed", "encode", {"kind": "query", "texts": ["番茄工作法"]},
                             timeout=30)
@@ -124,9 +131,13 @@ def group_protocol() -> None:
         check("未知 op 回业务错误而不是超时", exc.code == "COMPONENT_BAD_OP", exc.code)
 
     seen: list[int] = []
-    components.call("asr", "transcribe", {"path": str(Path(__file__).resolve())},
-                    on_progress=seen.append, timeout=30)
+    wav = TMP / "silence.wav"
+    _blank_wav(wav)
+    reply = components.call("asr", "transcribe", {"path": str(wav), "model": "tiny"},
+                            on_progress=seen.append, timeout=180, idle=True)
     check("长任务收到 progress 事件", len(seen) >= 1, str(seen))
+    check("转录回的是 segments 列表（静音可以是 0 段）",
+          isinstance(reply.get("segments"), list), f"{len(reply.get('segments') or [])} 段")
 
     step("§1.4 缺组件时降级（注入 resolve=None，模拟没装的机器）")
     real_resolve = components.resolve
@@ -201,6 +212,17 @@ def group_protocol() -> None:
 
 
 # ── 环境 ────────────────────────────────────────────────────
+def _blank_wav(path: Path, seconds: float = 1.0) -> None:
+    """静音 wav 当转录素材：验的是"管道通"，不是识别准确率（见 asr 组件自检的说明）。"""
+    import wave
+
+    with wave.open(str(path), "wb") as fp:
+        fp.setnchannels(1)
+        fp.setsampwidth(2)
+        fp.setframerate(16_000)
+        fp.writeframes(bytes(2 * int(16_000 * seconds)))
+
+
 def _free_port() -> int:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
@@ -232,6 +254,9 @@ def main() -> int:
     only = None
     if "--only" in sys.argv:
         only = sys.argv[sys.argv.index("--only") + 1]
+    if FORCED == "none":
+        print("CAIRN_COMPONENT_MODE=none 没有可跑的子进程；本脚本改用 auto/local/process 跑。")
+        return 2
     print(f"Cairn M8 验收 · 临时数据目录 {TMP}")
     for name, fn in GROUPS.items():
         if only and only != name:

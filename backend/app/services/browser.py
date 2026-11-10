@@ -15,10 +15,13 @@
 后端跑在用户本机，弹窗天然成立；登录态落在 `data/browser/` 这个独立 profile 里，
 既能导出成 cookies.txt 喂 yt-dlp，又能直接用来渲染页面 —— 登录和渲染是同一套东西。
 
+**M8 起这份文件只做"调度"**：真正动浏览器的代码在 `shared/browser_pw.py`，
+主程序和 browser 组件共用那一份（理由见该文件顶部）。这里负责三件事：
+从设置里取参数、决定走本进程还是组件管道、把状态报给界面。
+
 **线程模型**：Playwright 的 sync API 不是线程安全的，且同一个 user_data_dir
-同时只能被一个实例打开。所有浏览器操作都用 `_pw_lock` 串行化：任务池只有 2 个
-worker，一次渲染 2–4 秒，排队可接受。登录会长时间占锁（默认最长 5 分钟），
-这是用户主动触发的低频操作，同样可接受。
+同时只能被一个实例打开。**本进程模式**用 `_pw_lock` 串行化（任务池只有 2 个 worker，
+一次渲染 2–4 秒，排队可接受）；**组件模式**天然串行（组件一个进程一次一条请求）。
 """
 from __future__ import annotations
 
@@ -29,39 +32,45 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import get_settings
+from app.services import components
+from shared.cookies import cookie_names as _cookie_names
+from shared.cookies import to_netscape as _to_netscape
 
 log = logging.getLogger(__name__)
 
-# 未安装 playwright 时整站要能照常启动，只是浏览器能力不可用
+# 未安装 playwright 时整站要能照常启动，只是浏览器能力不可用。
+# 冻结包里 playwright 在 excludes 里 → 这个 import 必失败 → 自动落到组件（如果有）
 try:
-    from playwright.sync_api import Error as PlaywrightError
-    from playwright.sync_api import sync_playwright
+    from shared.browser_pw import (           # noqa: F401
+        NAV_TIMEOUT_MS,
+        BrowserTimeout,
+        BrowserUnavailable,
+        UA,
+        capture_json as _pw_capture_json,
+        open_for_login,
+        render as _pw_render,
+    )
 
     PLAYWRIGHT_AVAILABLE = True
 except Exception:                       # noqa: BLE001 - 缺包/缺驱动都归到不可用
-    sync_playwright = None
-    PlaywrightError = Exception         # type: ignore[assignment,misc]
     PLAYWRIGHT_AVAILABLE = False
+    NAV_TIMEOUT_MS = 25_000
+    UA = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
 
-UA = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-)
+    class BrowserUnavailable(RuntimeError):
+        """没装 playwright / 没有可用浏览器 / 启动失败。调用方据此回落到原错误。"""
 
-NAV_TIMEOUT_MS = 25_000
-SETTLE_ROUNDS = 8          # 可见文本连续两次不变视为渲染稳定，最多 8×300ms
-SETTLE_STEP_MS = 300
+    class BrowserTimeout(RuntimeError):
+        """导航超时。"""
+
+
 LOGIN_TIMEOUT = 300        # 用户手动登录，给足 5 分钟
 PROFILE_DIRNAME = "browser"
 COOKIE_FILENAME = "cookies.txt"
-
-
-class BrowserUnavailable(RuntimeError):
-    """没装 playwright / 没有可用浏览器 / 启动失败。调用方据此回落到原错误。"""
-
-
-class BrowserTimeout(RuntimeError):
-    """导航超时。"""
+CANCEL_FILENAME = "browser-login.cancel"   # 组件模式下的"取消"哨兵（跨进程只能靠文件）
 
 
 @dataclass(frozen=True)
@@ -82,7 +91,7 @@ SITES: dict[str, SiteSpec] = {
                       "https://www.zhihu.com/signin", ("z_c0",)),
 }
 
-_pw_lock = threading.Lock()
+_pw_lock = threading.Lock()          # 本进程模式串行化
 _login_cancel = threading.Event()
 _login_state: dict = {"status": "idle", "site": "", "message": ""}
 
@@ -106,54 +115,17 @@ def cookie_file() -> Path:
     return get_settings().data_dir / COOKIE_FILENAME
 
 
-# ── cookie 读写 ─────────────────────────────────────────────
+def _cancel_file() -> Path:
+    path = get_settings().data_dir / "tmp" / CANCEL_FILENAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
 
-def _to_netscape(cookies: list[dict]) -> str:
-    """Playwright 的 cookie 列表 → Netscape cookies.txt（yt-dlp / curl 通用格式）。
 
-    HttpOnly 的 cookie 必须加 `#HttpOnly_` 前缀，否则 MozillaCookieJar 会把整行
-    当注释跳过。B 站的 SESSDATA 正是 HttpOnly —— 漏了这个前缀，文件看着正常，
-    yt-dlp 却当未登录，这个坑很隐蔽。
-    """
-    lines = ["# Netscape HTTP Cookie File", "# 由 Cairn 登录助手导出", ""]
-    for c in cookies:
-        domain = (c.get("domain") or "").strip()
-        name = (c.get("name") or "").strip()
-        if not domain or not name:
-            continue
-        expires = int(c.get("expires") or 0)
-        if expires <= 0:
-            expires = 0                  # 会话 cookie：0 是 Netscape 的约定
-        prefix = "#HttpOnly_" if c.get("httpOnly") else ""
-        lines.append("\t".join([
-            prefix + domain,
-            "TRUE" if domain.startswith(".") else "FALSE",
-            c.get("path") or "/",
-            "TRUE" if c.get("secure") else "FALSE",
-            str(expires),
-            name,
-            c.get("value") or "",
-        ]))
-    return "\n".join(lines) + "\n"
-
+# ── cookie 读 ───────────────────────────────────────────────
 
 def _read_cookie_names() -> set[str]:
     """只读文件名，不启动浏览器 —— 状态查询要快。"""
-    path = cookie_file()
-    if not path.exists():
-        return set()
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return set()
-    names: set[str] = set()
-    for line in text.splitlines():
-        if not line or (line.startswith("#") and not line.startswith("#HttpOnly_")):
-            continue
-        parts = line.split("\t")
-        if len(parts) >= 7:
-            names.add(parts[5].strip())
-    return names
+    return _cookie_names(cookie_file())
 
 
 def cookies_for(url: str) -> dict[str, str]:
@@ -191,65 +163,25 @@ def cookies_for(url: str) -> dict[str, str]:
     return out
 
 
-# ── 启动 ────────────────────────────────────────────────────
+# ── 跑哪一种 ────────────────────────────────────────────────
 
-def _launch_context(p, headless: bool):
-    """优先用本机已装的 Edge/Chrome（零下载），失败再退回 playwright 自带 Chromium。"""
-    cfg = get_settings()
-    profile = profile_dir()
-    profile.mkdir(parents=True, exist_ok=True)
-    common = {
-        "user_data_dir": str(profile),
-        "headless": headless,
-        "locale": "zh-CN",
-        "user_agent": UA,
-        # 这个开关换掉 navigator.webdriver 的暴露，知乎这类站点会看
-        "args": ["--disable-blink-features=AutomationControlled"],
-        "viewport": {"width": 1440, "height": 900},
-    }
-    channel = (cfg.browser_channel or "").strip()
-    if channel:
-        try:
-            return p.chromium.launch_persistent_context(channel=channel, **common)
-        except PlaywrightError as exc:
-            log.warning("浏览器通道 %s 启动失败（%s），回落到内置 Chromium",
-                        channel, type(exc).__name__)
-    try:
-        return p.chromium.launch_persistent_context(**common)
-    except PlaywrightError as exc:
-        raise BrowserUnavailable(
-            "没有可用的浏览器：请安装 Edge/Chrome，或执行 playwright install chromium"
-        ) from exc
-
-
-def _settle(page) -> None:
-    """等**可见文本**稳定，而不是等 HTML 稳定。
-
-    知乎的 HTML 体积会一直变（推荐流、埋点上报），按 content() 判要跑满 4 秒；
-    正文却 1 秒内就不动了。实测：inner_text 在 900ms 稳定、content() 要 1800ms，
-    而且 inner_text 单次 21–170ms，content() 要 400ms+。
-    """
-    last = -1
-    for _ in range(SETTLE_ROUNDS):
-        page.wait_for_timeout(SETTLE_STEP_MS)
-        try:
-            size = len(page.inner_text("body"))
-        except PlaywrightError:
-            continue
-        if size > 0 and size == last:
-            return
-        last = size
-
-
-def _safe_close(ctx) -> None:
-    try:
-        ctx.close()
-    except Exception:                   # noqa: BLE001 - 窗口已被用户关掉
-        pass
+def _mode() -> str | None:
+    """`"component"` / `"local"` / `None`。判定顺序见 `components.resolve`。"""
+    return components.resolve("browser")
 
 
 def available() -> bool:
-    return PLAYWRIGHT_AVAILABLE
+    """有任何一条路能开浏览器就算可用。
+
+    源码运行看本进程（`PLAYWRIGHT_AVAILABLE`）；装机版本进程一定没有 playwright，
+    但装了组件就还是可用 —— 少了这一条，设置页会永远显示"不可用"。
+    """
+    return PLAYWRIGHT_AVAILABLE or _mode() == "component"
+
+
+def _launch_kwargs() -> dict:
+    cfg = get_settings()
+    return {"user_data_dir": str(profile_dir()), "channel": cfg.browser_channel}
 
 
 # ── 渲染 ────────────────────────────────────────────────────
@@ -261,35 +193,21 @@ def render(url: str, *, headless: bool | None = None,
     状态码可能是 403 而正文完整（知乎专栏就是），**判断成败要看正文，不要看码**，
     这件事交给调用方（`fetcher.BrowserFetcher`）。
     """
-    if not PLAYWRIGHT_AVAILABLE:
-        raise BrowserUnavailable("未安装 playwright")
+    mode = _mode()
     want_headless = get_settings().browser_headless if headless is None else headless
 
-    with _pw_lock:
-        try:
-            with sync_playwright() as p:
-                ctx = _launch_context(p, want_headless)
-                try:
-                    page = ctx.new_page()
-                    try:
-                        # domcontentloaded 就够：_settle 负责等正文挂载完。
-                        # 用 "commit"/"load" 都不合适：前者太早拿到空壳，后者被长连接拖死。
-                        resp = page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-                    except PlaywrightError as exc:
-                        if "Timeout" in type(exc).__name__ or "Timeout" in str(exc):
-                            raise BrowserTimeout(str(exc)[:120]) from exc
-                        raise
-                    status = resp.status if resp is not None else 0
-                    _settle(page)
-                    html = page.content()
-                    final = page.url
-                finally:
-                    _safe_close(ctx)
-        except (BrowserUnavailable, BrowserTimeout):
-            raise
-        except PlaywrightError as exc:
-            raise BrowserUnavailable(f"{type(exc).__name__}: {str(exc)[:120]}") from exc
-    return html, final, status
+    if mode == "component":
+        reply = _call("render", {"url": url, "headless": want_headless,
+                                 "timeout_ms": timeout_ms, **_launch_kwargs()},
+                      timeout=timeout_ms / 1000 + 60)
+        return str(reply.get("html") or ""), str(reply.get("final_url") or url), \
+            int(reply.get("status") or 0)
+
+    if mode == "local":
+        with _pw_lock:
+            return _pw_render(url, headless=want_headless, timeout_ms=timeout_ms,
+                              **_launch_kwargs())
+    raise BrowserUnavailable("网页渲染组件还没装")
 
 
 # ── 截获页面自己的 XHR ──────────────────────────────────────
@@ -304,58 +222,43 @@ def capture_json(url: str, *, contains: str, headless: bool | None = None,
 
     返回 `(json, cookies)`。`cookies` 给调用方下载媒体用（部分 CDN 会校验）。
     """
-    if not PLAYWRIGHT_AVAILABLE:
-        raise BrowserUnavailable("未安装 playwright")
-    import json as _json
-
+    mode = _mode()
     want_headless = get_settings().browser_headless if headless is None else headless
-    found: dict = {}
 
-    def _on_response(resp) -> None:
-        if found or contains not in resp.url:
-            return
-        try:
-            if resp.status != 200:
-                return
-            body = resp.text()
-        except Exception:               # noqa: BLE001 - 响应体可能已被丢弃
-            return
-        if len(body) < min_bytes:
-            # 抖音缺签名时返回 200 + 空体，别把它当成成功
-            return
-        try:
-            found["json"] = _json.loads(body)
-        except ValueError:
-            return
+    if mode == "component":
+        reply = _call("capture_json",
+                      {"url": url, "contains": contains, "headless": want_headless,
+                       "timeout_ms": timeout_ms, "wait_ms": wait_ms,
+                       "min_bytes": min_bytes, **_launch_kwargs()},
+                      timeout=(timeout_ms + wait_ms) / 1000 + 60)
+        data = reply.get("json")
+        if not isinstance(data, dict):
+            raise BrowserTimeout("组件没截到目标响应")
+        return data, list(reply.get("cookies") or [])
 
-    with _pw_lock:
-        try:
-            with sync_playwright() as p:
-                ctx = _launch_context(p, want_headless)
-                try:
-                    page = ctx.new_page()
-                    page.on("response", _on_response)
-                    try:
-                        page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-                    except PlaywrightError as exc:
-                        if "Timeout" in type(exc).__name__ or "Timeout" in str(exc):
-                            raise BrowserTimeout(str(exc)[:120]) from exc
-                        raise
-                    for _ in range(max(1, wait_ms // 500)):
-                        if found:
-                            break
-                        page.wait_for_timeout(500)
-                    cookies = ctx.cookies()
-                finally:
-                    _safe_close(ctx)
-        except (BrowserUnavailable, BrowserTimeout):
-            raise
-        except PlaywrightError as exc:
-            raise BrowserUnavailable(f"{type(exc).__name__}: {str(exc)[:120]}") from exc
+    if mode == "local":
+        with _pw_lock:
+            return _pw_capture_json(url, contains=contains, headless=want_headless,
+                                    timeout_ms=timeout_ms, wait_ms=wait_ms,
+                                    min_bytes=min_bytes, **_launch_kwargs())
+    raise BrowserUnavailable("网页渲染组件还没装")
 
-    if not found:
-        raise BrowserTimeout(f"等 {wait_ms // 1000} 秒没等到 {contains} 的响应")
-    return found["json"], cookies
+
+def _call(op: str, payload: dict, *, timeout: float) -> dict:
+    """走组件管道，把组件的错误翻成调用方认识的两种异常。
+
+    `fetcher.py` 只 catch `BrowserUnavailable` / `BrowserTimeout` 来决定"要不要回落
+    到 httpx 并给用户一句人话"；让 `ComponentError` 直接冒出去的话，一个没装组件的
+    机器会把整次采集当成"未知错误"。
+    """
+    try:
+        return components.call("browser", op, payload, timeout=timeout)
+    except components.ComponentError as exc:
+        if exc.code in ("COMPONENT_MISSING",):
+            raise BrowserUnavailable(exc.message) from exc
+        if "Timeout" in (exc.detail or "") or "超时" in exc.message:
+            raise BrowserTimeout(exc.message) from exc
+        raise BrowserUnavailable(exc.message) from exc
 
 
 # ── 登录 ────────────────────────────────────────────────────
@@ -368,57 +271,77 @@ def _set_state(status: str, site: str = "", message: str = "") -> None:
     _login_state.update({"status": status, "site": site, "message": message})
 
 
-def _await_login(ctx, spec: SiteSpec) -> bool:
-    """轮询 cookie 等用户把登录做完。窗口被关掉就立刻返回 False。"""
-    deadline = time.time() + LOGIN_TIMEOUT
-    while time.time() < deadline:
-        if _login_cancel.is_set():
-            return False
-        try:
-            cookies = ctx.cookies()
-        except PlaywrightError:
-            return False                # 用户把窗口关了
-        if any((c.get("name") or "") in spec.markers for c in cookies):
-            # 有些站点登录后几秒内才补齐其余 cookie，多等一下再整体导出
-            time.sleep(1.0)
-            return True
-        time.sleep(0.8)
-    return False
-
-
-def _login_worker(spec: SiteSpec) -> None:
-    ok = False
-    cookies: list[dict] = []
-    try:
-        with _pw_lock:
-            with sync_playwright() as p:
-                ctx = _launch_context(p, headless=False)
-                try:
-                    page = ctx.new_page()
-                    page.goto(spec.login_url, wait_until="domcontentloaded",
-                              timeout=NAV_TIMEOUT_MS)
-                    ok = _await_login(ctx, spec)
-                    cookies = ctx.cookies() if ok else []
-                finally:
-                    _safe_close(ctx)
-    except Exception as exc:            # noqa: BLE001 - 线程里必须自己收口
-        log.warning("登录 %s 失败：%s", spec.key, type(exc).__name__)
-        _set_state("failed", spec.key, "无法打开登录窗口，请检查浏览器是否可用")
-        return
-
-    if not ok:
-        _set_state("failed", spec.key, "登录超时或窗口已关闭，可以再试一次")
-        return
-
+def _write_cookies(cookies: list[dict]) -> bool:
     path = cookie_file()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(_to_netscape(cookies), encoding="utf-8")
+        return True
     except OSError:
+        return False
+
+
+def _login_local(spec: SiteSpec) -> None:
+    """本进程模式：起自己的浏览器窗口，轮询 cookie。"""
+    def cancelled() -> bool:
+        return _login_cancel.is_set()
+
+    try:
+        with _pw_lock:
+            cookies = open_for_login(spec.login_url, spec.markers,
+                                     timeout_s=LOGIN_TIMEOUT, cancelled=cancelled,
+                                     **_launch_kwargs())
+    except Exception as exc:            # noqa: BLE001 - 线程里必须自己收口
+        log.warning("登录 %s 失败：%s", spec.key, type(exc).__name__)
+        _set_state("failed", spec.key, "无法打开登录窗口，请检查浏览器是否可用")
+        return
+    _finish_login(spec, cookies)
+
+
+def _login_remote(spec: SiteSpec) -> None:
+    """组件模式：窗口开在组件进程里（跨管道开不了可见窗口，见 M8 补充记录 S-3）。"""
+    cancel = _cancel_file()
+    try:
+        cancel.unlink(missing_ok=True)
+    except OSError:
+        pass
+    payload = {"login_url": spec.login_url, "markers": list(spec.markers),
+               "cookie_file": str(cookie_file()), "cancel_file": str(cancel),
+               "timeout_s": LOGIN_TIMEOUT, **_launch_kwargs()}
+    try:
+        # 空闲超时 30s：组件每轮都会报一次 progress，真卡住才判死
+        reply = components.call("browser", "login", payload, timeout=30, idle=True)
+    except components.ComponentError as exc:
+        log.warning("登录 %s 失败：%s", spec.key, exc.code)
+        _set_state("failed", spec.key, "登录窗口没能打开，可以再试一次")
+        return
+    finally:
+        try:
+            cancel.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    if reply.get("cancelled"):
+        _set_state("failed", spec.key, "已取消登录")
+        return
+    count = int(reply.get("cookies") or 0)
+    if not count:
+        _set_state("failed", spec.key, "登录超时或窗口已关闭，可以再试一次")
+        return
+    # 组件已经写好了 cookie 文件，这里只报结果（不重复写，免得两边格式不一致）
+    log.info("已登录 %s，导出 %s 条 cookie 到 %s", spec.label, count, cookie_file())
+    _set_state("success", spec.key, f"已登录{spec.label}，字幕与受限页面将自动启用")
+
+
+def _finish_login(spec: SiteSpec, cookies: list[dict]) -> None:
+    if not cookies:
+        _set_state("failed", spec.key, "登录超时或窗口已关闭，可以再试一次")
+        return
+    if not _write_cookies(cookies):
         _set_state("failed", spec.key, "登录成功但写入 cookie 文件失败，请检查目录权限")
         return
     # 只记站点与条数，cookie 内容一律不进日志（红线 7）
-    log.info("已登录 %s，导出 %s 条 cookie 到 %s", spec.label, len(cookies), path)
+    log.info("已登录 %s，导出 %s 条 cookie 到 %s", spec.label, len(cookies), cookie_file())
     _set_state("success", spec.key, f"已登录{spec.label}，字幕与受限页面将自动启用")
 
 
@@ -427,8 +350,8 @@ def start_login(site_key: str) -> dict:
     spec = SITES.get(site_key)
     if spec is None:
         raise KeyError(site_key)
-    if not PLAYWRIGHT_AVAILABLE:
-        _set_state("failed", site_key, "未安装 playwright，无法打开登录窗口")
+    if not available():
+        _set_state("failed", site_key, "网页渲染组件还没装，装好后才能登录")
         return login_state()
     if _login_state.get("status") == "running":
         # 同一时间只允许一个登录窗口：profile 被两个实例打开会直接崩
@@ -436,13 +359,19 @@ def start_login(site_key: str) -> dict:
 
     _login_cancel.clear()
     _set_state("running", site_key, f"请在弹出的窗口里登录{spec.label}")
-    threading.Thread(target=_login_worker, args=(spec,), name=f"cairn-login-{site_key}",
+    target = _login_remote if _mode() == "component" else _login_local
+    threading.Thread(target=target, args=(spec,), name=f"cairn-login-{site_key}",
                      daemon=True).start()
     return login_state()
 
 
 def cancel_login() -> None:
+    """两个模式各一条路：本进程置事件，组件模式留一个哨兵文件。"""
     _login_cancel.set()
+    try:
+        _cancel_file().write_text(str(time.time()), encoding="utf-8")
+    except OSError:
+        pass
 
 
 def shutdown() -> None:
@@ -463,7 +392,7 @@ def status() -> dict:
     }
     path = cookie_file()
     return {
-        "browser_available": PLAYWRIGHT_AVAILABLE,
+        "browser_available": available(),
         "cookie_file": str(path) if path.exists() else "",
         "sites": sites,
         "login": login_state(),

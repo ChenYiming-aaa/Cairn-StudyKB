@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-10 11:45 · 每次会话结束更新这一段）
+## 当前状态（2026-11-10 13:30 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M8 体积与更新 · 进行中（六层中的 L0 已完成）**。分层计划见 `M8-补充记录.md` §1；下一层 **L1 = T8.1 主包瘦身** |
-| 当前里程碑 | **M8 L0（T8.0 组件协议与降级）完成**：`services/components.py` + `component_proc.py`、`app/components.json`、三个空壳 worker（`backend/components/<id>/entry.py`，`--selftest` 各自 exit 0）、`embed` 已接真管道、`asr`/`browser` 只做降级判定（管道留给 L2）、`COMPONENT_MISSING` + `vector_component_missing`。`verify_m8` **37/37**（auto / process / local 三种模式各跑一遍） |
+| 里程碑 | **M8 体积与更新 · 进行中（六层中的 L0/L1/L2 已完成）**。分层计划见 `M8-补充记录.md` §1；下一层 **L3 = T8.3 + T8.4 下载中心后端与 UI** |
+| 当前里程碑 | **L1（T8.1 主包瘦身）+ L2（T8.2 三个组件包）完成**：安装包 **426 → 172 MB**（解包 965 → 474 MB）；三个组件包真管道（bge / faster-whisper / playwright）打完，`--selftest` 各自 exit 0，zip **262 / 100 / 49 MB**，`sha256` 已回写 `app/components.json`；新增 `backend/shared/`（playwright 与 cookie 格式主程序/组件共用一份）；协议补 `idle=True` 空闲超时。**唯一未闭环：安装包 172 MB 比 170 MB 目标差 2 MB（待你裁决，三条杠杆见补充记录 §1.1）** |
 | 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；**M5 + v0.1.0 已发布**，唯一未闭环项仍是遗留 #2（装到没有 Python/Node 的真机） |
 | 远程 | `origin/main` = 见本文件最后一条的「推送状态」；**本表不追每次提交** |
-| 版本 | `v0.1.0`（三处都是 0.1.0）。统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done`。**M8 未打标签**（L0 只是地基，等 L1 出体积数字再打 `m8-wip`） |
-| 验收 | **M8 `verify_m8.py` 37/37 PASS**（清单 5 / 三态 3 / 协议往返 11 / 降级 6 / 文案 3 / HTTP 5 / 生命周期 4） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41**（2026-11-10 拆分模块后全跑） · `npm run lint` 干净 · `npm run build` 通过（JS 317.88 kB / gzip 116.01；CSS 90.94 / 13.90） · 安装包基线**仍是 426,428,660 字节**（本轮不打包，L1 才动） |
+| 版本 | `v0.1.0`（三处都是 0.1.0）。统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0）。**组件包内部自报 0.2.0**（协议里 `version`/`min_app_version` 不跟主包版本号走） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done`。**M8 未打标签**（L1/L2 已出体积数字，`m8-wip` 待你点头后打在 L2 落地的提交上） |
+| 验收 | **M8 `verify_m8.py` 38/38 PASS**（清单 5 / 三态 3 / 协议往返 12 / 降级 6 / 文案 3 / HTTP 5 / 生命周期 4） · 回归**在 `CAIRN_COMPONENT_MODE=none`（模拟没装组件）下全绿**：**m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · 安装包 **172,035,473 B**、安装后整目录 **474 MB** · 组件自检三个 exit 0 · 前端本轮未改动（沿用 lint 干净 / JS 317.88 kB、CSS 90.94 kB 的构建结果） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -1537,3 +1537,87 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 > `collect_data_files`，打包量体积（目标 ≤170 MB 安装包 / ≤750 MB 解包），
 > 在「无组件」状态下重跑 `verify_m1..m7` + `verify_m8`。**注意 spec 上有另一路未提交改动，
 > 落笔前先看 `git diff backend/cairn-backend.spec` 分清哪些不是你的。**
+
+---
+
+## 2026-11-10 13:30 · M8 · L1 主包瘦身 + L2 三个组件包（**M8 第三层完成，差 2 MB 待裁决**）
+
+**范围**：L1 = T8.1（spec 瘦身 + 打包量体积 + 无组件回归），L2 = T8.2（真管道 + 打包脚本）。
+**不做**：下载中心（L3）、更新器（L4）、发布（L5）。
+
+**L1 结果（426 MB → 172 MB）**
+- spec：`MONOLITH_HEAVY` 一张表管 11 个重栈的 `excludes`；删掉 `faster_whisper` /
+  `playwright` / `onnxruntime` 三行 `collect_data_files`；`torch.distributed` 的
+  `hiddenimports` 撤掉（torch 整个人不在包里了），那条历史坑的注释搬进 `build_components.py`
+- 另外两处**实测才发现**的裁剪（任务书没写，写回 §2.4 了）：
+  `babel/locale-data` 只留 6 个（31 → 2 MB，本来是被 courlan 捎进来的）、
+  `electronLanguages: ["zh-CN","en-US"]`（locales 49 → 2 MB）
+- 实测：解包 965 → **474 MB**（目标 ≤750 ✅）；安装包 426,428,660 → **172,035,473 B**
+  （目标 ≤170 MB ❌ **差 2.0 MB**）
+- 差在哪：172 MB 里约 **124 MB 是 Electron 45.2.3 本身**（`Cairn.exe` 解包就有 249 MB），
+  任务书按旧版 "~230 MB" 估的。**三条杠杆与代价写在 `M8-补充记录.md` §1.1**，一条都没动
+- `compression: "maximum"` 对 NSIS **无效**（尺寸只差 2 字节），别以为它省了体积
+- 新增 `CAIRN_COMPONENT_MODE=none`：源码态永远 import 得到 torch，没有它就模拟不出冻结包
+- 无组件回归（`CAIRN_COMPONENT_MODE=none`）：m1 52 · m2 118 · m3 61 · m4 69 · m5 57 ·
+  m6 78 · m7 41，**全绿**
+
+**L2 结果（三个真组件）**
+- 三个 worker 换成真管道：`embed` = bge（`cache_dir`/`model` 由 payload 传，前缀仍在组件里加）、
+  `asr` = faster-whisper（wav 进、segments 出、逐段 progress）、
+  `browser` = playwright（`render` / `capture_json` / `login`）
+- 新增 `backend/shared/`：`browser_pw.py`（playwright 机械动作）+ `cookies.py`（Netscape 格式），
+  **主程序与组件共用一份**。理由：组件不能 import `app`（会拖进 fastapi/trafilatura），
+  主程序冻结版又没有 playwright；两份副本必然"只在装机版复现"地漂移。
+  `app/services/browser.py` 因此瘦成调度层（取设置 → 选本进程/管道 → 报状态），
+  `available()` 也终于认组件了（L0 遗留的第 4 条清掉）
+- 协议补 `idle=True`：`Session.request` 每收到一条消息（含 progress）就重置截止时间。
+  转录用 120 s 窗口、登录用 30 s —— "无总上限但有心跳"落地
+- `tools/build_components.py`：生成临时 spec（`console=True`、只收自己的依赖）→ PyInstaller
+  onedir → `manifest.json` → `--selftest` → zip → sha256 回写 `app/components.json`
+- 三个包：**embed 690 MB 解包 / 262 MB zip**、**asr 257 / 100**、**browser 134 / 49**；
+  自检各自 exit 0（真 bge / 真 whisper tiny / 真 Edge）
+- 装完能用**手工验过**：zip 解到临时 `DATA_DIR/components/<id>/` → `resolve()=component` →
+  `browser.render()` 与 `embedder.encode_docs()`（512 维、|v|=1.0、查询向量因前缀而不同）都通
+
+**改动文件**
+- 新增：`backend/shared/{__init__,browser_pw,cookies}.py`、`tools/build_components.py`
+- 后端：`cairn-backend.spec`（重写 excludes 段 + babel 裁剪）、`app/services/{components,component_proc,embedder,transcriber,browser}.py`、
+  `components/{embed,asr,browser}/entry.py`（全部换成真实现）、`app/components.json`（size/sha256 实测值）、
+  `scripts/verify_m8.py`（38 条）
+- 桌面：`desktop/package.json`（`electronLanguages` + `compression: maximum`）
+- 文档：`M8-补充记录.md` §三 §四、`milestones/M8-体积与更新.md`（层状态 / §1 结论 / §2.2 实测 / §2.4 两条新裁剪 / T8.1 T8.2 完成标记）、
+  `运行与打包.md`（组件打包命令 + `none` 模式）
+
+**验证**
+- `verify_m8.py` → **38/38 PASS**（比 L0 多一条「转录回的是 segments 列表」）
+- 无组件回归见上（七份脚本，none 模式）
+- 三个组件 `--selftest` exit 0；解压后真跑通 render / encode
+- `doc_check.py` 待跑（下一步先跑）
+
+**遗留问题**
+- [ ] **172 MB vs 170 MB 目标差 2 MB —— 待你裁决三条杠杆**（删 dxcompiler/vk_swiftshader ≈11 MB /
+      换 audio-only ffmpeg ≈10 MB / 都不做、把目标改成 ≤175 MB）。详见补充记录 §1.1
+- [ ] `verify_m8` 的「可复现」断言从"相等"放宽到 `1e-4`（真模型批大小不同 → BLAS 归约顺序变），
+      理由写在断言旁边；如果以后换确定性更好的后端，可以把容差再收紧
+- [ ] `components.json` 的 `size` 现在是 **zip 实测体积**（262/100/49 MB），下载中心按它显示；
+      三维组件合计 **411 MB**，比任务书估的 290 MB 大 —— 差在 `torch_cpu.dll`（309 MB）与每个包各带一份
+      Python 运行时，属于物理成本，不是 bug
+- [ ] L3 要补：`GET /components` / `install` / `progress` / `DELETE` 四个端点、断点续传、
+      解压到临时目录再整体改名、`agent_task` 复用；`components.stop()` 必须在删目录前调用
+      （Windows 下 exe 被占用删不掉，S-7 已经踩过一次）
+- [ ] L3 还要处理：**装了组件后 `_hello_at` 缓存 30s**，装完立刻查状态可能仍显示"未安装"，
+      安装成功时要 `components.reset_cache()`
+- [ ] README 本轮仍**不改**（体积/组件/更新三节都等 T8.7 统一改）
+- [ ] `desktop/release-m8`、`release-m8b`、`release-m8c` 三个试打目录留在本地（gitignored），
+      可手工删；`release-components/` 也要确认已在 `.gitignore` 里
+
+**推送状态：本地已提交，远程未推（待你确认后推）**
+- 本轮改动跨 `backend/` `desktop/` `tools/` `docs/` 四块，`backend/cairn-backend.spec`
+  上原有的未提交改动（torch.distributed 那段）已被本轮 T8.1 整体取代，可以一起提交
+- 计划标签 `m8-wip` 打在 L2 落地的提交上（等你点头）
+
+**下一会话第一件事**
+> 先跑 `python tools/doc_check.py`，再按你的裁决处理 172 MB 那 2 MB（或直接进 L3）。
+> 进 L3 前读 `M8-体积与更新.md` §3 全文 + `contracts/接口契约.md` 的 §components 段，
+> 从 `GET /components` 与 `install` 起手；`components.py` 已备好 `status()` / `uninstall()` /
+> `disk_bytes()`，L3 只缺下载、断点续传、校验与解压。

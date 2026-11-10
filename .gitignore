@@ -36,6 +36,10 @@ dist/
 dist-demo/
 release/
 release-verify/
+# 组件 zip（tools/build_components.py 产出，几 GB 级；发布时才上传到 GitHub Release）
+release-components/
+# 量体积时的试打目录（release-m8 / release-m8b / …），别入库
+release-m8*/
 build/
 *.spec
 # 例外：打包配置是源码的一部分，要能复现构建（T5.6）

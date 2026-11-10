@@ -133,7 +133,8 @@ class Session:
                 pass
 
     # 收发 ──
-    def request(self, op: str, payload: dict, on_progress, timeout: float) -> dict:
+    def request(self, op: str, payload: dict, on_progress, timeout: float,
+                idle: bool = False) -> dict:
         assert self.lines is not None and self.proc is not None
         self.seq += 1
         rid = self.seq
@@ -147,6 +148,10 @@ class Session:
         deadline = self.last_used + timeout
         while True:
             msg = self._read(deadline)
+            if idle:
+                # 长任务（转录 / 等用户登录）没有"总上限"，只有"多久没动静"：
+                # 每收到一条消息（含 progress）就把截止时间往后推，见 M8 §2.3
+                deadline = time.monotonic() + timeout
             if msg.get("id") != rid:           # 串行处理，理论上不该出现
                 log.debug("组件 %s 回了个不配对的 id=%s", self.cid, msg.get("id"))
                 continue
@@ -178,7 +183,8 @@ class Session:
 
 # ── 对外 ────────────────────────────────────────────────
 def call(cid: str, argv: list[str], op: str, payload: dict,
-         on_progress=None, timeout: float = 120.0, no_retry: bool = False) -> dict:
+         on_progress=None, timeout: float = 120.0, no_retry: bool = False,
+         idle: bool = False) -> dict:
     """发一条请求，等结果。崩溃时重启一次，连续两次失败标记为「异常」。"""
     with _registry_lock:
         sess = _registry.get(cid)
@@ -190,7 +196,7 @@ def call(cid: str, argv: list[str], op: str, payload: dict,
             try:
                 if not sess.alive():
                     sess.spawn()
-                result = sess.request(op, payload, on_progress, timeout)
+                result = sess.request(op, payload, on_progress, timeout, idle)
                 _broken.pop(cid, None)
                 return result
             except ComponentError:

@@ -131,6 +131,10 @@ def resolve(cid: str) -> str | None:
     if cid not in IDS:
         return None
     forced = os.environ.get("CAIRN_COMPONENT_MODE", "auto").strip().lower()
+    if forced == "none":
+        # 只为验收：模拟"这台机器什么都没装"。冻结包的真实形态由 excludes 制造，
+        # 源码态却总有 torch，没有这个开关就没法在开发机上跑"无组件回归"。
+        return None
     if forced == "local":
         return "local" if _local_ok(cid) else None
     if forced == "process":
@@ -158,11 +162,12 @@ def _hello_ok(cid: str) -> bool:
 
 # ── 调用 ────────────────────────────────────────────────
 def call(cid: str, op: str, payload: dict | None = None, on_progress=None,
-         timeout: float = 120.0, no_retry: bool = False) -> dict:
+         timeout: float = 120.0, no_retry: bool = False, idle: bool = False) -> dict:
     argv = _argv(cid)
     if argv is None:
         raise ComponentError("COMPONENT_MISSING", f"{LABELS.get(cid, cid)}组件还没装", cid)
-    return component_proc.call(cid, argv, op, payload or {}, on_progress, timeout, no_retry)
+    return component_proc.call(cid, argv, op, payload or {}, on_progress, timeout,
+                               no_retry, idle)
 
 
 # ── 生命周期 / 状态 ─────────────────────────────────────

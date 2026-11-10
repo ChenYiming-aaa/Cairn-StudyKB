@@ -530,6 +530,8 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
     def _transcribe(
         self, wav: Path, hint_duration: float, report: ProgressFn
     ) -> tuple[str, str, int, float]:
+        if components.resolve("asr") == "component":
+            return self._transcribe_remote(wav, hint_duration, report)
         model = _load_model(self.model_size)
         span = P_TRANSCRIBE_DONE - P_DOWNLOAD_DONE
         audio = read_wav(wav)
@@ -567,6 +569,51 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
         if fixed:
             log.info("ASR 输出含繁体，已归一为简体 %d 字（%d 段）", fixed, count)
         return "\n".join(lines), detected, count, duration
+
+    def _transcribe_remote(
+        self, wav: Path, hint_duration: float, report: ProgressFn
+    ) -> tuple[str, str, int, float]:
+        """走 asr 组件（装机版的唯一一条路）。
+
+        **繁简归一留在这边**：`zhconv` 是主包依赖，组件包里不带它 —— 少一个依赖就少
+        一份体积，而"拿到 segments 之后再改写文本"本来就不需要音频，放主程序一样快。
+
+        `timeout=120, idle=True`：转录没有总上限，但转录 2 分钟一个 segment 都没吐出来
+        就认为卡死（静音段、模型首次下载都可能慢，所以没取更小的值）。
+        """
+        span = P_TRANSCRIBE_DONE - P_DOWNLOAD_DONE
+
+        def on_progress(pct: int) -> None:
+            report(P_DOWNLOAD_DONE + int(max(0, min(100, pct)) * span / 100), STAGE_TRANSCRIBE)
+
+        try:
+            reply = components.call("asr", "transcribe", {
+                "path": str(wav),
+                "model": self.model_size,
+                "language": self.language,
+                "model_dir": str(models_dir()),
+                "hint_duration": hint_duration,
+            }, on_progress=on_progress, timeout=120.0, idle=True)
+        except components.ComponentError as exc:
+            if exc.code == "COMPONENT_MISSING":
+                raise FetchError("COMPONENT_MISSING", detail="asr",
+                                 message="视频转录组件还没装，这条只存了标题和封面") from exc
+            raise FetchError("TRANSCRIBE_MODEL_FAIL",
+                             detail=f"{exc.code}: {exc.message}"[:200]) from exc
+
+        duration = float(reply.get("duration") or hint_duration or 0)
+        detected = str(reply.get("language") or self.language or "")
+        lines: list[str] = []
+        fixed = 0
+        for seg in reply.get("segments") or []:
+            line, changed = zh_text.to_simplified(str(seg.get("text") or "").strip())
+            fixed += changed
+            lines.append(f"[{format_ts(float(seg.get('start') or 0))}] {line}")
+
+        report(P_TRANSCRIBE_DONE, STAGE_TRANSCRIBE)
+        if fixed:
+            log.info("ASR 输出含繁体，已归一为简体 %d 字（%d 段）", fixed, len(lines))
+        return "\n".join(lines), detected, len(lines), duration
 
     @staticmethod
     def _mkdtemp(root: Path) -> str:

@@ -66,8 +66,20 @@ def get_model():
 
 
 def _encode_remote(texts: list[str], kind: str) -> list[list[float]]:
-    """交给组件进程。前缀由组件加（`kind=query` 时），主程序不掺和。"""
-    reply = components.call("embed", "encode", {"kind": kind, "texts": texts}, timeout=120.0)
+    """交给组件进程。前缀由组件加（`kind=query` 时），主程序不掺和。
+
+    `model` / `cache_dir` 必须显式传：组件是独立进程，读不到 `Settings`，
+    而且它得跟主程序用**同一个**模型缓存目录 —— 否则"装组件前已经下过模型"
+    的用户会被要求再下一次 90 MB（`model_ready()` 也看这个目录，两处不一致时
+    检索页会一直说"模型没下"）。
+    """
+    cfg = get_settings()
+    reply = components.call("embed", "encode", {
+        "kind": kind,
+        "texts": texts,
+        "model": cfg.embed_model,
+        "cache_dir": str(cfg.models_dir / "embedding"),
+    }, timeout=120.0)
     return reply.get("vectors") or []
 
 
