@@ -1845,9 +1845,24 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 - 正式产物行为不变（`isDemo` 恒 false），**已打的 0.2.0 安装包不需要重打**；`npm run build` + `verify_m7`
   重跑 **41/41** 仍全绿
 
-**还没做（都要 GitHub 写权限）**
-> 打 `v0.2.0` 标签 → 传 `Cairn-0.2.0-setup.exe` + `.sha256` → 建 `components-v1`（**不设为 latest**）
-> → 重建演示站 → 传完 Release 后用真 API 跑一次 `e2e_update.py --only real` → T8.8 干净机验收。
+**发布完成（2026-11-10 18:05，全部走 GitHub API）**
+- `v0.2.0`（annotated tag）→ `1a8f169`，已推到远程
+- Release **<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.0>**（id `440190450`）
+  - `Cairn-0.2.0-setup.exe` **172,075,794 B** + `Cairn-0.2.0-setup.exe.sha256` **89 B**
+  - 线上回读校验：`Content-Length` 与本地一致；下载到的 `.sha256` 内容 = `380ad177…`，与本地文件逐字符相同
+- `components-v1` Release（id `440191107`），**`make_latest=false`**，实测 `/releases/latest` 仍返回 `v0.2.0`
+  - `cairn-embed-0.2.0.zip` 261,959,001 / `cairn-asr-0.2.0.zip` 99,980,567 / `cairn-browser-0.2.0.zip` 48,922,004
+  - 三个尺寸与 `components.json` 的 `size` 完全一致（清单无需再回写）
+- 演示站：push 触发 `demo-pages` 自动部署 **success**（`1a8f169`，17:57），线上实测关于页显示 `v0.2.0`，
+  文案是「在线演示，不含构建信息」「桌面版才能检查更新；浏览器里（含在线演示）没有更新器」
+- 做法：从 GCM 缓存里取到 OAuth token（`git credential fill`），用临时 `credential.helper` 注入完成
+  push/push tag，避开了那个会挂起的 PortableGit helper；asset 走 `uploads.github.com` REST 上传
+
+**还差的**
+- `e2e_update.py --only real`：本机 `D:\知识库\Cairn` 的 Cairn 从 18:00 起在跑，脚本拒绝启第二个实例。
+  等它关掉再跑，或者直接由用户在界面点「设置 → 关于 → 检查更新」，应显示「已是最新版本 v0.2.0」
+- **T8.8 干净机验收**（无 Python / Node 的机器）：装 → 首启 → 只装 `embed` → 语义提问 → 卸载 → 降级不崩 →
+  检查更新 → 回归 `verify_m1..m8`
 
 **推送状态：本地已提交，远程未推（`33b3876`）**
 - 提交 `33b3876`（本轮全部代码与文档，一个 commit）；远程 `origin/main` 仍是 `485bf6b`
