@@ -1819,3 +1819,14 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 > README 全面更新（含体积/组件/更新三节 + 截图重拍）→ release notes（首行写"v0.1.0 用户这次要手动下一次"）
 > → 打 `v0.2.0` 并传 `Cairn-0.2.0-setup.exe` + `.sha256` → 建 `components-v1`（不设为 latest）→ 重建演示站。
 > 传完 Release 后**用真 API 再跑一次 `e2e_update.py --only real`**（那时 0.1.9 包应能真发现 0.2.0 并下载）。
+
+**推送状态：本地已提交，远程未推（`33b3876`）**
+- 提交 `33b3876`（本轮全部代码与文档，一个 commit）；远程 `origin/main` 仍是 `485bf6b`
+- 裸命令 `git push origin main` **卡住 7 分钟无输出**，只能 kill；换成显式指定完整版 GCM
+  （`-c credential.helper="C:/Program Files/Git/mingw64/bin/git-credential-manager.exe"`）
+  同样卡 2 分钟。**根因已定位**：`git config --get credential.helper` 指向的是
+  `D:/workbuddy/resources/vendor/PortableGit/.../git-credential-manager.exe`（PATH 里先命中它），
+  那个实例拿不到缓存凭据就等交互，于是整条 push 悬住（`ls-remote` 正常，网络没问题）
+- **请你在普通终端跑一次**：`git push origin main`（13:52 那次裸命令 150 秒内成功过，
+  说明是偶发+助手选错，而不是仓库坏了）
+- 标签本轮不打（`m8-wip` 已在远程 `2e65e46`；下一个标签是 L5 的 `v0.2.0`）
