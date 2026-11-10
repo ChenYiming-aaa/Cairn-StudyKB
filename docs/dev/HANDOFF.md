@@ -1802,8 +1802,10 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 - 机器上原本装着 **Cairn 0.1.0 在 `D:\知识库\Cairn`**（注册表里早有卸载项，我没有先发现）。
   NSIS 会记住上次安装目录，所以 `0.1.9` / `0.2.0` 的静默安装都装到了那个目录 ——
   现在 D 盘那个是**本轮打出来的 0.2.0 候选包**，卸载项显示 `Cairn 0.2.0`
-- 数据目录 `%APPDATA%\Cairn` 没被删改；测前已备份 `data.db` + `.env` 到
-  `data/backup/pre-update-test-20261110/`（gitignored）。备份里的 `.env` 含 Key，确认后请删
+- 数据目录 `%APPDATA%\Cairn` 没被删改；测前已备份到
+  `data/backup/pre-update-test-20261110/`（gitignored）。**该目录现在只剩 `data.db`，不含 `.env`**
+  —— 没有再删 Key 的动作要做。备份已复刻核实：`knowledge_item` 5 条、`user_version` 3（与现库 schema 一致），
+  现库已长到 10 条 `knowledge_item` / 108 chunk，说明升级后应用带数据正常运行，没丢东西
 - 关掉这个安装请用 `D:\知识库\Cairn\Uninstall Cairn.exe`（卸载不删数据目录）
 - 结论：`/S` 的落点由注册表决定，**不能拿它验证"默认装到哪"**；那条要等 T8.8 干净机器
 
@@ -1829,4 +1831,10 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
   那个实例拿不到缓存凭据就等交互，于是整条 push 悬住（`ls-remote` 正常，网络没问题）
 - **请你在普通终端跑一次**：`git push origin main`（13:52 那次裸命令 150 秒内成功过，
   说明是偶发+助手选错，而不是仓库坏了）
-- 标签本轮不打（`m8-wip` 已在远程 `2e65e46`；下一个标签是 L5 的 `v0.2.0`）
+- **2026-11-10 复测（收尾时）**：又跑了一次裸命令 `git push origin main`，`timeout 100` 兜底，
+  `exit=124`（100 秒零输出被杀），仍然挂。**已放弃在 agent 会话里推**，不再反复试探。
+  工作区 `.git` 下无残留 lock，仓库本身健康（`git log`/`ls-remote` 都正常）
+- 远程当前 `485bf6b`，本地要推的是 `33b3876` + `dc31503`（+ 本条台账提交）。**没有新标签**
+  （`m8-wip` 已在远程 `2e65e46`；下一个标签是 L5 的 `v0.2.0`）
+- 工作区另有两路**不属于 L4** 的未跟踪文件：`docs/dev/真机实测-v0.1.0.md`、`tools/audit_kb.py`、
+  `tools/build_signed.py` —— 我一个都没动、也没提交，你决定它们的归属
