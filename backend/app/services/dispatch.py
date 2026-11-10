@@ -11,13 +11,14 @@ from app.db.conn import get_conn
 from app.db.repo import tasks as repo
 from app.db.repo.items import loads
 from app.services import tasks as task_queue
-from app.services import embedder, video_ingest, web_ingest
+from app.services import component_install, embedder, video_ingest, web_ingest
 
 log = logging.getLogger(__name__)
 
 TASK_FETCH_URL = "fetch_url"
 TASK_TRANSCRIBE_VIDEO = "transcribe_video"
 TASK_INDEX_EMBED = "index_embed"
+TASK_COMPONENT_INSTALL = component_install.TASK_TYPE
 
 # type → (执行函数, 是否需要 task_id)
 RUNNERS = {
@@ -25,6 +26,9 @@ RUNNERS = {
     TASK_TRANSCRIBE_VIDEO: (video_ingest.run, True),
     # 补向量（M3 §6.2）：不需要进度回调，run(task_input) 就够
     TASK_INDEX_EMBED: (embedder.run, False),
+    # 装组件（M8 T8.3）：登记在这里只为让任务中心能「重试」失败的下载；
+    # 正常入口是 POST /api/components/{id}/install（走 component_install.start）
+    TASK_COMPONENT_INSTALL: (component_install.run, True),
 }
 
 

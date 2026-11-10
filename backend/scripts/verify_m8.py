@@ -7,12 +7,16 @@
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足
 
 覆盖分组（对应 `M8-补充记录.md` §1.1 的六层）：
-  §1 protocol   T8.0 组件清单 / 三态可用性 / 协议往返（真子进程）/ 缺组件降级 / HTTP 不 500
-  §2 slim       T8.1 主包瘦身（体积与 excludes）—— 待 L1 落地后填
-  §3 install    T8.3 下载中心（安装 / 卸载 / 续传 / 校验）—— 待 L3 落地后填
-  §4 update     T8.5 更新器与版本元数据 —— 待 L4 落地后填
+  §1 protocol   T8.0/T8.2 组件清单 / 三态可用性 / 协议往返（真子进程）/ 缺组件降级 / HTTP 不 500
+  §3 install    T8.3 下载中心（安装 / 续传 / 源不支持 Range / 坏包 / 取消 / 卸载 / 端点）
+  §4 slim       T8.1 主包瘦身（体积与 excludes）—— 见 tools/ 与 HANDOFF，不在本脚本里
+  §5 update     T8.5 更新器与版本元数据 —— 待 L4 落地后填
 
-**不联网、不调模型**：组件用的是空实现（假向量），后端起在 127.0.0.1 的临时端口上。
+**不联网、不调模型**：组件用的是真子进程但只做最小任务；下载走本地 HTTP 服务器
+（`CAIRN_COMPONENT_BASE_URL` 只为本脚本存在），后端起在 127.0.0.1 的临时端口上。
+
+用法补充：
+    uv run python scripts/verify_m8.py --only install    # 只跑下载中心那一组
 """
 from __future__ import annotations
 
@@ -24,6 +28,7 @@ import tempfile
 import threading
 import time
 import traceback
+import urllib.error
 import urllib.request
 from pathlib import Path
 from urllib.parse import quote
@@ -211,6 +216,284 @@ def group_protocol() -> None:
           "仍在运行" if held and held.poll() is None else "已退出")
 
 
+# ── §3 install（T8.3 下载中心） ──────────────────────────────
+# 为什么不拿真包验：embed 的 zip 262 MB、解包 690 MB，一次验收要好几分钟且吃满硬盘。
+# 这里现造三个**结构完全一致**的假包（`cairn-<id>.exe` + `_internal/` + `manifest.json`），
+# 用本地 HTTP 服务器当下载源 —— 验的是「下载/续传/校验/解压/就位/卸载」这条链路，
+# 与包多大无关。真包的端到端验证在 T8.8 的干净机器走查里做。
+def group_install() -> None:
+    import hashlib
+    import http.server
+    import shutil
+    import zipfile
+
+    from app.db.migrate import init_db
+    from app.services import component_install
+
+    init_db()
+
+    # 装完之后 status() 会去探 exe 能不能跑；假 exe 显然跑不起来，会污染 state。
+    # 用 none 模式把"探活"整段关掉，验的是文件落位，不是组件能不能跑（§1 已验过）。
+    keep_mode = os.environ.get("CAIRN_COMPONENT_MODE")
+    os.environ["CAIRN_COMPONENT_MODE"] = "none"
+
+    pkg_dir = TMP / "pkgs"
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+
+    def make_pkg(cid: str, pad: int = 0) -> tuple[Path, str, int]:
+        """造一个结构合法的组件包，返回 (zip 路径, sha256, 字节数)。"""
+        stage = TMP / f"stage-{cid}"
+        if stage.exists():
+            shutil.rmtree(stage)
+        stage.mkdir(parents=True)
+        (stage / f"cairn-{cid}.exe").write_bytes(b"MZ fake component exe\n")
+        (stage / "manifest.json").write_text(json.dumps(
+            {"id": cid, "version": "0.2.0", "min_app_version": "0.2.0"},
+            ensure_ascii=False), encoding="utf-8")
+        (stage / "_internal").mkdir()
+        if pad:
+            (stage / "_internal" / "payload.bin").write_bytes(b"\x00" * pad)
+        else:
+            (stage / "_internal" / "payload.bin").write_bytes(b"x" * 2048)
+        out = pkg_dir / f"fake-{cid}.zip"
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_STORED) as zf:
+            for path in sorted(stage.rglob("*")):
+                if path.is_file():
+                    zf.write(path, path.relative_to(stage).as_posix())
+        data = out.read_bytes()
+        return out, hashlib.sha256(data).hexdigest(), len(data)
+
+    pkgs = {cid: make_pkg(cid, pad=(8 * 1024 * 1024 if cid == "asr" else 0))
+            for cid in components.IDS}
+    # 当前生效的 (zip, sha256, size)。§3.4 会把 sha 换成一个假的再换回来，
+    # `fake_manifest` 每次都从这张表读，所以换完立刻生效（不要在这里快照成常量）。
+    sha_size = {cid: (p, sha, size) for cid, (p, sha, size) in pkgs.items()}
+
+    def fake_manifest() -> dict:
+        return {
+            "manifest_version": 1,
+            "min_app_version": "0.2.0",
+            "release_tag": "test-tag",
+            "repo": "test/repo",
+            "components": [
+                {"id": cid, "name": components.LABELS[cid], "why": "验收用假包",
+                 "size": sha_size[cid][2], "sha256": sha_size[cid][1],
+                 "asset": f"fake-{cid}.zip", "unpack_dir": cid}
+                for cid in components.IDS
+            ],
+        }
+
+    class Source(http.server.BaseHTTPRequestHandler):
+        files: dict[str, Path] = {}
+        ranges: list[str] = []
+        ignore_range = False
+        slow = 0.0
+
+        def do_GET(self) -> None:                       # noqa: N802 - 基类命名
+            name = self.path.lstrip("/").split("?")[0]
+            path = self.files.get(name)
+            if not path or not path.exists():
+                self.send_error(404)
+                return
+            data = path.read_bytes()
+            total = len(data)
+            rng = self.headers.get("Range")
+            if rng:
+                Source.ranges.append(rng)
+            start = 0
+            if rng and not Source.ignore_range:
+                start = int(rng.split("=")[1].split("-")[0] or 0)
+                self.send_response(206)
+                self.send_header("Content-Range", f"bytes {start}-{total - 1}/{total}")
+            else:
+                self.send_response(200)
+            body = data[start:]
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            step = 64 * 1024
+            try:
+                for i in range(0, len(body), step):
+                    self.wfile.write(body[i:i + step])
+                    if Source.slow:
+                        time.sleep(Source.slow)
+            except (ConnectionError, OSError):
+                # 取消安装时客户端会直接断开，这是预期行为，别在验收输出里刷栈
+                pass
+
+        def log_message(self, *args) -> None:           # 静音：验收输出里不需要访问日志
+            pass
+
+    Source.files = {p.name: p for p, _, _ in pkgs.values()}
+    src = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Source)
+    threading.Thread(target=src.serve_forever, daemon=True).start()
+    os.environ["CAIRN_COMPONENT_BASE_URL"] = f"http://127.0.0.1:{src.server_port}"
+    real_manifest = components.manifest
+    components.manifest = fake_manifest                  # type: ignore[assignment]
+    components.reset_cache()
+
+    def wait(cid: str, timeout: float = 90.0) -> dict:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            st = components.install_state(cid)
+            if st.get("status") in ("done", "failed", "cancelled"):
+                return st
+            time.sleep(0.05)
+        return components.install_state(cid)
+
+    def current_sha_size(cid: str, sha: str | None = None) -> None:
+        path, good, size = pkgs[cid]
+        sha_size[cid] = (path, sha or good, size)
+
+    try:
+        step("§3.1 安装（正常路径）")
+        task_id = component_install.start("embed")
+        check("install 立刻返回 task_id", bool(task_id), task_id[:8])
+        check("装的过程中 progress 是 running",
+              component_install.progress("embed")["status"] in ("running", "done"),
+              component_install.progress("embed")["status"])
+        st = wait("embed")
+        check("安装任务跑完（status=done）", st.get("status") == "done",
+              f"{st.get('status')} {st.get('error_code')}")
+        base = components.component_dir("embed")
+        check("解压到 components/embed/",
+              (base / "cairn-embed.exe").exists() and (base / "manifest.json").exists(),
+              str(base))
+        check("状态变成 installed", components.status("embed")["state"] == "installed",
+              components.status("embed")["state"])
+        check("进度到 100 且没有残留 .part",
+              component_install.progress("embed")["pct"] == 100
+              and not component_install.part_path("embed").exists())
+        check("没有留下临时解压目录",
+              not [p for p in components.root().glob(".tmp-*")], "残留 .tmp-*")
+
+        step("§3.2 断点续传（源支持 Range）")
+        components.uninstall("embed")
+        part = component_install.part_path("embed")
+        part.parent.mkdir(parents=True, exist_ok=True)
+        part.write_bytes(pkgs["embed"][0].read_bytes()[:1024])   # 模拟上次下到 1 KB 断掉
+        Source.ranges.clear()
+        Source.ignore_range = False
+        component_install.start("embed")
+        st = wait("embed")
+        check("从断点续传后安装成功", st.get("status") == "done",
+              f"{st.get('status')} {st.get('error_code')}")
+        check("真的带了 Range 头（bytes=1024-）", "bytes=1024-" in Source.ranges,
+              str(Source.ranges))
+        check("续传后文件完整（sha256 通过才会 done）", st.get("status") == "done")
+
+        step("§3.3 源不支持 Range（必须从头写，不能把新数据接在旧字节后）")
+        components.uninstall("embed")
+        part.parent.mkdir(parents=True, exist_ok=True)
+        part.write_bytes(pkgs["embed"][0].read_bytes()[:1024])
+        Source.ranges.clear()
+        Source.ignore_range = True
+        component_install.start("embed")
+        st = wait("embed")
+        check("服务端回 200 时自动从头下载并成功", st.get("status") == "done",
+              f"{st.get('status')} {st.get('error_code')}")
+        check("请求里确实带了 Range（被服务端忽略了）", bool(Source.ranges), str(Source.ranges))
+        Source.ignore_range = False
+
+        step("§3.4 坏包（sha256 不对）必须拒绝并清理")
+        components.uninstall("embed")
+        current_sha_size("embed", sha="0" * 64)
+        component_install.start("embed")
+        st = wait("embed")
+        check("校验不过时任务失败", st.get("status") == "failed", st.get("status"))
+        check("错误码是 COMPONENT_HASH_MISMATCH",
+              st.get("error_code") == "COMPONENT_HASH_MISMATCH", st.get("error_code"))
+        check("失败后没有装出半个目录", not components.component_dir("embed").exists())
+        check("失败后 .part 已清掉", not component_install.part_path("embed").exists())
+        check("状态回到 missing", components.status("embed")["state"] == "missing",
+              components.status("embed")["state"])
+        current_sha_size("embed")
+
+        step("§3.5 取消（下载中途）")
+        Source.slow = 0.01                                # 8 MB / 64 KB × 10 ms ≈ 1.3 s
+        component_install.start("asr")
+        got = 0
+        for _ in range(400):
+            st = components.install_state("asr")
+            got = int(st.get("got") or 0)
+            if got > 300_000:
+                break
+            time.sleep(0.02)
+        check("下载确实启动了（下到 300 KB 以上）", got > 300_000, f"{got} 字节")
+        check("cancel 返回 True", component_install.cancel("asr") is True)
+        st = wait("asr", timeout=30)
+        check("取消后状态是 cancelled", st.get("status") == "cancelled", st.get("status"))
+        check("取消后不留半成品目录", not components.component_dir("asr").exists())
+        check("取消后 .part 已删除", not component_install.part_path("asr").exists())
+        Source.slow = 0.0
+
+        step("§3.6 卸载")
+        component_install.start("embed")
+        wait("embed")
+        freed = components.uninstall("embed")
+        check("卸载返回释放的字节数", freed > 0, f"{freed} 字节")
+        check("目录已删除", not components.component_dir("embed").exists())
+        check("状态回到 missing", components.status("embed")["state"] == "missing")
+
+        step("§3.7 HTTP 端点（真 uvicorn）")
+        port = _free_port()
+        server = _start_server(port)
+        base = f"http://127.0.0.1:{port}"
+        try:
+            with urllib.request.urlopen(base + "/api/components", timeout=10) as resp:
+                body = json.load(resp)
+                check("GET /api/components 200 且三个条目",
+                      resp.status == 200 and len(body.get("items") or []) == 3,
+                      str(len(body.get("items") or [])))
+                check("清单元信息一起返回（repo / tag / mirror）",
+                      bool(body.get("repo")) and "mirror" in body, str(body.get("release_tag")))
+            req = urllib.request.Request(
+                base + "/api/components/embed/install", data=b"{}", method="POST",
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                check("POST install 返回 202", resp.status == 202, str(resp.status))
+                check("202 里带 task_id", bool(json.load(resp).get("task_id")))
+            done = False
+            for _ in range(200):
+                with urllib.request.urlopen(base + "/api/components/embed/progress",
+                                            timeout=10) as resp:
+                    pr = json.load(resp)
+                if pr.get("status") == "done":
+                    done = True
+                    break
+                time.sleep(0.05)
+            check("GET progress 一路跟到 done", done, str(pr))
+            with urllib.request.urlopen(base + "/api/components", timeout=10) as resp:
+                items = {i["id"]: i for i in json.load(resp)["items"]}
+            check("列表里 embed 显示已安装且带占用空间",
+                  items["embed"]["state"] == "installed" and items["embed"]["bytes"] > 0,
+                  f"{items['embed']['state']} {items['embed']['bytes']}")
+            req = urllib.request.Request(base + "/api/components/embed", method="DELETE")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                check("DELETE 卸载 200 且报释放空间", json.load(resp).get("freed", 0) > 0)
+            try:
+                urllib.request.urlopen(base + "/api/components/nope/install",
+                                       data=b"{}", timeout=10)
+                check("不认识的组件返回 404", False, "居然 200")
+            except urllib.error.HTTPError as exc:
+                check("不认识的组件返回 404", exc.code == 404, str(exc.code))
+        finally:
+            server.should_exit = True
+            time.sleep(0.4)
+
+    except Exception:
+        traceback.print_exc()
+        check("§3 安装组跑完", False, "异常中断，见上面的栈")
+    finally:
+        components.manifest = real_manifest              # type: ignore[assignment]
+        os.environ.pop("CAIRN_COMPONENT_BASE_URL", None)
+        if keep_mode is None:
+            os.environ.pop("CAIRN_COMPONENT_MODE", None)
+        else:
+            os.environ["CAIRN_COMPONENT_MODE"] = keep_mode
+        components.reset_cache()
+        src.shutdown()
+
+
 # ── 环境 ────────────────────────────────────────────────────
 def _blank_wav(path: Path, seconds: float = 1.0) -> None:
     """静音 wav 当转录素材：验的是"管道通"，不是识别准确率（见 asr 组件自检的说明）。"""
@@ -247,7 +530,7 @@ def _start_server(port: int):
     raise RuntimeError("后端没能在 30 秒内起来")
 
 
-GROUPS = {"protocol": group_protocol}
+GROUPS = {"protocol": group_protocol, "install": group_install}
 
 
 def main() -> int:

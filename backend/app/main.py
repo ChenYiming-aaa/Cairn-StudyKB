@@ -24,6 +24,8 @@ from app.routers import (
     ask, auth, env, health, html, ingest, knowledge, quiz, review, search, session,
     settings, stats, tasks,
 )
+# 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
+from app.routers import components as components_api
 from app.db.repo import sessions as sessions_repo
 from app.services import browser, components
 from app.services.tasks import recover_stale_tasks, shutdown
@@ -104,6 +106,7 @@ app.include_router(review.router)
 app.include_router(session.router)
 app.include_router(stats.router)
 app.include_router(tasks.router)
+app.include_router(components_api.router)
 
 
 # ── 前端静态产物：让页面与 /api 同源（Electron 壳用，dev 仍走 5173）──────────

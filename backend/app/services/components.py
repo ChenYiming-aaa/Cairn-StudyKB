@@ -22,6 +22,7 @@ import logging
 import os
 import shutil
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -43,6 +44,31 @@ HELLO_TTL = 30.0                    # 握手结果缓存：可用性判定每请
 
 _hello_at: dict[str, float] = {}
 _local_cache: dict[str, bool] = {}
+
+# 安装进度（T8.3）。**放在本模块而不是 component_install.py**：`status()` 要把
+# `downloading` 这一态报给前端，而 component_install 反过来要 import 本模块，
+# 状态字典若放在那边就成环了。写入方只有 component_install，本模块只读。
+_install: dict[str, dict] = {}
+_install_lock = threading.Lock()
+
+
+def set_install(cid: str, **fields) -> dict:
+    """合并写入某组件的安装态，返回写入后的副本（给 component_install 用）。"""
+    with _install_lock:
+        cur = dict(_install.get(cid) or {})
+        cur.update(fields)
+        _install[cid] = cur
+        return dict(cur)
+
+
+def install_state(cid: str) -> dict:
+    with _install_lock:
+        return dict(_install.get(cid) or {})
+
+
+def install_running(cid: str) -> bool:
+    return install_state(cid).get("status") == "running"
+
 
 
 # ── 清单 ────────────────────────────────────────────────
@@ -189,6 +215,8 @@ def uninstall(cid: str) -> int:
     if base.exists():
         shutil.rmtree(base, ignore_errors=True)
     _hello_at.pop(cid, None)
+    with _install_lock:
+        _install.pop(cid, None)
     component_proc.clear_broken(cid)
     log.info("已卸载组件 %s，释放 %.1f MB", cid, freed / 1e6)
     return freed
@@ -201,6 +229,10 @@ def status(cid: str) -> dict:
     state = "missing"
     if base.exists():
         state = "broken" if component_proc.is_broken(cid) else "installed"
+    inst = install_state(cid)
+    if inst.get("status") == "running":
+        # 「正在装」压过「已装」：重装/升级时目录可能还在，但界面该显示进度条
+        state = "downloading"
     return {
         "id": cid,
         "name": entry.get("name") or LABELS.get(cid, cid),
@@ -211,6 +243,16 @@ def status(cid: str) -> dict:
         "state": state,
         "mode": resolve(cid),          # component / local / null：本机现在实际怎么跑
         "bytes": disk_bytes(cid) if base.exists() else 0,
+        "install": {
+            "status": inst.get("status", ""),
+            "phase": inst.get("phase", ""),
+            "got": int(inst.get("got") or 0),
+            "total": int(inst.get("total") or 0),
+            "pct": int(inst.get("pct") or 0),
+            "error_code": inst.get("error_code", ""),
+            "error_msg": inst.get("error_msg", ""),
+            "task_id": inst.get("task_id", ""),
+        },
     }
 
 

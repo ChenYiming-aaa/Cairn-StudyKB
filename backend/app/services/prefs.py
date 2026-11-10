@@ -68,7 +68,9 @@ def defaults() -> dict:
         },
         # font_size：2026-11-09 裁决做三档（T6.8 落地），先占位保证形状稳定
         "appearance": {"theme": "paper", "mode": "system", "font_size": "md"},
-        "components": {},
+        # mirror：组件下载的镜像前缀，**默认空 = 直连 GitHub**（M8 §3.3：
+        # 不偷偷把用户流量导去第三方；用户自己要快就自己填）
+        "components": {"mirror": ""},
     }
 
 
@@ -208,6 +210,12 @@ def _check(merged: dict) -> None:
         if task.get("effort") and task["effort"] not in EFFORTS:
             raise ApiError("SETTINGS_INVALID", f"未知的思考强度：{task['effort']}",
                            detail=f"llm.tasks.{agent}.effort", status=400)
+
+    comp = merged.get("components") or {}
+    mirror = str(comp.get("mirror") or "").strip()
+    if mirror and not mirror.startswith(("http://", "https://")):
+        raise ApiError("SETTINGS_INVALID", "镜像地址必须以 http:// 或 https:// 开头",
+                       detail="components.mirror", status=400)
 
     look = merged.get("appearance") or {}
     for field, allowed in (("theme", THEMES), ("mode", MODES), ("font_size", FONT_SIZES)):
