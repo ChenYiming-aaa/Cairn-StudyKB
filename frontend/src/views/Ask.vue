@@ -10,7 +10,7 @@ import { shortTime } from '../utils/format'
 
 const router = useRouter()
 const toast = useToast()
-const { openItemAt } = useUi()
+const { openItemAt, openSettings } = useUi()
 // T7.3：历史抽屉的开关搬到 useLayout（和左栏/列表同一套记忆），Ctrl+H 在 App.vue 触发
 const { isPanelCollapsed, setPanel } = useLayout()
 
@@ -52,10 +52,17 @@ let controller = null
 const matchCount = computed(() => sources.value.length)
 const itemCount = computed(() => new Set(sources.value.map((s) => s.item_id)).size)
 
+/** 当前提示是不是"缺向量组件"—— 只有它才配「去安装」按钮 */
+const needEmbed = computed(() => {
+  const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
+  return value === 'vector_component_missing'
+})
+
 const fallbackHint = computed(() => {
   const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
   if (value === 'vector_disabled') return '向量不可用，已降级为全文检索（功能不受影响）'
-  if (value === 'vector_component_missing') return '现在是纯文字检索。去「设置 → 下载」装上向量检索，就能按意思搜'
+  // 文案不再自带"去设置里装"：那一句改成一个按钮（同一行里更明显，也不用记路径）
+  if (value === 'vector_component_missing') return '现在是纯文字检索，装上向量组件就能按意思搜'
   if (value === 'like_short_query') return '关键词少于 3 字，已改用模糊匹配'
   return ''
 })
@@ -328,7 +335,18 @@ watch(question, () => {
         </div>
       </div>
 
-      <p v-if="fallbackHint" class="hint-line">{{ fallbackHint }}</p>
+      <!-- M8 T8.4：缺向量组件时给一个能点的入口，别只让用户自己去翻设置 -->
+      <p v-if="fallbackHint" class="hint-line">
+        {{ fallbackHint }}
+        <button
+          v-if="needEmbed"
+          class="hint-btn"
+          type="button"
+          @click="openSettings('downloads')"
+        >
+          去安装
+        </button>
+      </p>
 
       <!-- 问答 -->
       <template v-if="tab === 'ask'">
@@ -552,6 +570,22 @@ watch(question, () => {
   margin: var(--space-2) 0 0;
   font-size: var(--fs-xs);
   color: var(--c-warning-ink);
+}
+
+.hint-btn {
+  margin-left: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--c-primary-ink);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.hint-btn:hover {
+  color: var(--c-primary-hover);
 }
 
 .stats {

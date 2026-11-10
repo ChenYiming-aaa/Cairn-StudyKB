@@ -3,7 +3,7 @@
  * 设置窗口（M6 T6.5）：模态，宽 880 / 高 620，左侧 4 个 tab。
  *
  * 这个文件只负责「壳」：开合、焦点陷阱、Esc、遮罩点击、tab 记忆。
- * tab 的内容在 `components/settings/*`，Part 2 会补 外观 / 下载 / 关于 三块。
+ * tab 的内容在 `components/settings/*`；「下载」是 M8 T8.4 补上的（组件按需安装）。
  *
  * 三条无障碍底线（模态不做这三件，键盘用户就被困住了）：
  * 1. `role="dialog"` + `aria-modal` + `aria-labelledby`
@@ -16,6 +16,7 @@ import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
 import AboutTab from './settings/AboutTab.vue'
 import AppearanceTab from './settings/AppearanceTab.vue'
+import DownloadsTab from './settings/DownloadsTab.vue'
 import ModelTab from './settings/ModelTab.vue'
 
 const TABS = [
@@ -137,16 +138,8 @@ onBeforeUnmount(() => {
           <div class="body-scroll" role="tabpanel" :aria-label="current.label">
             <ModelTab v-if="current.id === 'model'" />
             <AppearanceTab v-else-if="current.id === 'appearance'" />
+            <DownloadsTab v-else-if="current.id === 'downloads'" />
             <AboutTab v-else-if="current.id === 'about'" />
-
-            <!-- 「下载」是 M8 的活，这里先给明确占位而不是空白 -->
-            <div v-else class="pending">
-              <p class="pending-title">可选组件（M8）</p>
-              <p class="pending-body">
-                向量模型、语音识别、浏览器内核会从安装包里拆出来，按需下载、能卸载。
-                下载中心到 M8 才有；现在装的是全量包，三个组件都已经在里面。
-              </p>
-            </div>
           </div>
 
           <footer class="body-foot">
@@ -282,27 +275,6 @@ onBeforeUnmount(() => {
   background: var(--c-bg-1);
   font-size: var(--fs-xs);
   color: var(--c-text-3);
-}
-
-.pending {
-  padding: var(--space-6) var(--space-4);
-  border: 1px dashed var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-bg-1);
-}
-
-.pending-title {
-  margin: 0 0 var(--space-2);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--c-text-2);
-}
-
-.pending-body {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
-  line-height: var(--lh-body);
 }
 
 @keyframes fade {

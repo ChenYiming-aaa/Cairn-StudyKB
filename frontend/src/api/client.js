@@ -31,6 +31,12 @@ const FRIENDLY = [
   [/^LLM_MODELS_UNSUPPORTED$/, '这个服务不提供模型列表。手动填模型名就能用'],
   [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，抽不了音频。内容照常入库，只是没有转录'],
   [/^COMPONENT_MISSING$/, '缺一个可选组件，这次没做成。去「设置 → 下载」装上再试，其他功能不受影响'],
+  // 下载中心（M8 T8.3）：下面几条要能区分「网络没成」「包不对」「盘不够」，
+  // 混成一句"重启应用"会让用户白折腾
+  [/^COMPONENT_HASH_MISMATCH$/, '下载的文件校验没通过（可能是网络中断或被镜像改过），已自动删除。再点一次重试'],
+  [/^COMPONENT_DOWNLOAD_FAILED$/, '下载没完成。再点一次会从断点接着下，不用从头来'],
+  [/^COMPONENT_DISK_FULL$/, '磁盘空间不够。清一些空间再装，装完还能卸载'],
+  [/^COMPONENT_BUSY$/, '这个组件正在安装（或旧版本还占着文件）。等它结束，或重启应用后再试'],
   [/^COMPONENT_/, '这个可选组件没跑起来。重启应用试一次；还不行去「设置 → 下载」重新装'],
   [/^TRANSCRIBE_/, '转录没成功，语音识别这一步中断了。详细原因见下方提示或任务中心'],
   [/^FETCH_BROWSER_UNAVAILABLE$/, '网页渲染组件没装，这条没采到。装好 Edge/Chrome 也行，或去「设置 → 下载」装上网页渲染'],
@@ -224,6 +230,15 @@ export const api = {
   saveProvider: (payload) => post('/api/settings/llm', payload),
   /** 版本元数据 {version, commit, built_at}（T8.5 更新器用） */
   version: () => get('/api/version'),
+  /** 可选组件清单 + 状态（M8 T8.3）：{items, repo, release_tag, mirror} */
+  components: () => get('/api/components'),
+  /** 起后台下载任务，返回 {task_id}；装完的状态要靠 components()/progress 轮询 */
+  installComponent: (id) => post(`/api/components/${id}/install`),
+  /** 下载进度：{status, phase, got, total, pct, error_code, error_msg} */
+  componentProgress: (id) => get(`/api/components/${id}/progress`),
+  cancelComponent: (id) => post(`/api/components/${id}/cancel`),
+  /** 卸载：停进程 → 删目录，返回 {freed} */
+  uninstallComponent: (id) => del(`/api/components/${id}`),
   /** 各站点登录态 + 当前登录任务进度（轮询用，只读文件很快） */
   authStatus: () => get('/api/auth/status'),
   /** 起一个受控浏览器窗口让用户登录，立即返回，结果靠 authStatus 轮询 */

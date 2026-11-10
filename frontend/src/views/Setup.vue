@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { api, friendlyMessage } from '../api/client'
 import { useToast } from '../composables/useToast'
 import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
@@ -13,7 +14,7 @@ import ProviderForm from '../components/settings/ProviderForm.vue'
  * 只解决"装完打不开/打开了什么都不能干"这一个问题，所以清单固定三步且**不解释原理**：
  *   1. 模型 Key —— 唯一必须由用户提供的输入（后台已经写进 %APPDATA%/Cairn/.env）
  *   2. ffmpeg  —— 安装包自带，正常就该是绿的；红了说明安装不完整
- *   3. 本地模型 —— 可选，首次用时自动下载，只是提前告诉用户"会下 600MB"
+ *   3. 可选组件 —— M8 T8.4：三条勾选（向量默认勾上），不选也能用，之后在设置里装
  *
  * T6.9 改造：Key 表单换成设置窗口里那个 `ProviderForm`（两处共用一个组件，
  * 校验/提示/错误文案只有一份），「接口地址 / 模型名」的折叠直接删掉 ——
@@ -69,15 +70,73 @@ function onModels(list) {
   update({ llm: { providers: { deepseek: { models: list } } } })
 }
 
+// ── 第 3 步：可选组件（M8 T8.4） ─────────────────────────
+// 这里**不阻塞**：勾了就起后台下载，用户可以立刻去知识库。
+// 下载中心在「设置 → 下载」，装完状态会自己变。
+const comps = ref([])
+const picked = ref(['embed'])          // 向量默认勾上（"按意思搜"是最常被感知的一项）
+const starting = ref(false)
+
+function fmtSize(bytes) {
+  const n = Number(bytes) || 0
+  if (n <= 0) return '—'
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`
+  return `${Math.round(n / 1e6)} MB`
+}
+
+function isInstalled(id) {
+  return (comps.value.find((c) => c.id === id) || {}).state === 'installed'
+}
+
+async function loadComponents() {
+  try {
+    const data = await api.components()
+    comps.value = data.items || []
+    // 已经装好的从勾选里摘掉：勾着一个"已安装"会让用户以为还要再选一次
+    picked.value = picked.value.filter((id) => !isInstalled(id))
+  } catch {
+    // 后端没起来时引导页其余部分照常可用，组件这块空着就行
+    comps.value = []
+  }
+}
+
+/** 勾了就起下载：失败只提示，不拦着用户进知识库 */
+async function startPicked() {
+  const todo = comps.value.filter(
+    (c) => picked.value.includes(c.id) && c.state !== 'installed' && c.state !== 'downloading'
+  )
+  if (!todo.length) return
+  starting.value = true
+  const started = []
+  for (const comp of todo) {
+    try {
+      await api.installComponent(comp.id)
+      started.push(comp.name)
+    } catch (err) {
+      toast.error(friendlyMessage(err))
+    }
+  }
+  starting.value = false
+  if (started.length) {
+    toast.info(`已开始下载 ${started.join('、')}。在「设置 → 下载」能看进度，装完就能用`)
+  }
+}
+
+async function finish() {
+  await startPicked()
+  router.push('/')
+}
+
 function later() {
   dismissSetup()
   toast.info('随时点顶栏的齿轮回到这里')
-  router.push('/')
+  finish()
 }
 
 onMounted(async () => {
   if (!envLoaded.value) await loadEnv()
   await loadSettings()
+  await loadComponents()
 })
 </script>
 
@@ -154,35 +213,45 @@ onMounted(async () => {
         </p>
       </li>
 
-      <!-- 3. 本地模型 -->
-      <li class="step" :class="env.whisper?.ok && env.embedding?.ok ? 'ok' : 'optional'">
+      <!-- 3. 可选组件（M8 T8.4）：从"告诉你模型会下多少"改成"让你现在选要不要" -->
+      <li class="step optional">
         <div class="step-head">
           <span class="step-no">3</span>
-          <h2 class="step-title">本地模型</h2>
-          <span class="chip optional">
-            {{ env.whisper?.ok && env.embedding?.ok ? '已下载' : '用到才下' }}
-          </span>
+          <h2 class="step-title">可选组件</h2>
+          <span class="chip optional">都可以跳过</span>
         </div>
         <p class="step-desc">
-          不用管，第一次真正用到时会自动下载。提前说一声，免得以为卡住了。
+          这三样占了安装包的大头，所以拆出来按需装。不装也能用，只是对应功能降一级。
         </p>
-        <div class="rows">
-          <div class="row" :class="tone(env.whisper)">
-            <span class="row-name">语音识别</span>
-            <span class="row-name-sub">whisper small · 约 500MB</span>
-            <span class="row-value">{{ env.whisper?.ok ? '已下载' : '未下载' }}</span>
-          </div>
-          <div class="row" :class="tone(env.embedding)">
-            <span class="row-name">向量检索</span>
-            <span class="row-name-sub">bge-small-zh · 约 100MB</span>
-            <span class="row-value">{{ env.embedding?.ok ? '已下载' : '未下载' }}</span>
-          </div>
-          <div class="row" :class="tone(env.sqlite_vec)">
-            <span class="row-name">向量加速</span>
-            <span class="row-name-sub">sqlite-vec · 可选</span>
-            <span class="row-value">{{ env.sqlite_vec?.ok ? '已就绪' : '未安装' }}</span>
-          </div>
-        </div>
+
+        <ul v-if="comps.length" class="picks">
+          <li v-for="comp in comps" :key="comp.id" class="pick">
+            <label class="pick-main">
+              <input
+                v-model="picked"
+                type="checkbox"
+                :value="comp.id"
+                :disabled="isInstalled(comp.id) || comp.state === 'downloading'"
+              />
+              <span class="pick-name">
+                {{ comp.name }}
+                <span v-if="comp.id === 'embed'" class="rec">推荐</span>
+              </span>
+            </label>
+            <span class="pick-size">
+              {{ isInstalled(comp.id) ? '已安装' : comp.state === 'downloading' ? '安装中' : fmtSize(comp.size) }}
+            </span>
+            <p class="pick-why">{{ comp.why }}</p>
+          </li>
+        </ul>
+        <p v-else class="step-foot">组件清单还没读出来；不影响先填 Key，之后在「设置 → 下载」里装。</p>
+
+        <p class="step-foot">
+          都可以跳过，之后在 设置 → 下载 里装。勾了的话现在就开始后台下载，不用等它。
+        </p>
+        <p class="step-foot">
+          模型文件（向量约 100MB、语音约 500MB）不在组件包里，第一次真正用到时才下载。
+        </p>
       </li>
     </ol>
 
@@ -198,7 +267,9 @@ onMounted(async () => {
       </button>
       <div class="grow" />
       <button class="btn btn-ghost" type="button" @click="later">稍后再说</button>
-      <button class="btn btn-primary" type="button" @click="router.push('/')">去知识库</button>
+      <button class="btn btn-primary" type="button" :disabled="starting" @click="finish">
+        {{ starting ? '开始下载…' : '去知识库' }}
+      </button>
     </footer>
   </div>
 </template>
@@ -369,6 +440,63 @@ onMounted(async () => {
 
 .ok-line {
   color: var(--c-success-ink);
+}
+
+.picks {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+}
+
+.pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-0);
+}
+
+.pick-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-1);
+  cursor: pointer;
+}
+
+.pick-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rec {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-ink);
+  font-size: var(--fs-xs);
+}
+
+.pick-size {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.pick-why {
+  grid-column: 1 / -1;
+  margin: var(--space-1) 0 0;
+  padding-left: 22px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  line-height: var(--lh-body);
 }
 
 .rows {

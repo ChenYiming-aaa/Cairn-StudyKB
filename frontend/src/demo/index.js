@@ -154,8 +154,41 @@ const DEMO_SETTINGS = () => ({
   env_file: '%APPDATA%\\Cairn\\.env',
 })
 
+// 下载中心：演示版没有后端，也没法往磁盘写 690 MB。这里给出**真实形状**的空状态，
+// 让设置窗口的「下载」tab 能正常渲染并说明"演示版不能装"，而不是弹一句
+// 跟组件无关的"整理/采集要本地后端"。
+const DEMO_COMPONENTS = () => ({
+  items: [
+    {
+      id: 'embed', name: '向量检索', why: '让问答能按意思找，而不只是按字面。不装也能用，搜得糙一点。',
+      size: 261959001, version: '', min_app_version: '0.2.0', state: 'missing',
+      mode: null, bytes: 0,
+      install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
+    },
+    {
+      id: 'asr', name: '视频转录', why: '没有字幕的视频也能转成文字。不装的话，只支持本来就带字幕的视频。',
+      size: 99980567, version: '', min_app_version: '0.2.0', state: 'missing',
+      mode: null, bytes: 0,
+      install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
+    },
+    {
+      id: 'browser', name: '网页渲染', why: '知乎这类必须跑脚本才出正文的站点要用。不装也能采大部分网页。',
+      size: 48922004, version: '', min_app_version: '0.2.0', state: 'missing',
+      mode: null, bytes: 0,
+      install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
+    },
+  ],
+  repo: 'ChenYiming-aaa/Cairn-StudyKB',
+  release_tag: 'components-v1',
+  manifest_version: 1,
+  min_app_version: '0.2.0',
+  mirror: '',
+  demo: true,
+})
+
 const ROUTES = [
   [/^\/api\/health$/, () => data.health],
+  [/^\/api\/components$/, () => DEMO_COMPONENTS()],
   [/^\/api\/version$/, () => ({ version: '0.1.0', commit: null, built_at: null })],
   [/^\/api\/settings$/, () => DEMO_SETTINGS()],
   [/^\/api\/env\/check$/, () => data.env],

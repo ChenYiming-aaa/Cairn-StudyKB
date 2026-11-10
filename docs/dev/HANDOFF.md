@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-10 13:45 · 每次会话结束更新这一段）
+## 当前状态（2026-11-10 14:20 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M8 体积与更新 · 进行中（六层中的 L0/L1/L2 已完成）**。分层计划见 `M8-补充记录.md` §1；下一层 **L3 = T8.3 + T8.4 下载中心后端与 UI** |
-| 当前里程碑 | **L1（T8.1 主包瘦身）+ L2（T8.2 三个组件包）完成**：安装包 **426 → 172 MB**（解包 965 → 474 MB），**目标已裁决为 ≤175 MB → ✅ 达标**（原 170 MB 差 2 MB 不做补救，理由见补充记录 §三 1.1）；三个组件包真管道（bge / faster-whisper / playwright）打完，`--selftest` 各自 exit 0，zip **262 / 100 / 49 MB**，`sha256` 已回写 `app/components.json`；新增 `backend/shared/`（playwright 与 cookie 格式主程序/组件共用一份）；协议补 `idle=True` 空闲超时 |
+| 里程碑 | **M8 体积与更新 · 进行中（六层中的 L0/L1/L2/L3 已完成）**。分层计划见 `M8-补充记录.md` §1；下一层 **L4 = T8.5 + T8.6 更新器与版本元数据** |
+| 当前里程碑 | **L3（T8.3 下载中心后端 + T8.4 UI）完成**：5 个端点（install 立即 202 / progress 轮询 / cancel / DELETE 卸载 / 列表）、断点续传（`Range` 不被支持时从头写）、sha256 校验失败拒绝并清干净、解压到临时目录再整体改名、`COMPONENT_*` 错误码 6 个；UI 三张卡（安装中进度条 / 失败原因 + 重试 / 卸载回升）＋ 欢迎页第 3 步选装 ＋ 问答页「去安装」；`verify_m8` **71/71**。｜ **L1（T8.1）+ L2（T8.2）**：安装包 **426 → 172 MB**（解包 965 → 474 MB），**目标已裁决为 ≤175 MB → ✅ 达标**（原 170 MB 差 2 MB 不做补救，理由见补充记录 §三 1.1）；三个组件包真管道（bge / faster-whisper / playwright）打完，`--selftest` 各自 exit 0，zip **262 / 100 / 49 MB**，`sha256` 已回写 `app/components.json`；新增 `backend/shared/`（playwright 与 cookie 格式主程序/组件共用一份）；协议补 `idle=True` 空闲超时 |
 | 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；**M5 + v0.1.0 已发布**，唯一未闭环项仍是遗留 #2（装到没有 Python/Node 的真机） |
-| 远程 | `origin/main` = **`25de845`**（2026-11-10 13:52 推送成功，含 M8 L1/L2 与体积裁决文档）；**本表不追每次提交** |
+| 远程 | `origin/main` = 见本文件最后一条的「推送状态」（含 M8 L1/L2/L3）；标签 `m8-wip` 已推（打在 L2 落地的提交上）；**本表不追每次提交** |
 | 版本 | `v0.1.0`（三处都是 0.1.0）。统一到 0.2.0 是 T8.6 的事（2026-11-09 你裁决：不提前写死 0.2.0）。**组件包内部自报 0.2.0**（协议里 `version`/`min_app_version` 不跟主包版本号走） |
-| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done`。**M8 未打标签**（L1/L2 已出体积数字，`m8-wip` 待你点头后打在 L2 落地的提交上） |
-| 验收 | **M8 `verify_m8.py` 38/38 PASS**（清单 5 / 三态 3 / 协议往返 12 / 降级 6 / 文案 3 / HTTP 5 / 生命周期 4） · 回归**在 `CAIRN_COMPONENT_MODE=none`（模拟没装组件）下全绿**：**m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · 安装包 **172,035,473 B**、安装后整目录 **474 MB** · 组件自检三个 exit 0 · 前端本轮未改动（沿用 lint 干净 / JS 317.88 kB、CSS 90.94 kB 的构建结果） |
+| 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done`(→`a3bab20`) `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip`(→`2e65e46`，L1/L2 + 体积裁决)。**`m8-done` 等 L5 发布时打** |
+| 验收 | **M8 `verify_m8.py` 71/71 PASS**（§1 protocol 38：清单 5 / 三态 3 / 协议往返 12 / 降级 6 / 文案 3 / HTTP 5 / 生命周期 4；§3 install 33：安装 / 续传 / 源不支持 Range / 坏包 / 取消 / 卸载 / 5 个端点） · 回归**在 `CAIRN_COMPONENT_MODE=none`（模拟没装组件）下全绿**：**m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · 安装包 **172,035,473 B**、安装后整目录 **474 MB** · 组件自检三个 exit 0 · 前端 `npm run lint` 干净、`npm run build` 通过（JS 325.54 kB / gzip 119.07；CSS 95.48 / 14.38） |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -1666,3 +1666,67 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 > 进 L3（T8.3 + T8.4 下载中心）。读 `M8-体积与更新.md` §3 全文 + `contracts/接口契约.md`
 > 的 §components 段，从 `GET /components` 与 `install` 起手；`components.py` 已备好
 > `status()` / `uninstall()` / `disk_bytes()`，L3 只缺下载、断点续传、校验与解压。
+
+---
+
+## 2026-11-10 14:20 · M8 · L3 下载中心（T8.3 后端 + T8.4 UI，**六层中的第四层完成**）
+
+**范围**：T8.3 = 安装/进度/取消/卸载四件事的后端；T8.4 = 设置窗口「下载」tab + 欢迎页选装 +
+问答页提示条。**不做**：更新器（L4）、发布（L5）。
+
+**T8.3 结果（`verify_m8` 新增 §3 install 33 条，总 71/71）**
+- 新模块 `services/component_install.py`：`httpx.stream` + `Range` 续传 →
+  sha256 逐块校验 → 解压到 `.tmp-<uuid>` → `os.replace` 整体就位 → 清 `.part`
+- 中间态放 `components/.parts/` 与 `components/.tmp-*`，**绝不能放 `components/<id>/`**：
+  那个目录存在就是"已安装"，放进去会让界面在 30% 时显示已装、`resolve()` 去握手半个 exe
+- 服务端回 `200` 忽略 `Range` 时**必须从头写**（否则新字节接在旧字节后，sha 必错）
+- 取消落 `done` + `cancelled=true`，**不落 failed**：否则任务中心红条目，点「重试」会把
+  刚取消的下载又拉起来
+- 5 个端点：`GET /api/components`、`POST .../{id}/install`(202)、`GET .../{id}/progress`、
+  `POST .../{id}/cancel`（契约新增）、`DELETE .../{id}`；错误码 6 个
+- `dispatch.RUNNERS` 登记 `component_install`，任务中心能重试失败项
+- `prefs` 加 `components.mirror`（默认空 = 直连 GitHub，不替用户改流量）
+
+**T8.4 结果（界面，Playwright 逐状态截图核对）**
+- `DownloadsTab.vue`：三张卡 + 进度条（pct/got 都来自后端，不自己插值）+ 取消/重试/卸载
+  + 下载源；轮询只在"有组件在装"时 1 秒一次，装完即停
+- `Setup.vue` 第 3 步「本地模型」→「可选组件」：三条勾选（embed 默认勾上标「推荐」），
+  勾了在离开引导页时起后台下载，**不阻塞**；模型文件大小说明挪到脚注
+- `Ask.vue`：缺向量组件时提示条加「去安装」按钮（跳设置 → 下载）
+- 文案按**实际能力**写：源码运行且本机有库 → 「用本机已装的库」（不写「未安装」骗人）
+- 演示版（VITE_DEMO）：`/api/components` 返回真形状空状态 + `demo:true`，
+  界面顶部写「演示版不能装」并禁用按钮，不假装能装
+
+**踩到/确认的事（详见 `M8-补充记录.md` §五）**
+- 设置窗口固定 620px 高：「下载源」原来占三行，底栏把说明压掉半句（截图才发现），
+  压成「行内标签 + 输入框 + 一行说明」后正好放下
+- 安装态字典放 `components.py` 而非 `component_install.py`：`status()` 要读它，
+  反过来 import 就成环
+- 验收不碰真包：现造同形假包 + 本地支持 Range 的 HTTP 源
+  （`CAIRN_COMPONENT_BASE_URL` 只给验收，生产不读）
+
+**改动文件**
+- 后端新增：`app/services/component_install.py`、`app/routers/components.py`
+- 后端改动：`components.py`（安装态 + downloading）、`main.py`（挂路由）、`dispatch.py`、
+  `prefs.py`（mirror）、`scripts/verify_m8.py`（+33 条）
+- 前端新增：`components/settings/DownloadsTab.vue`
+- 前端改动：`SettingsDialog.vue`（真 tab 替占位）、`Setup.vue`、`Ask.vue`、
+  `api/client.js`（5 个方法 + 4 条错误码文案）、`demo/index.js`
+- 文档：`contracts/接口契约.md`（4 行端点 + §components 详细形状）、
+  `milestones/M8-体积与更新.md`（T8.3/T8.4 完成、层状态）、`M8-补充记录.md` §五、
+  `00-总纲.md`、`会话提示词手册.md`、`运行与打包.md`（镜像与 `CAIRN_COMPONENT_BASE_URL`）
+
+**验证**
+- `verify_m8.py` → **71/71 PASS**（§1 38 + §3 33）
+- `npm run lint` 干净；`npm run build` 通过（JS 325.54 kB / gzip 119.07；CSS 95.48 / 14.38）
+- UI 走查：正常 / 下载中 / 失败 / 已安装 / 演示版 五张截图逐个核对
+- `doc_check.py` 通过（6 项 + 1 条既有 WARN）
+
+**推送状态：已推送 ✅**
+- 远程 `origin/main` = 本轮提交；标签 `m8-wip` 已推（`2e65e46`）
+
+**下一会话第一件事**
+> 进 L4（T8.5 更新器 + T8.6 版本元数据）。读 `M8-体积与更新.md` §4 全文（含 §4.2 流程、
+> §4.3 需要的 Electron 改动、§4.4 版本元数据）。T8.5 的实测方法是**本地把
+> `desktop/package.json` 改成 0.1.9 打一个包装上**，点检查更新应发现 0.2.0；
+> 三个断言别省：断网给人话 / 取消下载文件删净 / 装完无孤儿 `cairn-backend.exe`。
