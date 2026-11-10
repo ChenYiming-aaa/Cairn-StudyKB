@@ -1524,8 +1524,11 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 - 无。数据契约 §10 的 `TRANSCRIBE_NO_ASR` 与任务书 `COMPONENT_MISSING` 不一致，
   已按 M8 定案统一并回写契约（理由见补充记录 S-5），不算待你裁决项。
 
-**推送状态：已推（见下）**
-- 提交见下一条 `git log`；`origin/main` 同步更新
+**推送状态：已推（2026-11-10 11:50）**
+- 提交 `64589b3`（L0 全部代码与文档，一个 commit）
+- `origin/main` = `64589b3`；裸命令 `git push origin main` 一次成功（未设 GCM/TERMINAL 变量）
+- **本轮没有新标签**：L0 只是地基，体积数字要到 L1 才有，`m8-wip` 计划打在 L1 落地的提交上
+- 同一提交里**没有** `backend/cairn-backend.spec`（那是另一路的未提交改动，L1 动 spec 前要先分清）
 
 **下一会话第一件事**
 > 开 M8 的 L1（T8.1）：读 `M8-补充记录.md` §1（层边界）与 `milestones/M8-体积与更新.md` §2.4，
