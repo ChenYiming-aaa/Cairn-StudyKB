@@ -206,14 +206,25 @@ def unique_phrase(item_id: int) -> str:
 
 
 def step_delete(client: TestClient, item_id: int) -> None:
-    step("6/8 删条目 → 查残留（只认 SQL 可查询）")
+    step("6/8 删内容 → 查残留（只认 SQL 可查询）")
     chunk_ids = [r[0] for r in sql("SELECT id FROM chunk WHERE item_id=?", (item_id,))]
     probe = unique_phrase(item_id)
     check("删除前该条目有 chunk", len(chunk_ids) > 0, f"{len(chunk_ids)} 块")
     check("探针文字删除前可搜到",
           sql("SELECT COUNT(*) FROM chunk_fts WHERE chunk_fts MATCH ?", (probe,))[0][0] > 0, probe)
+    # study_session 没有外键，删除路径必须自己清，否则仪表盘仍算这条的专注时长（2026-11-11 修）
+    sql(
+        "INSERT INTO study_session"
+        " (target_type, target_id, start_time, duration_seconds, planned_seconds, status, created_at)"
+        " VALUES ('item', ?, '2026-01-01T09:00:00', 600, 1500, 'done', '2026-01-01T09:00:00')",
+        (item_id,),
+    )
     resp = client.delete(f"/api/knowledge/{item_id}")
     check("DELETE 200", resp.status_code == 200, str(resp.json()))
+    left_session = sql(
+        "SELECT COUNT(*) FROM study_session WHERE target_type='item' AND target_id=?", (item_id,)
+    )[0][0]
+    check("专注记录随内容一起删", left_session == 0, f"{left_session} 行")
     left_chunk = sql("SELECT COUNT(*) FROM chunk WHERE item_id=?", (item_id,))[0][0]
     left_index = sum(sql("SELECT COUNT(*) FROM chunk_fts WHERE rowid=?", (cid,))[0][0] for cid in chunk_ids)
     left_match = sql("SELECT COUNT(*) FROM chunk_fts WHERE chunk_fts MATCH ?", (probe,))[0][0]

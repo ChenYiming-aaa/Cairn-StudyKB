@@ -182,7 +182,14 @@ def update_item(conn: sqlite3.Connection, item_id: int, fields: dict) -> sqlite3
 
 
 def delete_item(conn: sqlite3.Connection, item_id: int) -> bool:
-    """外键 CASCADE 处理 chunk / question；chunk_fts 由触发器同步。"""
+    """外键 CASCADE 处理 chunk / question；chunk_fts 由触发器同步。
+
+    `study_session` 没有外键（target_type/target_id 只是弱关联），不显式清就会留孤儿：
+    删掉内容后，那条的专注时长仍被仪表盘「本周专注」算进去（2026-11-11 修）。
+    """
+    conn.execute(
+        "DELETE FROM study_session WHERE target_type='item' AND target_id=?", (item_id,)
+    )
     cur = conn.execute("DELETE FROM knowledge_item WHERE id=?", (item_id,))
     return cur.rowcount > 0
 

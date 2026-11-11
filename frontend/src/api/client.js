@@ -29,7 +29,7 @@ const FRIENDLY = [
   [/^SETTINGS_WRITE_FAILED$/, '设置文件写不进去，这次改动没保存。确认数据目录可写'],
   [/^SETTINGS_/, '设置没保存成功，改动会丢。稍后重试'],
   [/^LLM_MODELS_UNSUPPORTED$/, '这个服务不提供模型列表。手动填模型名就能用'],
-  [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，抽不了音频。内容照常入库，只是没有转录'],
+  [/^TRANSCRIBE_NO_FFMPEG$/, '缺少 ffmpeg，抽不了音频。内容照常保存，只是没有转录'],
   [/^COMPONENT_MISSING$/, '缺一个可选组件，这次没做成。去「设置 → 下载」装上再试，其他功能不受影响'],
   // 下载中心（M8 T8.3）：下面几条要能区分「网络没成」「包不对」「盘不够」，
   // 混成一句"重启应用"会让用户白折腾

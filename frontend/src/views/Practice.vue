@@ -314,7 +314,7 @@ onMounted(loadItems)
               <span class="gen-index">{{ index + 1 }}</span>
               <div class="gen-body">
                 <p class="gen-q">{{ q.question }}</p>
-                <p class="gen-meta">{{ TYPE_LABELS[q.type] }} · 已入库 #{{ q.id }}</p>
+                <p class="gen-meta">{{ TYPE_LABELS[q.type] }} · #{{ q.id }}</p>
               </div>
             </li>
           </ul>

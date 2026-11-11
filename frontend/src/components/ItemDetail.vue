@@ -126,7 +126,7 @@ function organize() {
 function remove() {
   const item = props.item
   if (!item) return
-  if (!window.confirm(`删除「${item.title}」？它的笔记片段、题目和作答记录会一起删掉，不能恢复。`)) return
+  if (!window.confirm(`删除「${item.title}」？它的笔记片段、题目、作答记录和专注记录会一起删掉，不能恢复。`)) return
   api
     .deleteItem(item.id)
     .then(() => {

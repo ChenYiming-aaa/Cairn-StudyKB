@@ -484,7 +484,7 @@ function loginLabel(key, site) {
               这条已经在知识库里了，没有重复添加。
             </template>
             <template v-else>
-              {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕入库（没有跑语音识别）。' : '已入库。' }}
+              {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕，没有跑语音识别。' : '已存进知识库。' }}
               可以继续采集下一条，或点「去看看」打开它。
             </template>
           </p>
