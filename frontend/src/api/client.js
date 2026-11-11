@@ -16,7 +16,7 @@ export class ApiError extends Error {
 }
 
 const FRIENDLY = [
-  [/^LLM_NO_KEY$/, '还没配模型 Key，整理、问答、出题都用不了。点顶栏「环境待配置」把 Key 填进去，不用重启'],
+  [/^LLM_NO_KEY$/, '还没配模型 Key，整理、问答、出题都用不了。点顶栏「还差一步」把 Key 填进去，不用重启'],
   [/^LLM_QUOTA$/, '模型额度不够或触发了限流，这次没调成功。检查账户余额，或等一会儿再试'],
   [/^LLM_TIMEOUT$/, '模型响应超时，这次没拿到结果。可以重试；简答会记成「待人工判断」，不会判错'],
   [/^LLM_BAD_JSON$/, '模型返回的不是合法 JSON，已自动重试过一次。再点一次；还不行就换个模型'],
@@ -42,14 +42,14 @@ const FRIENDLY = [
   [/^FETCH_BROWSER_UNAVAILABLE$/, '网页渲染组件没装，这条没采到。装好 Edge/Chrome 也行，或去「设置 → 下载」装上网页渲染'],
   [/^FETCH_LOGIN_REQUIRED$/, '这个站点要登录才给内容，这条没采到。先在采集面板登录对应站点，再点一次采集'],
   [/^FETCH_/, '采集没成功：站点拒绝访问，或者没抓到有效正文。这种情况改用粘贴更稳'],
-  [/^ITEM_NOT_FOUND$/, '条目不存在，可能已经删掉了。刷新列表看看'],
+  [/^ITEM_NOT_FOUND$/, '内容不存在，可能已经删掉了。刷新列表看看'],
   [/^ITEM_BUSY$/, '这条正在整理中，等它结束再操作'],
   [/^TASK_NOT_RETRYABLE$/, '这个任务不是失败状态，不用重试'],
   [/^SESSION_ALREADY_RUNNING$/, '已经有一轮计时在跑。先结束或放弃它，再开新的'],
   [/^SESSION_STATE$/, '计时状态在别处变过了。刷新一下就是当前状态'],
   [/^SESSION_NOT_FOUND$/, '这次计时不存在，可能已经结束了。刷新看看'],
   [/^SESSION_/, '计时操作没成功。刷新后重试'],
-  [/^NETWORK$/, '连不上后端服务。确认 uvicorn 已在 8756 端口启动'],
+  [/^NETWORK$/, '连不上 Cairn 的本地服务。等几秒再试；一直这样请重启 Cairn'],
   [/^POLL_TIMEOUT$/, '任务超过 20 分钟还没返回，这次不再等了。去任务中心看结果'],
   // 只有静态演示版（VITE_DEMO）会返回这个，正式运行永远不会命中
   [/^DEMO_/, '这是静态演示版：生成、采集、整理、问答都要本地后端。下载桌面版就能用'],
@@ -60,7 +60,16 @@ export function friendlyMessage(err) {
   for (const [pattern, text] of FRIENDLY) {
     if (pattern.test(err.code || '')) return text
   }
-  return err.message || (err.code ? `请求没成功（${err.code}）` : '请求没成功')
+  return err.message || (err.code ? `出了点问题（错误码 ${err.code}）` : '出了点问题')
+}
+
+/**
+ * detail 只承载排查信息（`provider=deepseek`、`timeout`、`HTTP 429`），
+ * 拼进用户提示就是噪音。这里只放行含中文的 detail —— 人话才配出现在 toast 里。
+ */
+export function humanDetail(detail) {
+  const text = String(detail || '').trim()
+  return /[\u4e00-\u9fa5]/.test(text) ? text : ''
 }
 
 function baseUrl() {
@@ -95,7 +104,7 @@ async function request(method, path, { body, params, signal } = {}) {
     })
   } catch (exc) {
     if (exc?.name === 'AbortError') throw exc
-    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务' })
+    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务', detail: 'uvicorn:8756 unreachable' })
   }
 
   const raw = await res.text()
@@ -141,7 +150,7 @@ export async function streamSSE(path, body, onEvent, { signal } = {}) {
     })
   } catch (exc) {
     if (exc?.name === 'AbortError') throw exc
-    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务' })
+    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务', detail: 'uvicorn:8756 unreachable' })
   }
 
   if (!res.ok || !res.body) {

@@ -99,7 +99,7 @@ onMounted(loadDue)
     <header class="head">
       <div>
         <h1 class="page-title">复习</h1>
-        <p class="page-sub">答错的题按 1 → 2 → 4 → 7 → 15 天回来，答对一次往后推一格</p>
+        <p class="page-sub">答错的题按 1 → 2 → 4 → 7 → 15 天的间隔回来，答对一次就延到下一档</p>
       </div>
       <div class="stats">
         <span class="stat" :class="{ hot: total > 0 }">
@@ -150,7 +150,7 @@ onMounted(loadDue)
         <li v-for="item in items" :key="item.question_id" class="row">
           <span class="row-tag">{{ TYPE_LABELS[item.type] || item.type }}</span>
           <span class="row-main">{{ item.question }}</span>
-          <span class="row-sub">{{ item.source_title || '未命名条目' }}</span>
+          <span class="row-sub">{{ item.source_title || '未命名内容' }}</span>
           <span class="row-meta">
             间隔 {{ item.interval_days }} 天
             <template v-if="item.lapses"> · 忘过 {{ item.lapses }} 次</template>
@@ -177,7 +177,7 @@ onMounted(loadDue)
         <li v-for="item in wrongItems" :key="item.question_id" class="row">
           <span class="row-tag">{{ TYPE_LABELS[item.type] || item.type }}</span>
           <span class="row-main">{{ item.question }}</span>
-          <span class="row-sub">{{ item.source_title || '未命名条目' }}</span>
+          <span class="row-sub">{{ item.source_title || '未命名内容' }}</span>
           <span class="row-meta">
             错 {{ item.wrong_count }} 次
             <template v-if="item.due_at"> · 下次 {{ shortTime(item.due_at) }}</template>

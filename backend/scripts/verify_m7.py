@@ -13,11 +13,11 @@
   2. 点「显示全部」后 chip 数 = 接口返回的标签总数
   3. Ctrl+B 折叠后左栏 ≤ 48px，刷新后仍 ≤ 48px
   4. 拖拽手柄改宽后刷新仍保持
-  5. 条目列表收起后详情区域变宽
+  5. 内容列表收起后详情区域变宽
   6. 逐页 innerText 不出现 `docs/dev/文案规范.md` §6 的禁止词
   7. 两个搜索框的 placeholder / aria-label 可区分（S-12）
   8. 设置窗口四个 tab 的可见文案同样过禁止词
-  9. 选中分类后状态计数收窄到该类（分类树仍是全库）、点「全部条目」回到全库
+  9. 选中分类后状态计数收窄到该类（分类树仍是全库）、点「全部内容」回到全库
  10. 分类手风琴：展开第二个分类时第一个自动收起
  11. 导图请求带主题 id 与明暗，不同主题产出不同配色
  12. 徽标文字与背景的实测对比度 ≥ 4.5（AA 小字）
@@ -69,6 +69,7 @@ FORBIDDEN = [
     "暂无数据", "内容项", "资料库", "刷题", "背题",
     "结构化", "处理中", "AI 生成", "大模型", "LLM",
     "pending", "ready", "推理强度", "reasoning",
+    "条目", "就绪",
     "已派发", "内容已存在", "可以随时从顶栏的「环境」",
 ]
 
@@ -355,18 +356,18 @@ def main() -> int:
                 page.locator("aside[aria-label='知识库导航'] .status-filter .row")
                 .first.locator(".count").inner_text()
             )
-            check("点「全部条目」后计数回到全库", back == total_before, f"{back} / {total_before}")
+            check("点「全部内容」后计数回到全库", back == total_before, f"{back} / {total_before}")
 
             # ── 7 两个搜索框能区分（S-12）────────────────────
             side_box = page.locator("aside[aria-label='知识库导航'] input[type='search']")
-            list_box = page.locator("aside[aria-label='条目列表'] input[type='search']")
+            list_box = page.locator("aside[aria-label='内容列表'] input[type='search']")
             side_ph = side_box.get_attribute("placeholder")
             list_ph = list_box.get_attribute("placeholder")
             check("左栏搜索框是「筛选分类或标签」", side_ph == "筛选分类或标签", str(side_ph))
-            check("列表搜索框是「搜索条目标题」", list_ph == "搜索条目标题", str(list_ph))
+            check("列表搜索框是「搜索标题」", list_ph == "搜索标题", str(list_ph))
             check("两个 placeholder 不相同", side_ph != list_ph)
             check("列表搜索框 aria-label 不省略",
-                  list_box.get_attribute("aria-label") == "搜索条目标题")
+                  list_box.get_attribute("aria-label") == "搜索标题")
 
             # ── 3 Ctrl+B 折叠 + 刷新保持 ──────────────────────
             page.keyboard.press("Control+b")
@@ -405,14 +406,14 @@ def main() -> int:
             detail_before = width_of(page, ".detail")
             page.keyboard.press("Control+Shift+b")
             page.wait_for_timeout(400)
-            list_w = width_of(page, "aside[aria-label='条目列表']")
+            list_w = width_of(page, "aside[aria-label='内容列表']")
             detail_after = width_of(page, ".detail")
             check("Ctrl+Shift+B 把列表收到 0", list_w == 0, f"{list_w}px")
             check("列表收起后详情变宽", detail_after > detail_before + 200,
                   f"{detail_before} → {detail_after}")
             page.reload(wait_until="networkidle")
             page.wait_for_timeout(400)
-            check("列表收起态刷新后保持", width_of(page, "aside[aria-label='条目列表']") == 0,
+            check("列表收起态刷新后保持", width_of(page, "aside[aria-label='内容列表']") == 0,
                   f"{width_of(page, 'aside[aria-label=\"条目列表\"]')}px")
             page.locator(".topbar").get_by_role("button", name="展开列表").click()
             page.wait_for_timeout(400)

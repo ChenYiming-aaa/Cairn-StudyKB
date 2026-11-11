@@ -147,9 +147,9 @@ onMounted(async () => {
       <div>
         <h1>把 Cairn 准备好</h1>
         <p class="hero-sub">
-          三件事，缺哪件补哪件。全部就绪后就不用再来了。
+          三件事，缺哪件补哪件。都配好之后就不用再来了。
           <span v-if="blocking.length" class="hero-flag">现在卡在：{{ blocking.join('、') }}</span>
-          <span v-else class="hero-done">已全部就绪 ✓</span>
+          <span v-else class="hero-done">已全部配好 ✓</span>
         </p>
       </div>
     </header>
@@ -202,11 +202,11 @@ onMounted(async () => {
           <span class="step-no">2</span>
           <h2 class="step-title">视频转录引擎（ffmpeg）</h2>
           <span class="chip" :class="tone(env.ffmpeg)">
-            {{ env.ffmpeg?.ok ? '已就绪' : '缺失' }}
+            {{ env.ffmpeg?.ok ? '已安装' : '没装' }}
           </span>
         </div>
         <p class="step-desc">
-          只有「视频链接转录」用它，网页采集和问答都不用。安装包自带，正常情况下这一项本来就是绿的。
+          只有视频转录用它，网页采集和问答都不用。安装包自带，这里通常显示「已安装」。
         </p>
         <p v-if="env.ffmpeg" class="step-foot">
           {{ env.ffmpeg.ok ? `版本 ${env.ffmpeg.detail}` : env.ffmpeg.hint || env.ffmpeg.detail }}

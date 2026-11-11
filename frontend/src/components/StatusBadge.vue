@@ -8,7 +8,7 @@ const props = defineProps({
 const MAP = {
   pending: ['待整理', 'badge-pending'],
   organizing: ['整理中', 'badge-organizing'],
-  ready: ['就绪', 'badge-ready'],
+  ready: ['已整理', 'badge-ready'],
   failed: ['失败', 'badge-failed'],
 }
 

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
-import { api, friendlyMessage, streamSSE } from '../api/client'
+import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
 import RailToggle from '../components/RailToggle.vue'
 import SidePanel from '../components/SidePanel.vue'
@@ -118,7 +118,10 @@ async function generate() {
       (ev) => {
         if (ev.type === 'question') questions.value.push(ev.question)
         else if (ev.type === 'skip') skips.value += 1
-        else if (ev.type === 'error') genError.value = `${ev.message || '出题失败'}${ev.detail ? `（${ev.detail}）` : ''}`
+        else if (ev.type === 'error') {
+          const detail = humanDetail(ev.detail)
+          genError.value = `${ev.message || '出题失败'}${detail ? `（${detail}）` : ''}`
+        }
         else if (ev.type === 'done') requested.value = ev.requested ?? requested.value
       },
       { signal: controller.signal }
@@ -132,7 +135,7 @@ async function generate() {
     if (phase.value === 'idle') restoreConfig()
     runKey.value += 1
     if (!questions.value.length && !genError.value) {
-      toast.error('一题都没出出来，换个条目或题型再试')
+      toast.error('一题都没出出来，换个内容或题型再试')
     }
   }
 }
@@ -198,13 +201,13 @@ onMounted(loadItems)
               v-model="keyword"
               class="input"
               type="search"
-              placeholder="搜条目标题…"
+              placeholder="搜标题…"
               @keydown.enter="loadItems"
             />
             <p v-if="loading" class="cfg-note">加载中…</p>
             <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
             <p v-else-if="!items.length" class="cfg-note">
-              还没有能出题的条目，先把它们整理完
+              还没有整理好的内容。到知识库点「开始整理」，整理完就能出题。
             </p>
             <ul v-else class="item-list">
               <li v-for="item in items" :key="item.id">

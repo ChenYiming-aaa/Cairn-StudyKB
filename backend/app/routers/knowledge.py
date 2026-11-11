@@ -121,7 +121,7 @@ def list_categories(category: str | None = None, tag: str | None = None) -> dict
 def _require_llm_key() -> None:
     """未配置 Key 时立刻失败，不留一个注定失败的任务在队列里（M1 §5 DoD）。"""
     if not get_settings().has_llm_key:
-        raise ApiError("LLM_NO_KEY", "未配置 LLM API Key，请在 .env 中设置 LLM_API_KEY", status=400)
+        raise ApiError("LLM_NO_KEY", "还没配模型 Key。在「设置 → 模型」里填一下就能用。", status=400)
 
 
 @router.post("/organize-pending")

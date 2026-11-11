@@ -54,7 +54,7 @@ Cairn 把这条链路接上：**链接丢进去 → 自动抽正文、由模型�
 
 **条目详情** · 模型重写标题、给摘要、拆要点、写 Markdown 笔记；笔记可手改，改完索引自动重建。
 
-![条目详情](docs/images/02-item-detail.png)
+![内容详情](docs/images/02-item-detail.png)
 
 **思维导图** · 按笔记标题层级现场出图，配色跟着主题走（换「学习紫」就是紫色系），用来看自己的理解结构有没有断层。
 
@@ -174,7 +174,7 @@ Key 仍然只写 `.env`，其余配置写在 `settings.json`（见下一节）�
 
 ```
 %APPDATA%\Cairn\
-├─ data.db          # 全部内容：条目、chunk、索引、题目、作答、计时（一个 SQLite 文件）
+├─ data.db          # 全部内容：内容、分块、索引、题目、作答、计时（一个 SQLite 文件）
 ├─ settings.json    # 设置：模型路由、外观、组件开关（可手改，改坏会自动备份成 .bad-<时间戳>）
 ├─ components\      # 你装的可选组件（向量检索 / 视频转录 / 网页渲染），删掉就是卸载
 ├─ models\          # 本地向量模型与语音模型
@@ -246,4 +246,4 @@ v0.2.1 就是这样，不粉饰：
 
 MIT，见 [LICENSE](LICENSE)。用、改、分发都行，保留版权声明即可；不提供任何担保。第三方组件遵循各自许可（FastAPI、Vue、Electron、`faster-whisper`、`sentence-transformers`、`sqlite-vec`、`trafilatura`、`yt-dlp` 等）。
 
-<sub>开发文档（接口契约、数据契约、里程碑台账、从源码运行）在 [`docs/dev/`](docs/dev/)。</sub>
+<sub>开发文档（接口契约、数据契约、里程碑台账、从源码运行、文案规范）在 [`docs/dev/`](docs/dev/)。</sub>

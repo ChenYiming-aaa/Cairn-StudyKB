@@ -496,9 +496,11 @@ function loginLabel(key, site) {
         <div class="dialog-foot">
           <span v-if="mode === 'paste'" class="hint">{{ words }} 字</span>
           <span v-if="errorText" class="error">{{ errorText }}</span>
+          <!-- 5.1：按钮只是关面板，任务照跑。以前写「取消」，用户会以为本次采集被终止 -->
+          <span v-if="!done && !failed" class="hint">关掉面板任务会继续跑</span>
           <div class="grow" />
           <button class="btn" type="button" @click="done ? continueCollect() : tryClose()">
-            {{ done ? '继续采集' : '取消' }}
+            {{ done ? '继续采集' : '关闭' }}
           </button>
           <button v-if="failed" class="btn" type="button" :disabled="submitting" @click="retry">
             重试

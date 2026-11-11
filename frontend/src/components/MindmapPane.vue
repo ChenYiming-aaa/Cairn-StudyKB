@@ -35,12 +35,12 @@ watch(src, () => {
     <div class="mindmap-box" :class="{ loading: state === 'loading' }">
       <img
         :src="src"
-        :alt="`条目 ${itemId} 的思维导图`"
+        :alt="`内容 ${itemId} 的思维导图`"
         class="mindmap-img"
         @load="state = 'ok'"
         @error="state = 'error'"
       />
-      <p v-if="state === 'error'" class="mindmap-error">导图没生成出来。确认后端在运行，再切回来重试。</p>
+      <p v-if="state === 'error'" class="mindmap-error">导图没生成出来。如果这条还没整理，先点「开始整理」；整理过就切回这个页签再试一次。</p>
     </div>
   </div>
 </template>

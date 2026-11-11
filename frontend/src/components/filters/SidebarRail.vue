@@ -25,8 +25,8 @@ const isAll = computed(
       type="button"
       class="rail-btn"
       :class="{ on: isAll }"
-      :title="`全部条目 · ${counts.total}`"
-      aria-label="全部条目"
+      :title="`全部内容 · ${counts.total}`"
+      aria-label="全部内容"
       @click="emit('all')"
     >
       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">

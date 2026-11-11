@@ -120,19 +120,19 @@ watch(() => route.path, refreshTasks)
 function onCreated(result) {
   closePaste()
   requestRefresh()
-  toastOk(result.duplicated ? `这条已经在库里了，已帮你定位到「${result.title}」` : `「${result.title}」已经入库`)
+  toastOk(result.duplicated ? `这条已经在知识库里了，已帮你定位到「${result.title}」` : `「${result.title}」已存进知识库`)
 }
 
 /** 链接已在库里：**不关面板**，面板会切成完成态让用户自己点「去看看」 */
-function onExisting(itemId) {
+function onExisting() {
   requestRefresh()
-  toastInfo(`这条已经在库里了（条目 #${itemId}），不用再采一次`)
+  toastInfo('这条已经在知识库里了，已帮你定位到它')
 }
 
-/** 网页抓取 / 视频转录落库完成：刷新列表，但**不关面板**——让用户看到「已入库」再自己关 */
+/** 网页抓取 / 视频转录落库完成：刷新列表，但**不关面板**——让用户看到「已存进」再自己关 */
 function onIngested() {
   requestRefresh()
-  toastOk('采集完成，已经入库了')
+  toastOk('已存进知识库')
 }
 
 /** 「去看看」：关面板 → 切到知识库 → 选中刚入库的条目 */
@@ -165,16 +165,16 @@ function onOpen(itemId) {
         <router-link to="/review" class="nav-item" active-class="on">复习</router-link>
       </nav>
       <div class="topbar-spacer" />
-      <!-- 环境待配置（T5.7）：只在缺 Key / 缺 ffmpeg 时出现，配好就消失 -->
+      <!-- 待配置（T5.7）：只在缺 Key / 缺 ffmpeg 时出现，配好就消失 -->
       <button
         v-if="envBlocking.length"
         class="env-flag"
         type="button"
-        title="有必填项还没配好，点开看要补哪一项"
+        title="还有一项没配好，点了去补"
         @click="router.push('/setup')"
       >
         <i class="dot" />
-        环境待配置
+        还差一步
       </button>
       <!-- 右侧顺序固定（T7.4）：连接状态 · 任务 · 专注 · 采集 · 齿轮 -->
       <span class="conn" :class="backend" :title="backend === 'ok' ? '后端已连接' : '后端未连接'">
@@ -185,7 +185,7 @@ function onOpen(itemId) {
       <button
         class="btn btn-sm btn-ghost task-btn"
         type="button"
-        title="任务中心：采集、整理、索引的执行记录"
+        title="任务中心：采集和整理跑到哪了"
         @click="router.push('/tasks')"
       >
         任务
@@ -202,7 +202,7 @@ function onOpen(itemId) {
       <button
         class="btn btn-sm btn-ghost gear"
         type="button"
-        title="设置：模型、外观、关于"
+        title="设置：模型、外观、下载、关于"
         aria-label="设置"
         @click="openSettings()"
       >
@@ -239,7 +239,7 @@ function onOpen(itemId) {
     <!-- 静态演示横幅：常驻，不参与布局，避免遮挡内容 -->
     <div v-if="isDemo" class="demo-bar">
       <b>演示模式</b>
-      <span>这里用的是预置样例数据（预先跑了一遍整理、问答、出题后抓下来的）。整理、采集、出题、问答都要本地后端才能用。</span>
+      <span>这里的内容是预先准备好的，不能新增或生成。装桌面版即可完整使用。</span>
       <a href="https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases" target="_blank" rel="noreferrer">
         下载桌面版
       </a>

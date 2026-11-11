@@ -15,7 +15,7 @@ const props = defineProps({
 
 const { state, toggle } = useLayout()
 
-const LABELS = { sidebar: '左栏', list: '列表', picker: '条目选择', config: '出题配置' }
+const LABELS = { sidebar: '左栏', list: '列表', picker: '内容选择', config: '出题配置' }
 // 这几栏都在左边（折叠后是左侧窄条），图标里的分隔线画在左侧
 const ON_LEFT = ['sidebar', 'picker', 'config']
 

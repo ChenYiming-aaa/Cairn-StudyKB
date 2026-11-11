@@ -138,7 +138,7 @@ onMounted(load)
             <span class="cat-count">{{ cat.count }}</span>
           </li>
         </ul>
-        <p v-else class="note">还没有分类过的条目</p>
+        <p v-else class="note">还没有分类过的内容</p>
       </section>
     </div>
   </div>

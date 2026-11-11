@@ -281,7 +281,7 @@ const accuracyText = computed(() => {
 
     <div v-else class="state">
       <p class="state-title">没有题目</p>
-      <p>题组是空的，换个条目或稍后再试</p>
+      <p>题组是空的，换个内容或稍后再试</p>
     </div>
   </div>
 </template>

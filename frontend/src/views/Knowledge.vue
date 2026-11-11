@@ -48,6 +48,9 @@ const counts = computed(
   () => tree.value.counts || { total: 0, pending: 0, organizing: 0 }
 )
 const totalItems = computed(() => tree.value.counts?.total || 0)
+// D-01：详情空态要区分"没选中"与"库里没内容"。只由**无筛选**的那次请求更新，
+// 否则筛到空的时候 totalItems 收窄为 0，会把"筛不到"误判成"库是空的"。
+const hasAnyItem = ref(true)
 const pendingCount = computed(() => tree.value.counts?.pending || 0)
 const isFiltered = computed(() =>
   Boolean(filter.category || filter.tag || filter.q || filter.status)
@@ -82,7 +85,10 @@ async function loadList() {
     })
     items.value = data.items || []
     total.value = data.total || 0
-    if (unrefined) recent.value = items.value.slice(0, 3)
+    if (unrefined) {
+      recent.value = items.value.slice(0, 3)
+      hasAnyItem.value = total.value > 0
+    }
   } catch (err) {
     listError.value = friendlyMessage(err)
     items.value = []
@@ -133,7 +139,7 @@ async function refreshAll() {
 
 function selectItem(itemId) {
   if (itemId === selectedId.value) return
-  if (editorDirty.value && !window.confirm('笔记有没保存的修改，切换条目会丢。继续？')) {
+  if (editorDirty.value && !window.confirm('当前笔记还没保存，切换后会丢失。确定要切换吗？')) {
     return
   }
   selectedId.value = itemId
@@ -187,7 +193,7 @@ async function organizePending() {
       toast.ok(`开始整理了，${result.total} 条排队中`)
       await refreshAll()
     } else {
-      toast.info('没有待整理的条目')
+      toast.info('没有待整理的内容')
     }
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -289,8 +295,10 @@ onBeforeUnmount(() => {
         :item="detail"
         :loading="detailLoading"
         :error="detailError"
+        :has-items="hasAnyItem"
         @refresh="onDetailRefresh"
         @deleted="onDeleted"
+        @create="openPaste"
       />
     </div>
   </div>

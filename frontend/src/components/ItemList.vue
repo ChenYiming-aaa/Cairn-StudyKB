@@ -51,15 +51,15 @@ function clearKeyword() {
 </script>
 
 <template>
-  <SidePanel target="list" class="list-panel" title="条目列表">
+  <SidePanel target="list" class="list-panel" title="内容列表">
     <div class="list-toolbar">
       <div class="search">
         <input
           v-model="keyword"
           class="input"
           type="search"
-          placeholder="搜索条目标题"
-          aria-label="搜索条目标题"
+          placeholder="搜索标题"
+          aria-label="搜索标题"
           @input="onInput"
         />
         <button v-if="keyword" class="clear" type="button" title="清空" @click="clearKeyword">×</button>
@@ -87,16 +87,17 @@ function clearKeyword() {
       </div>
 
       <div v-else-if="error" class="state state-error">
-        <p class="state-title">列表加载失败</p>
+        <p class="state-title">列表没加载出来</p>
         <p>{{ error }}</p>
+        <p>内容还在，重试一次通常就好。</p>
         <div class="state-actions">
           <button class="btn btn-sm" type="button" @click="emit('retry')">重试</button>
         </div>
       </div>
 
       <div v-else-if="!items.length" class="state">
-        <p class="state-title">{{ filtered ? '没有匹配的条目' : '这里放你的条目' }}</p>
-        <p>{{ filtered ? '换个关键词，或点左栏「全部条目」。' : '还没有采集过内容。' }}</p>
+        <p class="state-title">{{ filtered ? '没有匹配的内容' : '这里放你的内容' }}</p>
+        <p>{{ filtered ? '换个关键词，或点左栏「全部内容」。' : '还没有采集过内容。' }}</p>
 
         <ul v-if="recent.length" class="recent">
           <li class="recent-label">最近采集的</li>

@@ -141,7 +141,7 @@ function focusSection(which) {
       </div>
 
       <div v-else-if="!categories.length" class="side-empty">
-        <p>这里放你的条目。还没有采集过内容。</p>
+        <p>这里放你的内容。还没有采集过。</p>
         <button class="btn btn-sm" type="button" @click="emit('ingest')">采集第一条</button>
       </div>
 

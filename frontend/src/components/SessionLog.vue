@@ -55,7 +55,7 @@ onMounted(load)
     <p v-else-if="error" class="state-note error">{{ error }}</p>
     <div v-else-if="!items.length" class="state">
       <p class="state-title">还没在这条上专注过</p>
-      <p>点右上角「开始专注」，铃响后写一句笔记，这一轮就会出现在这里。</p>
+      <p>点「开始专注」，结束时写一句笔记，这一轮就记在这里。</p>
     </div>
     <ul v-else class="rows">
       <li v-for="row in items" :key="row.id" class="row">

@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { api, friendlyMessage, streamSSE } from '../api/client'
+import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
 import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
@@ -60,9 +60,9 @@ const needEmbed = computed(() => {
 
 const fallbackHint = computed(() => {
   const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
-  if (value === 'vector_disabled') return '向量不可用，已降级为全文检索（功能不受影响）'
+  if (value === 'vector_disabled') return '语义检索暂时不可用，已改成按关键词搜，也能找到大部分内容'
   // 文案不再自带"去设置里装"：那一句改成一个按钮（同一行里更明显，也不用记路径）
-  if (value === 'vector_component_missing') return '现在是纯文字检索，装上向量组件就能按意思搜'
+  if (value === 'vector_component_missing') return '现在只能按关键词搜。装上「向量检索」就能按意思搜'
   if (value === 'like_short_query') return '关键词少于 3 字，已改用模糊匹配'
   return ''
 })
@@ -131,7 +131,9 @@ async function ask() {
           answer.value = ev.message || ''
         } else if (ev.type === 'error') {
           askError.value = ev.message || '这次没问成'
-          toast.error(`${ev.message || '这次没问成'}${ev.detail ? `（${ev.detail}）` : ''}`)
+          // detail 是排查用的技术串，只有中文的才值得给用户看
+          const detail = humanDetail(ev.detail)
+          toast.error(`${ev.message || '这次没问成'}${detail ? `（${detail}）` : ''}`)
         } else if (ev.type === 'done') {
           asking.value = false
         }
@@ -355,7 +357,7 @@ watch(question, () => {
         </p>
 
         <p v-if="sources.length" class="stats">
-          命中 {{ matchCount }} 段原文 · 来自 {{ itemCount }} 个条目
+          命中 {{ matchCount }} 段原文 · 来自 {{ itemCount }} 条内容
         </p>
 
         <article v-if="answer" class="answer" :class="{ dim: noResult }">
@@ -392,8 +394,8 @@ watch(question, () => {
         </section>
 
         <div v-else-if="!answer && !asking && !askError" class="state">
-          <p class="state-title">问一个库里有答案的问题</p>
-          <p>回答只依据检索到的原文片段，找不到就直接说没有</p>
+          <p class="state-title">试着问一个具体问题</p>
+          <p>答案只来自你采集的内容；找不到会直接说没有。</p>
         </div>
       </template>
 

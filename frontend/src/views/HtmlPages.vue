@@ -159,7 +159,7 @@ onMounted(() => {
     <header class="html-head">
       <div>
         <h1 class="page-title">学习页</h1>
-        <p class="page-sub">挑几个条目生成一份学习页：单个文件，断网也能打开，可以拿去分享或存档</p>
+        <p class="page-sub">挑几条内容生成一份学习页：单个文件，断网也能打开，可以拿去分享或存档</p>
       </div>
       <div class="head-right">
         <button
@@ -175,18 +175,18 @@ onMounted(() => {
     </header>
 
     <div class="html-body">
-      <SidePanel target="picker" class="picker" rail title="条目选择">
+      <SidePanel target="picker" class="picker" rail title="内容选择">
         <div class="picker-body">
           <div class="picker-head">
             <div class="panel-bar">
-              <span class="panel-name">条目选择</span>
+              <span class="panel-name">内容选择</span>
               <RailToggle target="picker" />
             </div>
             <input
               v-model="keyword"
               class="input picker-search"
               type="search"
-              placeholder="搜条目标题…"
+              placeholder="搜标题…"
               @keydown.enter="onSearch"
             />
             <div class="picker-meta">
@@ -200,7 +200,7 @@ onMounted(() => {
           <ul v-if="!listError" class="picker-list">
             <li v-if="loading" class="picker-empty">加载中…</li>
             <li v-else-if="!items.length" class="picker-empty">
-              还没有条目。先去知识库采集一条。
+              还没有内容。先去知识库采集一条。
             </li>
             <template v-else>
               <li v-for="item in items" :key="item.id">
@@ -227,7 +227,7 @@ onMounted(() => {
           <span v-if="pickedCount" class="rail-count" :title="`已选 ${pickedCount} 条`">
             {{ pickedCount }}
           </span>
-          <span class="rail-label">条目选择</span>
+          <span class="rail-label">内容选择</span>
         </template>
       </SidePanel>
 
@@ -238,7 +238,7 @@ onMounted(() => {
             class="input stage-title"
             type="text"
             maxlength="40"
-            placeholder="学习页标题（留空则用首个条目标题）"
+            placeholder="学习页标题（留空则用第一条的标题）"
           />
           <div class="stage-actions">
             <button
@@ -283,7 +283,7 @@ onMounted(() => {
         </div>
         <div v-else class="stage-empty state">
           <p class="state-title">还没有生成</p>
-          <p>在左侧勾选至少 1 个条目，填个标题，再点「生成学习页」。</p>
+          <p>在左侧勾选至少 1 条内容，填个标题，再点「生成学习页」。</p>
         </div>
       </section>
     </div>

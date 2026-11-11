@@ -8,7 +8,7 @@ defineProps({
   <div class="pane">
     <div v-if="item.status === 'pending'" class="state">
       <p class="state-title">还没有整理</p>
-      <p>点右上角「开始整理」，模型会补上分类、摘要和笔记。</p>
+      <p>点「开始整理」，自动生成分类、摘要和笔记。</p>
     </div>
 
     <template v-else>

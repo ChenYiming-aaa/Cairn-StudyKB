@@ -19,8 +19,11 @@ const props = defineProps({
   item: { type: Object, default: null },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
+  // D-01：空态要分两种——"库里有内容但没选中" vs "库里一条都没有"，
+  // 后者说"从左侧选一条"是死路。默认 true，避免首次加载瞬间误报"还没有内容"。
+  hasItems: { type: Boolean, default: true },
 })
-const emit = defineEmits(['refresh', 'deleted'])
+const emit = defineEmits(['refresh', 'deleted', 'create'])
 
 const toast = useToast()
 const { focusChunk } = useUi()
@@ -107,7 +110,7 @@ function organize() {
           } else if (task.status === 'failed') {
             stop()
             organizing.value = false
-            toast.error(`这次没整理成功：${task.error_msg || task.error_code || '原因没记下来'}。再点一次整理；还不行去任务中心看详情。`)
+            toast.error(`这次没整理成功：${task.error_msg || task.error_code || '原因没记下来'}。点「重新整理」再试一次；还不行去任务中心看原因。`)
             emit('refresh', item.id)
           }
         },
@@ -123,7 +126,7 @@ function organize() {
 function remove() {
   const item = props.item
   if (!item) return
-  if (!window.confirm(`删除「${item.title}」？它的分块和题目会一起删掉，无法恢复。`)) return
+  if (!window.confirm(`删除「${item.title}」？它的笔记片段、题目和作答记录会一起删掉，不能恢复。`)) return
   api
     .deleteItem(item.id)
     .then(() => {
@@ -153,8 +156,15 @@ onBeforeUnmount(stop)
     </div>
 
     <div v-else-if="!item" class="detail-state state">
-      <p class="state-title">从左侧选一条来读</p>
-      <p>还没有条目时，点右上角「采集内容」加一条。</p>
+      <template v-if="hasItems">
+        <p class="state-title">这里放你的摘要、笔记和原文</p>
+        <p>从左侧选一条开始读。</p>
+      </template>
+      <template v-else>
+        <p class="state-title">这里放你的内容</p>
+        <p>还没有采集过内容。</p>
+        <button class="btn btn-sm" type="button" @click="emit('create')">＋ 采集内容</button>
+      </template>
     </div>
 
     <template v-else>
@@ -177,7 +187,7 @@ onBeforeUnmount(stop)
         <span class="time">{{ fullTime(item.created_at) }}</span>
       </div>
 
-      <p v-if="item.truncated" class="truncated-note">原文超过 50,000 字符，整理时只采样前 40,000 字与末 10,000 字。</p>
+      <p v-if="item.truncated" class="truncated-note">原文超过 5 万字，整理时只读开头 4 万字和结尾 1 万字；原文完整保留，不受影响。</p>
 
       <nav class="tabs">
         <button

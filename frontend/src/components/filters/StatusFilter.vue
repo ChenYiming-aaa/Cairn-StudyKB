@@ -16,7 +16,7 @@ const emit = defineEmits(['all', 'pick'])
 
 /** 有数量时才显示对应行：永远是 0 的「整理中」只会增加视觉噪音 */
 const rows = computed(() => {
-  const list = [{ key: '', label: '全部条目', count: props.counts.total || 0, tone: '' }]
+  const list = [{ key: '', label: '全部内容', count: props.counts.total || 0, tone: '' }]
   if (props.counts.pending > 0) {
     list.push({ key: 'pending', label: '待整理', count: props.counts.pending, tone: 'warning' })
   }

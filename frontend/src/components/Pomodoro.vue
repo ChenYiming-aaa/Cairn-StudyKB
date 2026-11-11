@@ -48,7 +48,7 @@ const targetLabel = computed(() => {
   const target = session.value
   if (!target) return ''
   if (target.target_title) return target.target_title
-  return target.target_type === 'item' ? `条目 #${target.target_id}` : '自由专注'
+  return target.target_type === 'item' ? `内容 #${target.target_id}` : '自由专注'
 })
 
 const plannedLabel = computed(() => `${Math.round(plannedSeconds.value / 60)} 分钟`)
