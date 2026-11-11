@@ -33,7 +33,7 @@ for (const q of [...(data.review_due?.items || []), ...(data.wrong?.items || [])
 }
 
 const DEMO_BLOCKED =
-  '这是静态演示版：整理、采集、出题、问答都要本地后端和模型。下载桌面版就能用'
+  '演示版不能生成内容。装桌面版就能采集、整理、出题'
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {

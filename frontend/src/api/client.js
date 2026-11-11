@@ -104,7 +104,7 @@ async function request(method, path, { body, params, signal } = {}) {
     })
   } catch (exc) {
     if (exc?.name === 'AbortError') throw exc
-    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务', detail: 'uvicorn:8756 unreachable' })
+    throw new ApiError({ code: 'NETWORK', message: '连不上 Cairn 的本地服务', detail: 'uvicorn:8756 unreachable' })
   }
 
   const raw = await res.text()
@@ -150,7 +150,7 @@ export async function streamSSE(path, body, onEvent, { signal } = {}) {
     })
   } catch (exc) {
     if (exc?.name === 'AbortError') throw exc
-    throw new ApiError({ code: 'NETWORK', message: '连不上后端服务', detail: 'uvicorn:8756 unreachable' })
+    throw new ApiError({ code: 'NETWORK', message: '连不上 Cairn 的本地服务', detail: 'uvicorn:8756 unreachable' })
   }
 
   if (!res.ok || !res.body) {

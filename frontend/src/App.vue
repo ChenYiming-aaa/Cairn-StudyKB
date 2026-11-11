@@ -177,7 +177,7 @@ function onOpen(itemId) {
         还差一步
       </button>
       <!-- 右侧顺序固定（T7.4）：连接状态 · 任务 · 专注 · 采集 · 齿轮 -->
-      <span class="conn" :class="backend" :title="backend === 'ok' ? '后端已连接' : '后端未连接'">
+      <span class="conn" :class="backend" :title="backend === 'ok' ? '服务已连接' : '服务未连接'">
         <i class="dot" />
         <span class="conn-text">{{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}</span>
       </span>
