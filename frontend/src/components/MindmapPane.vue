@@ -31,7 +31,7 @@ watch(src, () => {
 
 <template>
   <div class="mindmap-pane">
-    <p class="mindmap-hint">按「整理笔记」里的标题层级生成。改完笔记保存就会更新，不缓存旧图。</p>
+    <p class="mindmap-hint">按笔记里的标题层级生成。改完笔记保存，导图会跟着更新。</p>
     <div class="mindmap-box" :class="{ loading: state === 'loading' }">
       <img
         :src="src"

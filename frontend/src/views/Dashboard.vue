@@ -88,7 +88,7 @@ onMounted(load)
       <div class="card">
         <span class="card-label">连续学习</span>
         <span class="card-value">{{ today.streak_days }}<small> 天</small></span>
-        <span class="card-sub">今天没学不算断，从昨天算起</span>
+        <span class="card-sub">今天还没学，不算中断</span>
       </div>
 
       <!-- 4 正确率 -->

@@ -53,7 +53,7 @@ function badge(item) {
   if (item.install?.status === 'failed') return { tone: 'bad', text: '上次没装成' }
   if (item.install?.status === 'cancelled') return { tone: '', text: '已取消' }
   // mode=local：源码运行、本机装了库，所以功能其实是可用的 —— 不能写"未安装"骗人
-  return { tone: '', text: item.mode === 'local' ? '用本机已装的库' : '未安装' }
+  return { tone: '', text: item.mode === 'local' ? '用本机已安装的版本' : '未安装' }
 }
 
 function canInstall(item) {
@@ -154,8 +154,7 @@ onBeforeUnmount(() => {
     </p>
 
     <p v-if="isDemo" class="demo-note">
-      这是静态演示版：装组件要从 GitHub 下载并解压到本机磁盘，演示版做不到。
-      下载桌面版就能装，也能卸载。
+      演示版不能安装组件。装桌面版后可以安装和卸载。
     </p>
 
     <p v-if="loading" class="state">正在读组件状态…</p>
@@ -197,7 +196,7 @@ onBeforeUnmount(() => {
         <div class="actions">
           <template v-if="item.state === 'installed'">
             <span class="hint">
-              {{ item.mode === 'component' ? '运行中' : item.mode === 'local' ? '当前用本机已装的库' : '已就位' }}
+              {{ item.mode === 'component' ? '运行中' : item.mode === 'local' ? '用本机已安装的版本' : '已安装' }}
               <template v-if="item.version"> · v{{ item.version }}</template>
             </span>
             <button

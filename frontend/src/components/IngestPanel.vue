@@ -362,7 +362,7 @@ function loginLabel(key, site) {
               v-model="paste.content"
               class="textarea"
               rows="12"
-              placeholder="把要整理的段落粘进来，800 字以上效果最好；也可以直接把 .txt 拖到窗口里"
+              placeholder="粘贴正文，800 字以上整理效果更好"
               autofocus
             />
           </label>
@@ -404,7 +404,7 @@ function loginLabel(key, site) {
           </label>
 
           <label v-if="link.kind === 'video'" class="field">
-            <span class="field-label">模型（越大越准，也越慢）</span>
+            <span class="field-label">识别精度</span>
             <select v-model="link.model" class="input">
               <option value="tiny">tiny（最快，适合试水）</option>
               <option value="base">base</option>
@@ -415,8 +415,8 @@ function loginLabel(key, site) {
 
           <p class="note">
             {{ link.kind === 'video'
-              ? '视频会先下音频再转录，1 分钟视频大约 1 分钟。首次使用要下载模型（small 约 500MB）。'
-              : '只抓正文，导航与版权声明会被过滤。动态渲染的网页可能抓不到，这种情况改用粘贴更稳。' }}
+              ? '先下音频再转录，耗时约等于视频长度。首次使用要下载识别模型（约 500MB）。'
+              : '只保留正文，导航和版权声明会被去掉。需要登录、要滚动才出内容的页面可能抓不到，改用粘贴更稳。' }}
           </p>
 
           <!-- 站点登录：只在需要时展开，不占正常采集的视线 -->
@@ -430,12 +430,10 @@ function loginLabel(key, site) {
 
             <div v-if="auth.open" class="auth-body">
               <p class="auth-tip">
-                需要登录才给内容的站点（B 站字幕、知乎受限页）共用这里的登录态。
-                点「登录」会弹出一个独立浏览器窗口，登完自动保存。不碰你日常用的浏览器，
-                也不用手工导出 cookies.txt。
+                B 站字幕、知乎受限页这类要登录的站点，在这里登一次就行。点「登录」会开一个独立窗口，登完自动保存，不影响你日常用的浏览器。
               </p>
               <p v-if="!auth.browserAvailable" class="auth-warn">
-                站点登录暂时用不了：后端缺 playwright。装好后重启服务即可。
+                站点登录暂时用不了：还没装浏览器组件。去「设置 → 下载」装上「网页渲染」就能用。
               </p>
               <div v-else class="auth-list">
                 <div v-for="(site, key) in auth.sites" :key="key" class="auth-item">
@@ -463,7 +461,7 @@ function loginLabel(key, site) {
         <template v-else>
           <div class="dropzone" @click="fileInput?.click()">
             <p class="drop-title">把 .txt / .md 拖到这里</p>
-            <p class="drop-hint">或点击选择文件；读入后会转到「粘贴文本」，可先改标题再入库</p>
+            <p class="drop-hint">或点击选择文件。读入后转成文本，可以先改标题再保存</p>
             <input ref="fileInput" class="hidden" type="file" accept=".txt,.md,.markdown" @change="onPickFile" />
           </div>
         </template>
@@ -472,7 +470,7 @@ function loginLabel(key, site) {
         <section v-if="task" class="progress-box" :class="task.status">
           <div class="progress-head">
             <span class="progress-stage">
-              {{ done ? '已入库' : failed ? '采集失败' : stageLabel }}
+              {{ done ? '已存进知识库' : failed ? '采集失败' : stageLabel }}
             </span>
             <span class="progress-pct">{{ progress }}%</span>
           </div>
@@ -483,7 +481,7 @@ function loginLabel(key, site) {
           </p>
           <p v-else-if="done" class="ok-msg">
             <template v-if="task.output_json?.duplicated">
-              这条已经在知识库里了，没有重复入库。可以继续采集下一条，或点「去看看」打开它。
+              这条已经在知识库里了，没有重复添加。
             </template>
             <template v-else>
               {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕入库（没有跑语音识别）。' : '已入库。' }}

@@ -112,7 +112,7 @@ def run(task_input: dict | None = None) -> dict:
     try:
         row = repo.get_item(conn, item_id)
         if row is None:
-            raise OrganizeError("ITEM_NOT_FOUND", f"条目 {item_id} 不存在")
+            raise OrganizeError("ITEM_NOT_FOUND", f"内容 {item_id} 不存在")
         title = row["title"]
         content, truncated = sample_text(row["raw_content"] or "")
     finally:

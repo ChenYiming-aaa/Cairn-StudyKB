@@ -89,7 +89,7 @@ def material_for_item(conn, item_id: int, limit: int = MAX_MATERIAL) -> tuple[st
         "SELECT id, title, raw_content FROM knowledge_item WHERE id=?", (item_id,)
     ).fetchone()
     if row is None:
-        raise QuizError("ITEM_NOT_FOUND", f"条目 {item_id} 不存在", status=404)
+        raise QuizError("ITEM_NOT_FOUND", f"内容 {item_id} 不存在", status=404)
 
     rows = conn.execute(
         "SELECT content FROM chunk WHERE item_id=? AND source='raw' ORDER BY position",
@@ -101,7 +101,7 @@ def material_for_item(conn, item_id: int, limit: int = MAX_MATERIAL) -> tuple[st
         raise QuizError(
             "QUIZ_MATERIAL_TOO_SHORT",
             f"材料只有 {len(material)} 字，至少 {MIN_MATERIAL} 字才出得了题",
-            detail="换一条内容更完整的条目，或先把笔记补长",
+            detail="换一条内容更完整的，或先把笔记补长",
         )
     return row["title"], material
 

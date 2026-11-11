@@ -155,13 +155,15 @@ def find_external_refs(page_html: str) -> list[str]:
 def render_page(title: str, items: list[dict], generated_at: str | None = None) -> str:
     """把若干条目渲染成一份完整的离线 HTML。"""
     if not items:
-        raise ValueError("没有条目可渲染")
+        raise ValueError("没有内容可生成学习页")
 
     body = sanitize("\n".join(_section_html(item) for item in items))
     if _DANGEROUS.search(body):
         raise ValueError("净化后仍含危险标签，拒绝产出")
     if (refs := find_external_refs(body)):
-        raise ValueError(f"正文含外部引用：{refs[:3]}")
+        raise ValueError(
+            f"正文里有 {len(refs)} 处外部图片或链接，离线打开会缺内容。去掉后再生成"
+        )
 
     stamp = generated_at or datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
     template = _ENV.get_template("learning_page.html")
@@ -169,12 +171,12 @@ def render_page(title: str, items: list[dict], generated_at: str | None = None) 
         title=title,
         item_count=len(items),
         generated_at=stamp,
-        toc=[{"id": int(i["id"]), "title": i.get("title") or "未命名条目"} for i in items],
+        toc=[{"id": int(i["id"]), "title": i.get("title") or "未命名内容"} for i in items],
         body=Markup(body),
     )
     # 模板部分是自己写的静态结构，这里只做一次兜底扫描（防将来改模板带进外链）
     if (refs := find_external_refs(page)):
-        raise ValueError(f"模板含外部引用：{refs[:3]}")
+        raise ValueError(f"页面模板里混进了外部引用（{len(refs)} 处），这是程序问题，请反馈")
     return page
 
 

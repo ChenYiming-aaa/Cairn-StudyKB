@@ -80,8 +80,7 @@ onMounted(() => load())
           @saved="onSaved"
         />
         <p class="tip">
-          两套服务够用且界面简单：默认的 DeepSeek 与任意一个「OpenAI 兼容」服务。
-          想换服务商不用改文件，在这里填地址和 Key 就行。
+          两套服务：DeepSeek 开箱可用；「OpenAI 兼容」能接任何兼容接口。地址和 Key 填在这里，改完就生效。
         </p>
       </div>
 

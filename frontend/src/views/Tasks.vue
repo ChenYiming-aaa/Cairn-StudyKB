@@ -23,7 +23,7 @@ const TYPE_TEXT = {
   fetch_url: '网页采集',
   transcribe_video: '视频转录',
   organize: '整理',
-  index_embed: '向量索引',
+  index_embed: '建立搜索索引',
 }
 
 const STAGE_TEXT = {
@@ -90,7 +90,7 @@ async function retry(task) {
   retrying.value = task.id
   try {
     await api.retryTask(task.id)
-    toast.ok('已重新排队，马上开始')
+    toast.ok('已重新开始，进度会在这里更新')
     await load()
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
     <p v-if="errorText" class="error">{{ errorText }}</p>
 
     <p v-if="loading" class="empty">加载中…</p>
-    <p v-else-if="!tasks.length" class="empty">还没有任务。点顶栏「＋ 采集内容」采一条，这里就有记录了。</p>
+    <p v-else-if="!tasks.length" class="empty">还没有任务。点「＋ 采集内容」采一条，这里就有记录了。</p>
 
     <ul v-else class="rows">
       <li v-for="task in tasks" :key="task.id" class="row">

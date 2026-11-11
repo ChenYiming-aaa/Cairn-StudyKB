@@ -154,7 +154,7 @@ onMounted(async () => {
       </div>
     </header>
 
-    <p v-if="!envLoaded" class="state">正在检查本机环境…</p>
+    <p v-if="!envLoaded" class="state">正在检查配置…</p>
 
     <ol v-else class="steps">
       <!-- 1. 模型 Key -->
@@ -247,10 +247,10 @@ onMounted(async () => {
         <p v-else class="step-foot">组件清单还没读出来；不影响先填 Key，之后在「设置 → 下载」里装。</p>
 
         <p class="step-foot">
-          都可以跳过，之后在 设置 → 下载 里装。勾了的话现在就开始后台下载，不用等它。
+          都可以跳过，之后在「设置 → 下载」里还能装。现在勾选就开始后台下载，不用等它。
         </p>
         <p class="step-foot">
-          模型文件（向量约 100MB、语音约 500MB）不在组件包里，第一次真正用到时才下载。
+          模型文件（向量约 90MB、语音约 500MB）不在组件包里，第一次真正用到时才下载。
         </p>
       </li>
     </ol>

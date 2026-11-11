@@ -64,7 +64,7 @@ def start(body: StartBody) -> dict:
             if body.target_id is None:
                 raise ApiError("SESSION_BAD_TARGET", "target_type=item 时必须带 target_id", status=422)
             if items_repo.get_item(conn, body.target_id) is None:
-                raise ApiError("ITEM_NOT_FOUND", f"条目 {body.target_id} 不存在", status=404)
+                raise ApiError("ITEM_NOT_FOUND", f"内容 {body.target_id} 不存在", status=404)
         running = repo.active(conn)
         if running is not None:
             raise ApiError(

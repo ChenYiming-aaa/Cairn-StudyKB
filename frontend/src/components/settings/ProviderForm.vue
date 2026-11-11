@@ -175,13 +175,13 @@ async function runProbe() {
           v-if="canRemember"
           class="btn btn-sm"
           type="button"
-          title="把这次探测到的模型名字存下来，供下面的模型下拉框使用（不改接口地址与 Key）"
+          title="存下这些模型名，供下面的下拉框使用"
           @click="rememberModels"
         >
           记住这 {{ probe.models.length }} 个模型
         </button>
       </div>
-      <p class="hint">探测只读：不改地址、不改 Key、不写文件。要留下列表就点「记住」。</p>
+      <p class="hint">探测不会改动你的地址和 Key。</p>
     </div>
   </section>
 </template>
