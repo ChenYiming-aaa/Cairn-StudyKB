@@ -1,4 +1,4 @@
-"""可选重组件（向量 / 语音 / 浏览器）的**清单、可用性判定、状态**（T8.0）。
+"""可选重组件（向量 / 语音 / 浏览器 / 本地识别）的**清单、可用性判定、状态**（T8.0）。
 
 协议收发在 `component_proc.py`；本文件只管"有没有、怎么跑、占多少盘"。
 
@@ -33,12 +33,13 @@ from app.services.component_proc import ComponentError
 
 log = logging.getLogger(__name__)
 
-IDS = ("embed", "asr", "browser")
-LABELS = {"embed": "向量检索", "asr": "视频转录", "browser": "网页渲染"}
+IDS = ("embed", "asr", "browser", "ocr")
+LABELS = {"embed": "向量检索", "asr": "视频转录", "browser": "网页渲染", "ocr": "本地识别"}
 
 ENTRY_EXE = "cairn-{id}.exe"        # 组件包里的入口 exe（T8.2 的 build_components.py 产出）
 # 源码态能被 import 的等价实现；冻结包里这些模块在 excludes 里，find_spec 返回 None
-LOCAL_MODULE = {"embed": "sentence_transformers", "asr": "faster_whisper", "browser": "playwright"}
+LOCAL_MODULE = {"embed": "sentence_transformers", "asr": "faster_whisper",
+                "browser": "playwright", "ocr": "rapidocr"}
 
 HELLO_TTL = 30.0                    # 握手结果缓存：可用性判定每请求都跑，不能每次起进程
 

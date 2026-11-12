@@ -177,6 +177,12 @@ const DEMO_COMPONENTS = () => ({
       mode: null, bytes: 0,
       install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
     },
+    {
+      id: 'ocr', name: '本地识别', why: '读 PDF 和图片要用。不装的话，这两类内容读不出字。',
+      size: 130000000, version: '', min_app_version: '0.2.0', state: 'missing',
+      mode: null, bytes: 0,
+      install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
+    },
   ],
   repo: 'ChenYiming-aaa/Cairn-StudyKB',
   release_tag: 'components-v1',

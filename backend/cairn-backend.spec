@@ -16,8 +16,8 @@ onefile 每次启动要自解压几百 MB 到临时目录，首屏必然超过 5
 3. `console=False`（windowed）后 `sys.stdout is None`，所以日志只写文件
    （`config.setup_logging` 已在冻结时跳过 console handler）。
 
-M8（T8.1）起这份 spec 只管**基础功能**：三个重栈（向量 / 语音 / 浏览器）被
-`MONOLITH_HEAVY` 剔出去，各自打在 `backend/components/<id>/` 的独立 exe 里，
+M8（T8.1）起这份 spec 只管**基础功能**：四个重栈（向量 / 语音 / 浏览器 / 本地识别）
+被 `MONOLITH_HEAVY` 剔出去，各自打在 `backend/components/<id>/` 的独立 exe 里，
 由 `tools/build_components.py` 生产。改这份文件时别把它们的 collect 加回来。
 """
 import pathlib
@@ -101,6 +101,9 @@ hiddenimports.append('app._build_info')
 MONOLITH_HEAVY = [
     'torch', 'transformers', 'sentence_transformers', 'scipy', 'sklearn',
     'faster_whisper', 'ctranslate2', 'av', 'onnxruntime', 'playwright', 'hf_xet',
+    # T9.4 起的本地识别（rapidocr + opencv-headless，主依赖里有、只给组件用）。
+    # 漏了这两行主包会多收约 70 MB，而主程序一行代码都不 import 它们
+    'rapidocr', 'cv2',
 ]
 
 # 明确不要的：装在本机但从没被 import 的重型/无关模块，能省几百 MB

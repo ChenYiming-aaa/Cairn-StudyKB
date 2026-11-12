@@ -27,7 +27,14 @@ dependencies = [
   # 文件上传（M9 T9.3）：FastAPI 解析 multipart 的硬前置，不在 fastapi 默认依赖里。
   # 纯 Python、约 40 KB，打包体积可忽略
   "python-multipart>=0.0.9,<1",
+  "rapidocr>=3.10,<4",
 ]
+
+# 本地识别（T9.4 / ADR-035）只给 `cairn-ocr` 组件用，主程序一行都不 import。
+# 放在主依赖里是为了**组件打包时能 collect 到**（`tools/build_components.py` 从
+# 同一个 venv 取包）；主包由 `cairn-backend.spec` 的 `MONOLITH_HEAVY` 把
+# `rapidocr` / `cv2` 整个排掉，所以应用体积不受影响（实测组件 118 MB / 解包 266 MB）。
+# rapidocr 会带进 opencv-python-headless（41.8 MB）与 PIL，这是硬依赖、不能省。
 
 [build-system]
 requires = ["hatchling"]

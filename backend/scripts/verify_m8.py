@@ -474,8 +474,11 @@ def group_install() -> None:
         try:
             with urllib.request.urlopen(base + "/api/components", timeout=10) as resp:
                 body = json.load(resp)
-                check("GET /api/components 200 且三个条目",
-                      resp.status == 200 and len(body.get("items") or []) == 3,
+                # 条数跟着 components.IDS 走：T9.4 加了第四个组件（ocr），
+                # 写死 3 会假失败，而"清单与 IDS 一一对应"才是真正要守的
+                check("GET /api/components 200 且条目与 IDS 一致",
+                      resp.status == 200
+                      and len(body.get("items") or []) == len(components.IDS),
                       str(len(body.get("items") or [])))
                 check("清单元信息一起返回（repo / tag / mirror）",
                       bool(body.get("repo")) and "mirror" in body, str(body.get("release_tag")))

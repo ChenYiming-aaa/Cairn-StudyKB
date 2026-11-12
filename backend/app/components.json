@@ -30,6 +30,15 @@
       "asset": "cairn-browser-0.2.0.zip",
       "unpack_dir": "browser",
       "why": "知乎这类必须跑脚本才出正文的站点要用。不装也能采大部分网页。"
+    },
+    {
+      "id": "ocr",
+      "name": "本地识别",
+      "size": 118278033,
+      "sha256": "1f197e6c770cfd9ba81b5f4ce39d781ebbf9ffec15febd21cf32b6faa2748eee",
+      "asset": "cairn-ocr-0.2.0.zip",
+      "unpack_dir": "ocr",
+      "why": "读 PDF 和图片要用。不装的话，这两类内容读不出字。"
     }
   ]
 }

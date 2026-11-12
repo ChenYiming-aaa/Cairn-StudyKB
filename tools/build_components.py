@@ -37,7 +37,8 @@ VERSION = "0.2.0"
 
 # 每个组件只收自己那一套；把别人的重栈排掉，否则一个包能到 600 MB
 HEAVY = ["torch", "transformers", "sentence_transformers", "scipy", "sklearn",
-         "faster_whisper", "ctranslate2", "av", "onnxruntime", "playwright", "hf_xet"]
+         "faster_whisper", "ctranslate2", "av", "onnxruntime", "playwright", "hf_xet",
+         "rapidocr", "cv2"]
 COMMON_EXCLUDES = ["tkinter", "matplotlib", "IPython", "jupyter", "pytest", "notebook",
                    "PyQt5", "PySide2", "PySide6"]
 
@@ -60,6 +61,15 @@ COMPONENTS: dict[str, dict] = {
         # playwright 的 node 驱动（node.exe + package/cli.js）不是 .py，必须显式收
         "datas": ["playwright"],
         "extra": "",
+    },
+    "ocr": {
+        # rapidocr 的模型（31 MB onnx）在包里，`collect_data_files` 负责收进去；
+        # 少了它运行期会去联网下载 —— 组件必须离线可用
+        "keep": ["rapidocr", "onnxruntime", "cv2"],
+        "datas": ["rapidocr"],
+        # opencv 的 DLL 最容易漏（opencv_videoio_ffmpeg*.dll），漏了就是
+        # `ImportError: DLL load failed`，而且只在打包后出现
+        "extra": "hiddenimports += collect_submodules('cv2')",
     },
 }
 
@@ -229,10 +239,9 @@ def main() -> int:
         results[cid] = (size, sha)
         log(f"  产物：{target}")
 
-    if len(results) == len(COMPONENTS):
-        update_manifest_json(results)
-    else:
-        log("\n只打了一部分，清单未回写（size/sha256 要三个齐了才一致）")
+    # 回写是**按 id 逐条**的（每个条目的 size/sha256 只由它自己的 zip 决定），
+    # 所以只打一个组件也能安全回写那一条，不必等四个齐了
+    update_manifest_json(results)
     shutil.rmtree(BUILD / "work", ignore_errors=True)
     return 0
 
