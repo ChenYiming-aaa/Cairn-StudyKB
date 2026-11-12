@@ -22,7 +22,11 @@ CREATE TABLE knowledge_item (
                   -- pending | organizing | ready | failed
   truncated       INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
-  updated_at      TEXT    NOT NULL
+  updated_at      TEXT    NOT NULL,
+  -- v4（M9）：老库升级走 migrations/v4_files_workspace.sql，两处 DDL 必须一致
+  workspace_id    INTEGER REFERENCES workspace(id) ON DELETE SET NULL,
+  kind            TEXT NOT NULL DEFAULT 'material',
+  file_id         INTEGER REFERENCES item_file(id)
 );
 CREATE UNIQUE INDEX idx_item_url  ON knowledge_item(source_url) WHERE source_url IS NOT NULL;
 CREATE INDEX        idx_item_hash ON knowledge_item(content_hash);
@@ -86,7 +90,10 @@ CREATE TABLE question (
   difficulty  TEXT NOT NULL,
   payload     TEXT NOT NULL,
   fingerprint TEXT NOT NULL,
-  created_at  TEXT NOT NULL
+  created_at  TEXT NOT NULL,
+  -- v4（M9）：origin 默认 'ai' 即老题目回填值；number 是原卷题号
+  origin      TEXT NOT NULL DEFAULT 'ai',
+  number      TEXT
 );
 CREATE UNIQUE INDEX idx_q_fp ON question(fingerprint);
 
@@ -167,3 +174,48 @@ CREATE TABLE ask_log (
   created_at        TEXT    NOT NULL
 );
 CREATE INDEX idx_ask_time ON ask_log(created_at DESC);
+
+-- ── v4（M9）工作区：一层平级，不嵌套（ADR-032）──────────
+-- 同名允许，不做唯一约束；删工作区不删内容（SET NULL）。
+CREATE TABLE workspace (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  color       TEXT,
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+CREATE INDEX idx_ws_sort ON workspace(sort_order, id);
+
+-- ── v4（M9）原件元数据（ADR-031：只存相对路径）──────────
+CREATE TABLE item_file (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id        INTEGER NOT NULL REFERENCES knowledge_item(id) ON DELETE CASCADE,
+  role           TEXT NOT NULL DEFAULT 'main',
+  original_name  TEXT,
+  ext            TEXT,
+  mime           TEXT,
+  size           INTEGER,
+  sha256         TEXT,
+  stored_path    TEXT,
+  page_count     INTEGER NOT NULL DEFAULT 0,
+  has_text_layer INTEGER NOT NULL DEFAULT 0,
+  ocr_status     TEXT NOT NULL DEFAULT 'none'
+);
+CREATE INDEX idx_file_item ON item_file(item_id);
+CREATE INDEX idx_file_hash ON item_file(sha256);
+
+-- ── v4（M9）逐页文本：文字与页图必须同页配对 ────────────
+CREATE TABLE item_page (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id       INTEGER NOT NULL REFERENCES knowledge_item(id) ON DELETE CASCADE,
+  file_id       INTEGER REFERENCES item_file(id) ON DELETE CASCADE,
+  page_no       INTEGER NOT NULL,
+  text          TEXT NOT NULL DEFAULT '',
+  source        TEXT NOT NULL DEFAULT 'ocr',
+  avg_conf      REAL,
+  image_path    TEXT,
+  text_reviewed TEXT
+);
+CREATE UNIQUE INDEX idx_page_no   ON item_page(file_id, page_no);
+CREATE INDEX        idx_page_item ON item_page(item_id, page_no);

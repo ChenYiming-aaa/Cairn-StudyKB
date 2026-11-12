@@ -12,6 +12,7 @@ ITEM_COLUMNS = (
     "id", "title", "source_type", "source_url", "raw_content", "content_hash",
     "summary", "key_points", "structured_note", "note_edited", "category",
     "tags", "status", "truncated", "created_at", "updated_at",
+    "workspace_id", "kind", "file_id",
 )
 
 
@@ -68,6 +69,9 @@ def create_item(
     raw_content: str,
     source_type: str = "text",
     source_url: str | None = None,
+    kind: str = "material",
+    workspace_id: int | None = None,
+    file_id: int | None = None,
 ) -> tuple[sqlite3.Row, bool]:
     """返回 (条目行, 是否撞哈希)。撞哈希时不新建，返回已有条目。"""
     digest = content_hash(raw_content)
@@ -77,9 +81,11 @@ def create_item(
     stamp = now_iso()
     cur = conn.execute(
         """INSERT INTO knowledge_item
-           (title, source_type, source_url, raw_content, content_hash, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)""",
-        (title, source_type, source_url, raw_content, digest, stamp, stamp),
+           (title, source_type, source_url, raw_content, content_hash, status,
+            kind, workspace_id, file_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)""",
+        (title, source_type, source_url, raw_content, digest,
+         kind, workspace_id, file_id, stamp, stamp),
     )
     return conn.execute("SELECT * FROM knowledge_item WHERE id=?", (cur.lastrowid,)).fetchone(), False
 
@@ -131,6 +137,7 @@ def list_items(
     status: str | None = None,
     q: str | None = None,
     tag: str | None = None,
+    workspace_id: int | str | None = None,
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[sqlite3.Row], int]:
@@ -150,6 +157,12 @@ def list_items(
             " WHERE json_each.value = ?)"
         )
         args.append(tag)
+    # workspace_id：None = 看全部；"none" = 只看未归类（IS NULL 的哨兵值，不用 0）
+    if workspace_id == "none":
+        where.append("workspace_id IS NULL")
+    elif workspace_id is not None and workspace_id != "":
+        where.append("workspace_id=?")
+        args.append(workspace_id)
     clause = " WHERE " + " AND ".join(where) if where else ""
     total = conn.execute("SELECT COUNT(*) FROM knowledge_item" + clause, args).fetchone()[0]
     rows = conn.execute(
@@ -160,12 +173,16 @@ def list_items(
     return rows, total
 
 
-_UPDATABLE = {"title", "category", "tags", "structured_note", "summary", "key_points", "status"}
+_UPDATABLE = {"title", "category", "tags", "structured_note", "summary", "key_points",
+              "status", "workspace_id"}
+# PATCH 语义里 workspace_id=null = 「移出工作区」，不能像其他字段一样被 None 过滤掉
+_NULLABLE = {"workspace_id"}
 
 
 def update_item(conn: sqlite3.Connection, item_id: int, fields: dict) -> sqlite3.Row | None:
     """只更新传入字段。带 structured_note 时置 note_edited=1，不触发重新整理。"""
-    fields = {k: v for k, v in fields.items() if k in _UPDATABLE and v is not None}
+    fields = {k: v for k, v in fields.items()
+              if k in _UPDATABLE and (v is not None or k in _NULLABLE)}
     if not fields:
         return get_item(conn, item_id)
     sets, args = [], []
