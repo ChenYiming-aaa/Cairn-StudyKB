@@ -19,11 +19,7 @@
 内容是真实学科考点与题目（NCRE 二级 Python/Java、CET-6 题型、高数上册），不是 Lorem ipsum 或占位符。
 同一个主题内，讲义 / 试卷 / 拍照卷是**不同套卷**：拍照卷标为往次真题的考生回忆版，含手写答案与批注。
 
-若验收脚本硬编码 `samples/twocol.pdf` 等根目录文件名，复制一组即可（复制品同样被 gitignore 忽略）：
-
-```bash
-cp samples/python/{course.docx,twocol.pdf,exam.pdf,scan.pdf} samples/
-```
+**验收脚本按四个主题目录读取**（`samples/python/` / `java/` / `cet6/` / `math/`），遍历四组共 16 份，用来测不同学科版式、题号写法与拍照质量下的识别能力；不要只挑一组，也不要复制到根目录当单份样本用（对应执行计划 §2.1 的口径）。
 
 ## 2. 四类样本各自验什么
 
