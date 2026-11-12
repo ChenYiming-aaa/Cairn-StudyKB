@@ -18,22 +18,22 @@
 
 ---
 
-## 当前状态（2026-11-10 19:15 · 每次会话结束更新这一段）
+## 当前状态（2026-11-12 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M8 体积与更新 · 已完成（L0–L5 六层全部收口，2026-11-10）**。出口 `v0.2.1` 已发布；下一里程碑未定（backlog 见本文件「未结遗留」） |
-| 当前里程碑 | **L5（T8.7 发布 + T8.8 干净机验收）完成**：`v0.2.0` 与 `components-v1` 已发、演示站上线；T8.8 用 `tools/e2e_clean.py` 在本机模拟干净机走查 **28/28**，途中逮到「装完组件不回填历史向量」真缺陷（`M8-补充记录.md` §7.1），修复后发 **v0.2.1**；`verify_m8` **105/105** |
+| 里程碑 | **M9 本地文件、本地识别、工作区 · 进行中（CP1 完成）**。M8 已完成、出口 `v0.2.1` 已发布；M9–M11 按 `docs/dev/执行计划-v0.3-M9-M11.md` 推进，进度台账在其 §9 |
+| 当前里程碑 | **M9 · CP1 收口（2026-11-12）**：T9.1 契约先行（`6531c8c`）、T9.2 迁移 v4 + 三个 repo（`8981641`）均已推；`doc_check` **0 FAIL**、T9.2 自检 **25/25**、回归 m1–m5 全绿。下一步 **T9.3 上传与落盘**。本轮裁决与一次偶发 FAIL 见文末最后一条 |
 | 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；M6 已验收（`m6-done`） |
 | 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
 | 版本 | **0.2.1**（四处一致，`tools/bump_version.py --check` 通过） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` |
-| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45） |
+| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿** |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
 | 发布 | 最新 Release **`v0.2.1`**：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>（正文取 `release-notes-v0.2.1.md`，附件 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256`）。历史：`v0.2.0`（172,075,794 B）、`v0.1.0`（426,428,660 B，0.1.0 里没有更新器，只能手动下）。组件包在 **`components-v1`**（三个 zip，`make_latest=false`，别设 latest 否则更新器会认错） |
-| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移） |
+| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1 / T9.2 已勾）** |
 
 **2026-11-09 本轮裁决（四条，都已落进文档，改主意要回写）**
 
@@ -1947,3 +1947,57 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
   - `components-v1` 没动（组件包未变），它仍是 `make_latest=false`
 - 演示站：push 触发 `demo-pages`（`404acbb`）**success**，用 Edge 打开线上站点确认关于页标题是 **`Cairn v0.2.1`**
 - **升级链路实测**：本机装着的 0.2.0 打开「设置 → 关于 → 检查更新」，界面显示 **「0.2.1 可用（当前 0.2.0）」** —— 补丁版对老用户可见
+
+---
+
+## 2026-11-12 · v0.3 M9 · CP1 收口（T9.1 + T9.2）
+
+**开工前的四条裁决（都是你拍的，已回写需求文档与执行计划）**
+
+1. **D3 主包体积目标：175 → 195 → `<300 MB`**（`需求-v0.3-本地文件与试卷导入.md` §12 / §13 / §14 D3）。
+2. **识别能力不并入主包**：曾评估把 OCR 依赖打进主包，因合并后约 291.5 MB 只剩 8.5 MB 余量、
+   组件实际打包可能到 132 MB（→ 314 MB 破线），且要推翻 M8 的 `MONOLITH_HEAVY` 排除与独立进程崩溃隔离，
+   **已否决**。`cairn-ocr` 仍是下载中心的第四个组件，T9.4 / T9.5 卡片保持原样；否决理由写进 ADR-035「影响」段。
+3. **样本口径**：`samples/` 四组 16 份（python / java / cet6 / math × `course.docx` / `twocol.pdf` /
+   `exam.pdf` / `scan.pdf`），验收脚本**按主题目录遍历全部 16 份**，不复制单组到根目录
+   （执行计划 §2.1、`samples/README.md`、根 README 开发素材段）。
+4. **执行范围**：本次只到 **CP1（T9.1–T9.2）**，回头汇报再继续。
+
+**三次提交都已推 `origin/main`**
+
+| commit | 内容 |
+|---|---|
+| `27d63d7` | docs：D3 `<300 MB`、样本口径改四组 16 份、README 体积口径（先改需求文档 → 同步执行计划 → 再开工） |
+| `6531c8c` | T9.1 契约先行：数据契约 v4（三表 + 五列 + `user_version` 3→4 + 迁移脚本名）、接口契约 15 行新端点（12 个唯一路径）+ §3.1 详细形状、ADR-031~035、总纲 §3/§4、文案规范、README 功能清单与格式表 |
+| `8981641` | T9.2：`v4_files_workspace.sql` + `schema.sql` + `migrate.py`（`SCHEMA_VERSION=4`）+ `repo/items.py` 增参 + 三个新 repo |
+
+**验证**
+
+- `tools/doc_check.py` **0 FAIL**（6 PASS / 1 WARN）：ADR 30→35、表 12→15、端点 49→61。
+- T9.2 自检 **25/25**：v3 老库升级后 `user_version=4`、3 条老数据不丢且 `kind='material'` /
+  `workspace_id=NULL` / `file_id=NULL`；**新建库与升级库的表 / 列 / 索引形态一致**；三个 repo 冒烟全过
+  （含 `workspace_id="none"` 哨兵、`workspace_id=null` 移出工作区、删工作区 SET NULL、
+  `pages.upsert` 不覆盖 `text_reviewed`）。
+- CP1 回归 `verify_m1..m5`：**53 / 118 / 61 / 69 / 57 全绿**；`compileall` 通过。
+
+**开工前的一次 FAIL（按约定只报不修，你裁决「判偶发」）**
+
+基线 `verify_m1..m8` 首轮 m8 报 **78/79**：`§protocol 跑完` 因 embed 组件冷启动超时两次异常中断。
+单独重跑 `--only protocol` **38/38**、完整重跑 m8 **105/105**，均 EXIT=0。
+未改任何代码、未放宽断言。记为环境波动；后续若再复现，值得查 `component_proc` 的超时 / 重试，
+或给验收加 `wait_until`（别把「还没跑完」和真缺陷混成一片）。
+
+**两个实现细节（不是裁决，写明免得后面踩）**
+
+- `repo/items.py` 的 `update_item` 原本会过滤掉所有 `None`，但 PATCH 语义里 `workspace_id=null`
+  = 移出工作区，故新增 `_NULLABLE={"workspace_id"}` 单独放行。
+- `item_page.text_reviewed` 在需求文档 §5.4 的表里没列、但 §8.5 明确要求「原始识别文本永不覆盖」，
+  已在数据契约补全并注明依据；`schema.sql` 与迁移脚本同步有这一列。
+
+**更正遗留 #13**：v0.3 需求已评审、16 份样本已就位、M9 已开工；「待拍 D1–D7 / 动手前需要 4 份样本」
+不再是当前状态（D3 已拍，D1/D2/D4–D7 按推荐默认执行）。
+
+**下一会话第一件事**
+> 按 `执行计划-v0.3-M9-M11.md` §9 台账做 **T9.3 上传与落盘**（依赖 T9.2）。
+> 开工前照 §0.2 跑开场三件事；CP0 的 16 份样本已在 `samples/`，`verify_m1..m8` 全绿。
+> 章节状态四处已同步：README、总纲 §4、执行计划 §9、会话提示词手册。
