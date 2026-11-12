@@ -2,7 +2,7 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET    | `/api/components`                  | 三个组件的状态 + 清单元信息（repo / tag / 镜像） |
+| GET    | `/api/components`                  | 全部组件的状态（`components.IDS`，别写死个数）+ 清单元信息（repo / tag / 镜像） |
 | POST   | `/api/components/{id}/install`     | 起后台下载任务，立即 202 返回 `{task_id}` |
 | GET    | `/api/components/{id}/progress`    | 轮询：`{status, phase, got, total, pct, error_code}` |
 | POST   | `/api/components/{id}/cancel`      | 取消正在进行的安装（**契约 §3.2 之外新增**，UI 的「取消」要用） |

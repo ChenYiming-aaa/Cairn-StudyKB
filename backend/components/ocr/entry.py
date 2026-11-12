@@ -285,6 +285,18 @@ def _expect(reply: dict) -> tuple[bool, str]:
                   f"最高分 {max((ln.get('conf', 0) for ln in lines), default=0):.3f}")
 
 
+def selfcheck(req: dict, progress) -> dict:
+    """设置页「测试一下」：拿内置小图真跑一次，证明模型与 DLL 都好。
+
+    由组件自己造图（样本就在这个文件里），主程序那边没有 PIL，也不该为了一个
+    测试按钮在业务代码里塞一张 PNG。
+    """
+    path = Path(tempfile.gettempdir()) / "cairn-ocr-selfcheck.png"
+    path.write_bytes(base64.b64decode(SELFTEST_PNG))
+    return ocr({"items": [{"key": "selfcheck", "path": str(path)}]}, progress)
+
+
 if __name__ == "__main__":
     sample = _selftest_sample() if "--selftest" in sys.argv else {}
-    sys.exit(main("ocr", VERSION, {"ocr": ocr}, sample=sample, expect=_expect))
+    sys.exit(main("ocr", VERSION, {"ocr": ocr, "selfcheck": selfcheck},
+                  sample=sample, expect=_expect))
