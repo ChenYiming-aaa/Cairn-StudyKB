@@ -23,17 +23,17 @@
 | 项 | 值 |
 |---|---|
 | 里程碑 | **M9 本地文件、本地识别、工作区 · 进行中（CP1 完成）**。M8 已完成、出口 `v0.2.1` 已发布；M9–M11 按 `docs/dev/执行计划-v0.3-M9-M11.md` 推进，进度台账在其 §9 |
-| 当前里程碑 | **M9 · CP1 收口（2026-11-12）**：T9.1 契约先行（`6531c8c`）、T9.2 迁移 v4 + 三个 repo（`8981641`）均已推；`doc_check` **0 FAIL**、T9.2 自检 **25/25**、回归 m1–m5 全绿。下一步 **T9.3 上传与落盘**。本轮裁决与一次偶发 FAIL 见文末最后一条 |
+| 当前里程碑 | **M9 · T9.3 已收尾（2026-11-12）**：T9.1 / T9.2 / T9.3 都已推（`6531c8c` / `8981641` / `80ad950`）；`doc_check` **0 FAIL**、T9.3 自检六组全过、回归 m1–m5 全绿。下一步 **T9.4 `cairn-ocr` 组件** |
 | 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；M6 已验收（`m6-done`） |
 | 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
 | 版本 | **0.2.1**（四处一致，`tools/bump_version.py --check` 通过） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` |
-| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿** |
+| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿** |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
 | 发布 | 最新 Release **`v0.2.1`**：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>（正文取 `release-notes-v0.2.1.md`，附件 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256`）。历史：`v0.2.0`（172,075,794 B）、`v0.1.0`（426,428,660 B，0.1.0 里没有更新器，只能手动下）。组件包在 **`components-v1`**（三个 zip，`make_latest=false`，别设 latest 否则更新器会认错） |
-| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1 / T9.2 已勾）** |
+| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1 / T9.2 / T9.3 已勾）** |
 
 **2026-11-09 本轮裁决（四条，都已落进文档，改主意要回写）**
 
@@ -1998,6 +1998,64 @@ T7.7 建 `backend/scripts/verify_m7.py`（30 条）+ 重拍 10 张截图 + READM
 不再是当前状态（D3 已拍，D1/D2/D4–D7 按推荐默认执行）。
 
 **下一会话第一件事**
-> 按 `执行计划-v0.3-M9-M11.md` §9 台账做 **T9.3 上传与落盘**（依赖 T9.2）。
-> 开工前照 §0.2 跑开场三件事；CP0 的 16 份样本已在 `samples/`，`verify_m1..m8` 全绿。
+> 按 `执行计划-v0.3-M9-M11.md` §9 台账做 **T9.4 `cairn-ocr` 组件**（依赖 T9.1，已完成）。
+> 开工前照 §0.2 跑开场三件事；§2.2 的「最小包先验 DLL」别跳——opencv / onnxruntime 的 DLL 是最常见的首挂点。
 > 章节状态四处已同步：README、总纲 §4、执行计划 §9、会话提示词手册。
+
+---
+
+## 2026-11-12 · v0.3 M9 · T9.3 上传与落盘
+
+**做了什么（一个 commit：`80ad950`，已推 `origin/main`）**
+
+| 文件 | 内容 |
+|---|---|
+| `backend/app/services/files.py`（新） | 流式接收（1 MB 一片，边写边算 sha256）、200 MB 上限、扩展名白名单、`item_file.sha256` 去重、`files/<item_id>/<sha8>.<ext>` 落盘、`usage()` 占用统计、`purge_item()`、`clear_tmp()` |
+| `backend/app/routers/files.py`（新） | `POST /api/files`：multipart + 可选 `workspace_id`，201 `{file_id,item_id,page_count,ocr_status,preview}` |
+| `backend/app/db/repo/files.py` | 加 `link_item()`——`knowledge_item.file_id` 是反向指针，只能在原件行建好之后补 |
+| `backend/app/routers/knowledge.py` | `PatchBody` 加 `workspace_id`（校验工作区存在）、列表加 `workspace_id` 查询参数（`"none"` 哨兵）、详情加 `file`、删除连带清原件目录 |
+| `backend/app/main.py` | 挂 router；启动时清残留 `.part` |
+| `backend/pyproject.toml` / `uv.lock` | 加 `python-multipart`（你批准的）——FastAPI 解析 multipart 的硬前置，纯 Python 约 40 KB |
+
+**本轮三个决定（都写进代码注释与执行计划，改主意要回写）**
+
+1. **入队不放在 T9.3**：`extract_file` / `ocr_pages` 的任务处理器要到 T9.6 / T9.7 才注册，这里调
+   `dispatch.submit` 只会 `KeyError`。所以只把状态置诚实（PDF / 图片 `ocr_status='pending'`、其余 `none`），
+   入队在那两张卡落地时接到 `files.save()` 末尾。卡里的步骤 7 已照此改写。
+2. **同名不同内容会撞占位正文**（实测）：两份都叫 `试卷.pdf`、内容不同、都还没抽取时，
+   占位正文 `[文件] 试卷.pdf` 让 `content_hash` 相同 → 第二份被并到第一条内容上。
+   解法：撞了加 sha 前缀重试（`[文件] 试卷.pdf（a1b2c3d4）`），只在这条罕见路径上改变正文。
+3. **零字节文件直接拒**（新增 `FILE_EMPTY` 422）：不拦的话会变成「上传成功但读不出字」，
+   比报错更难解释。契约与 §6.2 错误码表已同步。
+
+**验证**
+
+- T9.3 自检六组全过：重复上传（回同一 `item_id`/`file_id`、盘上只一份）、`.doc`/`.exe` 415、
+  空文件 422、210 MB 413（流式路与服务层前置拦截各测一次、无残留）、图片 `kind=image`、
+  详情 `file` 不含盘上路径、删内容后目录与 `item_file` 行都消失、工作区挂载 / 移出 / 非法值、
+  `stored_path` 是相对路径且把数据目录整体拷走后仍能读到。
+- `tools/doc_check.py` **0 FAIL**；回归 `verify_m1..m5`：**53 / 118 / 61 / 69 / 57 全绿**。
+- 未跑 `verify_m6..m8`：本轮没动前端、也没动组件与更新器（`main.py` 只多挂一个 router）。
+  动了打包或组件协议时必须补跑 m8。
+
+**push 又挂了一次（这次查出真根因）**
+
+裸 `git push` 卡 3 分 10 秒零输出。`ls-remote` 通 → 网络没事。区别在于
+**`~/.gitconfig` 里 `credential.helper=!"D:/workbuddy/.../PortableGit/.../git-credential-manager.exe"`**
+（无用户名的泛型凭据查询它会开交互窗口）。这次有效的做法是**先把 helper 链清空再注入**：
+
+```bash
+PW=$(printf "protocol=https\nhost=github.com\nusername=ChenYiming-aaa\n\n" \
+     | GCM_INTERACTIVE=never "$GIT" credential fill 2>/dev/null | sed -n 's/^password=//p')
+export GH_TOKEN="$PW"
+"$GIT" -c credential.helper= \
+       -c credential.helper='!f() { echo "username=ChenYiming-aaa"; echo "password=$GH_TOKEN"; }; f' \
+       push origin main
+```
+
+两个关键点，缺一仍然挂：① `credential fill` **必须带 `username=`**（不带就说「没有缓存凭据」）；
+② `-c credential.helper=` 空值那一条**必须在前面**，否则 `~/.gitconfig` 里的 GCM 会先被调用并卡住。
+
+**下一会话第一件事**
+> 按执行计划 §9 做 **T9.4 `cairn-ocr` 组件**（先按 §2.2 打最小包验 DLL，再补功能）。
+> 别在 T9.3 上继续加东西：上传已经能用，读字是 T9.6 的事。
