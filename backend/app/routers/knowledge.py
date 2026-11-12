@@ -10,9 +10,12 @@ from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.db.conn import get_conn
+from app.db.repo import files as file_repo
 from app.db.repo import items as repo
+from app.db.repo import workspaces as workspace_repo
 from app.errors import ApiError, error_payload
 from app.services import embedder
+from app.services import files as file_store
 from app.services import mindmap
 from app.services import tasks as task_queue
 from app.services.agents import organizer
@@ -32,6 +35,8 @@ class PatchBody(BaseModel):
     category: str | None = None
     tags: list[str] | None = None
     structured_note: str | None = None
+    # 显式给 null = 移出工作区；不带这个键 = 不改（靠 exclude_unset 区分，见 patch_item）
+    workspace_id: int | None = None
 
 
 def _not_found() -> JSONResponse:
@@ -48,9 +53,28 @@ def _list_shape(row: sqlite3.Row) -> dict:
     }
 
 
+def _file_shape(conn: sqlite3.Connection, item_id: int) -> dict | None:
+    """详情里的原件信息（T9.3）。一份内容可能有多份原件，这里只给主原件。
+
+    绝对路径不出接口：`stored_path` 是数据目录相对路径，前端要字节流走
+    `GET /api/knowledge/{id}/file`（T9.10），自己不拼路径。
+    """
+    rows = file_repo.list_by_item(conn, item_id)
+    if not rows:
+        return None
+    row = next((r for r in rows if r["role"] == "main"), rows[0])
+    return {
+        "id": row["id"], "original_name": row["original_name"], "ext": row["ext"],
+        "mime": row["mime"], "size": row["size"], "page_count": row["page_count"],
+        "has_text_layer": row["has_text_layer"], "ocr_status": row["ocr_status"],
+    }
+
+
 def _detail_shape(row: sqlite3.Row, conn: sqlite3.Connection) -> dict:
     item = repo.row_to_item(row)
     item["chunks"] = repo.list_chunks(conn, item["id"])
+    # kind / workspace_id 已在 row_to_item 的列里；原件要单独查一次
+    item["file"] = _file_shape(conn, item["id"])
     return item
 
 
@@ -88,14 +112,20 @@ def list_items(
     status: str | None = None,
     q: str | None = None,
     tag: str | None = None,
+    workspace_id: int | Literal["none"] | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> dict:
+    """`workspace_id="none"` = 只看未归类（契约 §3.1：哨兵值不用 0）。
+
+    `int | Literal["none"]` 让 FastAPI 直接 422 掉 `workspace_id=abc`，
+    不需要在函数体里再写一次类型判断。
+    """
     conn = get_conn()
     try:
         rows, total = repo.list_items(
             conn, source_type=source_type, category=category, status=status,
-            q=q, tag=tag, page=page, page_size=page_size,
+            q=q, tag=tag, workspace_id=workspace_id, page=page, page_size=page_size,
         )
         return {"items": [_list_shape(r) for r in rows], "total": total}
     finally:
@@ -224,6 +254,10 @@ def patch_item(item_id: int, body: PatchBody):
             if repo.get_item(conn, item_id) is None:
                 return _not_found()
             fields = body.model_dump(exclude_unset=True)
+            # workspace_id 显式给 null 是合法的「移出工作区」，只校验非空值是否存在
+            target = fields.get("workspace_id")
+            if target is not None and workspace_repo.get(conn, target) is None:
+                raise ApiError("WORKSPACE_NOT_FOUND", "工作区不存在，可能已经被删了", status=404)
             row = repo.update_item(conn, item_id, fields)
             if fields.get("structured_note") is not None:
                 # 数据契约 §6 / M1 §6.9：删 source='note' 的 chunk 后用同一 chunker 重建
@@ -232,6 +266,7 @@ def patch_item(item_id: int, body: PatchBody):
         result = {
             "id": row["id"], "updated_at": row["updated_at"],
             "note_edited": row["note_edited"], "note_chunk_count": note_chunk_count,
+            "workspace_id": row["workspace_id"],
         }
     finally:
         conn.close()
@@ -249,6 +284,8 @@ def delete_item(item_id: int):
             deleted = repo.delete_item(conn, item_id)
         if not deleted:
             return _not_found()
-        return {"id": item_id, "deleted": True}
     finally:
         conn.close()
+    # 删内容连带删原件：item_file 行由外键 CASCADE，盘上的目录得自己清（T9.3）
+    file_store.purge_item(item_id)
+    return {"id": item_id, "deleted": True}

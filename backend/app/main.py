@@ -21,13 +21,14 @@ from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
 from app.paths import install_root, is_frozen
 from app.routers import (
-    ask, auth, env, health, html, ingest, knowledge, quiz, review, search, session,
+    ask, auth, env, files, health, html, ingest, knowledge, quiz, review, search, session,
     settings, stats, tasks,
 )
 # 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
 from app.routers import components as components_api
 from app.db.repo import sessions as sessions_repo
 from app.services import browser, components
+from app.services import files as file_store
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
 
@@ -63,6 +64,9 @@ async def lifespan(_: FastAPI):
     # M2 §7：上次转录中断留下的临时音频不许攒着，启动即清
     if (cleared := clear_tmp()):
         log.info("已清理 %s 个残留临时目录", cleared)
+    # T9.3：上传到一半崩溃留下的 .part 同样不许攒着（原件目录不碰，只清临时目录）
+    if (stale := file_store.clear_tmp()):
+        log.info("已清理 %s 个残留的上传临时文件", stale)
     # T1.2：启动时打印实际数据目录与端口（只打印路径，不打印任何 Key）
     print(f"[Cairn] 数据目录 = {cfg.data_dir}")
     print(f"[Cairn] 数据库   = {cfg.db_path}")
@@ -97,6 +101,7 @@ app.include_router(env.router)
 app.include_router(settings.router)
 app.include_router(auth.router)
 app.include_router(ingest.router)
+app.include_router(files.router)
 app.include_router(knowledge.router)
 app.include_router(search.router)
 app.include_router(ask.router)

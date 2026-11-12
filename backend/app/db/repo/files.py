@@ -67,5 +67,14 @@ def set_ocr_status(conn: sqlite3.Connection, file_id: int, status: str) -> None:
     conn.execute("UPDATE item_file SET ocr_status=? WHERE id=?", (status, file_id))
 
 
+def link_item(conn: sqlite3.Connection, item_id: int, file_id: int) -> None:
+    """把原件挂回内容（`knowledge_item.file_id` 是反向指针）。
+
+    建内容时还不知道 file_id（`item_file.item_id` 是 NOT NULL，只能先有内容再有原件行），
+    所以这一列只能事后补。写在 files 这一侧而不是 items：原件与内容的挂接属于原件的事。
+    """
+    conn.execute("UPDATE knowledge_item SET file_id=? WHERE id=?", (file_id, item_id))
+
+
 def delete(conn: sqlite3.Connection, file_id: int) -> bool:
     return conn.execute("DELETE FROM item_file WHERE id=?", (file_id,)).rowcount > 0

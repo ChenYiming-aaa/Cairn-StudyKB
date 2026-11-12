@@ -24,6 +24,9 @@ dependencies = [
   "sentence-transformers>=6.2.0",
   "sqlite-vec>=0.1.9",
   "bleach[css]>=6.4.0",
+  # 文件上传（M9 T9.3）：FastAPI 解析 multipart 的硬前置，不在 fastapi 默认依赖里。
+  # 纯 Python、约 40 KB，打包体积可忽略
+  "python-multipart>=0.0.9,<1",
 ]
 
 [build-system]
