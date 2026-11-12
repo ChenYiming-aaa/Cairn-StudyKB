@@ -68,3 +68,8 @@ desktop.ini
 
 # ── 工具运行时数据（私有工作笔记，不入库）──
 .workbuddy/
+
+# ── 本地验收样本（执行计划 §2.1：样本不提交）──
+# 16 份 docx/pdf、网络配图与自检报告不入库；生成脚本与 samples/README.md 保留以便复现
+samples/*/
+samples/_check.json

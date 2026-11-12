@@ -242,6 +242,12 @@ v0.2.1 就是这样，不粉饰：
 - **题目、作答、复习记录无限增长**，没有保留策略，数据很多后仪表盘可能变慢
 - **只有 Windows x64 安装包**
 
+## 开发 / 验收素材（仅本地）
+
+[`samples/`](samples/) 放着 16 份真实格式的导入样本：4 个主题（计算机二级 Python / Java、英语六级、大学数学）× 4 种版式（带图带表的课程 docx、10 页双栏讲义 PDF、电子版试卷、扫描拍照试卷），用于文件抽取、双栏判列、试卷结构与识别验收。配图是从网上搜到的真实素材，来源逐张记在 `samples/images/_sources.json`。
+
+它们是本地验收素材，**不随安装包发布，16 份 docx/pdf 与配图也不进仓库**（见 `.gitignore`）；生成脚本与清单保留。文件清单、构造特征、自检数据和重新生成方法见 [`samples/README.md`](samples/README.md)。
+
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。用、改、分发都行，保留版权声明即可；不提供任何担保。第三方组件遵循各自许可（FastAPI、Vue、Electron、`faster-whisper`、`sentence-transformers`、`sqlite-vec`、`trafilatura`、`yt-dlp` 等）。
