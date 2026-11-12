@@ -246,4 +246,4 @@ v0.2.1 就是这样，不粉饰：
 
 MIT，见 [LICENSE](LICENSE)。用、改、分发都行，保留版权声明即可；不提供任何担保。第三方组件遵循各自许可（FastAPI、Vue、Electron、`faster-whisper`、`sentence-transformers`、`sqlite-vec`、`trafilatura`、`yt-dlp` 等）。
 
-<sub>开发文档（接口契约、数据契约、里程碑台账、从源码运行、文案规范）在 [`docs/dev/`](docs/dev/)。</sub>
+<sub>开发文档（需求文档、接口契约、数据契约、里程碑台账、从源码运行、文案规范）在 [`docs/dev/`](docs/dev/)。</sub>
