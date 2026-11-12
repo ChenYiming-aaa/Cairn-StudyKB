@@ -285,6 +285,8 @@ def save(stream: BinaryIO, *, filename: str, workspace_id: int | None = None) ->
         file_id=int(saved["id"]), item_id=item_id,
         page_count=int(saved["page_count"] or 0),
         ocr_status=saved["ocr_status"],
-        preview=f"[文件] {filename}"[:500],
+        # preview 一律取正文前 500 字（契约口径），别在这里另拼一遍名字：
+        # 撞哈希时正文带 sha 后缀，另拼就会和库里对不上
+        preview=(row["raw_content"] or "")[:500],
         duplicated=False,
     )
