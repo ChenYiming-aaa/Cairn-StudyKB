@@ -27,7 +27,7 @@ from app.routers import (
 # 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
 from app.routers import components as components_api
 from app.db.repo import sessions as sessions_repo
-from app.services import browser, components
+from app.services import browser, components, ingest_file
 from app.services import files as file_store
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
@@ -59,6 +59,9 @@ async def lifespan(_: FastAPI):
     setup_logging(cfg)
     init_db()
     recover_stale_tasks()
+    # T9.6：识别是线程任务，被 kill 时来不及写状态。启动时看到 running 一定是上次没跑完，
+    # 不拨回 pending 的话界面永远转圈、重识别还会被判「正在跑」
+    ingest_file.reset_stale()
     # M5 §6.2：忘了关的番茄钟不许一直 running（>4 小时按计划时长封顶后标 abandoned）
     _close_stale_sessions()
     # M2 §7：上次转录中断留下的临时音频不许攒着，启动即清

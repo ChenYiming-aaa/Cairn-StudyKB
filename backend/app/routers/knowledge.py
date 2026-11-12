@@ -3,20 +3,23 @@ from __future__ import annotations
 
 import sqlite3
 from typing import Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Query
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
 from app.db.conn import get_conn
 from app.db.repo import files as file_repo
 from app.db.repo import items as repo
+from app.db.repo import pages as page_repo
 from app.db.repo import workspaces as workspace_repo
 from app.errors import ApiError, error_payload
+from app.services import dispatch
 from app.services import embedder
 from app.services import files as file_store
-from app.services import mindmap
+from app.services import ingest_file, mindmap, ocr, pdf_pages
 from app.services import tasks as task_queue
 from app.services.agents import organizer
 
@@ -280,12 +283,182 @@ def patch_item(item_id: int, body: PatchBody):
 def delete_item(item_id: int):
     conn = get_conn()
     try:
+        # 页图按 file_id 建目录，删内容前先把 file_id 拿到（级联删完就查不到了）
+        file_ids = [int(r["id"]) for r in file_repo.list_by_item(conn, item_id)]
         with conn:
             deleted = repo.delete_item(conn, item_id)
         if not deleted:
             return _not_found()
     finally:
         conn.close()
-    # 删内容连带删原件：item_file 行由外键 CASCADE，盘上的目录得自己清（T9.3）
+    # 删内容连带删原件：item_file 行由外键 CASCADE，盘上的目录得自己清（T9.3 / T9.6）
     file_store.purge_item(item_id)
+    for file_id in file_ids:
+        pdf_pages.purge_file(file_id)
     return {"id": item_id, "deleted": True}
+
+
+# ── 识别链路（T9.6）──────────────────────────────────────
+def _main_file(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
+    rows = file_repo.list_by_item(conn, item_id)
+    if not rows:
+        return None
+    return next((r for r in rows if r["role"] == "main"), rows[0])
+
+
+def _file_not_found(message: str) -> JSONResponse:
+    return JSONResponse(status_code=404, content=error_payload("FILE_NOT_FOUND", message))
+
+
+def _ocr_progress(conn: sqlite3.Connection, file: sqlite3.Row) -> dict:
+    """进度全部从库里推：`item_page` 有行就是这一页处理完了（空页也算）。
+
+    没有单独一张"识别任务"表 —— 状态只有 `item_file.ocr_status` 加页数，
+    这样进程被杀也不会丢进度，重启后天然是「已完成 12/30」。
+    """
+    rows = page_repo.list_by_file(conn, int(file["id"]))
+    total = int(file["page_count"] or 0)
+    have = {int(r["page_no"]) for r in rows}
+    return {
+        "status": file["ocr_status"] or "none",
+        "done_pages": len(rows),
+        "total_pages": total,
+        # 没落库的页就是没识别成功的页（整页失败不写行，见 services/ingest_file.py）
+        "failed_pages": [n for n in range(1, total + 1) if n not in have],
+    }
+
+
+@router.get("/{item_id}/ocr")
+def get_ocr_progress(item_id: int):
+    conn = get_conn()
+    try:
+        if repo.get_item(conn, item_id) is None:
+            return _not_found()
+        file = _main_file(conn, item_id)
+        if file is None:
+            return _not_found()
+        return _ocr_progress(conn, file)
+    finally:
+        conn.close()
+
+
+class OcrBody(BaseModel):
+    # 给了 pages 就只重跑这几页（失败重试 / 认错了再跑一次）；不给就是整份
+    pages: list[int] | None = None
+
+
+@router.post("/{item_id}/ocr")
+def start_ocr(item_id: int, body: OcrBody | None = None):
+    """202 + task_id。识别是后台任务：上传/重识别都不许同步等（契约 §3.1）。"""
+    conn = get_conn()
+    try:
+        if repo.get_item(conn, item_id) is None:
+            return _not_found()
+        file = _main_file(conn, item_id)
+        if file is None:
+            return _file_not_found("这条内容没有原件，没什么可识别的")
+        ext = str(file["ext"] or "").lower()
+        if ext not in ingest_file.OCR_EXT:
+            return JSONResponse(
+                status_code=409,
+                content=error_payload("OCR_NOT_APPLICABLE",
+                                      "这个格式不用识别，文字是直接读出来的"),
+            )
+        if ocr.available() == "none":
+            return JSONResponse(status_code=409, content=error_payload(**ocr.missing_hint()))
+        if (file["ocr_status"] or "") == "running":
+            return JSONResponse(
+                status_code=409,
+                content=error_payload("OCR_RUNNING", "这份文件正在识别，等它跑完再试"),
+            )
+
+        pages = [n for n in (body.pages or []) if n >= 1]
+        total = int(file["page_count"] or 0)
+        if pages and total and max(pages) > total:
+            raise ApiError("OCR_PAGE_OUT_OF_RANGE",
+                           f"这份文件只有 {total} 页", status=422)
+
+        # 先落 running 再派任务：中间的毫秒级窗口里第二个请求不该又派一份
+        with conn:
+            file_repo.set_ocr_status(conn, int(file["id"]), "running")
+        task_id = dispatch.submit(dispatch.TASK_OCR_PAGES,
+                                 {"file_id": int(file["id"]), "pages": pages or None})
+        return JSONResponse(status_code=202, content={"task_id": task_id})
+    finally:
+        conn.close()
+
+
+def _page_image_url(item_id: int, page_no: int) -> str:
+    return f"/api/knowledge/{item_id}/file?page={page_no}"
+
+
+@router.get("/{item_id}/pages/{n}")
+def get_page(item_id: int, n: int):
+    """第 n 页的文字与页图**必须同一次返回**（"认错也看得出来"的保障，数据契约 §6）。"""
+    if n < 1:
+        raise ApiError("PAGE_NOT_FOUND", "页码从 1 开始", status=404)
+    conn = get_conn()
+    try:
+        if repo.get_item(conn, item_id) is None:
+            return _not_found()
+        file = _main_file(conn, item_id)
+        if file is None:
+            return _file_not_found("这条内容没有原件")
+        row = page_repo.get(conn, int(file["id"]), n)
+        if row is None:
+            return JSONResponse(
+                status_code=404,
+                content=error_payload("PAGE_NOT_FOUND", f"第 {n} 页还没识别出来"),
+            )
+        return {
+            "page_no": n,
+            "text": row["text"] or "",
+            "source": row["source"],
+            "avg_conf": row["avg_conf"],
+            "image_url": _page_image_url(item_id, n),
+        }
+    finally:
+        conn.close()
+
+
+@router.get("/{item_id}/file")
+def get_file(item_id: int, page: int | None = Query(default=None, ge=1)):
+    """原件字节流（`inline`）；带 `page` 时返回该页页图。
+
+    页图与原件共用一个端点：前端要的是"能显示的图片地址"，多一个端点只是让
+    `pages/{n}` 的 `image_url` 指向一个已登记的路径（T9.6）。
+    """
+    conn = get_conn()
+    try:
+        if repo.get_item(conn, item_id) is None:
+            return _not_found()
+        file = _main_file(conn, item_id)
+        if file is None:
+            return _file_not_found("这条内容没有原件")
+        file_id = int(file["id"])
+
+        if page is None:
+            path = file_store.abs_path(str(file["stored_path"] or ""))
+            if not path.is_file():
+                return _file_not_found("原件在盘上找不到了，重新上传一次")
+            name = quote(str(file["original_name"] or path.name))
+            return FileResponse(
+                path, media_type=file["mime"] or "application/octet-stream",
+                headers={"Content-Disposition": f"inline; filename*=UTF-8''{name}"},
+            )
+
+        row = page_repo.get(conn, file_id, page)
+        if row is None or not row["image_path"]:
+            return JSONResponse(
+                status_code=404,
+                content=error_payload("PAGE_NOT_FOUND", f"第 {page} 页还没有页图"),
+            )
+        image = pdf_pages.abs_path(str(row["image_path"]))
+        if not image.is_file():
+            return JSONResponse(
+                status_code=404,
+                content=error_payload("PAGE_NOT_FOUND", f"第 {page} 页的页图不在了，重新识别一次"),
+            )
+        return FileResponse(image, media_type="image/jpeg")
+    finally:
+        conn.close()

@@ -67,6 +67,18 @@ def set_ocr_status(conn: sqlite3.Connection, file_id: int, status: str) -> None:
     conn.execute("UPDATE item_file SET ocr_status=? WHERE id=?", (status, file_id))
 
 
+def reset_running(conn: sqlite3.Connection) -> int:
+    """启动时把残留的 `running` 拨回 `pending`。
+
+    识别是后台线程，进程被 kill（或断点续跑前崩溃）时没有机会写回状态，
+    库里就会永远停在 `running`，界面一直转圈、重识别还被判「正在跑」。
+    后端是单进程，启动时看到 `running` 一定是上次没跑完 —— 这里必须清掉（T9.6）。
+    """
+    return conn.execute(
+        "UPDATE item_file SET ocr_status='pending' WHERE ocr_status='running'"
+    ).rowcount
+
+
 def link_item(conn: sqlite3.Connection, item_id: int, file_id: int) -> None:
     """把原件挂回内容（`knowledge_item.file_id` 是反向指针）。
 

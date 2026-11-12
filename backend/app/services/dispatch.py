@@ -11,7 +11,7 @@ from app.db.conn import get_conn
 from app.db.repo import tasks as repo
 from app.db.repo.items import loads
 from app.services import tasks as task_queue
-from app.services import component_install, embedder, video_ingest, web_ingest
+from app.services import component_install, embedder, ingest_file, video_ingest, web_ingest
 
 log = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ TASK_FETCH_URL = "fetch_url"
 TASK_TRANSCRIBE_VIDEO = "transcribe_video"
 TASK_INDEX_EMBED = "index_embed"
 TASK_COMPONENT_INSTALL = component_install.TASK_TYPE
+TASK_OCR_PAGES = ingest_file.TASK_TYPE
 
 # type → (执行函数, 是否需要 task_id)
 RUNNERS = {
@@ -29,6 +30,8 @@ RUNNERS = {
     # 装组件（M8 T8.3）：登记在这里只为让任务中心能「重试」失败的下载；
     # 正常入口是 POST /api/components/{id}/install（走 component_install.start）
     TASK_COMPONENT_INSTALL: (component_install.run, True),
+    # 逐页识别（T9.6）：要按页上报进度，所以必须拿到自己的 task_id
+    TASK_OCR_PAGES: (ingest_file.run, True),
 }
 
 

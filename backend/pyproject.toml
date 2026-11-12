@@ -28,6 +28,7 @@ dependencies = [
   # 纯 Python、约 40 KB，打包体积可忽略
   "python-multipart>=0.0.9,<1",
   "rapidocr>=3.10,<4",
+  "pypdfium2>=4.30,<5",
 ]
 
 # 本地识别（T9.4 / ADR-035）只给 `cairn-ocr` 组件用，主程序一行都不 import。
