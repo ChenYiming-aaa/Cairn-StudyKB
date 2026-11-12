@@ -23,17 +23,17 @@
 | 项 | 值 |
 |---|---|
 | 里程碑 | **M9 本地文件、本地识别、工作区 · 进行中（CP1 完成）**。M8 已完成、出口 `v0.2.1` 已发布；M9–M11 按 `docs/dev/执行计划-v0.3-M9-M11.md` 推进，进度台账在其 §9 |
-| 当前里程碑 | **M9 · T9.3 已收尾（2026-11-12）**：T9.1 / T9.2 / T9.3 都已推（`6531c8c` / `8981641` / `80ad950`）；`doc_check` **0 FAIL**、T9.3 自检六组全过、回归 m1–m5 全绿。下一步 **T9.4 `cairn-ocr` 组件** |
+| 当前里程碑 | **M9 · T9.4 已收尾（2026-11-12）**：T9.1–T9.4 都已推（`6531c8c` / `8981641` / `80ad950` / `0ceaea1`）；`doc_check` **0 FAIL**、`verify_m8` **105/105**、回归 m1–m5 全绿。识别组件 **118 MB / 解包 266 MB**，断网自检 2.1 s。下一步 **T9.5 `services/ocr.py` 与可用性三态**（做完即过 CP2） |
 | 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；M6 已验收（`m6-done`） |
 | 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
 | 版本 | **0.2.1**（四处一致，`tools/bump_version.py --check` 通过） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` |
-| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿** |
+| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿** |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
 | 发布 | 最新 Release **`v0.2.1`**：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>（正文取 `release-notes-v0.2.1.md`，附件 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256`）。历史：`v0.2.0`（172,075,794 B）、`v0.1.0`（426,428,660 B，0.1.0 里没有更新器，只能手动下）。组件包在 **`components-v1`**（三个 zip，`make_latest=false`，别设 latest 否则更新器会认错） |
-| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1 / T9.2 / T9.3 已勾）** |
+| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1 / T9.2 / T9.3 / T9.4 已勾）** |
 
 **2026-11-09 本轮裁决（四条，都已落进文档，改主意要回写）**
 
@@ -2057,8 +2057,18 @@ export GH_TOKEN="$PW"
 ② `-c credential.helper=` 空值那一条**必须在前面**，否则 `~/.gitconfig` 里的 GCM 会先被调用并卡住。
 
 **下一会话第一件事**
-> 按执行计划 §9 做 **T9.4 `cairn-ocr` 组件**（先按 §2.2 打最小包验 DLL，再补功能）。
-> 别在 T9.3 上继续加东西：上传已经能用，读字是 T9.6 的事。
+> 按执行计划 §9 做 **T9.5 `services/ocr.py` 与可用性三态**（`OCR_MISSING` 409、卸组件后边界正确），
+> 做完即过 **CP2**（检查点动作：跑验收 → 更新文档 → commit → push → 更新台账）。
+> 识别组件已经能用：`components.call("ocr", "ocr", {"items":[{"key","path"}]})`，
+> 一批 ≤5 页、单页失败只坏自己。别在 T9.4 上加功能，双栏判列与逐页落库是 T9.6。
+
+**T9.4 踩到的坑（写进 MEMORY 了，这里留一条最贵的）**
+
+- **不能把 `rapidocr` 的 `DownloadFile.run` 整个替换掉**：它每次加载模型都会调这个入口，
+  文件齐全时只是空转。整替换会让正常加载也报「包内缺模型」，症状是「目录里明明有那个文件，
+  却说不存在」。正确做法是包一层，先走它自己的 `_should_skip_download`，只在真要下载时抛错；
+  另外别忘补 `cls.verbose = params.verbose`（原 run 的第一行）。
+- `RapidOCR()` **构造不读模型**（懒加载），第一次推理才读 —— 测"缺模型会怎样"必须真跑一次 ocr。
 
 **未结项（T9.3 落地时发现，已写进 T9.11 卡片，别丢）**
 
