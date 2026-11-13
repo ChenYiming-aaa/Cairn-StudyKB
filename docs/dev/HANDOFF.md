@@ -36,7 +36,7 @@
 | 发布 | 最新 Release **`v0.2.1`**：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>（正文取 `release-notes-v0.2.1.md`，附件 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256`）。历史：`v0.2.0`（172,075,794 B）、`v0.1.0`（426,428,660 B，0.1.0 里没有更新器，只能手动下）。组件包在 **`components-v1`**（三个 zip，`make_latest=false`，别设 latest 否则更新器会认错） |
 | 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1–T9.12 已全部勾选；CP6 已过；T9.13 识别提速已记「跳过」；收口与发版已完成（见下））** |
 
-**M9 收口（2026-11-13）**：版本 `0.3.0-alpha.1`（预发布）、安装包 **180,933,061 B**、`tools/e2e_update.py --only all` 在 scratch 安装（`D:/cairn-t930`，0.2.1 → 0.3.0-alpha.1）**27/27 PASS**（断网人话 / 取消删净 / 起安装器且无孤儿后端 / 真 API 判「已是最新」）；线上演示站 fixture 用 `tools/capture_demo.py` 重抓（6 条内容原样灌库 + 真后端抓 GET，新增工作区与 `kind` / `workspace_id` / `file` 字段）；`tools/audit_kb.py`、`tools/build_signed.py`、`tools/capture_demo.py` 入库；`%TEMP%` 里 385 个 `cairn-verify-*`（4.9 GB）已清
+**M9 收口（2026-11-13）**：版本 `0.3.0-alpha.1`（预发布）、安装包 **180,933,111 B**（sha256 `f5580fa2…`）、`tools/e2e_update.py --only all` 在 scratch 安装（`D:/cairn-t930`，0.2.1 → 0.3.0-alpha.1）**27/27 PASS**（断网人话 / 取消删净 / 起安装器且无孤儿后端 / 真 API 判「已是最新」）；线上演示站 fixture 用 `tools/capture_demo.py` 重抓（6 条内容原样灌库 + 真后端抓 GET，新增工作区与 `kind` / `workspace_id` / `file` 字段）；`tools/audit_kb.py`、`tools/build_signed.py`、`tools/capture_demo.py` 入库；`%TEMP%` 里 385 个 `cairn-verify-*`（4.9 GB）已清
 
 
 **2026-11-09 本轮裁决（四条，都已落进文档，改主意要回写）**
