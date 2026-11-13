@@ -176,6 +176,73 @@ function answerLost(draft) {
   return filledOptions(draft).length < letters[0].charCodeAt(0) - 64
 }
 
+const proof = ref(null)          // {total_lines, changed, pages:[{page_no, changes}]} 
+const proofing = ref(false)
+const applying = ref(false)
+const picked = ref([])           // 接受的行，键是 `${page_no}:${line}`
+
+/** 逐条展开成一行一条：界面上「第 3 页第 12 行」比嵌套结构好扫 */
+const flatChanges = computed(() => (proof.value?.pages || [])
+  .flatMap((p) => (p.changes || []).map((c) => ({ ...c, page_no: p.page_no, key: `${p.page_no}:${c.line}` }))))
+
+function keyOf(pageNo, line) {
+  return `${pageNo}:${line}`
+}
+
+async function openProofread() {
+  if (proofing.value) return
+  proofing.value = true
+  try {
+    const data = await api.examProofread({ file_id: fileId.value, use_llm: true })
+    proof.value = data
+    // 默认全接受（需求 §8.5），用户取消勾选的那几条才不改
+    picked.value = (data.pages || []).flatMap((p) => (p.changes || []).map((c) => keyOf(p.page_no, c.line)))
+    if (!data.changed) toast.info('这份文件没发现要改的字')
+  } catch (err) {
+    toast.error(friendlyMessage(err))
+  } finally {
+    proofing.value = false
+  }
+}
+
+function togglePick(key) {
+  const at = picked.value.indexOf(key)
+  if (at >= 0) picked.value.splice(at, 1)
+  else picked.value.push(key)
+}
+
+function toggleAll() {
+  picked.value = picked.value.length ? [] : flatChanges.value.map((c) => c.key)
+}
+
+async function applyProofread() {
+  if (applying.value) return
+  applying.value = true
+  try {
+    const accepted = flatChanges.value
+      .filter((c) => picked.value.includes(c.key))
+      .map((c) => ({ page_no: c.page_no, line: c.line, after: c.after }))
+    const result = await api.examProofreadApply({ file_id: fileId.value, accepted })
+    const dropped = (result.dropped || []).length
+    toast.ok(`改了 ${result.applied} 处${dropped ? `，${dropped} 处没通过检查没改` : ''}`)
+    proof.value = null
+  } catch (err) {
+    toast.error(friendlyMessage(err))
+  } finally {
+    applying.value = false
+  }
+}
+
+async function revertProofread() {
+  try {
+    const result = await api.examProofreadReset(fileId.value)
+    toast.ok(result.reverted ? `退回原始文字（${result.reverted} 页）` : '本来就是原始文字')
+    proof.value = null
+  } catch (err) {
+    toast.error(friendlyMessage(err))
+  }
+}
+
 async function commit() {
   if (saving.value) return
   const usable = drafts.value.filter((d) => d.question.trim())
@@ -222,6 +289,12 @@ async function commit() {
         </p>
       </div>
       <div class="head-actions">
+        <button
+          class="btn btn-sm"
+          type="button"
+          :disabled="proofing || phase !== 'ready'"
+          @click="openProofread"
+        >{{ proofing ? '正在校对…' : '校对文字' }}</button>
         <button class="btn btn-sm" type="button" :disabled="saving || phase !== 'ready'" @click="addDraft">
           补一道
         </button>
@@ -384,6 +457,52 @@ async function commit() {
         </button>
       </footer>
     </template>
+
+    <!-- 校对（T10.4）：浮层而不跳页 —— 跳走再回来会重新解析，刚改的草稿就没了 -->
+    <section v-if="proof" class="sheet" role="dialog" aria-label="文字校对">
+      <header class="sheet-head">
+        <div>
+          <h3>文字校对</h3>
+          <p class="sheet-sub">
+            识别 {{ proof.total_lines }} 行，模型改了 {{ proof.changed }} 处。
+            只改错字、标点、题号，不改写内容；原文一直留着，随时能退回去
+          </p>
+        </div>
+        <div class="sheet-actions">
+          <button class="btn btn-sm" type="button" @click="toggleAll">
+            {{ picked.length ? '全不采纳' : '全部采纳' }}
+          </button>
+          <button class="btn btn-sm btn-ghost" type="button" @click="proof = null">关掉</button>
+        </div>
+      </header>
+
+      <ol v-if="flatChanges.length" class="diff-list">
+        <li v-for="item in flatChanges" :key="item.key" class="diff">
+          <label class="diff-pick">
+            <input
+              type="checkbox"
+              :checked="picked.includes(item.key)"
+              :aria-label="`采纳第 ${item.page_no} 页第 ${item.line} 行的改动`"
+              @change="togglePick(item.key)"
+            />
+          </label>
+          <div class="diff-body">
+            <p class="diff-where">第 {{ item.page_no }} 页 · 第 {{ item.line }} 行 · {{ item.why }}</p>
+            <p class="diff-before">{{ item.before }}</p>
+            <p class="diff-after">{{ item.after }}</p>
+          </div>
+        </li>
+      </ol>
+      <p v-else class="state">这份文件没发现要改的字。</p>
+
+      <footer v-if="flatChanges.length" class="sheet-foot">
+        <span class="hint">不勾的那几条不改。这次改完还能再点一次「校对文字」</span>
+        <button class="btn btn-sm btn-ghost" type="button" @click="revertProofread">退回原始文字</button>
+        <button class="btn btn-primary" type="button" :disabled="applying" @click="applyProofread">
+          {{ applying ? '正在写…' : `采纳选中的 ${picked.length} 处` }}
+        </button>
+      </footer>
+    </section>
   </div>
 </template>
 
@@ -650,5 +769,114 @@ async function commit() {
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-3);
+}
+
+/* —— 校对浮层（T10.4） —— */
+.sheet {
+  position: fixed;
+  inset: var(--h-topbar) 0 0 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  background: var(--c-bg-0);
+  overflow: hidden;
+}
+
+.sheet-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.sheet-head h3 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-title);
+}
+
+.sheet-sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--c-text-3);
+}
+
+.sheet-actions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.diff-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.diff {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  background: var(--c-bg-1);
+}
+
+.diff-pick {
+  padding-top: 2px;
+}
+
+.diff-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.diff-where {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.diff-before,
+.diff-after {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-family: var(--font-reading);
+  line-height: var(--lh-body);
+  overflow-wrap: anywhere;
+}
+
+.diff-before {
+  color: var(--c-text-3);
+  text-decoration: line-through;
+}
+
+.diff-after {
+  color: var(--c-primary-ink);
+}
+
+.sheet-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--c-border);
+}
+
+.sheet-foot .btn:last-child {
+  margin-left: auto;
 }
 </style>
