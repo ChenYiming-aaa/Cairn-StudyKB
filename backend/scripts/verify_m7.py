@@ -292,6 +292,8 @@ def main() -> int:
     print(f"种子库：{total_items} 条 / {len(tree['categories'])} 分类 / {len(all_tags)} 个标签\n")
 
     errors: list[str] = []
+    # 4xx/5xx 的请求地址（不是控制台消息）：用来把「夹具故意缺的原件」与真正的坏链分开
+    bad_responses: list[str] = []
     try:
         with sync_playwright() as p:
             try:
@@ -303,6 +305,7 @@ def main() -> int:
             page = ctx.new_page()
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
             page.on("pageerror", lambda e: errors.append(str(e)))
+            page.on("response", lambda r: bad_responses.append(r.url) if r.status >= 400 else None)
 
             page.goto(base, wait_until="networkidle")
             page.wait_for_selector(".today-bar")
@@ -603,12 +606,31 @@ def main() -> int:
                 page.locator(ready).first.wait_for(timeout=20000)
 
             open_raw("扫描讲义", ".pdf-view .line")
-            check("PDF 的原文走页图视图", page.locator(".pdf-view").count() == 1,
-                  str(page.locator(".pdf-view").count()))
-            natural = page.eval_on_selector(
-                ".pdf-view .shot img", "el => el.naturalWidth") if page.locator(
-                ".pdf-view .shot img").count() else 0
+            check("PDF 的原文走连续页视图", page.locator(".pdf-view .scroller").count() == 1,
+                  str(page.locator(".pdf-view .scroller").count()))
+            # T11.1 起页图是「垫在 canvas 下面的那一层」，class 就在 <img> 上，
+            # 不再是 `.shot img`。**这条内容没有真 PDF 文件**（只造了页图），
+            # 正好走"pdf.js 打不开 → 退回页图"那条路：页图与文字都得照旧可用。
+            page.wait_for_function(
+                "() => { const el = document.querySelector('.pdf-view .shot');"
+                " return el && el.naturalWidth > 0 }",
+                timeout=20000,
+            )
+            natural = page.eval_on_selector(".pdf-view .shot", "el => el.naturalWidth")
             check("页图真的加载出来了（不是坏链）", bool(natural and natural > 0), str(natural))
+            # 「取原件失败 → 退回页图」是异步的，要等那句提示真的出现再断言；
+            # 靠固定超时会在慢一次的时候误判成没退回（早一轮 900ms 就踩过）。
+            fallback = True
+            try:
+                page.wait_for_function(
+                    "() => document.querySelector('.pdf-view')"
+                    "?.innerText.includes('没能按原样画出来')",
+                    timeout=15000,
+                )
+            except Exception:
+                fallback = False
+            check("没有原件的 PDF 退回页图模式，并说清为什么", fallback,
+                  page.inner_text(".pdf-view").replace("\n", " | ")[:60])
             check("这一页的文字逐行显示", page.locator(".pdf-view .line").count() == 3,
                   str(page.locator(".pdf-view .line").count()))
             check("认不准的那一行标了黄", page.locator(".pdf-view .line.low").count() == 1,
@@ -946,8 +968,20 @@ def main() -> int:
                 page.wait_for_timeout(300)
                 page.keyboard.press("Escape")
 
-            real = [e for e in errors if "favicon" not in e]
+            # 夹具里那两条内容**故意没有原件**（PDF 那页只造了页图、第 2 页连页图都没有），
+            # 浏览器必然会为它们记「404」。这是夹具的问题，不是页面的：
+            # 所以这里把「取资源失败」这类消息放行，同时**单独盯住请求本身**——
+            # 只要有别的路径 4xx，仍然会红。别把这条改成 `not errors`，
+            # 那会让往后任何真实 404 都被淹没在夹具噪音里。
+            files_404 = ("/api/knowledge/", "/file")
+            expected = [u for u in bad_responses if all(part in u for part in files_404)]
+            real = [
+                e for e in errors
+                if "favicon" not in e and "Failed to load resource" not in e
+            ]
             check("console 没有错误", not real, " | ".join(real[:3]))
+            other = [u for u in bad_responses if u not in expected]
+            check("除了夹具故意缺的原件，没有别的失败请求", not other, " | ".join(other[:3]))
             browser.close()
     except Exception:
         traceback.print_exc()

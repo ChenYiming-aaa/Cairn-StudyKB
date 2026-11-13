@@ -7,6 +7,7 @@ T1.3 / T1.6：启动时建库并清理残留任务。
 from __future__ import annotations
 
 import logging
+import mimetypes
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -33,6 +34,12 @@ from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
 
 log = logging.getLogger("cairn")
+
+# pdf.js 的 worker 是 `.mjs` 模块（T11.1）。Windows 上 `mimetypes` 不认这个后缀，
+# StaticFiles 会按 `text/plain` 发出去，Chromium 直接拒绝加载模块 worker ——
+# 表现是「PDF 一直不出画面，控制台只说 worker 加载失败」。必须在挂载前登记。
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("application/octet-stream", ".bcmap")
 
 
 def _close_stale_sessions() -> None:
@@ -146,6 +153,13 @@ if (WEB_DIR / "index.html").exists():
     # vite 产物在 assets/ 下；单独判一次目录，避免 dist 是半成品时 StaticFiles 抛错
     if (WEB_DIR / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=WEB_DIR / "assets"), name="assets")
+
+    # pdf.js 的 cmaps / wasm（T11.1）：vite 从 node_modules 拷到 `public/pdf/`，
+    # 因此落在 `dist/pdf/`。它们是**按名字在运行时取用**的（`cMapUrl` + 编码名），
+    # 不能走 /assets 的哈希改名，必须原样挂在固定路径上。
+    # 只挂这一层具体目录 —— 不是把 / 通配出去，`/api/nope` 仍然 404。
+    if (WEB_DIR / "pdf").is_dir():
+        app.mount("/pdf", StaticFiles(directory=WEB_DIR / "pdf"), name="pdf")
 
     @app.get("/", include_in_schema=False)
     def _index() -> FileResponse:

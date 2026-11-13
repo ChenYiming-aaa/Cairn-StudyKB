@@ -1,5 +1,7 @@
 /* global process */
-import { readFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -8,11 +10,53 @@ import vue from '@vitejs/plugin-vue'
 // 不能像以前那样在 demo/index.js 里写死（v0.1.0 发完后线上还显示旧号）。
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8'))
 
+const ROOT = dirname(fileURLToPath(import.meta.url))
+
+/**
+ * pdf.js 的两类附属资源拷进 `public/pdf/`（T11.1）。
+ *
+ * 为什么不在代码里 `import ... ?url`：cmaps 是 169 个 `.bcmap`、wasm 三个，
+ * 逐个 import 既不现实也没有意义 —— 它们是**按名字在运行时拼接**取用的
+ * （`cMapUrl` + 编码名），Vite 的哈希改名反而会让 pdf.js 找不到。
+ *
+ * 为什么放在 vite 配置里而不是 npm prebuild：CI 直接跑 `npx vite build`，
+ * 不经过 npm 生命周期，放 package.json 的 prebuild 在 CI 上不会执行。
+ *
+ * 目录在 .gitignore 里：它是 node_modules 的副本，入库只会随版本升级悄悄漂掉。
+ */
+function pdfAssets() {
+  const from = join(ROOT, 'node_modules', 'pdfjs-dist')
+  const to = join(ROOT, 'public', 'pdf')
+  // 只带渲染真正要用的三样：cmaps（中文未嵌字体）、JBIG2 / JPEG2000（扫描件图）、 ICC（色彩）
+  const files = [
+    ['wasm/jbig2.wasm', 'wasm/jbig2.wasm'],
+    ['wasm/openjpeg.wasm', 'wasm/openjpeg.wasm'],
+    ['wasm/qcms_bg.wasm', 'wasm/qcms_bg.wasm'],
+  ]
+  const copy = () => {
+    if (!existsSync(from)) return
+    const cmaps = join(from, 'cmaps')
+    if (existsSync(cmaps)) {
+      mkdirSync(join(to, 'cmaps'), { recursive: true })
+      for (const name of readdirSync(cmaps)) {
+        copyFileSync(join(cmaps, name), join(to, 'cmaps', name))
+      }
+    }
+    for (const [src, dst] of files) {
+      const target = join(to, dst)
+      if (!existsSync(join(from, src))) continue
+      mkdirSync(dirname(target), { recursive: true })
+      copyFileSync(join(from, src), target)
+    }
+  }
+  return { name: 'cairn-pdf-assets', buildStart: copy, configureServer: copy }
+}
+
 // 开发期：/api 反代到后端 8756，前端走同源，不依赖 CORS（M1 §7 排障表）。
 // 生产（Electron）由 window.api.baseUrl 注入绝对地址，见 src/api/client.js。
 // CAIRN_API_TARGET 只给「另起一个实例做联调/UI 验收」用：不覆盖时行为与以前完全一致。
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), pdfAssets()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },

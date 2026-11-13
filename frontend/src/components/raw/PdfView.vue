@@ -1,68 +1,117 @@
 <script setup>
 /**
- * PDF 原文（T9.10）：**页图在上、这一页的文字在下**，按页翻。
+ * PDF 原文（T11.1）：**左边整份连续滚动，右边跟着显示当前页的文字**。
  *
- * 两件事不许改：
- * - 页图与文字同一次请求（`pages/{n}` 一起返回），永远挨着显示 —— 这是
- *   「认错也看得出来」的保障，做成分开的两个标签页就失效了。
- * - 首屏只取第 1 页，翻页才请求下一页：30 页的讲义一次性拉全是几百 MB 页图。
+ * 两条不许改：
+ * - 页图/画布与这一页的文字永远同屏 —— 这是「认错也看得出来」的保障，
+ *   做成分开的两个标签页就失效了。连续滚动时右侧自动跟到当前页。
+ * - 首屏不等解析：后端页图先显示（识别时已落在盘上），pdf.js 画好再盖上去。
+ *   30 页的扫描件整份下完要好几秒，但第一页的页图几十毫秒就出来了。
  *
  * 行级置信度（`line_conf`）与文字逐行对齐，`< 0.85` 的行标黄；页级 `avg_conf`
  * 低的在页头提示一句。老识别结果没有行级数据，那时就只提示不标黄。
+ *
+ * pdf.js 打不开（文件坏了 / 用了不支持的加密）时退回「只看页图 + 文字」：
+ * 用户要的是读到这一页，不是看一个报错页。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
+import PdfScroller from './pdf/PdfScroller.vue'
+import { fallbackSizes, openPdf } from './pdf/usePdf'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
   // 原件总页数（`item.file.page_count`）；还没读出来时是 0，界面要说清楚
   pageCount: { type: Number, default: 0 },
-  // 页签是否可见：不可见时不发请求，打开原文才取第 1 页
+  // 页签是否可见：不可见时不发请求，打开原文才取
   active: { type: Boolean, default: false },
+  // {text, page}：问答引用要落到的那一页与那一段（T11.2）
+  focus: { type: Object, default: null },
 })
 
 const LOW = 0.85
-const page = ref(1)
+const scroller = ref(null)
+// **必须 shallowRef**：pdf.js 的文档对象里有私有字段（`#`），Vue 的 `ref` 会把它
+// 包成深层 Proxy，之后读私有字段就抛 TypeError —— 表现是「一声不响地画不出来」。
+// 2026-11-13 实测踩到，控制台连一条错都没有。
+const doc = shallowRef(null)
+const sizes = ref([])
+const current = ref(1)
+const opening = ref(false)
+const pdfError = ref('')
 const data = ref(null)
-const loading = ref(false)
-const error = ref('')
-const imgError = ref(false)
-const textBox = ref(null)
+const textLoading = ref(false)
+const textError = ref('')
 let loaded = false
+let textSeq = 0
 
-const total = computed(() => props.pageCount || data.value?.page_no || 0)
+const total = computed(() => doc.value?.numPages || props.pageCount || sizes.value.length || 0)
 
-async function load(n) {
-  loading.value = true
-  error.value = ''
-  imgError.value = false
+async function open() {
+  opening.value = true
+  pdfError.value = ''
   try {
-    data.value = await api.getPage(props.itemId, n)
-  } catch (err) {
-    data.value = null
-    error.value = friendlyMessage(err)
+    const opened = await openPdf(`/api/knowledge/${props.itemId}/file`, {
+      onSizes: (next) => {
+        sizes.value = next
+      },
+    })
+    doc.value = opened.doc
+    sizes.value = opened.sizes
+  } catch {
+    // 退回页图模式：页数只有后端知道，尺寸按 A4 估
+    pdfError.value = '这份 PDF 没能按原样画出来，页图和文字照样能看。'
+    sizes.value = fallbackSizes(props.pageCount)
   } finally {
-    loading.value = false
+    opening.value = false
   }
 }
 
-function go(n) {
-  if (n < 1 || (total.value && n > total.value) || n === page.value) return
-  page.value = n
-  load(n)
+async function loadText(pageNo) {
+  const mine = ++textSeq
+  textLoading.value = true
+  textError.value = ''
+  try {
+    const next = await api.getPage(props.itemId, pageNo)
+    if (mine === textSeq) data.value = next
+  } catch (err) {
+    if (mine !== textSeq) return
+    data.value = null
+    textError.value = friendlyMessage(err)
+  } finally {
+    if (mine === textSeq) textLoading.value = false
+  }
 }
 
-// 切内容回来时从第 1 页重新开始（page 只在 itemId 变时重置，翻页不受影响）
+function go(pageNo) {
+  if (pageNo < 1 || (total.value && pageNo > total.value) || pageNo === current.value) return
+  current.value = pageNo
+}
+
+function reset() {
+  textSeq += 1
+  // destroy 是异步的，且可能在渲染进行中被调用：吞掉拒绝，别让控制台多一条
+  // 「切换内容时的报错」，那对用户没有任何意义
+  const current = doc.value
+  if (current?.destroy) Promise.resolve(current.destroy()).catch(() => {})
+  doc.value = null
+  sizes.value = []
+  data.value = null
+  current.value = 1
+  pdfError.value = ''
+  textError.value = ''
+  loaded = false
+}
+
 watch(
   () => props.itemId,
   () => {
-    page.value = 1
-    data.value = null
-    loaded = false
+    reset()
     if (props.active) {
       loaded = true
-      load(1)
+      open()
+      loadText(1)
     }
   }
 )
@@ -72,9 +121,22 @@ watch(
   (on) => {
     if (!on || loaded) return
     loaded = true
-    load(page.value)
+    open()
+    loadText(current.value)
   },
   { immediate: true }
+)
+
+watch(current, (pageNo) => loadText(pageNo))
+
+// 引用跳转：先滚到那一页，命中段在文字里标黄（T11.2）
+watch(
+  () => props.focus,
+  (target) => {
+    if (!target) return
+    if (target.page && target.page !== current.value) current.value = target.page
+    else scroller.value?.scrollToPage(current.value, true)
+  }
 )
 
 /** 行级置信度缺失（老数据 / 抽取页）时 confs 为空，所有行都不标 */
@@ -94,46 +156,38 @@ const pageSuspicious = computed(() => {
   return typeof conf === 'number' && conf > 0 && conf < LOW
 })
 
-function showText() {
-  textBox.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-}
+onBeforeUnmount(reset)
 </script>
 
 <template>
   <div class="pdf-view">
     <div class="bar">
-      <button class="btn btn-sm" type="button" :disabled="page <= 1" @click="go(page - 1)">上一页</button>
-      <span class="pager">第 {{ page }} 页<template v-if="total"> / 共 {{ total }} 页</template></span>
-      <button
-        class="btn btn-sm"
-        type="button"
-        :disabled="!total || page >= total"
-        @click="go(page + 1)"
-      >下一页</button>
+      <button class="btn btn-sm" type="button" :disabled="current <= 1" @click="go(current - 1)">上一页</button>
+      <span class="pager">第 {{ current }} 页<template v-if="total"> / 共 {{ total }} 页</template></span>
+      <button class="btn btn-sm" type="button" :disabled="!total || current >= total" @click="go(current + 1)">
+        下一页
+      </button>
+      <span class="hint">整份在左边滚动，右边跟着当前页</span>
       <span v-if="lowCount || pageSuspicious" class="warn">
         这一页可能有错<template v-if="lowCount">（{{ lowCount }} 行认不准，已标黄）</template>，对照页图看看
       </span>
     </div>
 
-    <p v-if="error" class="state">{{ error }}</p>
+    <p v-if="pdfError" class="tip">{{ pdfError }}</p>
+    <p v-if="opening" class="tip">正在打开原件…</p>
 
-    <div v-else class="spread" :class="{ busy: loading }">
-      <figure class="shot">
-        <img
-          v-if="!imgError && data?.image_url"
-          :src="data.image_url"
-          :alt="`第 ${page} 页的页图`"
-          @error="imgError = true"
-        />
-        <div v-else-if="imgError" class="shot-missing">
-          <p>页图没显示出来，可能是这份文件重新读过了。</p>
-          <button class="btn btn-sm" type="button" @click="showText">看文字</button>
-        </div>
-        <figcaption v-else-if="!loading" class="shot-missing">这一页没有页图，看文字就行。</figcaption>
-      </figure>
+    <div class="spread">
+      <PdfScroller
+        ref="scroller"
+        v-model:current="current"
+        :doc="doc"
+        :sizes="sizes"
+        :item-id="itemId"
+      />
 
-      <div ref="textBox" class="text">
-        <p v-if="loading" class="state">正在取这一页…</p>
+      <div class="text">
+        <p v-if="textLoading" class="state">正在取这一页…</p>
+        <p v-else-if="textError" class="state">{{ textError }}</p>
         <template v-else-if="lines.length">
           <p v-for="(line, index) in lines" :key="index" class="line" :class="{ low: line.low }">{{ line.text }}</p>
         </template>
@@ -147,7 +201,7 @@ function showText() {
 .pdf-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   height: 100%;
   min-height: 0;
 }
@@ -165,6 +219,11 @@ function showText() {
   font-variant-numeric: tabular-nums;
 }
 
+.hint {
+  color: var(--c-text-3);
+  font-size: var(--fs-xs);
+}
+
 .warn {
   margin-left: auto;
   padding: 0 var(--space-2);
@@ -174,12 +233,20 @@ function showText() {
   font-size: var(--fs-xs);
 }
 
-/* 页图与文字并排（窄屏自动上下紧邻），各自滚动，谁长谁滚 */
+.tip {
+  flex: none;
+  margin: 0;
+  padding: 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+/* 左原件、右文字：各自滚动，谁长谁滚（窄屏自动上下紧邻） */
 .spread {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   gap: var(--space-4);
 }
 
@@ -188,34 +255,6 @@ function showText() {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
-}
-
-.shot {
-  margin: 0;
-  min-height: 0;
-  overflow: auto;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-bg-1);
-}
-
-.shot img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.shot-missing {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  min-height: 160px;
-  padding: var(--space-4);
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
-  text-align: center;
 }
 
 .text {

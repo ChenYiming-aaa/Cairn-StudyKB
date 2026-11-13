@@ -54,6 +54,10 @@ build/
 # ffmpeg 二进制由 tools/prepare_ffmpeg.py 从本机复制，不入库（约 74MB）
 desktop/resources/ffmpeg/
 
+# pdf.js 的 cmaps / wasm 由 vite 配置从 node_modules 拷进来（约 2.4MB），
+# 它是第三方副本，入库只会随版本升级悄悄漂掉
+frontend/public/pdf/
+
 # ── e2e / 空壳验证运行现场 ─────────────
 frontend/e2e/_shots/
 desktop/_smoke/
