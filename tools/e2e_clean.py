@@ -31,7 +31,7 @@ from pathlib import Path
 
 RESULTS: list[tuple[bool, str, str]] = []
 CLEAN_PATH = r'C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem'
-EXPECTED = '0.2.1'          # 走查针对的版本；发新版时改这一处
+EXPECTED = '0.3.0-alpha.1'  # 走查针对的版本；发新版时改这一处
 
 
 def check(name: str, ok: bool, detail: str = '') -> None:

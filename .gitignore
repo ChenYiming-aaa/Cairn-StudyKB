@@ -37,11 +37,11 @@ dist/
 # github.io 静态演示包（CI 里现构建，不入库）
 dist-demo/
 release/
-release-verify/
+# 试打目录（release-m8xx / release-v030a1 / release-verify）与组件 zip：
+# 同一目录重复打包会撞 app.asar 占用，所以每轮换个新目录，这些都不入库
+release-*/
 # 组件 zip（tools/build_components.py 产出，几 GB 级；发布时才上传到 GitHub Release）
 release-components/
-# 量体积时的试打目录（release-m8 / release-m8b / …），别入库
-release-m8*/
 build/
 *.spec
 # 例外：打包配置是源码的一部分，要能复现构建（T5.6）

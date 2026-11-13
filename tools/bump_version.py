@@ -11,6 +11,7 @@
 用法：
 
     python tools/bump_version.py --to 0.2.0     # 四处一起改
+    python tools/bump_version.py --to 0.3.0-alpha.1   # 预发布版（npm 能装、更新器认得）
     python tools/bump_version.py --check        # 四处必须一致，不一致 exit 1
     python tools/bump_version.py                # 只看现状
 
@@ -35,7 +36,10 @@ APP_VERSION = ROOT / 'backend' / 'app' / 'version.py'
 FRONTEND_PKG = ROOT / 'frontend' / 'package.json'
 DESKTOP_PKG = ROOT / 'desktop' / 'package.json'
 
-SEMVER = re.compile(r'^\d+\.\d+\.\d+$')
+# 允许预发布后缀（`0.3.0-alpha.1`）：`desktop/semver.js` 本来就按「同号正式版 > 预发布」比，
+# 但这里以前只收三段式，发布预发布版得手改四个文件。后缀的字符集按 semver 的
+# `[0-9A-Za-z-]` 点分段写，故意放窄一点 —— 版本号里出现斜杠/空格会让打包产物名变成非法路径。
+SEMVER = re.compile(r'^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$')
 
 
 def _read_pyproject() -> str:
@@ -94,7 +98,7 @@ def main() -> int:
 
     if args.to:
         if not SEMVER.match(args.to):
-            print(f'✗ 版本号要写成 X.Y.Z，收到 {args.to!r}')
+            print(f'✗ 版本号要写成 X.Y.Z 或 X.Y.Z-预发布，收到 {args.to!r}')
             return 2
         before = snapshot()
         print(f'版本 {before["backend/pyproject.toml"] or "?"} → {args.to}')

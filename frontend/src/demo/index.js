@@ -46,16 +46,20 @@ function blocked() {
   return jsonResponse({ error: { code: 'DEMO_OFFLINE', message: DEMO_BLOCKED, detail: '' } }, 403)
 }
 
-/** 列表过滤：q 走标题/摘要子串，category/tag 精确匹配，status 精确匹配 */
+/** 列表过滤：q 走标题/摘要子串，category/tag/status 精确匹配，workspace_id 认 `none` */
 function filterItems(list, params) {
   const q = (params.get('q') || '').trim().toLowerCase()
   const category = params.get('category') || ''
   const tag = params.get('tag') || ''
   const status = params.get('status') || ''
+  const workspace = params.get('workspace_id') || ''
   return list.filter((it) => {
     if (category && it.category !== category) return false
     if (tag && !(it.tags || []).includes(tag)) return false
     if (status && it.status !== status) return false
+    // 后端把「未归类」也收进同一个参数，用 `none` 表示 IS NULL，这里照同一口径过滤
+    if (workspace === 'none' && it.workspace_id != null) return false
+    if (workspace && workspace !== 'none' && String(it.workspace_id ?? '') !== workspace) return false
     if (q && !`${it.title} ${it.summary || ''}`.toLowerCase().includes(q)) return false
     return true
   })
@@ -179,7 +183,7 @@ const DEMO_COMPONENTS = () => ({
     },
     {
       id: 'ocr', name: '本地识别', why: '读 PDF 和图片要用。不装的话，这两类内容读不出字。',
-      size: 130000000, version: '', min_app_version: '0.2.0', state: 'missing',
+      size: 118277769, version: '', min_app_version: '0.2.0', state: 'missing',
       mode: null, bytes: 0,
       install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
     },
@@ -200,6 +204,8 @@ const ROUTES = [
   [/^\/api\/settings$/, () => DEMO_SETTINGS()],
   [/^\/api\/env\/check$/, () => data.env],
   [/^\/api\/knowledge\/categories$/, () => data.categories],
+  // M9 的工作区：演示站也自建了两个（左栏最上面一段），数据是从真后端抓下来的
+  [/^\/api\/workspaces$/, () => data.workspaces],
   [
     /^\/api\/knowledge$/,
     (_m, { params }) => {

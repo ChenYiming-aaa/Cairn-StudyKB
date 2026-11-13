@@ -22,6 +22,15 @@
         --version 0.2.0 \\
         --only all
 
+    # 想在不碰自己那份安装的前提下测（推荐）：先 /S /D= 静默装一份旧版到 scratch 目录，
+    # 再用 --install-dir 把「装完」这一步也落在同一个目录，数据目录也隔离开
+    python tools/e2e_update.py \\
+        --exe "D:/cairn-t930/Cairn.exe" \\
+        --install-dir "D:/cairn-t930" \\
+        --user-data-dir "D:/cairn-t930-userdata" \\
+        --asset "desktop/release-v030a1/Cairn-0.3.0-alpha.1-setup.exe" \\
+        --version 0.3.0-alpha.1 --only all
+
     # 单独跑某一幕（调试用）
     python tools/e2e_update.py ... --only offline
     python tools/e2e_update.py ... --only cancel
@@ -143,9 +152,36 @@ def _free_port() -> int:
 
 
 def _tasklist(name: str) -> int:
-    out = subprocess.run(['tasklist', '/FI', f'IMAGENAME eq {name}', '/NH'],
+    """数有几个同名进程。
+
+    **不能用 `tasklist /FI "IMAGENAME eq <名字>"`**：tasklist 把镜像名截断到 25 个字符
+    （`Cairn-0.3.0-alpha.1-setup.exe` 是 29 个，过滤条件就永远匹配不上、返回空列表，
+    看着像"安装器没起来"）。改成拉全量列表，两边都按「去掉 .exe + 截 25 字符」归一后比对。
+    """
+    out = subprocess.run(['tasklist', '/NH'],
                          capture_output=True, text=True, encoding='gbk', errors='replace').stdout
-    return out.count(name)
+    want = name.lower()
+    if want.endswith('.exe'):
+        want = want[:-4]
+    want = want[:25]
+    hits = 0
+    for line in out.splitlines():
+        parts = line.strip().split()
+        if not parts:
+            continue
+        head = parts[0].lower()
+        if head.endswith('.exe'):
+            head = head[:-4]
+        if head[:25] == want:
+            hits += 1
+    return hits
+
+
+# 两处「跑在哪份安装上」的开关，由 main() 填：
+#   INSTALL_DIR   ③b 静默安装装到哪（不填 = NSIS 默认目录，会在 %LOCALAPPDATA% 多出一份）
+#   USER_DATA_DIR 被测实例的数据目录（不填 = 你真实那份 %APPDATA%\Cairn）
+INSTALL_DIR: Path | None = None
+USER_DATA_DIR: Path | None = None
 
 
 def launch(exe: Path, env_extra: dict[str, str], cdp_port: int) -> subprocess.Popen:
@@ -153,7 +189,12 @@ def launch(exe: Path, env_extra: dict[str, str], cdp_port: int) -> subprocess.Po
     # 这个环境变量在 WorkBuddy 的 shell 里是开着的，会让打包后的 exe 退化成纯 Node
     # （报 `Cannot read properties of undefined (reading 'isPackaged')`，且不写日志）
     env.pop('ELECTRON_RUN_AS_NODE', None)
-    proc = subprocess.Popen([str(exe), f'--remote-debugging-port={cdp_port}'], env=env,
+    args = [str(exe), f'--remote-debugging-port={cdp_port}']
+    # 壳认 Chromium 的 --user-data-dir，并把它当 --data-dir 传给后端（M8 干净机走查同一招）。
+    # 不隔离的话，这份 scratch 安装会打开你真实那个库 —— 测更新不该动用户的 2 万条内容。
+    if USER_DATA_DIR is not None:
+        args.append(f'--user-data-dir={USER_DATA_DIR}')
+    proc = subprocess.Popen(args, env=env,
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return proc
 
@@ -383,8 +424,17 @@ def scenario_install(exe: Path, api: str, asset: Path, version: str) -> None:
     step('③b 把向导关掉，用同一个安装包静默装完（验"装完"之后的版本与孤儿）')
     kill_installer_windows(asset.name)
     time.sleep(1.0)
-    r = subprocess.run([str(asset), '/S'], capture_output=True)
+    # `/D=` 必须**最后一个参数、不加引号**（NSIS 的硬约束）；给列表而不是字符串，
+    # 免得 Git Bash 把反斜杠吞掉。不给 INSTALL_DIR 时按 NSIS 默认目录装 —— 那会在
+    # %LOCALAPPDATA%\Programs\Cairn 多出一份，所以正式跑一律带 --install-dir。
+    cmd = [str(asset), '/S']
+    if INSTALL_DIR is not None:
+        cmd.append(f'/D={INSTALL_DIR}')
+    r = subprocess.run(cmd, capture_output=True)
     check('静默安装退出码 0', r.returncode == 0, f'code={r.returncode}')
+    if INSTALL_DIR is not None:
+        # NSIS 装失败也可能退 0（踩过），所以真去看文件在不在
+        check('装到了指定目录（不是默认目录）', (INSTALL_DIR / 'Cairn.exe').exists(), str(INSTALL_DIR))
     time.sleep(3)
     check('装完仍然没有孤儿后端', _tasklist('cairn-backend.exe') == 0,
           f'count={_tasklist("cairn-backend.exe")}')
@@ -432,7 +482,18 @@ def main() -> int:
                     help='假 Release 的版本号；默认等于 --version。装的是 0.2.0 却想再验更新时设 0.2.1')
     ap.add_argument('--only', default='all',
                     choices=['all', 'offline', 'cancel', 'install', 'real'])
+    ap.add_argument('--install-dir', default=None,
+                    help='③b 静默安装的目标目录（给了就 /D=，不会在 %LOCALAPPDATA% 多装一份）')
+    ap.add_argument('--user-data-dir', default=None,
+                    help='被测实例的数据目录；不给就用你真实那份 %%APPDATA%%\\Cairn')
     args = ap.parse_args()
+
+    global INSTALL_DIR, USER_DATA_DIR
+    if args.install_dir:
+        INSTALL_DIR = Path(args.install_dir).resolve()
+    if args.user_data_dir:
+        USER_DATA_DIR = Path(args.user_data_dir).resolve()
+        USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     exe = Path(args.exe).resolve()
     asset = Path(args.asset).resolve()
