@@ -39,13 +39,18 @@ const organizing = ref(false)
 const focus = ref(null)
 let stopPolling = null
 
-const TABS = [
+// T9.11：试卷不出笔记（整理只出卷面概览），所以「整理笔记」页签对它不给
+// —— 留着一个空编辑器，等于暗示「这里本该有笔记」
+const TABS_ALL = [
   { key: 'summary', label: '摘要与要点' },
   { key: 'note', label: '整理笔记' },
   { key: 'raw', label: '原文' },
   { key: 'mindmap', label: '思维导图' },
   { key: 'sessions', label: '学习记录' },
 ]
+const tabs = computed(() =>
+  props.item?.kind === 'exam' ? TABS_ALL.filter((entry) => entry.key !== 'note') : TABS_ALL
+)
 
 // T5.3：从条目点「开始专注」，把这条件为目标带进计时（target_type=item）
 const { start: startSession } = useTimer()
@@ -70,6 +75,11 @@ watch(
     focus.value = null
   }
 )
+
+// 试卷的「整理笔记」页签不存在，但 tab 可能还停在那儿（刚从普通资料切过来）
+watch(tabs, (list) => {
+  if (!list.some((entry) => entry.key === tab.value)) tab.value = 'summary'
+})
 
 /** 来源卡片跳转：条目换了也要生效，所以同时监听 item.id 与 focusChunk */
 watch(
@@ -211,7 +221,7 @@ onBeforeUnmount(stop)
 
       <nav class="tabs">
         <button
-          v-for="entry in TABS"
+          v-for="entry in tabs"
           :key="entry.key"
           type="button"
           class="tab"

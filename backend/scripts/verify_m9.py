@@ -7,6 +7,7 @@
     cd backend && uv run python scripts/verify_m9.py --only extract   # 只跑抽取（不需要识别组件）
     cd backend && uv run python scripts/verify_m9.py --only workspace # 只跑工作区（不需要识别组件）
     cd backend && uv run python scripts/verify_m9.py --only raw       # 只跑原文页签的数据面（不需要识别组件）
+    cd backend && uv run python scripts/verify_m9.py --only kind      # 只跑整理按 kind 分派（不调模型）
 
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足（缺组件）
 
@@ -32,6 +33,7 @@
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -765,9 +767,182 @@ def group_raw() -> None:
         check("不存在的内容 404", c.get("/api/knowledge/99999/pages/1").status_code == 404)
 
 
+# ── §kind（T9.11）──────────────────────────────────────────────
+def group_kind() -> None:
+    """整理按 `kind` 分派 + 「占位正文不许整理」的前置闸。
+
+    **不调模型**：`organizer.llm.chat` 被打桩，返回每种 kind 该返回的 JSON。
+    这样能验「模型硬塞笔记时我们丢不丢」这类只在代码里成立的事。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.db.conn import get_conn
+    from app.main import app
+    from app.services import tasks as task_queue
+    from app.services.agents import organizer
+
+    sent: list[str] = []
+    box: dict = {"payload": {}}
+
+    def fake_chat(messages, agent=None, json_mode=False):  # noqa: ANN001, ARG001
+        sent.append(messages[0]["content"])
+        return json.dumps(box["payload"], ensure_ascii=False)
+
+    original_chat = organizer.llm.chat
+    organizer.llm.chat = fake_chat
+    try:
+        with TestClient(app) as c:
+            def new_item(body: str, kind: str) -> int:
+                item = int(c.post("/api/knowledge", json={"raw_content": body}).json()["id"])
+                conn = get_conn()
+                try:
+                    with conn:
+                        conn.execute("UPDATE knowledge_item SET kind=? WHERE id=?", (kind, item))
+                finally:
+                    conn.close()
+                return item
+
+            def detail(item: int) -> dict:
+                return c.get(f"/api/knowledge/{item}").json()
+
+            def note_chunks(item: int) -> int:
+                return len([ch for ch in detail(item)["chunks"] if ch["source"] == "note"])
+
+            # ① material：笔记照写、note chunk 照样重建（回归：与改动前逐字段一致）
+            box["payload"] = {
+                "title": "费曼技巧", "category": "学习方法", "tags": ["费曼", "输出"],
+                "summary": "用输出倒逼输入。", "key_points": ["复述", "找缺口"],
+                "structured_note": "# 费曼技巧\n\n## 步骤\n- 复述\n- 补缺",
+            }
+            material = new_item("正文：费曼技巧就是复述。", "material")
+            organizer.run({"item_id": material})
+            got = detail(material)
+            check("material 照旧写笔记", got["structured_note"].startswith("# 费曼技巧"),
+                  str(got["structured_note"])[:30])
+            check("material 照旧重建 note chunk", note_chunks(material) >= 1,
+                  str(note_chunks(material)))
+            check("material 照旧置 ready 并给了标题/摘要/要点",
+                  got["status"] == "ready" and got["title"] == "费曼技巧"
+                  and got["summary"] and len(got["key_points"]) == 2, str(got["status"]))
+            sent.clear()
+
+            # ② exam：只出卷面概览；模型顺手写的笔记必须被丢掉
+            box["payload"] = {
+                "title": "六级真题", "category": "英语六级", "tags": ["听力", "阅读"],
+                "summary": "听力 25 题、阅读 30 题。", "key_points": ["听力 25 题", "阅读 30 题"],
+                "structured_note": "# 不该出现\n- 这行应该被丢掉",
+            }
+            exam = new_item("正文：一、听力……二、阅读……", "exam")
+            organizer.run({"item_id": exam})
+            got = detail(exam)
+            check("exam 的 structured_note 是 NULL（模型硬塞也不落）",
+                  got["structured_note"] is None, str(got["structured_note"])[:40])
+            check("exam 没有留下 note chunk", note_chunks(exam) == 0, str(note_chunks(exam)))
+            check("exam 走的是试卷 prompt（要卷面概览、明说不要笔记）",
+                  "卷面概览" in sent[-1] and "不要输出 `structured_note`" in sent[-1],
+                  sent[-1][:40])
+            check("exam 仍然置 ready、摘要与要点都在",
+                  got["status"] == "ready" and got["summary"] and len(got["key_points"]) == 2,
+                  str(got["status"]))
+            sent.clear()
+
+            # ③ image：要点可以为空，且**不因质量不合格重试**（一张两行字的图就该这样）
+            box["payload"] = {
+                "title": "板书：二叉树", "category": "数据结构", "tags": ["二叉树"],
+                "summary": "课堂板书，写的是中序遍历。", "key_points": [],
+            }
+            image = new_item("正文：中序遍历 左根右", "image")
+            organizer.run({"item_id": image})
+            got = detail(image)
+            check("image 允许 0 条要点（不逼模型编）", got["key_points"] == [], str(got["key_points"]))
+            check("image 一次就过（没有质量重试）", len(sent) == 1, str(len(sent)))
+            check("image 不写笔记", got["structured_note"] is None, str(got["structured_note"]))
+            check("image 走的是图片 prompt", "一句话说明" in sent[-1], sent[-1][:40])
+            sent.clear()
+
+            # ④ 从 material 变 exam：旧笔记必须消失（否则继续污染学习页与导图）
+            check("先确认这条原来有笔记", note_chunks(material) >= 1)
+            conn = get_conn()
+            try:
+                with conn:
+                    conn.execute("UPDATE knowledge_item SET kind='exam' WHERE id=?", (material,))
+            finally:
+                conn.close()
+            box["payload"] = {
+                "title": "费曼技巧", "category": "学习方法", "tags": ["费曼"],
+                "summary": "卷面概览。", "key_points": ["一", "二"],
+            }
+            organizer.run({"item_id": material})
+            got = detail(material)
+            check("改成 exam 后旧笔记被清空",
+                  got["structured_note"] is None and note_chunks(material) == 0,
+                  f"note={got['structured_note']} chunks={note_chunks(material)}")
+
+            # ⑤ 闸：正文还是 `[文件] 原名` 一律拒绝整理
+            conn = get_conn()
+            try:
+                with conn:
+                    placeholder = conn.execute(
+                        """INSERT INTO knowledge_item
+                           (title, source_type, raw_content, content_hash, status,
+                            created_at, updated_at, kind)
+                           VALUES ('扫描件', 'file', '[文件] a.pdf', 'verify-m9-placeholder',
+                                   'pending', '2026-11-13', '2026-11-13', 'material')"""
+                    ).lastrowid
+                    conn.execute(
+                        """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
+                               stored_path, page_count, ocr_status)
+                           VALUES (?, 'main', 'a.pdf', 'pdf', 'application/pdf', 10,
+                                   'files/a.pdf', 3, 'running')""",
+                        (placeholder,),
+                    )
+                    partial = conn.execute(
+                        """INSERT INTO knowledge_item
+                           (title, source_type, raw_content, content_hash, status,
+                            created_at, updated_at, kind)
+                           VALUES ('长表格', 'file', '真实的表格内容', 'verify-m9-partial',
+                                   'pending', '2026-11-13', '2026-11-13', 'material')"""
+                    ).lastrowid
+                    conn.execute(
+                        """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
+                               stored_path, page_count, ocr_status)
+                           VALUES (?, 'main', 'b.xlsx', 'xlsx',
+                                   'application/vnd.ms-excel', 10, 'files/b.xlsx', 1, 'partial')""",
+                        (partial,),
+                    )
+            finally:
+                conn.close()
+
+            blocked = c.post(f"/api/knowledge/{placeholder}/organize")
+            check("还在读字的文件拒绝整理（409 + FILE_NOT_READY）",
+                  blocked.status_code == 409
+                  and blocked.json()["error"]["code"] == "FILE_NOT_READY", blocked.text[:120])
+            check("拒绝时状态没有变成 organizing",
+                  detail(placeholder)["status"] == "pending", detail(placeholder)["status"])
+            # 派发打个桩：这一组只验"放不放行"，不让真任务去连模型（本脚本不联网）
+            original_submit = task_queue.submit
+            task_queue.submit = lambda *args, **kw: "fake-task"
+            try:
+                allowed = c.post(f"/api/knowledge/{partial}/organize")
+                batch = c.post("/api/knowledge/organize-pending", params={"limit": 10}).json()
+            finally:
+                task_queue.submit = original_submit
+            check("内容不全（partial）的放行：有真内容就该能整理", allowed.status_code == 202,
+                  allowed.text[:80])
+
+            # ⑥ 批量整理：跳过没读完的，并如实回报跳了哪几条
+            check("批量整理把没读完的跳过并回报",
+                  placeholder in batch["skipped"], str(batch["skipped"]))
+            check("批量整理不会把跳过的也算成已派发",
+                  all(entry["item_id"] != placeholder for entry in batch["items"]),
+                  str(batch["items"])[:80])
+    finally:
+        organizer.llm.chat = original_chat
+
+
 GROUPS = (
     ("layout", group_layout), ("resume", group_resume), ("extract", group_extract),
-    ("workspace", group_workspace), ("raw", group_raw),
+    ("workspace", group_workspace), ("raw", group_raw), ("kind", group_kind),
 )
 
 
@@ -781,7 +956,7 @@ def main() -> int:
     print(f"Cairn M9 验收 · 临时数据目录 {TMP}")
     # 抽取（§extract）与工作区（§workspace）都不碰识别组件：
     # 单独跑它们时不该被"没构建组件"挡住
-    if only not in ("extract", "workspace", "raw"):
+    if only not in ("extract", "workspace", "raw", "kind"):
         hint = prepare_component()
         if hint:
             print(f"× {hint}")

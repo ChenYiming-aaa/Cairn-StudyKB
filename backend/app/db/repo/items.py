@@ -349,7 +349,7 @@ def save_organize_result(
     tags: list[str],
     summary: str,
     key_points: list[str],
-    structured_note: str,
+    structured_note: str | None = None,
     truncated: bool,
     title: str | None = None,
 ) -> None:
@@ -360,12 +360,26 @@ def save_organize_result(
 
     title 由整理 Agent 生成（≤20 字）；传 None 或空串时保留原标题（COALESCE），
     避免模型没给标题时把已有标题清空。
+
+    `structured_note` 三态（T9.11）：
+    - `None`  —— **不动这一列**（试卷/图片不写笔记，但已有内容不该被这次整理擦掉）
+    - `""`    —— 明确清空（置 NULL）。kind 改成 exam 后旧笔记必须消失，否则学习页里
+                 还留着一篇"给试卷写的要点"，正是这张卡要治的污染
+    - 其他    —— 正常写入
     """
+    sets = [
+        "title=COALESCE(NULLIF(?, ''), title)", "category=?", "tags=?", "summary=?",
+        "key_points=?", "truncated=?", "status='ready'", "updated_at=?",
+    ]
+    args: list = [
+        title or "", category, dumps(tags), summary, dumps(key_points),
+        1 if truncated else 0, now_iso(),
+    ]
+    if structured_note is not None:
+        # NULLIF：空串落成 NULL，和"从没写过笔记"是同一个状态（前端按 falsy 判断）
+        sets.append("structured_note=NULLIF(?, '')")
+        args.append(structured_note)
+    args.append(item_id)
     conn.execute(
-        """UPDATE knowledge_item
-           SET title=COALESCE(NULLIF(?, ''), title), category=?, tags=?, summary=?,
-               key_points=?, structured_note=?, truncated=?, status='ready', updated_at=?
-           WHERE id=?""",
-        (title or "", category, dumps(tags), summary, dumps(key_points), structured_note,
-         1 if truncated else 0, now_iso(), item_id),
+        f"UPDATE knowledge_item SET {', '.join(sets)} WHERE id=?", args
     )

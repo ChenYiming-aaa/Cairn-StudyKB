@@ -170,6 +170,33 @@ def _require_llm_key() -> None:
         raise ApiError("LLM_NO_KEY", "还没配模型 Key。在「设置 → 模型」里填一下就能用。", status=400)
 
 
+# 文件类内容建好时正文是 `[文件] 原名`，识别/抽取跑完才被 replace_raw_content 覆盖。
+# 这段时间里它是 status='pending'，会出现在「待整理」里；点一下就拿着占位正文
+# 写出一篇废话笔记（T9.11 的前置闸，2026-11-12 发现）。
+PLACEHOLDER_PREFIX = "[文件] "
+
+
+def _organize_blocked(conn: sqlite3.Connection, row: sqlite3.Row) -> JSONResponse | None:
+    """这份内容现在能不能整理；不能就返回 409 的响应体。
+
+    **只有「一个字都还没读出来」才拦**：正文还是占位，或原件的读字状态停在
+    `pending` / `running` / `failed` / `none`。
+    `partial`（xlsx 超 200 行、超长文本被截）**放行** —— 那是有真实内容但不算全，
+    拦掉等于「261 行的 Excel 永远不能整理」，比写出偏窄的摘要更糟；界面上另有「内容不全」提示。
+    """
+    file = _main_file(conn, int(row["id"]))
+    if file is None:
+        return None
+    body = str(row["raw_content"] or "")
+    status = str(file["ocr_status"] or "")
+    if body.startswith(PLACEHOLDER_PREFIX) or status in ("pending", "running", "failed", "none"):
+        return JSONResponse(
+            status_code=409,
+            content=error_payload("FILE_NOT_READY", "这个文件还在读字，读完再整理"),
+        )
+    return None
+
+
 @router.post("/organize-pending")
 def organize_pending(
     limit: int = Query(default=20, ge=1, le=100),
@@ -189,14 +216,20 @@ def organize_pending(
             conn, "pending", limit, category=category, tag=tag, workspace_id=workspace_id
         )
         queued: list[dict] = []
+        skipped: list[int] = []
         for item_id in item_ids:
+            row = repo.get_item(conn, item_id)
+            if row is None or _organize_blocked(conn, row) is not None:
+                # 还在读字的那几条跳过：不能让一条没读完的把整批挡住
+                skipped.append(item_id)
+                continue
             with conn:
                 repo.set_status(conn, item_id, "organizing")
             queued.append({
                 "item_id": item_id,
                 "task_id": task_queue.submit("organize", organizer.run, {"item_id": item_id}),
             })
-        return {"items": queued, "total": len(queued)}
+        return {"items": queued, "total": len(queued), "skipped": skipped}
     finally:
         conn.close()
 
@@ -215,6 +248,10 @@ def organize_item(item_id: int):
                 status_code=409,
                 content=error_payload("ITEM_BUSY", "该条目正在整理中，请等待完成"),
             )
+        blocked = _organize_blocked(conn, row)
+        if blocked is not None:
+            # 正文还是占位就整理 = 拿 `[文件] 原名` 写摘要，既浪费模型又污染学习页
+            return blocked
         with conn:
             repo.set_status(conn, item_id, "organizing")
         task_id = task_queue.submit("organize", organizer.run, {"item_id": item_id})

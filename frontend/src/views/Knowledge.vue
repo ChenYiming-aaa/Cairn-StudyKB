@@ -216,6 +216,13 @@ async function organizePending() {
     })
     if (result.total) {
       toast.ok(`开始整理了，${result.total} 条排队中`)
+      // 还在读字的那几条被跳过：不说清楚会让用户以为「点了没反应」
+      if (result.skipped?.length) {
+        toast.info(`${result.skipped.length} 条还在读字，读完再整理`)
+      }
+      await refreshAll()
+    } else if (result.skipped?.length) {
+      toast.info(`${result.skipped.length} 条还在读字，读完再整理`)
       await refreshAll()
     } else {
       toast.info('没有待整理的内容')

@@ -1,11 +1,22 @@
-"""整理 Agent（T1.8）：raw_content → 分类 / 标签 / 摘要 / 关键点 / 结构化笔记。
+"""整理 Agent（T1.8 → T9.11 按 kind 分派）：raw_content → 分类 / 标签 / 摘要 / 关键点 / 结构化笔记。
 
 设计要点（M1 §6.5、§6.6，数据契约 §6）：
-- prompt 全部放 `prompts/organize.md`，代码只引用文件名（总纲 §7）
-- 输出严格 JSON；解析失败重试一次，质量不合格（summary 空 / key_points < 2）也重试一次
+- prompt 全部放 `prompts/`，代码只引用文件名（总纲 §7）
+- 输出严格 JSON；解析失败重试一次，质量不合格（summary 空 / key_points 不足）也重试一次
 - 原文超过 50,000 字符时采样前 40,000 + 末 10,000，并置 truncated=1
 - 写入 structured_note 后必须按数据契约 §6 重建 source='note' 的 chunk
 - 失败一律抛异常交给任务队列落 agent_task（红线 8），不静默
+
+**T9.11 按 `kind` 分派**（别对试卷和图片写「要点 + 笔记」，那是纯浪费且污染学习页）：
+
+| kind | prompt | 产出 | structured_note |
+|---|---|---|---|
+| `material` | `organize.md` | 标题/摘要/要点/笔记/分类 | 写 |
+| `exam` | `organize_exam.md` | 卷面概览：科目、题型分布、题数、涉及知识点 | **不写（置 NULL）** |
+| `image` | `organize_image.md` | 一句话说明 + 图上看得出的要点 | **不写（置 NULL）** |
+
+为什么 exam/image 要**清空**而不是「保留旧值」：一条内容如果从 material 被确认成 exam，
+它原来的笔记就是「给试卷写的要点」，留着会继续出现在学习页与导图里 —— 正是这张卡要治的污染。
 """
 from __future__ import annotations
 
@@ -34,6 +45,23 @@ RETRY_HINT = (
     "请严格按 schema 重新只输出一个 JSON 对象，不要任何解释文字。"
 )
 
+# 每种 kind 的自我纠正提示必须跟着换，否则会出现「用试卷的 prompt 要求补笔记」
+EXAM_RETRY_HINT = (
+    "上一次的输出不合格：summary 为空，或卷面概览少于 2 条。"
+    "请严格按 schema 重新只输出一个 JSON 对象，不要任何解释文字，也不要输出 structured_note。"
+)
+IMAGE_RETRY_HINT = (
+    "上一次的输出不合格：summary 为空。"
+    "请严格按 schema 重新只输出一个 JSON 对象，不要任何解释文字，也不要输出 structured_note。"
+)
+
+# kind → (prompt 文件, 重试提示)
+KINDS = {
+    "material": ("organize.md", RETRY_HINT),
+    "exam": ("organize_exam.md", EXAM_RETRY_HINT),
+    "image": ("organize_image.md", IMAGE_RETRY_HINT),
+}
+
 
 class OrganizeError(Exception):
     """带错误码的业务异常，形状与 LLMError 一致，便于任务队列统一记录。"""
@@ -55,8 +83,10 @@ def _read_prompt(name: str) -> str:
     return (PROMPT_DIR / name).read_text(encoding="utf-8")
 
 
-def _build_messages(title: str, content: str, truncated: bool) -> list[dict]:
-    body = _read_prompt("organize.md").replace("{{TITLE}}", title).replace("{{CONTENT}}", content)
+def _build_messages(title: str, content: str, truncated: bool,
+                    kind: str = "material") -> list[dict]:
+    prompt_file = KINDS.get(kind, KINDS["material"])[0]
+    body = _read_prompt(prompt_file).replace("{{TITLE}}", title).replace("{{CONTENT}}", content)
     if truncated:
         body += "\n\n（注意：正文过长，中间部分已省略。不要据此推测或补写被省略的内容。）"
     return [{"role": "user", "content": body}]
@@ -80,8 +110,12 @@ def clean_title(value, fallback: str) -> str:
     return text[:MAX_TITLE].strip()
 
 
-def _normalize(data: dict, fallback_title: str) -> dict:
-    """容错：模型偶尔把 tags 写成字符串、把 key_points 写成带序号的段落。"""
+def _normalize(data: dict, fallback_title: str, kind: str = "material") -> dict:
+    """容错：模型偶尔把 tags 写成字符串、把 key_points 写成带序号的段落。
+
+    `kind != 'material'` 时**强制丢弃** structured_note：prompt 里已经说了不要输出，
+    但模型偶尔还是会顺手写一篇 —— 在这里拦住，而不是指望 prompt 听话。
+    """
     tags: list[str] = []
     for raw in _as_list(data.get("tags")):
         text = str(raw).strip().lstrip("#").strip()
@@ -96,13 +130,22 @@ def _normalize(data: dict, fallback_title: str) -> dict:
         "tags": tags[:MAX_TAGS],
         "summary": str(data.get("summary") or "").strip(),
         "key_points": points[:MAX_KEY_POINTS],
-        "structured_note": str(data.get("structured_note") or "").strip(),
+        "structured_note": ""
+        if kind != "material" else str(data.get("structured_note") or "").strip(),
     }
 
 
-def _quality_ok(result: dict) -> bool:
-    """M1 §6.5：key_points < 2 或 summary 为空视为不合格。"""
-    return bool(result["summary"]) and len(result["key_points"]) >= 2
+def _quality_ok(result: dict, kind: str = "material") -> bool:
+    """M1 §6.5：key_points < 2 或 summary 为空视为不合格。
+
+    `image` 只要求 summary：一张只有两行字的照片本来就没有两个要点，
+    按 material 的标准重试只会让模型编出两条凑数。
+    """
+    if not result["summary"]:
+        return False
+    if kind == "image":
+        return True
+    return len(result["key_points"]) >= 2
 
 
 def run(task_input: dict | None = None) -> dict:
@@ -114,6 +157,7 @@ def run(task_input: dict | None = None) -> dict:
         if row is None:
             raise OrganizeError("ITEM_NOT_FOUND", f"内容 {item_id} 不存在")
         title = row["title"]
+        kind = str(row["kind"] or "material")
         content, truncated = sample_text(row["raw_content"] or "")
     finally:
         conn.close()
@@ -123,7 +167,9 @@ def run(task_input: dict | None = None) -> dict:
         raise OrganizeError("ORGANIZE_EMPTY_CONTENT", "原文为空，无法整理")
 
     try:
-        result = _organize_with_retry(_build_messages(title, content, truncated), title)
+        result = _organize_with_retry(
+            _build_messages(title, content, truncated, kind), title, kind
+        )
     except LLMError as exc:
         # 根因在 LLM 侧（无 Key / 超时 / JSON 解析失败），原样上抛给任务队列
         _mark_failed(item_id, exc.message)
@@ -139,39 +185,42 @@ def run(task_input: dict | None = None) -> dict:
                 conn, item_id, title=result["title"],
                 category=result["category"], tags=result["tags"],
                 summary=result["summary"], key_points=result["key_points"],
+                # 非 material 是 ""：**明确清空**（不是「别动」），见 save_organize_result 三态
                 structured_note=result["structured_note"], truncated=truncated,
             )
-            # 数据契约 §6：新 structured_note 必须重建 note chunk
+            # 数据契约 §6：新 structured_note 必须重建 note chunk（空串 = 删掉旧 note chunk）
             note_chunks = repo.rebuild_chunks(conn, item_id, result["structured_note"], "note")
     finally:
         conn.close()
 
-    log.info("条目 %s 整理完成（title=%s, truncated=%s, note_chunk=%s）",
-             item_id, result["title"], truncated, note_chunks)
+    log.info("条目 %s 整理完成（kind=%s, title=%s, truncated=%s, note_chunk=%s）",
+             item_id, kind, result["title"], truncated, note_chunks)
     return {"item_id": item_id, "title": result["title"],
             "truncated": truncated, "note_chunk_count": note_chunks}
 
 
-def _organize_with_retry(messages: list[dict], fallback_title: str) -> dict:
+def _organize_with_retry(messages: list[dict], fallback_title: str,
+                         kind: str = "material") -> dict:
     """解析失败重试一次；质量不合格也重试一次。最多两次调用。"""
+    hint = KINDS.get(kind, KINDS["material"])[1]
     last_error: LLMError | None = None
     for attempt in range(2):
         try:
             raw = llm.chat(messages, agent="organizer", json_mode=True)
-            result = _normalize(llm.extract_json(raw), fallback_title)
+            result = _normalize(llm.extract_json(raw), fallback_title, kind)
         except LLMError as exc:
             last_error = exc
             if exc.code in ("LLM_BAD_JSON", "LLM_BAD_RESPONSE") and attempt == 0:
                 log.warning("整理结果解析失败（%s），重试一次", exc.code)
-                messages = messages + [{"role": "user", "content": RETRY_HINT}]
+                messages = messages + [{"role": "user", "content": hint}]
                 continue
             raise
-        if _quality_ok(result):
+        if _quality_ok(result, kind):
             return result
         if attempt == 0:
-            log.warning("整理结果质量不合格（summary=%s, key_points=%s），重试一次",
-                        bool(result["summary"]), len(result["key_points"]))
-            messages = messages + [{"role": "user", "content": RETRY_HINT}]
+            log.warning("整理结果质量不合格（kind=%s, summary=%s, key_points=%s），重试一次",
+                        kind, bool(result["summary"]), len(result["key_points"]))
+            messages = messages + [{"role": "user", "content": hint}]
             continue
         # 第二次仍不合格：不编造、不丢弃已有内容，接受结果但留痕
         log.warning("整理结果连续两次不合格，接受现有内容")

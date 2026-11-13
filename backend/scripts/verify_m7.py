@@ -675,6 +675,40 @@ def main() -> int:
             check("原文里的 <script> 不会执行", page.locator(".doc").count() == 1 and not executed,
                   f"doc={page.locator('.doc').count()} __xss={executed}")
 
+            # ── 15c 试卷不出「整理笔记」页签（T9.11）────────────
+            # 试卷的整理只出卷面概览，不给笔记。留一个空编辑器等于暗示「这里本该有笔记」。
+            conn = get_conn()
+            try:
+                with conn:
+                    exam_item = conn.execute(
+                        """INSERT INTO knowledge_item
+                           (title, source_type, raw_content, content_hash, summary,
+                            key_points, status, created_at, updated_at, kind)
+                           VALUES ('六级真题', 'file', '一、听力……二、阅读……',
+                                   'verify-m7-exam', '听力 25 题、阅读 30 题。', ?, 'ready',
+                                   ?, ?, 'exam')""",
+                        (json.dumps(["听力 25 题", "阅读 30 题"], ensure_ascii=False), stamp, stamp),
+                    ).lastrowid
+            finally:
+                conn.close()
+
+            page.goto(base, wait_until="networkidle")
+            page.locator("aside[aria-label='内容列表'] .row").filter(has_text="六级真题").first.click()
+            page.wait_for_timeout(900)
+            labels = [t.strip() for t in page.locator(".tabs .tab").all_inner_texts()]
+            check("试卷的页签里没有「整理笔记」", "整理笔记" not in labels, str(labels))
+            check("试卷仍保留摘要、原文、导图、学习记录",
+                  {"摘要与要点", "原文", "思维导图", "学习记录"} <= set(labels), str(labels))
+            check("试卷默认停在摘要页签",
+                  page.locator(".tabs .tab.on").inner_text().strip() == "摘要与要点",
+                  page.locator(".tabs .tab.on").inner_text())
+
+            # 普通资料仍要有笔记页签（别把整站都改没了）
+            page.locator("aside[aria-label='内容列表'] .row").filter(has_text="费曼").first.click()
+            page.locator(".tabs .tab").first.wait_for(timeout=15000)
+            labels = [t.strip() for t in page.locator(".tabs .tab").all_inner_texts()]
+            check("普通资料仍有「整理笔记」页签", "整理笔记" in labels, str(labels))
+
             # ── 3 Ctrl+B 折叠 + 刷新保持 ──────────────────────
             page.keyboard.press("Control+b")
             page.wait_for_timeout(400)
