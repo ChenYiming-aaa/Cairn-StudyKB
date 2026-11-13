@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { api } from '../../api/client'
 import { useUi } from '../../composables/useUi'
 import FileIngestCard from './FileIngestCard.vue'
+import FolderImport from './FolderImport.vue'
 
 /**
  * 「文件与链接」里的文件区（T9.8）：拖 / 点选都收，一次多个，每个文件一张卡。
@@ -97,6 +98,9 @@ defineExpose({ addFiles })
         @gone="remove(it.id)"
       />
     </div>
+
+    <!-- 文件夹批量导入（T10.6）：只在桌面壳里出现，网页版拿不到绝对路径 -->
+    <FolderImport @open="emit('open', $event)" @saved="emit('saved', $event)" />
   </div>
 </template>
 

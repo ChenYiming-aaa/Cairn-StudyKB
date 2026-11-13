@@ -37,5 +37,10 @@ if (process.isMainFrame) {
         return () => ipcRenderer.removeListener('update:progress', handler)
       },
     },
+    // 目录批量导入（T10.6）：只给「选一个文件夹」，读文件与建内容都在后端。
+    // 名字叫 importer 不叫 import —— import 是保留字，解构时得写 `const { import: x }`
+    importer: {
+      pickDirectory: () => ipcRenderer.invoke('import:pick-directory'),
+    },
   })
 }

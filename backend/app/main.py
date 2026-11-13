@@ -21,8 +21,8 @@ from app.db.migrate import init_db
 from app.errors import ApiError, api_error_handler
 from app.paths import install_root, is_frozen
 from app.routers import (
-    ask, auth, env, exams, files, health, html, ingest, knowledge, quiz, review, search,
-    session, settings, stats, tasks, workspaces,
+    ask, auth, env, exams, files, health, html, imports, ingest, knowledge, quiz, review,
+    search, session, settings, stats, tasks, workspaces,
 )
 # 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
 from app.routers import components as components_api
@@ -111,6 +111,7 @@ app.include_router(search.router)
 app.include_router(ask.router)
 app.include_router(html.router)
 app.include_router(exams.router)
+app.include_router(imports.router)
 app.include_router(quiz.router)
 app.include_router(review.router)
 app.include_router(session.router)
