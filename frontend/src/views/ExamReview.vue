@@ -440,10 +440,10 @@ async function commit() {
               </span>
             </div>
 
-            <!-- 默认收起：20 道题都摊开解析，一屏只能看到一道半 -->
+            <!-- 默认收起：20 道题都摊开讲解，一屏只能看到一道半 -->
             <details class="more">
-              <summary>解析与分值</summary>
-              <textarea v-model="draft.explanation" class="textarea" rows="2" placeholder="解析（可留空）" />
+              <summary>讲解与分值</summary>
+              <textarea v-model="draft.explanation" class="textarea" rows="2" placeholder="讲解（可留空）" />
               <input v-model.number="draft.score" class="input score" type="number" step="0.5" min="0" placeholder="分值" />
             </details>
           </article>
