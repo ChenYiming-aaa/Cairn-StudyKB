@@ -65,9 +65,11 @@ const headline = computed(() => {
         ? `已经在知识库里了，已${label.value} ${state.ocr.total} 页`
         : `已${label.value} ${state.ocr.total} 页`
     case 'partial':
+      // 两种原因都走这一条：缺页（没认出来）与只读了前一部分（xlsx 200 行、txt 100 万字）。
+      // 界面上不猜是哪种 —— `/ocr` 只回状态和页数，猜错比说得含糊更糟。
       return state.ocr.failed
         ? `有 ${state.ocr.failed} 页没${label.value}出来`
-        : '内容不全，有几页是空的'
+        : '内容不全'
     case 'failed':
       return '没读成'
     case 'needComponent':
@@ -89,7 +91,7 @@ const detail = computed(() => {
         ? '页面多的文件要几分钟。可以关掉面板，读完了会在任务里看到。'
         : '读完就能搜到、能整理了。'
     case 'partial':
-      return '认出来的部分照样能搜到、能整理；剩下的可以重读一次。'
+      return '认出来的部分照样能搜到、能整理；没读到的部分不在里面。'
     case 'failed':
       return state.error || '原因在任务里，可以重读一次。'
     case 'needComponent':

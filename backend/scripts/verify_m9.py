@@ -524,6 +524,19 @@ def group_extract() -> None:
         check("只有图的 docx 正文仍为占位",
               img_detail["raw_content"].startswith("[文件] "), img_detail["raw_content"][:30])
 
+        # ⑥ 截断不许说 done（T9.8 实测 261 行 xlsx 显示「已读取 1 页」）：
+        # 页是齐的、内容是半份，界面上却看不出任何异常，整理会照着半份写笔记
+        cut = client.post("/api/files", files={
+            "file": ("long.xlsx", fixtures["xlsx"].read_bytes())})
+        cut_item = cut.json()["item_id"]
+        cut_progress = _wait_until(
+            lambda: (lambda p: p if p["status"] in ("failed", "done", "partial") else None)(
+                client.get(f"/api/knowledge/{cut_item}/ocr").json()),
+            timeout=60,
+        ) or client.get(f"/api/knowledge/{cut_item}/ocr").json()
+        check("xlsx 超 200 行收口为 partial（不是 done）",
+              cut_progress["status"] == "partial", str(cut_progress))
+
 
 GROUPS = (("layout", group_layout), ("resume", group_resume), ("extract", group_extract))
 

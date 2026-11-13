@@ -18,17 +18,17 @@
 
 ---
 
-## 当前状态（2026-11-12 · 每次会话结束更新这一段）
+## 当前状态（2026-11-13 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
 | 里程碑 | **M9 本地文件、本地识别、工作区 · 进行中（CP4 完成）**。M8 已完成、出口 `v0.2.1` 已发布；M9–M11 按 `docs/dev/执行计划-v0.3-M9-M11.md` 推进，进度台账在其 §9 |
-| 当前里程碑 | **M9 · CP4 已过（2026-11-13）**：T9.1–T9.7 都已推（`6531c8c` / `8981641` / `80ad950` / `0ceaea1` / `f443861` / `1f30804` / 见「推送状态」）。识别链路与四种文本格式的抽取都通了：PDF/图片走 `pypdfium2` 逐页渲染 + `cairn-ocr` + 行框判列 + 断点续跑；docx/pptx/xlsx/txt 走 `services/extractors/`（python-docx / mammoth / python-pptx / openpyxl），两条链路共用 `ingest_file._finish()` 的「整份齐了才覆盖正文」。性能口径 **不承诺秒数、只承诺行为**（实测耗时随每页字数线性变化：试卷 3–7 秒/页、双栏讲义 15.7 秒/页），见需求 §8.2 与 §12。下一步 **T9.8 采集面板改造**（两个 tab、上传进度、识别进度回显） |
+| 当前里程碑 | **M9 · CP4 已过（2026-11-13）**：T9.1–T9.7 都已推（`6531c8c` / `8981641` / `80ad950` / `0ceaea1` / `f443861` / `1f30804` / 见「推送状态」）。识别链路与四种文本格式的抽取都通了：PDF/图片走 `pypdfium2` 逐页渲染 + `cairn-ocr` + 行框判列 + 断点续跑；docx/pptx/xlsx/txt 走 `services/extractors/`（python-docx / mammoth / python-pptx / openpyxl），两条链路共用 `ingest_file._finish()` 的「整份齐了才覆盖正文」。性能口径 **不承诺秒数、只承诺行为**（实测耗时随每页字数线性变化：试卷 3–7 秒/页、双栏讲义 15.7 秒/页），见需求 §8.2 与 §12。**T9.8 已完成（`9690d54`）**：`IngestPanel.vue` 878 → 205 行，拆出 `ingest/` 六个组件；tab 三个收成两个；文件卡片多选各跑各的、上传百分比与读字进度分两条、上传中可取消、未装组件时 PDF/图片给引导而 docx 照常。下一步 **T9.9 工作区**（用户自建工作区 + 左栏两段） |
 | 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；M6 已验收（`m6-done`） |
 | 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
 | 版本 | **0.2.1**（四处一致，`tools/bump_version.py --check` 通过） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` |
-| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿**；**T9.5（2026-11-12）自检 16 条 + 端到端 9 条全过（三态 / 单页隔离 / 5+1 分批 / 拷包即用 / 卸载回落 / `OCR_MISSING`），`verify_m7` 41/41、`verify_m8` 105/105、前端 lint 干净、build 通过（JS 330.87 kB / gzip 120.68；CSS 96.21 / 14.45）**；**T9.6（2026-11-12）自检 39 条全过、四组 `twocol.pdf` 40 页判列零错行、断点续跑与单页重试实测通过、30 页 102 秒 / 130 秒（3.4–4.3 秒/页）**；**T9.7（2026-11-13）`verify_m9.py --only extract` 76/76（四组 course.docx 的表/图/标题/段落数与 `samples/_check.json` 逐项相等、HTML 无 base64 图、pptx 备注与表格、xlsx 200 行截断与转义、txt 三档编码、端到端覆盖正文；坏文件与只有图的 docx 都不留半份），`--only resume` 8/8、`--only layout --pages 2` 30/30，回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿** |
+| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿**；**T9.5（2026-11-12）自检 16 条 + 端到端 9 条全过（三态 / 单页隔离 / 5+1 分批 / 拷包即用 / 卸载回落 / `OCR_MISSING`），`verify_m7` 41/41、`verify_m8` 105/105、前端 lint 干净、build 通过（JS 330.87 kB / gzip 120.68；CSS 96.21 / 14.45）**；**T9.6（2026-11-12）自检 39 条全过、四组 `twocol.pdf` 40 页判列零错行、断点续跑与单页重试实测通过、30 页 102 秒 / 130 秒（3.4–4.3 秒/页）**；**T9.7（2026-11-13）`verify_m9.py --only extract` 76/76（四组 course.docx 的表/图/标题/段落数与 `samples/_check.json` 逐项相等、HTML 无 base64 图、pptx 备注与表格、xlsx 200 行截断与转义、txt 三档编码、端到端覆盖正文；坏文件与只有图的 docx 都不留半份），`--only resume` 8/8、`--only layout --pages 2` 30/30，回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.8（2026-11-13）`verify_m7` 45/45（新增 4 条采集面板文案扫描）、`verify_m9 --only extract` 77/77（新增 1 条 xlsx 截断断言）、五文件同传与未装组件两轮界面实跑、上传取消实测零残留、前端 lint 干净、build 通过（JS 341.16 kB / gzip 124.34）** |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -71,7 +71,7 @@
 | 22 | ~~`GET /theme-boot.js` 404（打包版防白闪失效）~~ | **已修 2026-11-09** | M6 回归：`main.py` 静态白名单漏了它；已加，实测 200 |
 | 23 | **识别慢**：双栏讲义 **15.7 秒/页**、试卷页 3–7 秒/页（2026-11-13 实测；早期「3.4 秒/页」只对稀疏页成立） | 已裁决不进 M9（台账 T9.13 记「跳过」） | 实测「每路 onnx 限 4 线程 + 3 路并发」可到 **1.88 秒/页**（30 页约 56 秒）；单路限 4 线程本身就比默认 16 线程快。要做得改 `components/ocr/entry.py` 内部并发 + 重打 118 MB 包 + 重跑 `verify_m8` 协议回归 |
 | 24 | ~~`cairn-ocr` 组件包还没发布~~ | **已发布 2026-11-13** | `cairn-ocr-0.2.0.zip` 已传到 Release `components-v1`（asset state `uploaded`，**118277769 字节**，与本地包一致），四个资产的 size 与 `backend/app/components.json` 逐条核对全对。清单里 ocr 的 `sha256` 换成本次包的 `ff488bda…7750fe`（旧值 `19d42d6f…` 对应的是被覆盖掉的那份包，已作废）。**以后重打 ocr 包必须重传 + 重新对齐清单**，否则下载中心校验会失败 |
-| 25 | **截断信息界面看不到**：xlsx 超 200 行、txt 超 100 万字时会标 `partial`，但「只读了前 200 行」这句话目前只在任务结果与 `meta` 里 | T9.8 / T9.10 收口 | 数据层已经诚实（`meta.truncated` + `ocr_status=partial`），缺的是界面一句话；要显示就得让 `GET /knowledge/{id}/ocr` 带出来，或加一列，别在界面上重新猜 |
+| 25 | **「只读了前 200 行」这句话界面仍然没有**：xlsx 超 200 行 / txt 超 100 万字现在会收口成 `partial`、卡片显示「内容不全」（T9.8），但到底是「缺页」还是「只读了前一部分」、读到第几行，仍然只在任务结果与 `meta` 里 | T9.10 收口 | **2026-11-13 更正**：原写「`ocr_status=partial`」是错的 —— 实测 261 行 xlsx 收口成 `done`（`_finish` 只看页齐不齐），界面显示「已读取 1 页」；T9.8 已把 `meta.truncated` 传进 `_finish()` 降成 `partial` 并加了断言。要说出「只读了前 200 行」，得让 `GET /knowledge/{id}/ocr` 带出 `truncated`（或加一列），别在界面上按文件大小猜 |
 | 26 | **`GET /api/knowledge/{id}/document` 还没实现**：docx 的 HTML 已经在 `pages/<file_id>/0001.html` 落盘，pptx 的 slides、pdf 的 pages 有现成接口可拼 | T9.10（原文页签）| 契约里早就登记了这个端点，`model` 按 `ext` 分派；T9.7 只负责把素材准备好，不再接一个半成品端点 |
 
 **2026-11-09 21:15 补记 · 三条行为修整（都按你的裁决做）**
@@ -2233,3 +2233,55 @@ export GH_TOKEN="$PW"
 > 识别进度「已识别 12/30 页」）。**进度条现在是刚需**：性能口径已经改成「不承诺秒数」，
 > 用户面对 8 分钟等待只能靠进度条知道"在动"。坑：Playwright 按名字找按钮会命中「今日」条，
 > 凡是内部塞了很多词的 `<button>` 一律显式给短 `aria-label`。
+>
+> （已完成，见下条。）
+
+---
+
+## 2026-11-13 12:30 · T9.8 采集面板改造（`9690d54`，已推）
+
+**做到哪**：`IngestPanel.vue` 878 → **205 行**，只剩壳（切 tab、接拖放、往外递事件）。
+拆出 `components/ingest/` 六个：`PasteForm` / `LinkForm` / `AuthBox` / `FileForm` / `FileIngestCard` / `OcrProgress`。
+tab 三个收成两个（「粘贴文本」「文件与链接」），原生「拖入文件」那条只认 txt 的假上传整块删掉。
+`FileForm` 与 `LinkForm` 用 `v-show` 留在 DOM 里，切 tab 不会打断正在传的文件。
+
+**两段进度是这张卡的核心**
+
+- **上传**：`client.postFile()` 用 XHR 的 `upload.onprogress`（`fetch` 拿不到上传百分比），只到「上传中 45%」。
+  面板关掉就 abort，后端临时文件随之删除。
+- **读字**：`api.ocrProgress()` 轮询 `GET /api/knowledge/{id}/ocr` 的 `done_pages / total_pages`，
+  显示「正在识别 12/30 页」。**不许按时间估** —— 性能口径是「不承诺秒数」。
+- 合成一条会出现「100% 卡住八分钟」，所以宁可两个条。
+
+**三个必须记住的判断**
+
+1. **`pending` + 空 `task_id` 才是「没装组件」**。上传接口对 PDF/图片**不 409**（原件必须留住），
+   落盘后留 `ocr_status='pending'`、`task_id=''`；抽取格式不依赖组件，同批 docx 照常读。
+   契约表原来写的「`OCR_MISSING` 409」已更正。
+2. **页数未知时不编数字**。docx/xlsx 读完才知道几页，这时给会动的条 +「正在读取文字」，
+   不按文件大小估页数 —— 估错比不显示更伤信任。
+3. **`partial` 文案不猜原因**。缺页（PDF 某几页没认出来）与截断（xlsx 超 200 行）都落 `partial`，
+   `/ocr` 只回状态和页数，所以统一说「内容不全」+「没读到的部分不在里面」。
+
+**顺手修掉一个诚实性缺口**：`_finish()` 原来只看页齐不齐，不看 `meta.truncated` ——
+实测 261 行 xlsx 收口成 `done`、界面显示「已读取 1 页」，用户完全看不出只读了 200 行
+（遗留 25 写的「`ocr_status=partial`」当时其实没实现）。现在 `run_extract()` 把 `truncated`
+传进 `_finish()` 降成 `partial`，`verify_m9 --only extract` 加了断言（**77/77**）。
+**仍缺**「只读了前 200 行」这句话本身：得让 `/ocr` 带出 `truncated`（遗留 25 保留）。
+
+**踩到的坑**
+
+- **Playwright：`get_by_role("button", name="采集内容")` 会命中三个按钮**（顶栏、列表空态、详情空态）。
+  用 `.topbar` 限定。这是「按名字找按钮」第二次咬人（第一次是「今日」条），
+  写走查脚本时一律先限定作用域，别指望全页唯一。
+- **多行 commit message 用 `git commit -F <文件>`**。本轮图省事写成 `-m @'…'@`（那是 PowerShell 的
+  here-string 语法），在 Bash 里 `@` 成了 message 的第一个字符，标题被挤到第二行；
+  已推的提交因此 `--amend` + `push --force-with-lease` 修掉（比 `--force` 安全：远程被动过会直接拒）。
+- 前端拆完总行数 878 → 1599，**不是缩水**：每个组件带自己的 scoped 样式，公共的
+  `field / foot / bar` 各写了一份。换来的是改一个 tab 不用读另外两个 tab 的状态机。
+
+**下一会话第一件事**
+> 做 **T9.9 工作区**：`backend/app/routers/workspaces.py` 四个 CRUD（删工作区只把内容移出、不删内容）、
+> 左栏上「工作区」下「分类」两段（用分隔线与字重区分，别让用户以为是同一棵树）、
+> 详情页一个下拉做移入、列表批量移动、`organize_pending` 加 `workspace_id`。
+> 「未归类」转 SQL 用 `workspace_id IS NULL`，**不要**用 `0`。

@@ -160,7 +160,11 @@ def run_extract(payload: dict, task_id: str | None = None) -> dict:
     _write_extracted(item_id, file_id, doc)
     if task_id:
         task_queue.update_progress(task_id, 90, f"{STAGE_EXTRACT} 已写入 {doc.page_count} 页")
-    result = _finish(file_id, item_id, doc.page_count, task_id)
+    # 截断（xlsx 超 200 行、txt 超 100 万字）必须降到 partial：
+    # 页是齐的，但内容只有一部分 —— 说 done 会让「整理」照着半份写笔记，
+    # 而用户在界面上看不到任何异常（T9.8 实测：261 行 xlsx 显示「已读取 1 页」）
+    result = _finish(file_id, item_id, doc.page_count, task_id,
+                     truncated=bool(doc.meta.get("truncated")))
     result["meta"] = doc.meta
     return result
 
@@ -289,7 +293,7 @@ def _save_html(file_id: int, pages: list) -> None:
 
 
 def _finish(file_id: int, item_id: int, total: int, task_id: str | None,
-            skipped: bool = False) -> dict:
+            skipped: bool = False, truncated: bool = False) -> dict:
     """收口：算状态 → 状态写回 → （整份齐了）覆盖正文、重建 chunk。
 
     只有**每一页都有行**才覆盖正文：缺页时覆盖会把半份内容当成全文，
@@ -302,7 +306,7 @@ def _finish(file_id: int, item_id: int, total: int, task_id: str | None,
         empty = sum(1 for r in rows if not (r["text"] or "").strip())
         if done == 0:
             status = "failed"
-        elif done < total or empty:
+        elif done < total or empty or truncated:
             status = "partial"
         else:
             status = "done"
