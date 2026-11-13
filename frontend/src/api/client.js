@@ -361,6 +361,12 @@ export const api = {
   examParse: (payload) => post('/api/exams/parse', payload),
   /** 复核后一次写入（T10.3）：返回 {item_id, imported, replaced, downgraded} */
   examCommit: (payload) => post('/api/exams/commit', payload),
+  /** 文字校对（T10.4）：跑模型拿逐条改动，不落库 */
+  examProofread: (payload) => post('/api/exams/proofread', payload),
+  /** 应用校对（T10.4）：只交回接受的条目，后端从原文重建 text_reviewed */
+  examProofreadApply: (payload) => post('/api/exams/proofread/apply', payload),
+  /** 回退校对（T10.4）：清掉 text_reviewed，回到原始识别文本 */
+  examProofreadReset: (fileId) => del(`/api/exams/proofread/${fileId}`),
   /** 今日待复习（T4.6）：拿到的题自带 options/answer/explanation，可直接作答 */
   dueReviews: (params) => get('/api/review/due', params),
   /** 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题 */

@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from app.services.exam import commit as exam_commit
 from app.services.exam import parse as exam_parse
+from app.services.exam import proofread as exam_proof
 
 router = APIRouter(prefix="/api/exams", tags=["exams"])
 log = logging.getLogger(__name__)
@@ -55,3 +56,37 @@ def commit(body: CommitBody) -> JSONResponse:
     """复核后的草稿 → 1 条 `kind='exam'` 内容 + N 条 `origin='imported'` 题目（201）。"""
     result = exam_commit.commit(body.file_id, body.drafts)
     return JSONResponse(status_code=201, content=result)
+
+
+class ProofreadBody(BaseModel):
+    file_id: int
+    use_llm: bool = True
+
+
+@router.post("/proofread")
+def proofread(body: ProofreadBody) -> dict:
+    """整份校对（T10.4）→ `{pages, changed, dropped, total_lines}`。**不落库。**
+
+    改动先给用户看，接受哪些由 `/proofread/apply` 决定 —— 与 `parse` 同一套纪律：
+    没确认的东西不进库。
+    """
+    return exam_proof.proofread(body.file_id, use_llm=body.use_llm)
+
+
+class ApplyBody(BaseModel):
+    file_id: int
+    # 前端只回传「用户接受的」那些：`[{page_no, line, after}]`。
+    # 不复用 `before`：原文在后端，从 `text` 重新读，前端说了不算
+    accepted: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.post("/proofread/apply")
+def apply_proofread(body: ApplyBody) -> dict:
+    """把接受的改动写进 `text_reviewed`（原文 `text` 不动，随时可回退）。"""
+    return exam_proof.apply(body.file_id, body.accepted)
+
+
+@router.delete("/proofread/{file_id}")
+def reset_proofread(file_id: int) -> dict:
+    """回退到原始识别文本（需求 §8.5）。"""
+    return exam_proof.reset(file_id)
