@@ -13,17 +13,23 @@ def upsert(
     text: str,
     source: str = "ocr",
     avg_conf: float | None = None,
+    line_conf: str | None = None,
     image_path: str | None = None,
 ) -> None:
-    """重识别某页只覆盖识别结果；`text_reviewed`（人工复核）不在这条 UPDATE 里，不能丢。"""
+    """重识别某页只覆盖识别结果；`text_reviewed`（人工复核）不在这条 UPDATE 里，不能丢。
+
+    `line_conf` 是**与 `text` 逐行对齐**的 JSON 数组（T9.10 原文页签标黄用），
+    抽取来的页没有这个概念，传 None。
+    """
     conn.execute(
         """INSERT INTO item_page
-           (item_id, file_id, page_no, text, source, avg_conf, image_path)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+           (item_id, file_id, page_no, text, source, avg_conf, line_conf, image_path)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(file_id, page_no) DO UPDATE SET
              text=excluded.text, source=excluded.source,
-             avg_conf=excluded.avg_conf, image_path=excluded.image_path""",
-        (item_id, file_id, page_no, text, source, avg_conf, image_path),
+             avg_conf=excluded.avg_conf, line_conf=excluded.line_conf,
+             image_path=excluded.image_path""",
+        (item_id, file_id, page_no, text, source, avg_conf, line_conf, image_path),
     )
 
 

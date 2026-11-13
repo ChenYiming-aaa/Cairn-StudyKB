@@ -83,8 +83,12 @@ def _join_fragments(parts: list[str]) -> str:
     return out
 
 
-def _cluster_rows(lines: list[dict]) -> list[str]:
-    """单栏（或某一栏内部）：按 y 聚行，行内按 x 拼。"""
+def _cluster_rows_detail(lines: list[dict]) -> list[dict]:
+    """单栏（或某一栏内部）：按 y 聚行，行内按 x 拼。**带行置信度**（T9.10 标黄用）。
+
+    同一视觉行由几段拼接而成时取其中**最低**的置信度：一个词认不准，
+    整行就该被看一眼，"平均一下"正好把这个信号抹平。
+    """
     if not lines:
         return []
     tol = max(1.0, ROW_TOLERANCE * median([_height(ln) for ln in lines] or [1.0]))
@@ -97,14 +101,19 @@ def _cluster_rows(lines: list[dict]) -> list[str]:
             row["y"] = (row["y"] * (len(row["items"]) - 1) + y) / len(row["items"])
         else:
             rows.append({"y": y, "items": [line]})
-    out: list[str] = []
+    out: list[dict] = []
     for row in rows:
-        parts = [str(ln.get("text") or "").strip()
-                 for ln in sorted(row["items"], key=lambda l: _edges(l)[0])]
+        items = sorted(row["items"], key=lambda l: _edges(l)[0])
+        parts = [str(ln.get("text") or "").strip() for ln in items]
         merged = _join_fragments([p for p in parts if p])
         if merged:
-            out.append(merged)
+            confs = [float(ln.get("conf") or 0.0) for ln in items if str(ln.get("text") or "").strip()]
+            out.append({"text": merged, "conf": round(min(confs), 4) if confs else 0.0})
     return out
+
+
+def _cluster_rows(lines: list[dict]) -> list[str]:
+    return [row["text"] for row in _cluster_rows_detail(lines)]
 
 
 def _is_two_column(left: list[dict], right: list[dict], page_width: float) -> bool:
@@ -121,11 +130,11 @@ def _is_two_column(left: list[dict], right: list[dict], page_width: float) -> bo
     return left_right_edge <= right_left_edge + tol
 
 
-def order_lines(lines: list[dict], page_width: float) -> list[str]:
-    """把行框排成从上到下、**先整栏左再整栏右**的文本行。
+def order_lines_detail(lines: list[dict], page_width: float) -> list[dict]:
+    """与 `order_lines` 同一套顺序，但每行带回置信度：`[{text, conf}]`。
 
-    `page_width` 是页图宽度（px），用来决定中线；给 0 时退化成单栏处理
-    （宁可顺序一般，也不要凭空猜分栏）。
+    原文页签靠 `conf < 0.85` 标黄（T9.10），所以这个值必须与文字**逐行对齐**。
+    顺序算法只写一次：`order_lines` 是它的纯文字投影。
     """
     items = [ln for ln in lines if str(ln.get("text") or "").strip()]
     if not items:
@@ -136,9 +145,18 @@ def order_lines(lines: list[dict], page_width: float) -> list[str]:
         left = [ln for ln in items if _center_x(ln) < mid]
         right = [ln for ln in items if _center_x(ln) >= mid]
         if _is_two_column(left, right, page_width):
-            return _cluster_rows(left) + _cluster_rows(right)
+            return _cluster_rows_detail(left) + _cluster_rows_detail(right)
 
-    return _cluster_rows(items)
+    return _cluster_rows_detail(items)
+
+
+def order_lines(lines: list[dict], page_width: float) -> list[str]:
+    """把行框排成从上到下、**先整栏左再整栏右**的文本行。
+
+    `page_width` 是页图宽度（px），用来决定中线；给 0 时退化成单栏处理
+    （宁可顺序一般，也不要凭空猜分栏）。
+    """
+    return [row["text"] for row in order_lines_detail(lines, page_width)]
 
 
 def avg_conf(lines: list[dict]) -> float:

@@ -6,6 +6,7 @@
     cd backend && uv run python scripts/verify_m9.py --only resume    # 只跑断点续跑
     cd backend && uv run python scripts/verify_m9.py --only extract   # 只跑抽取（不需要识别组件）
     cd backend && uv run python scripts/verify_m9.py --only workspace # 只跑工作区（不需要识别组件）
+    cd backend && uv run python scripts/verify_m9.py --only raw       # 只跑原文页签的数据面（不需要识别组件）
 
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足（缺组件）
 
@@ -478,6 +479,11 @@ def group_extract() -> None:
               page["text"].startswith("全国计算机等级考试") and page["source"] == "extract",
               page["text"][:30])
         check("抽取页没有页图，image_url 为 null", page["image_url"] is None, str(page["image_url"]))
+        check("文档版式随页返回（原文页签直接渲染）",
+              bool(page.get("html")) and "<" in page["html"], str(page.get("html"))[:40])
+        check("版式里没有脚本（先净化再落盘）",
+              "<script" not in (page.get("html") or "").lower(), "命中 <script>")
+        check("抽取页没有行级置信度", page.get("line_conf") is None, str(page.get("line_conf")))
         check("正文已被覆盖（不再是 [文件] 占位）",
               not detail["raw_content"].startswith("[文件] "), detail["raw_content"][:30])
         check("正文重建了 chunk", len(detail["chunks"]) > 0, f"{len(detail['chunks'])} 块")
@@ -647,9 +653,121 @@ def group_workspace() -> None:
         check("删不存在的工作区 404", c.delete(f"/api/workspaces/{ws_b}").status_code == 404)
 
 
+# ── §raw（T9.10）──────────────────────────────────────────────
+def group_raw() -> None:
+    """原文页签的数据面：页文字 / 行置信度 / 版式 HTML / 页图地址。
+
+    **不碰识别组件、不调模型**：这里直接往库里放一页"识别结果"来验接口形状，
+    真正的识别链路在 §layout / §ocr。界面上"页图与文字并排、能翻页"由
+    `verify_m7.py` 的真浏览器用例兜（两处一起才算过完 T9.10）。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.db.conn import get_conn
+    from app.main import app
+    from app.services import ocr_layout, pdf_pages
+
+    # ① 纯函数：顺序与置信度必须逐行对齐，同一视觉行取其中最低分
+    def line(text, x0, y0, x1, y1, conf):
+        return {"text": text, "conf": conf,
+                "box": [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]}
+
+    sample = [
+        line("第一行", 10, 10, 100, 30, 0.98),
+        line("第二行左", 10, 40, 120, 60, 0.60),
+        line("第二行右", 130, 40, 240, 60, 0.99),
+        line("第三行", 10, 70, 100, 90, 0.92),
+    ]
+    detail = ocr_layout.order_lines_detail(sample, 600)
+    check("order_lines_detail 与 order_lines 完全同序",
+          [row["text"] for row in detail] == ocr_layout.order_lines(sample, 600),
+          str(detail))
+    check("同一视觉行取最低置信度（一个词认不准整行就该看）",
+          len(detail) == 3 and detail[1]["conf"] == 0.6, str(detail))
+    check("空页不报错", ocr_layout.order_lines_detail([], 0) == [])
+    two_col = [line("左1", 10, 10, 200, 30, 0.9), line("右1", 400, 10, 590, 30, 0.9),
+               line("左2", 10, 40, 200, 60, 0.9), line("右2", 400, 40, 590, 60, 0.9)]
+    check("双栏仍按「先整栏左再整栏右」",
+          [r["text"] for r in ocr_layout.order_lines_detail(two_col, 600)]
+          == ["左1", "左2", "右1", "右2"],
+          str([r["text"] for r in ocr_layout.order_lines_detail(two_col, 600)]))
+
+    # ② docx 的版式 HTML 是「先净化再落盘」：原文页签敢用 v-html，全靠这一道
+    from app.services import renderer
+
+    cleaned = renderer.sanitize(
+        '<h1>标题</h1><script>alert(1)</script><img src=x onerror="alert(1)">'
+        '<p onclick="alert(1)">正文</p>')
+    check("版式净化：<script> 标签被去掉（文字留下）",
+          "<script" not in cleaned.lower() and "alert(1)" in cleaned, cleaned)
+    check("版式净化：<img> 与 on* 事件属性都被去掉",
+          "<img" not in cleaned.lower() and "onerror" not in cleaned.lower()
+          and "onclick" not in cleaned.lower(), cleaned)
+    check("版式净化：正常标签留着（h1 / p）",
+          "<h1>" in cleaned and "<p>正文</p>" in cleaned, cleaned)
+
+    with TestClient(app) as c:
+        item_id = int(c.post("/api/knowledge", json={"raw_content": "[文件] a.pdf"}).json()["id"])
+        conn = get_conn()
+        try:
+            with conn:
+                file_id = conn.execute(
+                    """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
+                           stored_path, page_count, has_text_layer, ocr_status)
+                       VALUES (?, 'main', 'a.pdf', 'pdf', 'application/pdf', 100,
+                               'files/a.pdf', 1, 0, 'done')""", (item_id,)).lastrowid
+                conn.execute(
+                    """INSERT INTO item_page (item_id, file_id, page_no, text, source,
+                           avg_conf, line_conf, image_path)
+                       VALUES (?, ?, 1, ?, 'ocr', 0.83, ?, 'pages/1/0001.jpg')""",
+                    (item_id, file_id, "第一行\n第二行", "[0.98, 0.62]"))
+                # 第二页：抽取来的页，没有页图也没有行级置信度，但有版式 HTML
+                conn.execute(
+                    """INSERT INTO item_page (item_id, file_id, page_no, text, source)
+                       VALUES (?, ?, 2, 'Word 的正文', 'extract')""",
+                    (item_id, file_id))
+        finally:
+            conn.close()
+        html_dir = pdf_pages.file_dir(int(file_id))
+        html_dir.mkdir(parents=True, exist_ok=True)
+        (html_dir / "0002.html").write_text("<h1>标题</h1><p>正文</p>", encoding="utf-8")
+
+        page = c.get(f"/api/knowledge/{item_id}/pages/1").json()
+        check("页接口回齐四样：文字 / 置信度 / 页图 / 行级分",
+              set(page) >= {"page_no", "text", "source", "avg_conf",
+                            "image_url", "line_conf", "html"}, str(sorted(page)))
+        check("行级置信度与文字逐行对齐",
+              page["line_conf"] == [0.98, 0.62] and len(page["text"].split("\n")) == 2,
+              str(page["line_conf"]))
+        check("识别页的页图地址指向 file?page=n",
+              page["image_url"] == f"/api/knowledge/{item_id}/file?page=1", str(page["image_url"]))
+        check("识别页没有版式 HTML（html 为 null）", page["html"] is None, str(page["html"]))
+
+        typed = c.get(f"/api/knowledge/{item_id}/pages/2").json()
+        check("抽取页回版式 HTML", typed["html"] == "<h1>标题</h1><p>正文</p>", str(typed["html"])[:60])
+        check("抽取页没有行级置信度（没有认字这一步）", typed["line_conf"] is None, str(typed["line_conf"]))
+
+        # 坏数据不该让详情 500：标黄是锦上添花，不是关键路径
+        conn = get_conn()
+        try:
+            with conn:
+                conn.execute("UPDATE item_page SET line_conf='oops' WHERE page_no=1")
+        finally:
+            conn.close()
+        broken = c.get(f"/api/knowledge/{item_id}/pages/1")
+        check("line_conf 是坏数据时给 null，不是 500",
+              broken.status_code == 200 and broken.json()["line_conf"] is None,
+              f"{broken.status_code} {broken.text[:60]}")
+
+        check("越界页号 404", c.get(f"/api/knowledge/{item_id}/pages/9").status_code == 404)
+        check("第 0 页 404（页码从 1 开始）",
+              c.get(f"/api/knowledge/{item_id}/pages/0").status_code == 404)
+        check("不存在的内容 404", c.get("/api/knowledge/99999/pages/1").status_code == 404)
+
+
 GROUPS = (
-    ("layout", group_layout), ("resume", group_resume),
-    ("extract", group_extract), ("workspace", group_workspace),
+    ("layout", group_layout), ("resume", group_resume), ("extract", group_extract),
+    ("workspace", group_workspace), ("raw", group_raw),
 )
 
 
@@ -663,7 +781,7 @@ def main() -> int:
     print(f"Cairn M9 验收 · 临时数据目录 {TMP}")
     # 抽取（§extract）与工作区（§workspace）都不碰识别组件：
     # 单独跑它们时不该被"没构建组件"挡住
-    if only not in ("extract", "workspace"):
+    if only not in ("extract", "workspace", "raw"):
         hint = prepare_component()
         if hint:
             print(f"× {hint}")

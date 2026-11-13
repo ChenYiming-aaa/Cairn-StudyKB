@@ -1,6 +1,8 @@
 """条目 CRUD + 切块（T1.7）+ 整理触发（T1.8）。所有端点用同步 def（总纲 §7）。"""
 from __future__ import annotations
 
+import json
+import logging
 import sqlite3
 from typing import Literal
 from urllib.parse import quote
@@ -25,6 +27,7 @@ from app.services import tasks as task_queue
 from app.services.agents import organizer
 
 router = APIRouter(prefix="/api/knowledge", tags=["knowledge"])
+log = logging.getLogger(__name__)
 
 
 class CreateBody(BaseModel):
@@ -414,6 +417,34 @@ def _page_image_url(item_id: int, page_no: int) -> str:
     return f"/api/knowledge/{item_id}/file?page={page_no}"
 
 
+def _page_html(file_id: int, page_no: int) -> str | None:
+    """docx 的版式 HTML（抽取时净化后落盘，T9.7）。抽取不出 HTML 的格式返回 None。
+
+    读盘而不是入库：HTML 只服务原文页签，几十 KB 一条，进库只会撑大 SQLite。
+    盘上没这份文件（老数据 / 写盘失败）也只是少一层版式，文字仍在，不算错误。
+    """
+    path = pdf_pages.file_dir(file_id) / f"{page_no:04d}.html"
+    try:
+        return path.read_text(encoding="utf-8") if path.is_file() else None
+    except OSError as exc:
+        log.warning("第 %s 页的版式读不出来（%s）", page_no, exc)
+        return None
+
+
+def _line_conf(raw: str | None) -> list[float] | None:
+    """`line_conf` 是 JSON 数组文本；坏数据当没有（标黄是锦上添花，不该让详情 500）。"""
+    if not raw:
+        return None
+    try:
+        values = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(values, list):
+        return None
+    out = [float(v) for v in values if isinstance(v, (int, float))]
+    return out or None
+
+
 @router.get("/{item_id}/pages/{n}")
 def get_page(item_id: int, n: int):
     """第 n 页的文字与页图**必须同一次返回**（"认错也看得出来"的保障，数据契约 §6）。"""
@@ -439,6 +470,10 @@ def get_page(item_id: int, n: int):
             "avg_conf": row["avg_conf"],
             # 抽取来的页（docx/pptx/xlsx/txt）没有页图：给 null，别给一个必然 404 的地址
             "image_url": _page_image_url(item_id, n) if row["image_path"] else None,
+            # 行级置信度与 text 逐行对齐；抽取页为 null（没有"认字"这一步）
+            "line_conf": _line_conf(row["line_conf"]),
+            # docx 的版式 HTML（已过 bleach），原文页签直接 v-html
+            "html": _page_html(int(file["id"]), n) if row["source"] == "extract" else None,
         }
     finally:
         conn.close()

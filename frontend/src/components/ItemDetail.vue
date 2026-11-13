@@ -229,7 +229,9 @@ onBeforeUnmount(stop)
           <NoteEditor :key="item.id" :item-id="item.id" :note="item.structured_note || ''" @saved="onNoteSaved" />
         </div>
 
-        <RawPane v-show="tab === 'raw'" :text="item.raw_content" :focus="focus" />
+        <!-- T9.10：原文按原件格式分派（PDF 页图、Word 版式、PPT 大纲、图片对照）；
+             active 传下去，页签没打开时不发任何取页请求 -->
+        <RawPane v-show="tab === 'raw'" :item="item" :focus="focus" :active="tab === 'raw'" />
 
         <MindmapPane
           v-if="tab === 'mindmap'"

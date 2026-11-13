@@ -32,6 +32,7 @@
 """
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 from pathlib import Path
@@ -238,7 +239,8 @@ def _write_page(item_id: int, file_id: int, page_no: int,
     if not result.ok:
         log.warning("第 %s 页没识别出来：%s %s", page_no, result.error, result.message)
         return
-    text = "\n".join(ocr_layout.order_lines(result.lines, result.width or image.width))
+    rows = ocr_layout.order_lines_detail(result.lines, result.width or image.width)
+    text = "\n".join(row["text"] for row in rows)
     conn = get_conn()
     try:
         with conn:
@@ -246,6 +248,8 @@ def _write_page(item_id: int, file_id: int, page_no: int,
                 conn, item_id=item_id, file_id=file_id, page_no=page_no,
                 text=text, source="ocr",
                 avg_conf=ocr_layout.avg_conf(result.lines),
+                # 逐行置信度与 text 同源、同一顺序：原文页签按行标黄全靠它
+                line_conf=json.dumps([row["conf"] for row in rows], ensure_ascii=False) if rows else None,
                 image_path=image.path,
             )
     finally:

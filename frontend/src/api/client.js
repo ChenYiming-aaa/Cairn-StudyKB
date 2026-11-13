@@ -304,6 +304,11 @@ export const api = {
   uploadFile: (file, opts) => postFile('/api/files', file, opts),
   /** 读字进度（T9.6）：{status, done_pages, total_pages, failed_pages} */
   ocrProgress: (itemId) => get(`/api/knowledge/${itemId}/ocr`),
+  /** 原文页签（T9.10）：{page_no, text, source, avg_conf, image_url, line_conf, html} */
+  getPage: (itemId, n) => get(`/api/knowledge/${itemId}/pages/${n}`),
+  /** 页图地址（PDF / 扫描页）；图片原件用 fileUrl 拿原格式，别经这层固定 image/jpeg */
+  pageImageUrl: (itemId, n) => `${baseUrl()}/api/knowledge/${itemId}/file?page=${n}`,
+  fileUrl: (itemId) => `${baseUrl()}/api/knowledge/${itemId}/file`,
   envCheck: () => get('/api/env/check'),
   /** 首次引导（T5.7）：把 llm 配置写进 .env 并热加载，返回 {saved, env_file, check} */
   saveEnvKey: (payload) => post('/api/env/key', payload),

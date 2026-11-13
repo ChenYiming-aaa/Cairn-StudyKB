@@ -469,6 +469,212 @@ def main() -> int:
             page.locator(f"{side} .status-filter .row").first.click()
             page.wait_for_timeout(500)
 
+            # ── 15 原文页签按格式分派（T9.10）──────────────────
+            # 传一份真 docx：它走抽取（不依赖识别组件），原文页签必须渲染成**版式**，
+            # 而不是把整份文字平铺成一段。判据落在渲染出来的 DOM 上（.doc / .raw 二选一），
+            # 只看"有没有字"是过不了这一关的。
+            page.goto(base, wait_until="networkidle")
+            page.locator(".topbar").get_by_role("button", name="采集内容").click()
+            page.wait_for_selector("[role='dialog']")
+            page.get_by_role("button", name="文件与链接").click()
+            page.wait_for_timeout(300)
+            page.set_input_files(".dialog input[type=file]",
+                                 str(ROOT / "samples" / "cet6" / "course.docx"))
+            deadline = time.time() + 90
+            while time.time() < deadline:
+                if "已读取" in page.inner_text(".list") or "没读成" in page.inner_text(".list"):
+                    break
+                page.wait_for_timeout(400)
+            check("docx 上传后读完了", "已读取" in page.inner_text(".list"),
+                  page.inner_text(".list").replace("\n", " | ")[:80])
+            page.get_by_role("button", name="去看看").first.click()
+            page.wait_for_timeout(1000)
+
+            page.locator(".tabs").get_by_role("button", name="原文").click()
+            page.wait_for_timeout(900)
+            doc = page.locator(".raw-pane .doc")
+            check("Word 的原文渲染成版式（不是一坨纯文本）", doc.count() == 1, str(doc.count()))
+            body = doc.inner_text() if doc.count() else ""
+            # 判据串取自这份样本的第一个标题（samples/cet6），不是通用词
+            check("版式里读得到正文", "大学英语六级考试" in body, body[:60])
+            check("Word 原文里没有 base64 图（抽取阶段已丢图）",
+                  "data:image" not in (doc.inner_html() if doc.count() else ""))
+            hits = scan_text(page, "原文·Word")
+            check("原文（Word）没有禁止词", not hits, " | ".join(hits))
+
+            # 没有原件的内容（粘贴来的）仍走纯文本原文，问答定位高亮靠这一路
+            page.locator("aside[aria-label='内容列表'] .row").nth(1).click()
+            page.wait_for_timeout(700)
+            page.locator(".tabs").get_by_role("button", name="原文").click()
+            page.wait_for_timeout(600)
+            check("没有原件的内容用纯文本原文",
+                  page.locator(".raw-pane .raw").count() == 1,
+                  str(page.locator(".raw-pane .raw").count()))
+            check("纯文本原文里没有版式容器", page.locator(".raw-pane .doc").count() == 0)
+
+            # ── 15b 其余三种格式的分派（PDF / PPT / 图片）──────────────
+            # 造三条「已经读完」的内容，**不装识别组件**也能验版式：
+            # 页图与原件都走真实路径（file?page=n / file），坏链也是一个 <img>，
+            # 所以判据必须落在 naturalWidth 上。type_tail 的位置用占位符替换。
+            from PIL import Image
+
+            from app.services import files as file_store
+            from app.services import pdf_pages
+
+            stamp = datetime.now().astimezone().replace(microsecond=0).isoformat(timespec="seconds")
+
+            def add_fake_item(title: str, ext: str, mime: str, pages: list[dict],
+                              *, make_image: bool = False) -> tuple[int, int]:
+                """往库里塞一条"读完的原件"。`pages` 每项：{text, conf, has_image}。"""
+                conn = get_conn()
+                try:
+                    with conn:
+                        item = conn.execute(
+                            """INSERT INTO knowledge_item
+                               (title, source_type, raw_content, content_hash, status,
+                                created_at, updated_at, kind)
+                               VALUES (?, 'file', ?, ?, 'ready', ?, ?, 'material')""",
+                            (title, pages[0]["text"], f"verify-m7-{ext}-{title}", stamp, stamp),
+                        ).lastrowid
+                        file_id = conn.execute(
+                            """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
+                                   stored_path, page_count, has_text_layer, ocr_status)
+                               VALUES (?, 'main', ?, ?, ?, 2048, ?, ?, ?, 'done')""",
+                            (item, f"{title}.{ext}", ext, mime,
+                             f"files/verify-m7-{item}.{ext}", len(pages),
+                             0 if ext in ("pdf", "png") else 1),
+                        ).lastrowid
+                        for index, page in enumerate(pages, start=1):
+                            conn.execute(
+                                """INSERT INTO item_page (item_id, file_id, page_no, text, source,
+                                       avg_conf, line_conf, image_path)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (item, file_id, index, page["text"],
+                                 "ocr" if ext in ("pdf", "png") else "extract",
+                                 page.get("avg_conf"), page.get("conf"),
+                                 f"pages/{file_id}/{index:04d}.jpg" if page.get("has_image") else None),
+                            )
+                        conn.execute("UPDATE knowledge_item SET file_id=? WHERE id=?",
+                                     (file_id, item))
+                finally:
+                    conn.close()
+                return int(item), int(file_id)
+
+            pdf_item = add_fake_item(
+                "扫描讲义", "pdf", "application/pdf",
+                [{"text": "第一行文字\n第二行文字\n第三行文字", "conf": "[0.98, 0.62, 0.9]",
+                  "avg_conf": 0.83, "has_image": True},
+                 {"text": "这是第二页的文字", "conf": "[0.95]", "avg_conf": 0.95,
+                  "has_image": False}],
+            )
+            shot = pdf_pages.file_dir(pdf_item[1]) / "0001.jpg"
+            shot.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGB", (600, 820), (250, 249, 245)).save(shot, format="JPEG")
+
+            ppt_item = add_fake_item(
+                "第一章 运行环境", "pptx",
+                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                [{"text": "运行环境\n- 需要 Python 3.11\n  - 再装 venv\n备注：这一页讲安装",
+                  "avg_conf": None, "has_image": False},
+                 {"text": "三点回顾\n- 装好\n- 跑通\n- 记住", "avg_conf": None, "has_image": False}],
+            )
+
+            png_item = add_fake_item(
+                "拍照笔记", "png", "image/png",
+                [{"text": "图片里的两行字\n第二行", "conf": "[0.99, 0.55]",
+                  "avg_conf": 0.77, "has_image": False}],
+                make_image=True,
+            )
+            # 图片的"原件"就是它自己：stored_path 必须指向一份真文件，否则 <img> 是坏链
+            png_path = file_store.abs_path(f"files/verify-m7-{png_item[0]}.png")
+            png_path.parent.mkdir(parents=True, exist_ok=True)
+            Image.new("RGB", (420, 300), (232, 238, 232)).save(png_path, format="PNG")
+
+            def open_raw(title: str, ready: str) -> None:
+                """按标题找那条内容（不靠序号：几条的创建时间是同一秒，顺序不稳）。
+
+                `ready` 是"这一页真的出来了"的选择器，等它出现再断言 ——
+                只看 wait_for_timeout 会在慢一次的时候误判成"没渲染"。
+                """
+                page.goto(base, wait_until="networkidle")
+                page.locator("aside[aria-label='内容列表'] .row").filter(has_text=title).first.click()
+                page.wait_for_timeout(400)
+                page.locator(".tabs").get_by_role("button", name="原文").click()
+                page.locator(ready).first.wait_for(timeout=20000)
+
+            open_raw("扫描讲义", ".pdf-view .line")
+            check("PDF 的原文走页图视图", page.locator(".pdf-view").count() == 1,
+                  str(page.locator(".pdf-view").count()))
+            natural = page.eval_on_selector(
+                ".pdf-view .shot img", "el => el.naturalWidth") if page.locator(
+                ".pdf-view .shot img").count() else 0
+            check("页图真的加载出来了（不是坏链）", bool(natural and natural > 0), str(natural))
+            check("这一页的文字逐行显示", page.locator(".pdf-view .line").count() == 3,
+                  str(page.locator(".pdf-view .line").count()))
+            check("认不准的那一行标了黄", page.locator(".pdf-view .line.low").count() == 1,
+                  str(page.locator(".pdf-view .line.low").count()))
+            check("页头提示这页可能有错", "可能有错" in page.inner_text(".pdf-view"),
+                  page.inner_text(".pdf-view").replace("\n", " | ")[:80])
+            page.locator(".pdf-view .bar").get_by_role("button", name="下一页").click()
+            page.wait_for_timeout(900)
+            shown = page.inner_text(".pdf-view")
+            check("PDF 能翻页：第 2 页显示的是第 2 页的字",
+                  "这是第二页的文字" in shown and "第一行文字" not in shown,
+                  shown.replace("\n", " | ")[:80])
+            check("没有页图的那页给占位、文字照旧",
+                  "没有页图" in shown and "第二页的文字" in shown, shown.replace("\n", " | ")[:60])
+            hits = scan_text(page, "原文·PDF")
+            check("原文（PDF）没有禁止词", not hits, " | ".join(hits))
+
+            open_raw("第一章 运行环境", ".pptx-view .bullet")
+            check("PPT 的原文走大纲视图", page.locator(".pptx-view").count() == 1,
+                  str(page.locator(".pptx-view").count()))
+            check("幻灯片标题独立成行",
+                  page.locator(".pptx-view .slide-title").inner_text().strip() == "运行环境",
+                  page.locator(".pptx-view .slide-title").inner_text())
+            check("要点按层级列出", page.locator(".pptx-view .bullet").count() == 2,
+                  str(page.locator(".pptx-view .bullet").count()))
+            notes = page.locator(".pptx-view .notes-body").inner_text() if page.locator(
+                ".pptx-view .notes-body").count() else ""
+            check("备注单独一段", "这一页讲安装" in notes, notes[:40])
+            page.locator(".pptx-view .bar").get_by_role("button", name="下一页").click()
+            page.wait_for_timeout(800)
+            check("PPT 也能翻页",
+                  page.locator(".pptx-view .slide-title").inner_text().strip() == "三点回顾",
+                  page.locator(".pptx-view .slide-title").inner_text())
+            hits = scan_text(page, "原文·PPT")
+            check("原文（PPT）没有禁止词", not hits, " | ".join(hits))
+
+            open_raw("拍照笔记", ".image-view .line")
+            check("图片的原文走对照视图", page.locator(".image-view").count() == 1,
+                  str(page.locator(".image-view").count()))
+            natural = page.eval_on_selector(
+                ".image-view .shot img", "el => el.naturalWidth") if page.locator(
+                ".image-view .shot img").count() else 0
+            check("原图加载出来了", bool(natural and natural > 0), str(natural))
+            check("右边是识别文字且逐行", page.locator(".image-view .line").count() == 2,
+                  str(page.locator(".image-view .line").count()))
+            check("认不准的那行在图片视图里也标黄",
+                  page.locator(".image-view .line.low").count() == 1,
+                  str(page.locator(".image-view .line.low").count()))
+            hits = scan_text(page, "原文·图片")
+            check("原文（图片）没有禁止词", not hits, " | ".join(hits))
+
+            # 后端 HTML 被塞了 <script>：v-html 只渲染标签内容，不许执行
+            xss_item = add_fake_item(
+                "带脚本的文档", "docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                [{"text": "正文", "avg_conf": None, "has_image": False}],
+            )
+            xss_html = pdf_pages.file_dir(xss_item[1]) / "0001.html"
+            xss_html.parent.mkdir(parents=True, exist_ok=True)
+            xss_html.write_text(
+                "<h1>正文</h1><script>window.__xss = 1</script>", encoding="utf-8")
+            open_raw("带脚本的文档", ".doc")
+            executed = page.evaluate("() => window.__xss || 0")
+            check("原文里的 <script> 不会执行", page.locator(".doc").count() == 1 and not executed,
+                  f"doc={page.locator('.doc').count()} __xss={executed}")
+
             # ── 3 Ctrl+B 折叠 + 刷新保持 ──────────────────────
             page.keyboard.press("Control+b")
             page.wait_for_timeout(400)

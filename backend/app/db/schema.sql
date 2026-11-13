@@ -214,6 +214,7 @@ CREATE TABLE item_page (
   text          TEXT NOT NULL DEFAULT '',
   source        TEXT NOT NULL DEFAULT 'ocr',
   avg_conf      REAL,
+  line_conf     TEXT,
   image_path    TEXT,
   text_reviewed TEXT
 );
