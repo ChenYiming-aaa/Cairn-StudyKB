@@ -324,6 +324,36 @@ function showError({ reason, detail }) {
   win.loadFile(path.join(__dirname, 'error.html'), { query: Object.fromEntries(params) })
 }
 
+// ── 目录选择 IPC（T10.6）──────────────────────────────────
+// 主进程只做一件事：弹系统选目录框，把路径交回去。**不读文件、不拼路径、不建内容** ——
+// 格式校验、去重、识别排队都在后端（那里是唯一一份规则）。主进程多碰一步，
+// 就多一处「桌面端说能导、后端说不能导」的分裂。
+function registerFilePicker(base) {
+  const trusted = (event) => {
+    const url = (event.senderFrame && event.senderFrame.url) || ''
+    return url.startsWith(base)
+  }
+  ipcMain.handle('import:pick-directory', async (event) => {
+    if (!trusted(event)) {
+      log('拒绝选目录调用：来源不受信任')
+      return { ok: false, code: 'FORBIDDEN', message: '来源不受信任。' }
+    }
+    try {
+      const result = await dialog.showOpenDialog(win, {
+        title: '选择要导入的文件夹',
+        buttonLabel: '用这个文件夹',
+        // 只选一个目录：多个目录分几次选就行，多选要处理「重名文件夹」的显示问题
+        properties: ['openDirectory'],
+      })
+      if (result.canceled || !result.filePaths.length) return { ok: false, code: 'CANCELED' }
+      return { ok: true, path: result.filePaths[0] }
+    } catch (e) {
+      log(`选目录抛异常：${e && e.stack ? e.stack : e}`)
+      return { ok: false, code: 'EXCEPTION', message: `打不开选择框：${(e && e.message) || e}` }
+    }
+  })
+}
+
 // ── 更新器 IPC（T8.5）──────────────────────────────────────
 // 两条硬约束：
 // 1. **入参一律不收**。下载与安装只认主进程里缓存的那次检查结果，渲染进程就算被注入
@@ -427,6 +457,7 @@ async function boot() {
   const base = `http://127.0.0.1:${backendPort}`
   injectCsp(base)
   registerUpdater(base)
+  registerFilePicker(base)
   // 上次升级留下的临时包：只在启动时清一小时之前的（见 updater.cleanup 的说明）
   if (updater.cleanup()) log('清掉过期更新包')
   openWindow(base)

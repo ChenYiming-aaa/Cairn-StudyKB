@@ -367,6 +367,10 @@ export const api = {
   examProofreadApply: (payload) => post('/api/exams/proofread/apply', payload),
   /** 回退校对（T10.4）：清掉 text_reviewed，回到原始识别文本 */
   examProofreadReset: (fileId) => del(`/api/exams/proofread/${fileId}`),
+  /** 目录批量导入（T10.6）：只列清单不导 */
+  importScan: (payload) => post('/api/import/scan', payload),
+  /** 目录批量导入（T10.6）：按清单逐个导，一个失败不影响其余 */
+  importRun: (payload) => post('/api/import/run', payload),
   /** 今日待复习（T4.6）：拿到的题自带 options/answer/explanation，可直接作答 */
   dueReviews: (params) => get('/api/review/due', params),
   /** 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题 */
