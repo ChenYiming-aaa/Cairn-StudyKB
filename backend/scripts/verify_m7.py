@@ -15,6 +15,8 @@
   4. 拖拽手柄改宽后刷新仍保持
   5. 内容列表收起后详情区域变宽
   6. 逐页 innerText 不出现 `docs/dev/文案规范.md` §6 的禁止词
+  6b. 采集面板（T9.8）两个 tab 与文件卡片的文案同样过一遍：面板是模态，
+      不点开就永远扫不到那半屏
   7. 两个搜索框的 placeholder / aria-label 可区分（S-12）
   8. 设置窗口四个 tab 的可见文案同样过禁止词
   9. 选中分类后状态计数收窄到该类（分类树仍是全库）、点「全部内容」回到全库
@@ -434,6 +436,38 @@ def main() -> int:
                 page.wait_for_timeout(350)
                 hits = scan_text(page, label)
                 check(f"{label} 没有禁止词", not hits, " | ".join(hits))
+
+            # ── 6b 采集面板（T9.8 改造后的两个 tab）─────────────
+            # 面板是模态，不在任何路由的 innerText 里；不点开就永远扫不到这半屏文案
+            page.goto(base, wait_until="networkidle")
+            page.locator(".topbar").get_by_role("button", name="采集内容").click()
+            page.wait_for_selector("[role='dialog']")
+            page.wait_for_timeout(350)
+            hits = scan_text(page, "采集·粘贴文本")
+            check("采集面板·粘贴文本 没有禁止词", not hits, " | ".join(hits))
+
+            page.get_by_role("button", name="文件与链接").click()
+            page.wait_for_timeout(350)
+            hits = scan_text(page, "采集·文件与链接")
+            check("采集面板·文件与链接 没有禁止词", not hits, " | ".join(hits))
+
+            # 卡片上的文案（上传中 / 已读取 N 页 / 去看看）只有真传一个文件才出现。
+            # 用 txt：走抽取，不依赖识别组件，几毫秒就完，不会拖慢这一组。
+            sample = TMP / "采集面板文案样例.txt"
+            sample.write_text("这是一段用来检查采集面板卡片文案的样例正文。\n" * 40, encoding="utf-8")
+            page.set_input_files(".dialog input[type=file]", str(sample))
+            deadline = time.time() + 60
+            while time.time() < deadline:
+                cards = page.inner_text(".list")
+                if "已读取" in cards or "没读成" in cards:
+                    break
+                page.wait_for_timeout(400)
+            cards = page.inner_text(".list")
+            check("文件卡片显示读完了", "已读取" in cards, cards.replace("\n", " | ")[:80])
+            hits = scan_text(page, "采集·文件卡片")
+            check("采集面板·文件卡片 没有禁止词", not hits, " | ".join(hits))
+            page.get_by_role("button", name="关闭采集面板").click()
+            page.wait_for_timeout(300)
 
             # 8 设置窗口四个 tab
             page.goto(base, wait_until="networkidle")

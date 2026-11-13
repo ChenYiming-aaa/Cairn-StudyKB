@@ -221,6 +221,7 @@ function onOpen(itemId) {
       @created="onCreated"
       @existing="onExisting"
       @ingested="onIngested"
+      @uploaded="requestRefresh"
       @open="onOpen"
     />
 

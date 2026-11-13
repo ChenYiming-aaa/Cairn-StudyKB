@@ -145,6 +145,61 @@ export const patch = (path, body) => request('PATCH', path, { body })
 export const del = (path) => request('DELETE', path)
 
 /**
+ * 上传文件（T9.8）：**只有它用 XHR** —— `fetch` 拿不到上传百分比。
+ *
+ * `onProgress(pct)` 是**上传**进度（0–100），传完就没有了；识别是后台任务，
+ * 进度要另外用 `api.ocrProgress()` 轮询。两件事别混成一个条：
+ * 上传 100% 不代表字读出来了，用户面对的是「传完 0.3 秒、读字 8 分钟」。
+ *
+ * `signal` 一 abort 就 `xhr.abort()`：后端读流会断，临时文件被删，不会留半份内容。
+ */
+export function postFile(path, file, { onProgress, signal, field = 'file', form } = {}) {
+  return new Promise((resolve, reject) => {
+    const body = new FormData()
+    body.append(field, file, file.name)
+    for (const [k, v] of Object.entries(form || {})) {
+      if (v !== undefined && v !== null && v !== '') body.append(k, String(v))
+    }
+
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${baseUrl()}${path}`)
+    xhr.responseType = 'text'
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return
+      onProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)))
+    }
+    xhr.onload = () => {
+      let data
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null
+      } catch {
+        data = null
+      }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data)
+      const payload = data?.error || {}
+      reject(new ApiError({
+        code: payload.code || `HTTP_${xhr.status}`,
+        message: payload.message || `HTTP ${xhr.status}`,
+        detail: payload.detail || (xhr.responseText || '').slice(0, 300),
+        status: xhr.status,
+      }))
+    }
+    xhr.onerror = () => reject(new ApiError({
+      code: 'NETWORK',
+      message: '上传中断了，网络或本地服务没接住',
+      detail: 'xhr upload failed',
+    }))
+    xhr.onabort = () => {
+      const exc = new Error('已取消上传')
+      exc.name = 'AbortError'
+      reject(exc)
+    }
+    signal?.addEventListener('abort', () => xhr.abort(), { once: true })
+    xhr.send(body)
+  })
+}
+
+/**
  * SSE：POST + ReadableStream 手工解析（不用 EventSource，它不支持 POST 与请求体）。
  * 接口契约 §4 的约定形状：每帧 `data: {json}\n\n`。
  * 返回 Promise，流结束（或出错）后 resolve；传 signal 可中断。
@@ -237,6 +292,10 @@ export const api = {
   ingestUrl: (payload) => post('/api/ingest/url', payload),
   /** 视频采集：返回 {task_id}，四阶段进度靠 pollTask 追 */
   ingestVideo: (payload) => post('/api/ingest/video', payload),
+  /** 上传原件（T9.8）：onProgress 给的是上传百分比；落盘后后端自动排队读字 */
+  uploadFile: (file, opts) => postFile('/api/files', file, opts),
+  /** 读字进度（T9.6）：{status, done_pages, total_pages, failed_pages} */
+  ocrProgress: (itemId) => get(`/api/knowledge/${itemId}/ocr`),
   envCheck: () => get('/api/env/check'),
   /** 首次引导（T5.7）：把 llm 配置写进 .env 并热加载，返回 {saved, env_file, check} */
   saveEnvKey: (payload) => post('/api/env/key', payload),

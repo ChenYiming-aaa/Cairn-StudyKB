@@ -22,6 +22,15 @@ export function charCount(text) {
   return (text || '').length
 }
 
+/** 字节 → 「12 KB / 3.4 MB / 1.2 GB」。列表里只需要一个量级，不显示精确字节。 */
+export function fileSize(bytes) {
+  const n = Number(bytes) || 0
+  if (n <= 0) return '—'
+  if (n >= 1073741824) return `${(n / 1073741824).toFixed(1)} GB`
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(n / 1024))} KB`
+}
+
 /** 秒 → mm:ss（倒计时用；超过 1 小时退化成 h:mm:ss） */
 export function clock(seconds) {
   const total = Math.max(0, Math.floor(seconds || 0))
