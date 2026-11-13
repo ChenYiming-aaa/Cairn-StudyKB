@@ -53,6 +53,8 @@ def _list_shape(row: sqlite3.Row) -> dict:
         "id": item["id"], "title": item["title"],
         "source_type": item["source_type"], "category": item["category"],
         "tags": item["tags"], "status": item["status"],
+        # T9.9：列表项要显示「属于哪个工作区」，名字由前端按 id 映射（不多查一次 SQL）
+        "workspace_id": item["workspace_id"],
         "created_at": item["created_at"],
     }
 
@@ -137,17 +139,24 @@ def list_items(
 
 
 @router.get("/categories")
-def list_categories(category: str | None = None, tag: str | None = None) -> dict:
+def list_categories(
+    category: str | None = None,
+    tag: str | None = None,
+    workspace_id: int | Literal["none"] | None = None,
+) -> dict:
     """分类 / 标签两级计数 + 状态计数（左侧树与「整理全部」的气泡都用它）。
 
-    `category` / `tag` 只收窄 `counts`，分类树本身仍是全库（树是导航，不该自我截断）。
-    左栏选中筛选后，状态行与「开始整理 N 条」都跟着变成当前范围的数量。
+    `category` / `tag` / `workspace_id` 只收窄 `counts`，分类树本身仍是全库
+    （树是导航，不该自我截断）。左栏选中筛选后，状态行与「开始整理 N 条」都跟着
+    变成当前范围的数量 —— 三处口径必须一致（T9.9 把工作区也接进来）。
 
     必须注册在 `/{item_id}` 之前，否则 "categories" 会被当成 item_id 解析成 422。
     """
     conn = get_conn()
     try:
-        return repo.category_tree(conn, category=category, tag=tag)
+        return repo.category_tree(
+            conn, category=category, tag=tag, workspace_id=workspace_id
+        )
     finally:
         conn.close()
 
@@ -163,16 +172,19 @@ def organize_pending(
     limit: int = Query(default=20, ge=1, le=100),
     category: str | None = None,
     tag: str | None = None,
+    workspace_id: int | Literal["none"] | None = None,
 ) -> dict:
     """批量整理 status='pending' 的条目。逐条派发独立任务，返回 item→task 映射。
 
-    `category` / `tag` 与列表筛选同一口径：左栏筛着某分类时，「开始整理 N 条」
-    整理的就是这 N 条，不是全库的待整理。
+    `category` / `tag` / `workspace_id` 与列表筛选同一口径：左栏筛着某分类或某个
+    工作区时，「开始整理 N 条」整理的就是这 N 条，不是全库的待整理。
     """
     _require_llm_key()
     conn = get_conn()
     try:
-        item_ids = repo.list_ids_by_status(conn, "pending", limit, category=category, tag=tag)
+        item_ids = repo.list_ids_by_status(
+            conn, "pending", limit, category=category, tag=tag, workspace_id=workspace_id
+        )
         queued: list[dict] = []
         for item_id in item_ids:
             with conn:

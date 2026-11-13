@@ -371,6 +371,104 @@ def main() -> int:
             check("列表搜索框 aria-label 不省略",
                   list_box.get_attribute("aria-label") == "搜索标题")
 
+            # ── 14 工作区（T9.9）─────────────────────────────
+            # 左栏最上面那一段：建 2 个工作区、各放 3 条、删一个、改个名。
+            # 判据在接口侧独立核对（GET /api/workspaces），不信界面自己算的账。
+            side = "aside[aria-label='知识库导航']"
+
+            def make_ws(name: str) -> None:
+                page.locator(f"{side} .ws").get_by_role("button", name="新建工作区").click()
+                box_ = page.locator(f"{side} .ws .editor input")
+                box_.fill(name)
+                box_.press("Enter")
+                page.wait_for_timeout(600)
+
+            def ws_row(name: str):
+                return page.locator(f"{side} .ws-row").filter(has_text=name)
+
+            def put_three(target_label: str, start: int) -> None:
+                # 列表按 id 倒序，移完顺序不变 —— 第二批必须从下一段取，
+                # 否则同一批内容会被移进第二个工作区（第一版就这么错了）
+                picks = page.locator(".list-body .pick")
+                for i in range(start, start + 3):
+                    picks.nth(i).click()
+                page.locator(".bulk select").select_option(label=target_label)
+                page.locator(".bulk").get_by_role("button", name="移到").click()
+                page.wait_for_timeout(700)
+
+            make_ws("数据结构")
+            make_ws("英语二")
+            # 新建完会直接切进新工作区（空列表），先回「全部」再放内容
+            page.locator(f"{side} .ws-row").first.locator(".node").click()
+            page.wait_for_timeout(500)
+            api_ws = get_json(base, "api/workspaces")
+            check("左栏能建工作区（2 个）", len(api_ws["items"]) == 2, str(api_ws["items"]))
+            check("左栏行数 = 全部 + 2 个工作区 + 未归类",
+                  page.locator(f"{side} .ws-row").count() == 4,
+                  str(page.locator(f"{side} .ws-row").count()))
+
+            put_three("数据结构", 0)
+            put_three("英语二", 3)
+            api_ws = get_json(base, "api/workspaces")
+            counts = {w["name"]: w["item_count"] for w in api_ws["items"]}
+            check("勾选批量移入后各放 3 条", counts == {"数据结构": 3, "英语二": 3}, str(counts))
+            shown = {w["name"]: int(ws_row(w["name"]).locator(".count").inner_text())
+                     for w in api_ws["items"]}
+            check("左栏计数与接口一致", shown == counts, str(shown))
+
+            ws_row("数据结构").locator(".node").click()
+            page.wait_for_timeout(600)
+            list_total = page.locator("aside[aria-label='内容列表'] .list-meta span").first.inner_text()
+            check("点工作区后列表只剩这 3 条", list_total.startswith("3 条"), list_total)
+            check("选中工作区后「全部」也跟着收窄",
+                  int(page.locator(f"{side} .ws-row").first.locator(".count").inner_text()) == 3,
+                  page.locator(f"{side} .ws-row").first.locator(".count").inner_text())
+
+            # 删一个：内容回到「未归类」，内容本身不删
+            answered = []
+            dlg = lambda d: (answered.append(d.message), d.accept())  # noqa: E731
+            page.on("dialog", dlg)
+            ws_row("数据结构").hover()
+            page.get_by_role("button", name="重命名 数据结构").click()
+            page.wait_for_timeout(200)
+            # 改名时这一行换成输入框，名字不再以文本存在 —— 不能再用 has_text 找它
+            rename_box = page.locator(f"{side} .ws-row input")
+            rename_box.fill("数据结构（改）")
+            rename_box.press("Enter")
+            page.wait_for_timeout(600)
+            api_ws = get_json(base, "api/workspaces")
+            check("改名后接口与左栏同步",
+                  "数据结构（改）" in [w["name"] for w in api_ws["items"]]
+                  and ws_row("数据结构（改）").count() == 1, str(api_ws["items"]))
+
+            ws_row("英语二").hover()
+            page.get_by_role("button", name="删除 英语二").click()
+            page.wait_for_timeout(700)
+            api_ws = get_json(base, "api/workspaces")
+            after_total = get_json(base, "api/knowledge")["total"]
+            check("删工作区后内容还在（总数不变）", after_total == total_items, f"{after_total}")
+            check("被删工作区的 3 条回到「未归类」",
+                  api_ws["none_count"] == total_items - 3, str(api_ws))
+            check("删除是确认过的", any("英语二" in m for m in answered), str(answered))
+            page.remove_listener("dialog", dlg)
+
+            # 详情里的下拉：把一条移回「未归类」，列表与左栏要跟着变
+            ws_row("数据结构（改）").locator(".node").click()
+            page.wait_for_timeout(600)
+            page.locator(".list-body .row").first.click()
+            page.wait_for_timeout(600)
+            page.locator(".detail select[aria-label='移到哪个工作区']").select_option(label="未归类")
+            page.wait_for_timeout(700)
+            api_ws = get_json(base, "api/workspaces")
+            left = {w["name"]: w["item_count"] for w in api_ws["items"]}
+            check("详情下拉能把一条移回「未归类」", left.get("数据结构（改）") == 2, str(left))
+            check("移出后左栏那个数字跟着变",
+                  int(ws_row("数据结构（改）").locator(".count").inner_text()) == 2,
+                  ws_row("数据结构（改）").locator(".count").inner_text())
+
+            page.locator(f"{side} .status-filter .row").first.click()
+            page.wait_for_timeout(500)
+
             # ── 3 Ctrl+B 折叠 + 刷新保持 ──────────────────────
             page.keyboard.press("Control+b")
             page.wait_for_timeout(400)

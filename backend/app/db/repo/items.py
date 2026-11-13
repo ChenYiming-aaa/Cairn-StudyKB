@@ -211,11 +211,17 @@ def delete_item(conn: sqlite3.Connection, item_id: int) -> bool:
     return cur.rowcount > 0
 
 
-def _scope_clause(category: str | None, tag: str | None) -> tuple[str, list]:
+def _scope_clause(
+    category: str | None, tag: str | None, workspace_id: int | str | None = None
+) -> tuple[str, list]:
     """左栏「当前筛选」→ WHERE 片段（2026-11-10：计数与批量整理共用一套口径）。
 
     分类名按展示名比（`COALESCE(NULLIF(category,''),'未分类')`），这样和分类树里的
     数字逐条对得上；标签仍走 json_each，非法 JSON 退化空数组。
+
+    `workspace_id` 与 `list_items` 同一套哨兵：`None` = 不收窄、`"none"` = `IS NULL`
+    （T9.9）。三处（状态计数 / 批量整理 / 列表）必须同口径，否则「开始整理 N 条」
+    会把别的工区里的内容一起拖走。
     """
     where: list[str] = []
     args: list = []
@@ -229,20 +235,32 @@ def _scope_clause(category: str | None, tag: str | None) -> tuple[str, list]:
             " WHERE json_each.value = ?)"
         )
         args.append(tag)
+    if workspace_id == "none":
+        where.append("workspace_id IS NULL")
+    elif workspace_id is not None and workspace_id != "":
+        where.append("workspace_id=?")
+        args.append(workspace_id)
     return (" WHERE " + " AND ".join(where)) if where else "", args
 
 
 def category_tree(
-    conn: sqlite3.Connection, *, category: str | None = None, tag: str | None = None
+    conn: sqlite3.Connection,
+    *,
+    category: str | None = None,
+    tag: str | None = None,
+    workspace_id: int | str | None = None,
 ) -> dict:
     """分类 → 标签两级计数 + 状态计数，供左侧树使用。
 
     之前前端拿最近 100 条自己聚合，条目破百后计数就偏低（M1 已知限制）。
     这里直接由 SQL 聚合全库，不再有上限，也省掉前端一次全量拉取。
 
-    `category` / `tag` **只收窄 `counts`**，分类树本身始终是全库的：树是导航，
+    `category` / `tag` / `workspace_id` **只收窄 `counts`**，分类树本身始终是全库的：树是导航，
     不该因为选中了某一支就把别的分支藏掉。选中分类后左栏状态行显示该分类下的数量，
     与列表、与「开始整理 N 条」三处口径一致。
+
+    工作区同理（T9.9）：选了某个工作区，`counts` 跟着收窄成该工作区的，
+    但分类树仍是全库 —— 否则「在这个工作区里还有哪些分类」会被自己藏起来。
     """
     rows = conn.execute(
         """SELECT COALESCE(NULLIF(category,''),'未分类') AS name, COUNT(*) AS cnt
@@ -263,7 +281,7 @@ def category_tree(
         if bucket is not None:
             bucket["tags"].append({"name": r["tag"], "count": r["cnt"]})
 
-    clause, scoped = _scope_clause(category, tag)
+    clause, scoped = _scope_clause(category, tag, workspace_id)
     counts = conn.execute(
         """SELECT COUNT(*) AS total,
                   COALESCE(SUM(status='pending'), 0)    AS pending,
@@ -309,8 +327,9 @@ def list_ids_by_status(
     *,
     category: str | None = None,
     tag: str | None = None,
+    workspace_id: int | str | None = None,
 ) -> list[int]:
-    clause, args = _scope_clause(category, tag)
+    clause, args = _scope_clause(category, tag, workspace_id)
     if clause:
         clause += " AND status=?"
     else:

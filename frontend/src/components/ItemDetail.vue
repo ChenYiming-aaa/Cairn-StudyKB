@@ -22,8 +22,10 @@ const props = defineProps({
   // D-01：空态要分两种——"库里有内容但没选中" vs "库里一条都没有"，
   // 后者说"从左侧选一条"是死路。默认 true，避免首次加载瞬间误报"还没有内容"。
   hasItems: { type: Boolean, default: true },
+  // [{ id, name }]：详情里那个「移到哪个工作区」的下拉（T9.9）
+  workspaces: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['refresh', 'deleted', 'create'])
+const emit = defineEmits(['refresh', 'deleted', 'create', 'move'])
 
 const toast = useToast()
 const { focusChunk } = useUi()
@@ -123,6 +125,15 @@ function organize() {
     })
 }
 
+/** 详情里的下拉：改这一条的位置。空串 = 未归类（PATCH 里 null 就是「移出工作区」） */
+function onWorkspaceChange(event) {
+  const value = event.target.value
+  emit('move', {
+    id: props.item.id,
+    workspaceId: value === '' ? null : Number(value),
+  })
+}
+
 function remove() {
   const item = props.item
   if (!item) return
@@ -184,6 +195,15 @@ onBeforeUnmount(stop)
         <span v-if="item.category" class="chip">{{ item.category }}</span>
         <span v-for="tag in item.tags" :key="tag" class="chip chip-tag">#{{ tag }}</span>
         <span v-if="item.note_edited" class="chip chip-edit" title="整理会覆盖手改内容">笔记已手改</span>
+        <select
+          class="ws-pick"
+          aria-label="移到哪个工作区"
+          :value="item.workspace_id ? String(item.workspace_id) : ''"
+          @change="onWorkspaceChange"
+        >
+          <option value="">未归类</option>
+          <option v-for="ws in workspaces" :key="ws.id" :value="String(ws.id)">{{ ws.name }}</option>
+        </select>
         <span class="time">{{ fullTime(item.created_at) }}</span>
       </div>
 
@@ -293,6 +313,16 @@ onBeforeUnmount(stop)
 .chip-edit {
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
+}
+
+.ws-pick {
+  max-width: 140px;
+  padding: 1px var(--space-1);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-1);
+  color: var(--c-text-2);
+  font-size: var(--fs-xs);
 }
 
 .time {

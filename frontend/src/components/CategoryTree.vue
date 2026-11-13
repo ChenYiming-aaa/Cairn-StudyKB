@@ -1,12 +1,16 @@
 <script setup>
 /**
- * 知识库左栏（T7.0 + T7.1 重组）。
+ * 知识库左栏（T7.0 + T7.1 重组，T9.9 加工作区段）。
  *
- * 结构按 M7 §2：筛选框 → 状态快筛 → 分类（默认收起，>10 折叠）→ 常用标签（Top 8 chip）。
+ * 结构按 M7 §2：筛选框 → **工作区**（T9.9）→ 状态快筛 → 分类（默认收起，>10 折叠）
+ * → 常用标签（Top 8 chip）。
  * 三件必须守住的事：
  * - **计数口径不许改**：仍用 `GET knowledge/categories` 的返回，不在前端另算一套
- * - 标签云的全库计数由 categories[].tags[] 按名字求和（一条条目只属一个分类，求和即准确）
+ * - 标签云的全库计数由 categories[].tags[] 按名字求和（一条内容只属一个分类，求和即准确）
  * - 筛选只发事件，不改数据；搜索只过滤左栏的名字，不发检索请求
+ *
+ * 工作区在**状态快筛之上、分类之上**：它是用户自己的抽屉，与机器给的分类不是一个层级，
+ * 所以中间有分隔线、字重也不一样。两者的筛选是叠加关系（某工作区里待整理的内容）。
  */
 import { computed, nextTick, ref } from 'vue'
 
@@ -14,6 +18,7 @@ import CategorySection from './filters/CategorySection.vue'
 import SidebarRail from './filters/SidebarRail.vue'
 import StatusFilter from './filters/StatusFilter.vue'
 import TagCloud from './filters/TagCloud.vue'
+import WorkspaceBar from './filters/WorkspaceBar.vue'
 import RailToggle from './RailToggle.vue'
 import SidePanel from './SidePanel.vue'
 import { useLayout } from '../composables/useLayout'
@@ -21,6 +26,11 @@ import { useLayout } from '../composables/useLayout'
 const props = defineProps({
   // [{ name, count, tags: [{ name, count }] }]
   categories: { type: Array, default: () => [] },
+  // [{ id, name, color, sort_order, item_count }]（T9.9）
+  workspaces: { type: Array, default: () => [] },
+  // '' = 全部 | 'none' = 未归类 | number = 某个工作区
+  activeWorkspace: { type: [Number, String], default: '' },
+  noneCount: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
   counts: { type: Object, default: () => ({ total: 0, pending: 0, organizing: 0 }) },
   active: { type: Object, default: () => ({ category: '', tag: '' }) },
@@ -28,7 +38,7 @@ const props = defineProps({
   status: { type: String, default: '' },
   loading: { type: Boolean, default: false },
 })
-const emit = defineEmits(['select', 'status', 'ingest'])
+const emit = defineEmits(['select', 'status', 'ingest', 'workspace', 'workspaces-changed'])
 
 const { expand } = useLayout()
 
@@ -74,8 +84,10 @@ const noMatch = computed(
 )
 
 function onAll() {
+  // 「全部内容」是根节点：分类 / 标签 / 状态 / 工作区一起清，不是只清状态
   emit('select', { category: '', tag: '' })
   emit('status', '')
+  emit('workspace', '')
 }
 
 function onStatus(next) {
@@ -132,6 +144,15 @@ function focusSection(which) {
     </div>
 
     <div class="side-scroll">
+      <WorkspaceBar
+        :workspaces="workspaces"
+        :active="activeWorkspace"
+        :none-count="noneCount"
+        :total="total"
+        @select="emit('workspace', $event)"
+        @changed="emit('workspaces-changed')"
+      />
+
       <StatusFilter :counts="counts" :active="status" @all="onAll" @pick="onStatus" />
 
       <div v-if="loading && !categories.length" class="side-loading">

@@ -22,7 +22,7 @@ from app.errors import ApiError, api_error_handler
 from app.paths import install_root, is_frozen
 from app.routers import (
     ask, auth, env, files, health, html, ingest, knowledge, quiz, review, search, session,
-    settings, stats, tasks,
+    settings, stats, tasks, workspaces,
 )
 # 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
 from app.routers import components as components_api
@@ -105,6 +105,7 @@ app.include_router(settings.router)
 app.include_router(auth.router)
 app.include_router(ingest.router)
 app.include_router(files.router)
+app.include_router(workspaces.router)
 app.include_router(knowledge.router)
 app.include_router(search.router)
 app.include_router(ask.router)

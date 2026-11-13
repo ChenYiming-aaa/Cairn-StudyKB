@@ -54,6 +54,8 @@ const FRIENDLY = [
   [/^FETCH_LOGIN_REQUIRED$/, '这个站点要登录才给内容，这条没采到。先在采集面板登录对应站点，再点一次采集'],
   [/^FETCH_/, '采集没成功：站点拒绝访问，或者没抓到有效正文。这种情况改用粘贴更稳'],
   [/^ITEM_NOT_FOUND$/, '内容不存在，可能已经删掉了。刷新列表看看'],
+  [/^WORKSPACE_NOT_FOUND$/, '这个工作区不在了，可能刚被删掉。左栏会自己刷新一次'],
+  [/^WORKSPACE_/, '工作区没保存成功，改动会丢。再试一次'],
   [/^ITEM_BUSY$/, '这条正在整理中，等它结束再操作'],
   [/^TASK_NOT_RETRYABLE$/, '这个任务不是失败状态，不用重试'],
   [/^SESSION_ALREADY_RUNNING$/, '已经有一轮计时在跑。先结束或放弃它，再开新的'],
@@ -280,6 +282,12 @@ export const api = {
   createItem: (payload) => post('/api/knowledge', payload),
   patchItem: (id, payload) => patch(`/api/knowledge/${id}`, payload),
   deleteItem: (id) => del(`/api/knowledge/${id}`),
+  /** 工作区（T9.9）：列表带每条的内容数与 `none_count`（未归类的数量） */
+  workspaces: () => get('/api/workspaces'),
+  createWorkspace: (payload) => post('/api/workspaces', payload),
+  patchWorkspace: (id, payload) => patch(`/api/workspaces/${id}`, payload),
+  /** 删工作区只把内容移出，不删内容（后端 SET NULL） */
+  deleteWorkspace: (id) => del(`/api/workspaces/${id}`),
   organize: (id) => post(`/api/knowledge/${id}/organize`),
   // 带当前筛选：左栏筛着某分类时，整理的就是这一批
   organizePending: (params) =>

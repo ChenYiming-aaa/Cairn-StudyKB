@@ -5,6 +5,7 @@
     cd backend && uv run python scripts/verify_m9.py --only layout    # 只跑判列
     cd backend && uv run python scripts/verify_m9.py --only resume    # 只跑断点续跑
     cd backend && uv run python scripts/verify_m9.py --only extract   # 只跑抽取（不需要识别组件）
+    cd backend && uv run python scripts/verify_m9.py --only workspace # 只跑工作区（不需要识别组件）
 
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足（缺组件）
 
@@ -15,6 +16,8 @@
   §extract T9.7 四组 `course.docx` 结构与 `samples/_check.json` 逐项对齐、HTML 无 base64 图、
            pptx 备注与表格、xlsx 200 行截断与竖线转义、txt 三种编码判定，
            以及端到端：上传即排队 → 正文覆盖 → 页可读 → 坏文件不留半份正文
+  §workspace T9.9 工作区 CRUD、计数口径（`item_count` / `none_count` / 列表 / 状态计数
+           四处对齐）、「未归类」= `IS NULL`、删工作区只移出不删内容、批量整理按工作区收窄
 
 **为什么这两组值得单独落成脚本**：`ocr_layout.order_lines` 和 `ingest_file` 是 T9.6 里最容易
 被后手改坏的两处（T9.8 / T9.10 会碰它们周边）。判列错了不会报错，只会让检索和整理拿到
@@ -538,7 +541,116 @@ def group_extract() -> None:
               cut_progress["status"] == "partial", str(cut_progress))
 
 
-GROUPS = (("layout", group_layout), ("resume", group_resume), ("extract", group_extract))
+
+
+# ── §workspace（T9.9）──────────────────────────────────────────
+def group_workspace() -> None:
+    """工作区 CRUD 与四处计数口径。**不碰识别组件、不调模型**。
+
+    这里只验接口层：界面上「左栏计数与筛选结果一致」在 `verify_m7.py` 的工作区那一组里
+    （真浏览器），两处一起才算过完 T9.9。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.services import tasks as task_queue
+
+    with TestClient(app) as c:
+        def make(text: str) -> int:
+            return int(c.post("/api/knowledge", json={"raw_content": text}).json()["id"])
+
+        # ① 建：名字上限 20、同名允许（用户叫两个「英语」不算错）
+        a = c.post("/api/workspaces", json={"name": "数据结构"})
+        b = c.post("/api/workspaces", json={"name": "英语二"})
+        same = c.post("/api/workspaces", json={"name": "数据结构"})
+        check("建工作区返回 201 且带 item_count",
+              a.status_code == 201 and a.json()["item_count"] == 0, a.text[:120])
+        check("同名允许（两个「数据结构」）",
+              same.status_code == 201 and same.json()["id"] != a.json()["id"], same.text[:120])
+        check("名字超过 20 字 422",
+              c.post("/api/workspaces", json={"name": "x" * 21}).status_code == 422)
+        check("空名字 422", c.post("/api/workspaces", json={"name": ""}).status_code == 422)
+        check("name 是必填", c.post("/api/workspaces", json={}).status_code == 422)
+        c.delete(f"/api/workspaces/{same.json()['id']}")     # 同名那个先删掉，后面只算两个
+
+        ws_a, ws_b = int(a.json()["id"]), int(b.json()["id"])
+        ids = [make(f"第 {i} 条内容，用来验工作区计数口径") for i in range(7)]
+        for item_id in ids[:3]:
+            c.patch(f"/api/knowledge/{item_id}", json={"workspace_id": ws_a})
+        for item_id in ids[3:6]:
+            c.patch(f"/api/knowledge/{item_id}", json={"workspace_id": ws_b})
+
+        # ② 四处计数必须对齐：/workspaces、列表 total、状态计数、分类树
+        listing = c.get("/api/workspaces").json()
+        counts = {w["id"]: w["item_count"] for w in listing["items"]}
+        check("工作区列表带内容数", counts == {ws_a: 3, ws_b: 3}, str(counts))
+        check("none_count = 没有工作区的内容数",
+              listing["none_count"] == 1, str(listing["none_count"]))
+        check("总数守恒（各工作区 + 未归类 = 全部）",
+              sum(counts.values()) + listing["none_count"] == 7, str(listing))
+        check("列表按工作区筛出 3 条",
+              c.get("/api/knowledge", params={"workspace_id": ws_a}).json()["total"] == 3)
+        check("列表 workspace_id=none 只看未归类",
+              c.get("/api/knowledge", params={"workspace_id": "none"}).json()["total"] == 1)
+        check("workspace_id 不是数字时 422",
+              c.get("/api/knowledge", params={"workspace_id": "abc"}).status_code == 422)
+        scoped = c.get("/api/knowledge/categories", params={"workspace_id": ws_a}).json()
+        check("状态计数跟着工作区收窄（3 条）", scoped["counts"]["total"] == 3,
+              str(scoped["counts"]))
+        check("分类树本身仍是全库（不收窄）",
+              len(scoped["categories"]) == len(c.get("/api/knowledge/categories").json()["categories"]))
+        check("未归类也能量（none）",
+              c.get("/api/knowledge/categories",
+                    params={"workspace_id": "none"}).json()["counts"]["total"] == 1)
+
+        # ③ 列表项与会话详情都带 workspace_id（前端靠它显示「属于哪个工作区」）
+        first = c.get("/api/knowledge", params={"workspace_id": ws_a}).json()["items"][0]
+        check("列表项带 workspace_id", first.get("workspace_id") == ws_a, str(first))
+        detail = c.get(f"/api/knowledge/{first['id']}").json()
+        check("详情与列表的工作区一致", detail["workspace_id"] == ws_a, str(detail["workspace_id"]))
+
+        # ④ 批量整理按工作区收窄（真派发会去调模型，这里只记派了谁）
+        sent: list[dict] = []
+        original = task_queue.submit
+        task_queue.submit = lambda *args, **kw: (sent.append(args[2]), "fake-task")[1]
+        try:
+            resp = c.post("/api/knowledge/organize-pending", params={"workspace_id": ws_a})
+        finally:
+            task_queue.submit = original
+        queued = {item["item_id"] for item in resp.json()["items"]}
+        check("批量整理只取当前工作区的待整理",
+              queued == set(ids[:3]) and len(sent) == 3, f"{sorted(queued)} / 派出 {len(sent)}")
+
+        # ⑤ 改名 / 404
+        renamed = c.patch(f"/api/workspaces/{ws_a}", json={"name": "数据结构（改）"})
+        check("改名生效且回 item_count",
+              renamed.status_code == 200 and renamed.json()["name"] == "数据结构（改）"
+              and renamed.json()["item_count"] == 3, renamed.text[:120])
+        check("改不存在的工作区 404",
+              c.patch("/api/workspaces/99999", json={"name": "x"}).status_code == 404)
+        check("移入不存在的工作区 404",
+              c.patch(f"/api/knowledge/{ids[6]}", json={"workspace_id": 99999}).status_code == 404)
+
+        # ⑥ 删工作区：内容回落「未归类」，一条都不删
+        before_total = c.get("/api/knowledge").json()["total"]
+        deleted = c.delete(f"/api/workspaces/{ws_b}")
+        after_total = c.get("/api/knowledge").json()["total"]
+        listing = c.get("/api/workspaces").json()
+        check("删工作区返回 freed=false",
+              deleted.status_code == 200 and deleted.json() == {"freed": False},
+              deleted.text[:80])
+        check("内容数不变（只移出不删）", after_total == before_total, str(before_total))
+        check("被删工作区的内容回到未归类",
+              listing["none_count"] == 4, str(listing["none_count"]))
+        check("那些内容确实变回 NULL",
+              c.get("/api/knowledge", params={"workspace_id": "none"}).json()["total"] == 4)
+        check("删不存在的工作区 404", c.delete(f"/api/workspaces/{ws_b}").status_code == 404)
+
+
+GROUPS = (
+    ("layout", group_layout), ("resume", group_resume),
+    ("extract", group_extract), ("workspace", group_workspace),
+)
 
 
 def main() -> int:
@@ -549,8 +661,9 @@ def main() -> int:
     if "--pages" in sys.argv:
         LIMIT = int(sys.argv[sys.argv.index("--pages") + 1])
     print(f"Cairn M9 验收 · 临时数据目录 {TMP}")
-    # 抽取（§extract）不碰识别组件：那一组单独跑时不该被"没构建组件"挡住
-    if only != "extract":
+    # 抽取（§extract）与工作区（§workspace）都不碰识别组件：
+    # 单独跑它们时不该被"没构建组件"挡住
+    if only not in ("extract", "workspace"):
         hint = prepare_component()
         if hint:
             print(f"× {hint}")

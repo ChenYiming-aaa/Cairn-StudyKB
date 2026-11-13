@@ -1,16 +1,16 @@
 <script setup>
 /**
- * 条目列表栏（T7.0 原样保留 → T7.2 接入 SidePanel）。
+ * 内容列表栏（T7.0 → T7.2 接入 SidePanel → T9.9 加勾选与批量移入）。
  *
- * 三件事：
- * - 宽度/折叠交给 SidePanel + useLayout（列宽 0 时整栏干净收起，不再靠过渡样式兜）
- * - 搜索框留在顶部：位置不变，用户已经形成肌肉记忆
- * - 空状态给「下一步」：一句话 + 最近 3 条（点一条直接跳过去）+ 采集按钮
+ * - 宽度/折叠交给 SidePanel + useLayout（列宽 0 时整栏干净收起，不靠过渡样式兜）
+ * - 搜索框留在顶部；空状态给「下一步」：一句话 + 最近 3 条 + 采集按钮
+ * - 勾选态按 id 存，筛选变化时剔掉看不见的 id（否则会移走屏幕外的内容）
  */
 import { ref, watch } from 'vue'
 
 import SidePanel from './SidePanel.vue'
-import StatusBadge from './StatusBadge.vue'
+import BulkMoveBar from './list/BulkMoveBar.vue'
+import ItemRow from './list/ItemRow.vue'
 import { shortTime } from '../utils/format'
 
 const props = defineProps({
@@ -25,11 +25,44 @@ const props = defineProps({
   filtered: { type: Boolean, default: false },
   // 最近采集的 3 条（不受当前筛选影响）：列表因筛选变空时用来「跳回去」
   recent: { type: Array, default: () => [] },
+  // [{ id, name, item_count }]，用来显示每条属于哪个工作区、以及批量移入的下拉
+  workspaces: { type: Array, default: () => [] },
 })
-const emit = defineEmits(['select', 'search', 'retry', 'organize-pending', 'select-recent', 'create'])
+const emit = defineEmits([
+  'select', 'search', 'retry', 'organize-pending', 'select-recent', 'create', 'move',
+])
 
 const keyword = ref(props.q)
+const picked = ref([])          // 勾中的 id
 let timer = null
+
+/** id → 名字。不做成 Map 是为了让模板里一行就能用（列表最多 50 条，线性找也不慢） */
+function wsName(id) {
+  if (!id) return ''
+  return (props.workspaces || []).find((ws) => ws.id === id)?.name || ''
+}
+
+function toggle(id) {
+  picked.value = picked.value.includes(id)
+    ? picked.value.filter((x) => x !== id)
+    : [...picked.value, id]
+}
+
+/** 批量移入：条自己只管「选哪些」，移到哪里由 BulkMoveBar 决定 */
+function onBulkMove(workspaceId) {
+  if (!picked.value.length) return
+  emit('move', { ids: [...picked.value], workspaceId })
+  picked.value = []
+}
+
+// 筛选换了以后，屏幕上没有的 id 不该还留着选中（会移走用户看不见的内容）
+watch(
+  () => props.items.map((item) => item.id).join(','),
+  () => {
+    const alive = new Set(props.items.map((item) => item.id))
+    picked.value = picked.value.filter((id) => alive.has(id))
+  }
+)
 
 watch(
   () => props.q,
@@ -78,6 +111,14 @@ function clearKeyword() {
       </div>
     </div>
 
+    <BulkMoveBar
+      v-if="picked.length"
+      :count="picked.length"
+      :workspaces="workspaces"
+      @move="onBulkMove"
+      @cancel="picked = []"
+    />
+
     <div class="list-body">
       <div v-if="loading && !items.length" class="skeletons">
         <div v-for="i in 5" :key="i" class="skeleton-row">
@@ -115,21 +156,16 @@ function clearKeyword() {
       </div>
 
       <ul v-else class="rows">
-        <li v-for="item in items" :key="item.id">
-          <button
-            type="button"
-            class="row"
-            :class="{ on: item.id === activeId }"
-            @click="emit('select', item.id)"
-          >
-            <span class="row-title">{{ item.title }}</span>
-            <span class="row-meta">
-              <StatusBadge :status="item.status" />
-              <span v-if="item.category" class="row-cat">{{ item.category }}</span>
-              <span class="row-time">{{ shortTime(item.created_at) }}</span>
-            </span>
-          </button>
-        </li>
+        <ItemRow
+          v-for="item in items"
+          :key="item.id"
+          :item="item"
+          :active="item.id === activeId"
+          :picked="picked.includes(item.id)"
+          :ws-name="wsName(item.workspace_id)"
+          @select="emit('select', $event)"
+          @toggle="toggle"
+        />
       </ul>
     </div>
   </SidePanel>
@@ -185,13 +221,6 @@ function clearKeyword() {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-
-/* 空态里有最近 3 条与按钮，垂直居中会把按钮推到屏幕外，改成从顶部排 */
-.list-body .state {
-  min-height: 100%;
-  justify-content: flex-start;
-  padding-top: var(--space-8);
 }
 
 .recent {
@@ -252,57 +281,6 @@ function clearKeyword() {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.row {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  text-align: left;
-}
-
-.row:hover {
-  background: var(--c-bg-0);
-}
-
-.row.on {
-  background: var(--c-primary-soft);
-  border-color: var(--c-primary-border);
-}
-
-.row-title {
-  font-size: var(--fs-sm);
-  line-height: var(--lh-title);
-  color: var(--c-text-1);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.row-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-}
-
-.row-cat {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 80px;
-}
-
-.row-time {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
 }
 
 .skeletons {
