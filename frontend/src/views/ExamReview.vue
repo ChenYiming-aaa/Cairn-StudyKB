@@ -66,6 +66,9 @@ async function load() {
     return
   }
   phase.value = 'ready'
+  // 初审跟在解析后面自己跑：用户不用先点一下才知道哪几题有问题。
+  // 不 await —— 题目先给出来，提示后到，比转圈等十几秒好
+  runAudit()
 }
 
 onMounted(load)
@@ -176,6 +179,112 @@ function answerLost(draft) {
   return filledOptions(draft).length < letters[0].charCodeAt(0) - 64
 }
 
+/* —— 初审（T10.9）：看这批题能不能用 —— */
+
+const auditing = ref(false)
+const auditData = ref(null)        // {issues: [{index, code, level, message, fix, applied}], stats}
+const auditError = ref('')
+// 校对改的是页文本，解析读的是它；不重读一次，页面上这些草稿还是改之前的
+const staleAfterProofread = ref(false)
+
+function isAnswerEmpty(draft) {
+  const value = draft.answer
+  if (Array.isArray(value)) return !value.length
+  return value === null || value === undefined || !String(value).trim()
+}
+
+/** 只把草稿里复核要用的字段传过去：初审不看题号，也不该看到草稿上的临时字段 */
+function auditPayload() {
+  return drafts.value.map((d) => ({
+    number: d.number,
+    type: d.type,
+    question: d.question,
+    options: d.type === 'single' || d.type === 'multiple'
+      ? d.options.filter((o) => String(o || '').trim())
+      : [],
+    answer: d.answer,
+  }))
+}
+
+async function runAudit() {
+  if (auditing.value || phase.value !== 'ready') return
+  auditing.value = true
+  auditError.value = ''
+  try {
+    const data = await api.examAudit({ drafts: auditPayload(), use_llm: true })
+    auditData.value = {
+      issues: (data.issues || []).map((it) => ({ ...it, applied: false })),
+      stats: data.stats || {},
+    }
+  } catch (err) {
+    // 初审挂了不影响复核：用户在页面上照样能改、能导入，只是少了这层提示
+    auditError.value = friendlyMessage(err)
+    auditData.value = null
+  } finally {
+    auditing.value = false
+  }
+}
+
+const auditLine = computed(() => {
+  if (auditing.value) return '正在看这批题能不能用…'
+  if (auditError.value) return `没看成：${auditError.value}。照着页图自己过一遍更稳`
+  const stats = auditData.value?.stats
+  if (!stats) return ''
+  const tail = stats.model === 'failed' ? '（模型没连上，这次只按规则看）'
+    : stats.model === 'partial' ? '（有一批没看成）' : ''
+  if (!liveFlagged.value) return `看了 ${stats.questions} 题，题目都是完整的${tail}`
+  const bits = [`${liveFlagged.value} 题有疑问`]
+  if (liveMissing.value) bits.push(`${liveMissing.value} 题没答案`)
+  return `看了 ${stats.questions} 题，${bits.join('，')}${tail}`
+})
+
+/** 这一题要显示的问题。
+ *
+ * 两条在本地即时核对：「没答案」「选项不够」用户当场就会补上，补完还挂着提示
+ * 等于骗人。其余（断句、串行）得重算整道题，留在「检查题目」里刷新 ——
+ * 前端不复制后端的判据，否则两边迟早算出两个答案。
+ */
+function activeIssues(index) {
+  const draft = drafts.value[index]
+  if (!draft) return []
+  return (auditData.value?.issues || []).filter((it) => {
+    if (it.index !== index) return false
+    if (it.code === 'NO_ANSWER' && !isAnswerEmpty(draft)) return false
+    if (it.code === 'FEW_OPTIONS' && filledOptions(draft).length >= 2) return false
+    if (it.code === 'ANSWER_OUT_OF_RANGE' && !answerLost(draft)) return false
+    return true
+  })
+}
+
+// 顶栏那行数字要跟着改：补完答案还说「2 题有疑问」，用户就不信它了
+const liveFlagged = computed(() => {
+  let count = 0
+  for (let i = 0; i < drafts.value.length; i += 1) if (activeIssues(i).length) count += 1
+  return count
+})
+
+const liveMissing = computed(() => drafts.value.filter((d) => isAnswerEmpty(d)).length)
+
+/** 用模型给的题干：先留住原文，改错了能撤回（草稿只在前端，没有别的地方能找回来） */
+function useFix(draft, issue) {
+  if (!issue.fix) return
+  draft.questionBefore = draft.question
+  draft.question = issue.fix
+  issue.applied = true
+}
+
+function undoFix(draft, issue) {
+  if (draft.questionBefore !== undefined) draft.question = draft.questionBefore
+  delete draft.questionBefore
+  issue.applied = false
+}
+
+/** 校对采纳后重读：`parse` 读 `text_reviewed`，不重读页面上还是旧字 */
+function reloadDrafts() {
+  staleAfterProofread.value = false
+  load()
+}
+
 const proof = ref(null)          // {total_lines, changed, pages:[{page_no, changes}]} 
 const proofing = ref(false)
 const applying = ref(false)
@@ -226,6 +335,8 @@ async function applyProofread() {
     const dropped = (result.dropped || []).length
     toast.ok(`改了 ${result.applied} 处${dropped ? `，${dropped} 处没通过检查没改` : ''}`)
     proof.value = null
+    // 页文本变了，屏幕上这些草稿还是旧的：不重读，用户以为改了字题目就会跟着变
+    if (result.applied) staleAfterProofread.value = true
   } catch (err) {
     toast.error(friendlyMessage(err))
   } finally {
@@ -292,6 +403,13 @@ async function commit() {
         <button
           class="btn btn-sm"
           type="button"
+          aria-label="再检查一遍题目"
+          :disabled="auditing || phase !== 'ready'"
+          @click="runAudit"
+        >{{ auditing ? '正在检查…' : '检查题目' }}</button>
+        <button
+          class="btn btn-sm"
+          type="button"
           :disabled="proofing || phase !== 'ready'"
           @click="openProofread"
         >{{ proofing ? '正在校对…' : '校对文字' }}</button>
@@ -322,6 +440,16 @@ async function commit() {
         {{ gapText }}
         <button class="btn btn-sm" type="button" @click="addDraft">补一道</button>
       </p>
+      <p v-if="staleAfterProofread" class="notice">
+        文字改完了，题目还是改之前的；重新读一次才会用上，这页手动改过的地方会被覆盖
+        <button class="btn btn-sm" type="button" @click="reloadDrafts">重新读题</button>
+        <button class="btn btn-sm btn-ghost" type="button" @click="staleAfterProofread = false">先不用</button>
+      </p>
+      <p
+        v-if="auditLine"
+        class="notice"
+        :class="{ 'notice-quiet': !auditError && !liveFlagged }"
+      >{{ auditLine }}</p>
       <p v-if="!drafts.length" class="notice">这份文件里没找到题目，可以照着页图手动录几道。</p>
 
       <div class="spread">
@@ -388,6 +516,33 @@ async function commit() {
                 @click="removeDraft(index)"
               >删掉</button>
             </div>
+
+            <!-- 初审看到的问题：每条一句人话，能改的给一条改法（点了才改，改完能撤回） -->
+            <ul v-if="activeIssues(index).length" class="issues">
+              <li
+                v-for="issue in activeIssues(index)"
+                :key="issue.code"
+                class="issue"
+                :class="issue.level"
+              >
+                <span class="issue-text">{{ issue.message }}</span>
+                <span v-if="issue.fix && !issue.applied" class="issue-fix">{{ issue.fix }}</span>
+                <button
+                  v-if="issue.fix && !issue.applied"
+                  class="btn btn-sm"
+                  type="button"
+                  :aria-label="`第 ${index + 1} 题用这条改法`"
+                  @click="useFix(draft, issue)"
+                >用这条</button>
+                <button
+                  v-else-if="issue.applied"
+                  class="btn btn-sm btn-ghost"
+                  type="button"
+                  :aria-label="`撤回第 ${index + 1} 题按建议做的改动`"
+                  @click="undoFix(draft, issue)"
+                >撤回</button>
+              </li>
+            </ul>
 
             <textarea v-model="draft.question" class="textarea stem" rows="3" :aria-label="`第 ${index + 1} 道题的题干`" />
 
@@ -554,6 +709,13 @@ async function commit() {
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
   font-size: var(--fs-sm);
+}
+
+/* 「看过了，都没问题」不必用告警色：一片橙色会让人以为出了事 */
+.notice-quiet {
+  border-color: var(--c-border);
+  background: var(--c-bg-1);
+  color: var(--c-text-2);
 }
 
 .spread {
@@ -729,6 +891,55 @@ async function commit() {
   margin: 0;
   font-size: var(--fs-xs);
   color: var(--c-warning-ink);
+}
+
+.issues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-left: 2px solid var(--c-warning-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--c-warning-soft);
+  color: var(--c-warning-ink);
+  font-size: var(--fs-xs);
+}
+
+.issue.error {
+  border-left-color: var(--c-danger-border);
+  background: var(--c-danger-soft);
+  color: var(--c-danger-ink);
+}
+
+/* 改法单独占一行：题干可能很长，挤在按钮旁边会被压成一列竖排的字。
+   用 order 排成「问题 + 按钮 / 改法」，DOM 里仍然是「问题、改法、按钮」，读屏顺序不受影响 */
+.issue-fix {
+  order: 3;
+  flex: 1 1 100%;
+  min-width: 0;
+  font-family: var(--font-reading);
+  line-height: var(--lh-body);
+  color: var(--c-primary-ink);
+  overflow-wrap: anywhere;
+}
+
+.issue-text {
+  order: 1;
+}
+
+.issue > .btn {
+  order: 2;
+  margin-left: auto;
 }
 
 .more summary {

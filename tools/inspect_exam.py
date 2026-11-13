@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 import pypdfium2 as pdfium  # noqa: E402
 
-from app.services.exam import clean, parse  # noqa: E402
+from app.services.exam import audit, clean, parse  # noqa: E402
 
 
 def pages_of(path: Path) -> list[dict]:
@@ -51,10 +51,11 @@ def main() -> int:
         drafts = [parse.to_draft(b, answers, explanations, subjective) for b in blocks]
         thin = [d for d in drafts if d["type"] == "single" and len(d["options"]) < 4]
         answered = sum(1 for d in drafts if d["answer"] is not None)
+        flagged = sum(1 for d in drafts if audit.faults(d))
         print("=" * 72)
         print(f"{topic}: {len(pages)} 页（题面 {len(question_pages)} / 答案 {len(answer_pages)}）"
               f" → {len(drafts)} 题，答案 {answered}/{len(drafts)}")
-        print(f"  选项不全的单选题：{len(thin)}")
+        print(f"  选项不全的单选题：{len(thin)}；初审有疑问：{flagged}")
         for d in drafts:
             stem = d["question"].replace("\n", " ⏎ ")
             flag = ""
@@ -65,6 +66,10 @@ def main() -> int:
             print(f"  #{d['number']:<4}[{d['type']:<7}] {stem}{flag}")
             for opt in d["options"]:
                 print(f"         · {opt}")
+            hits = audit.faults(d)
+            if hits:
+                # 误报看这里：初审报的每一条都会出现在复核页上，错一条用户就少信一分
+                print("         ? " + "；".join(f"{h['code']} {h['message']}" for h in hits))
     return 2 if missing == len(topics) else 0
 
 

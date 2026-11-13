@@ -82,7 +82,12 @@ def load_pages(file_id: int) -> tuple[int, list[dict]]:
         if status in ("pending", "running"):
             raise ApiError("FILE_NOT_READY", "这份文件还在读字，读完再导入试卷", status=409)
         return int(file["item_id"]), [
-            {"page_no": int(r["page_no"]), "text": r["text"] or "", "image": r["image_path"]}
+            # `text_reviewed or text`：校对过就用校对结果。这条曾经反过来写（只读 `text`），
+            # 结果是「校对完再导一遍，题目还是认错的原样」——用户改了字却什么都没变。
+            # 口径与 `proofread.page_text` 一致，只此一处，别各写各的。
+            {"page_no": int(r["page_no"]),
+             "text": r["text_reviewed"] or r["text"] or "",
+             "image": r["image_path"]}
             for r in rows
         ]
     finally:
