@@ -29,6 +29,8 @@ COLUMN_TOL_PX = 8.0      # 允许的重叠量下限（px）
 COLUMN_TOL_RATIO = 0.02  # 按页宽的相对容差：大页面行框噪声也大
 SPAN_RATIO = 0.7         # 宽度超过页宽这个比例的行算"横跨整页"
 ROW_TOLERANCE = 0.6      # 同一行的 y 中心容差（倍中位行高）
+CROSS_TOL_RATIO = 0.01   # 判「横穿中线」时中线两侧各留的余量（页宽占比）
+CROSS_MAX = 1            # 允许几条非通栏行横穿中线（行框抖动）
 
 
 def _percentile(values: list[float], q: float) -> float:
@@ -116,8 +118,27 @@ def _cluster_rows(lines: list[dict]) -> list[str]:
     return [row["text"] for row in _cluster_rows_detail(lines)]
 
 
+def _crosses_gutter(line: dict, page_width: float) -> bool:
+    """这一行是不是**从左边一路写过了中线**（不是通栏行）。
+
+    这是「单栏被误判成双栏」的唯一可靠反证（2026-11-13 实测）：单栏页被识别成
+    一堆碎框时（`25.` / `在上一题基础上，用` / `turtle` / `绘制…`），碎框的左右两半
+    各自 ≥2 行，`P90 ≤ P10 + 容差` 照样成立，于是整页被当成双栏、按「先整栏左再整栏右」
+    重排，题号就跑到别的题后面去了。真双栏不会出现中等宽度的行横穿栏缝 ——
+    只有通栏标题/表格会，而那些行本来就被 `SPAN_RATIO` 排除在外。
+    """
+    x0, _, x1, _ = _edges(line)
+    if x1 - x0 > SPAN_RATIO * page_width:
+        return False
+    mid, delta = page_width / 2, page_width * CROSS_TOL_RATIO
+    return x0 < mid - delta and x1 > mid + delta
+
+
 def _is_two_column(left: list[dict], right: list[dict], page_width: float) -> bool:
     if len(left) < COLUMN_MIN_LINES or len(right) < COLUMN_MIN_LINES:
+        return False
+    crossing = sum(1 for ln in (*left, *right) if _crosses_gutter(ln, page_width))
+    if crossing > CROSS_MAX:
         return False
     span_limit = SPAN_RATIO * page_width
     left_edge = [ln for ln in left if _edges(ln)[2] - _edges(ln)[0] <= span_limit]
