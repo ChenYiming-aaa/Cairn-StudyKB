@@ -84,18 +84,85 @@ def upsert_question(
     difficulty: str,
     payload: dict,
     fp: str,
+    origin: str = "ai",
+    number: str | None = None,
 ) -> tuple[int, bool]:
-    """返回 (题目 id, 是否新建)。撞指纹时复用已有 id，不重复插入。"""
+    """返回 (题目 id, 是否新建)。撞指纹时复用已有 id，不重复插入。
+
+    `origin` / `number` 是 M10 给试卷导入用的（`imported` + 原卷题号）。
+    默认值保住 M4 的出题调用点：模型生成的题恒为 `ai`、无题号（数据契约 `question.origin`）。
+
+    **导入题的「改」不走这里**：复核页改题干/答案要原地改（`update_payload`），
+    按指纹 upsert 会把「改了一个错字」变成「多出一道题」。
+    """
     cur = conn.execute(
-        """INSERT INTO question (item_id, type, difficulty, payload, fingerprint, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)
+        """INSERT INTO question (item_id, type, difficulty, payload, fingerprint,
+                                 origin, number, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(fingerprint) DO NOTHING""",
-        (item_id, qtype, difficulty, json.dumps(payload, ensure_ascii=False), fp, now_iso()),
+        (item_id, qtype, difficulty, json.dumps(payload, ensure_ascii=False), fp,
+         origin, number, now_iso()),
     )
     if cur.rowcount:
         return int(cur.lastrowid), True
     row = conn.execute("SELECT id FROM question WHERE fingerprint=?", (fp,)).fetchone()
     return int(row["id"]), False
+
+
+def update_payload(
+    conn: sqlite3.Connection,
+    question_id: int,
+    *,
+    qtype: str,
+    difficulty: str,
+    payload: dict,
+    number: str | None,
+) -> None:
+    """原地改一道导入题（试卷复核「改完再导入」）。
+
+    **指纹不动**：它只是出题去重的键（`item_id|type|归一化题干`），导入题的身份是
+    「这份卷子的第几题」。跟着改指纹还会和别的行撞唯一索引 —— 复核页把两道题改成
+    同一个题干是完全合法的操作。
+    """
+    conn.execute(
+        "UPDATE question SET type=?, difficulty=?, payload=?, number=? WHERE id=?",
+        (qtype, difficulty, json.dumps(payload, ensure_ascii=False), number, question_id),
+    )
+
+
+NUMBER_DIGITS = re.compile(r"^\d+$")
+
+
+def _number_key(number: str | None) -> tuple[int, str]:
+    """整卷题号的排序键：数字题号按数值排，其余（`二.3` / 空）排在后面按文本排。
+
+    不能直接 `ORDER BY number`：`number` 是 TEXT，字典序会把第 10 题排到第 2 题前面，
+    「按卷练」就变成「按字典练」。数据契约里它是 TEXT（要能存 `二.3`），排序只能在这里补。
+    """
+    text = (number or "").strip()
+    if NUMBER_DIGITS.match(text):
+        return (0, f"{int(text):06d}")
+    return (1, text)
+
+
+def list_paper(conn: sqlite3.Connection, item_id: int) -> list[dict]:
+    """一份试卷的全部题目，按题号排好（`GET /api/quiz/paper/{item_id}`）。
+
+    只取这一份内容的题：`question.item_id` 是「这份卷子」的唯一依据，
+    同一道题被另一份卷子也导过会各有一条（指纹里带 item_id，M4 §6.3 的既有口径）。
+
+    `number IS NOT NULL` 是「还属于这份卷子」的判据：用户删掉但有作答记录的题
+    会被摘掉题号留在库里（见 `services/exam/commit._drop_unused`），不再出现在卷子里。
+    """
+    rows = conn.execute(
+        """SELECT * FROM question
+           WHERE item_id=? AND origin='imported' AND number IS NOT NULL
+           ORDER BY id""",
+        (item_id,),
+    ).fetchall()
+    items = [row_to_question(r) for r in rows]
+    items.sort(key=lambda q: _number_key(q.get("number")))
+    return items
 
 
 def row_to_question(row: sqlite3.Row) -> dict:
@@ -104,6 +171,9 @@ def row_to_question(row: sqlite3.Row) -> dict:
         payload = json.loads(question.pop("payload") or "{}")
     except (ValueError, TypeError):
         payload = {}
+    # payload 原样留一份：分值/材料/题组只在里面（需求 §5.5 不改表），
+    # M10 的「按卷练」要显示「第 12 题 · 2 分」和材料题共用的大段材料
+    question["payload"] = payload
     question["question"] = payload.get("question", "")
     # 读侧也剥一次：缺陷期（prompt 要求带前缀）入库的老题不改库也能正常显示
     question["options"] = clean_options(payload.get("options"))

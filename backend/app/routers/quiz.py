@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from typing import Any
 
 from app.db.conn import get_conn
+from app.db.repo import items as item_repo
 from app.db.repo import questions as repo
 from app.db.repo import review as review_repo
 from app.errors import ApiError
@@ -292,6 +293,35 @@ def submit(body: SubmitBody) -> dict:
         "correct_count": correct,
         "total": total,
         "accuracy": round(correct / total, 2) if total else 0.0,
+    }
+
+
+@router.get("/quiz/paper/{item_id}")
+def paper(item_id: int) -> dict:
+    """整份试卷的题目（按题号排），供「按卷练」（T10.5）。
+
+    **只取 `origin='imported'`**：同一份内容上还可能有模型出的题（复习时补的），
+    按卷练要的是「这张卷子原本的题」，混进去题号就乱了。
+
+    题号排序在 `repo.list_paper` 里做：`number` 是 TEXT，直接 `ORDER BY` 会把
+    第 10 题排到第 2 题前面。
+    """
+    conn = get_conn()
+    try:
+        row = item_repo.get_item(conn, item_id)
+        if row is None:
+            raise ApiError("ITEM_NOT_FOUND", "这份试卷不存在了", status=404)
+        questions = repo.list_paper(conn, item_id)
+    finally:
+        conn.close()
+    if not questions:
+        raise ApiError("ITEM_NOT_FOUND", "这份内容还没有导入题目，先导入一份试卷", status=404)
+    return {
+        "item_id": item_id,
+        "title": row["title"],
+        "questions": [
+            {**q, "payload": q.get("payload") or {}} for q in questions
+        ],
     }
 
 

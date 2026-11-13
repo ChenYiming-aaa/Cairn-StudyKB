@@ -320,6 +320,20 @@ def set_status(conn: sqlite3.Connection, item_id: int, status: str) -> None:
     )
 
 
+def set_kind(conn: sqlite3.Connection, item_id: int, kind: str) -> None:
+    """把内容定性成试卷/图片/资料。
+
+    上传时 `kind` 只能按扩展名推（图片→`image`，其余→`material`），试卷必须等用户在
+    复核页确认后才是 `exam`——「一份 PDF」和「一份试卷」不是一回事（执行计划 T9.3 步骤 6）。
+    刻意并进 `_UPDATABLE` 而不是走 `update_item`：`kind` 是定性，不是用户随手能改的字段，
+    给 PATCH 开口子会让「整理按 kind 分派」失去唯一入口。
+    """
+    conn.execute(
+        "UPDATE knowledge_item SET kind=?, updated_at=? WHERE id=?",
+        (kind, now_iso(), item_id),
+    )
+
+
 def list_ids_by_status(
     conn: sqlite3.Connection,
     status: str,

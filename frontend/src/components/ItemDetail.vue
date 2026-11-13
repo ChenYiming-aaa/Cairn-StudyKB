@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage, pollTask } from '../api/client'
 import StatusBadge from './StatusBadge.vue'
@@ -28,6 +29,7 @@ const props = defineProps({
 const emit = defineEmits(['refresh', 'deleted', 'create', 'move'])
 
 const toast = useToast()
+const router = useRouter()
 const { focusChunk } = useUi()
 // 导图是后端现场出的 SVG，明暗得前端告诉它（T6.7）；让它自己判断会和界面脱节
 const { theme, resolvedMode } = useTheme()
@@ -67,6 +69,24 @@ async function startFocus() {
 
 const isPending = computed(() => props.item?.status !== 'ready')
 const busy = computed(() => organizing.value || props.item?.status === 'organizing')
+
+/**
+ * 能不能「导入试卷」（T10.3）：得有一份读完的原件，且是能出题的类型。
+ * 只认 PDF 与图片 —— Word 试卷也常见，但版式还原出来的题号不可靠，
+ * 先用最稳的两类，别在没验证过的格式上给入口。
+ */
+const EXAM_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'webp']
+const canImportExam = computed(() => {
+  const file = props.item?.file
+  if (!file) return false
+  return EXAM_EXTS.includes(String(file.ext || '').toLowerCase())
+    && file.ocr_status === 'done' && Number(file.page_count || 0) > 0
+})
+
+function openExamReview() {
+  const fileId = props.item?.file?.id
+  if (fileId) router.push(`/exam/${fileId}`)
+}
 
 watch(
   () => props.item?.id,
@@ -193,6 +213,10 @@ onBeforeUnmount(stop)
         <TitleEditor :item-id="item.id" :title="item.title" :disabled="busy" @saved="emit('refresh', item.id)" />
         <div class="head-actions">
           <button class="btn btn-sm" type="button" @click="startFocus">开始专注</button>
+          <!-- 试卷入口（T10.3）：原件读完才有；已经是试卷的写「重新导入」，别让人以为没导过 -->
+          <button v-if="canImportExam" class="btn btn-sm" type="button" @click="openExamReview">
+            {{ item.kind === 'exam' ? '重新导入' : '导入试卷' }}
+          </button>
           <button class="btn btn-sm" type="button" :disabled="busy" @click="organize">
             {{ busy ? '整理中…' : isPending ? '开始整理' : '重新整理' }}
           </button>

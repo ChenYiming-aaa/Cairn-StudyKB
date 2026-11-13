@@ -58,7 +58,11 @@ const FRIENDLY = [
   [/^WORKSPACE_/, '工作区没保存成功，改动会丢。再试一次'],
   [/^ITEM_BUSY$/, '这条正在整理中，等它结束再操作'],
   // T9.11 前置闸：正文还是 `[文件] 原名` 就不让整理（拿占位正文写摘要纯属浪费）
-  [/^FILE_NOT_READY$/, '这个文件还在读字，读完再整理。进度在采集面板里能看到'],
+  [/^FILE_NOT_READY$/, '这个文件还在读字，读完再操作。进度在采集面板里能看到'],
+  // 试卷导入（T10.2/T10.3）：两条都是「没导进去」，但原因不同，不能合成一句
+  [/^EXAM_NO_QUESTIONS$/, '这份文件里没找到题目，这次没导入。换一份文件，或者手动录几道'],
+  [/^EXAM_COMMIT_EMPTY$/, '一道题都没留，这次没导入。留一道再确认导入'],
+  [/^EXAM_/, '试卷没导进去，这次的改动没保存。再点一次；还不行看看这份文件读出来的文字'],
   [/^TASK_NOT_RETRYABLE$/, '这个任务不是失败状态，不用重试'],
   [/^SESSION_ALREADY_RUNNING$/, '已经有一轮计时在跑。先结束或放弃它，再开新的'],
   [/^SESSION_STATE$/, '计时状态在别处变过了。刷新一下就是当前状态'],
@@ -351,6 +355,12 @@ export const api = {
   quizSubmit: (payload) => post('/api/quiz/submit', payload),
   /** 错题本（T4.6）：最近一次作答仍答错的题 */
   wrongQuestions: (params) => get('/api/quiz/wrong', params),
+  /** 整份试卷的题（T10.5）：按题号排好，供「按卷练习」 */
+  quizPaper: (itemId) => get(`/api/quiz/paper/${itemId}`),
+  /** 试卷草稿（T10.2）：纯计算不落库，返回 {drafts, stats} */
+  examParse: (payload) => post('/api/exams/parse', payload),
+  /** 复核后一次写入（T10.3）：返回 {item_id, imported, replaced, downgraded} */
+  examCommit: (payload) => post('/api/exams/commit', payload),
   /** 今日待复习（T4.6）：拿到的题自带 options/answer/explanation，可直接作答 */
   dueReviews: (params) => get('/api/review/due', params),
   /** 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题 */
