@@ -23,6 +23,8 @@ import {
 const props = defineProps({
   questions: { type: Array, required: true },
   label: { type: String, default: '练习' },
+  // 按卷练（T10.5）：题干上方显示原卷题号。材料出题的题没有 number，所以默认关
+  numbered: { type: Boolean, default: false },
 })
 const emit = defineEmits(['finished', 'restart'])
 
@@ -146,6 +148,11 @@ const accuracyText = computed(() => {
   const value = Number(result.value?.accuracy)
   return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—'
 })
+
+/** 错题数：待人工判断的不算错（那是不确定，不是答错，M4 约束 3） */
+const wrongCount = computed(
+  () => (result.value?.items || []).filter((item) => item.is_correct === false).length
+)
 </script>
 
 <template>
@@ -154,6 +161,7 @@ const accuracyText = computed(() => {
     <template v-if="phase === 'answering' && current">
       <div class="q-head">
         <span class="q-step">第 {{ idx + 1 }} / {{ total }} 题</span>
+        <span v-if="numbered && current.number" class="q-tag ghost">原卷 {{ current.number }} 题</span>
         <span class="q-tag">{{ typeLabel(current.type) }}</span>
         <span v-if="difficultyLabel(current.difficulty)" class="q-tag ghost">
           {{ difficultyLabel(current.difficulty) }}
@@ -248,10 +256,13 @@ const accuracyText = computed(() => {
         </div>
         <div class="score-side">
           <p class="score-acc">正确率 {{ accuracyText }}</p>
+          <p v-if="result.items" class="score-acc">错 {{ wrongCount }} 题</p>
           <p v-if="pendingManual" class="score-hold">
             {{ pendingManual }} 题待人工判断（不计入正确、也不算错）
           </p>
-          <button class="btn btn-sm" type="button" @click="restart">再来一组</button>
+          <button class="btn btn-sm" type="button" @click="restart">
+            {{ numbered ? '再做一遍' : '再来一组' }}
+          </button>
         </div>
       </div>
 

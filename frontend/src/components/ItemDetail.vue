@@ -217,7 +217,8 @@ onBeforeUnmount(stop)
           <button v-if="canImportExam" class="btn btn-sm" type="button" @click="openExamReview">
             {{ item.kind === 'exam' ? '重新导入' : '导入试卷' }}
           </button>
-          <button class="btn btn-sm" type="button" :disabled="busy" @click="organize">
+          <!-- 试卷不整理正文（正文就是原件的占位），改题目走「重新导入」，所以这里不出现 -->
+          <button v-if="item.kind !== 'exam'" class="btn btn-sm" type="button" :disabled="busy" @click="organize">
             {{ busy ? '整理中…' : isPending ? '开始整理' : '重新整理' }}
           </button>
           <button class="btn btn-sm btn-danger" type="button" @click="remove">删除</button>

@@ -66,6 +66,18 @@ const pickedTitle = computed(() => items.value.find((it) => it.id === itemId.val
 const canGenerate = computed(() => itemId.value !== null && types.value.length > 0)
 const estimate = computed(() => (count.value > 10 ? '约需 30–60 秒' : '约 10–20 秒'))
 
+/**
+ * 选中的是不是一份试卷（T10.5）。
+ *
+ * 试卷的题是导进来的、题号原样保留，题型/难度/题数都不该让用户再选一遍 ——
+ * 选了也不会生效（按卷练拿的是整份卷子）。所以选中试卷时配置区切成「按卷练」。
+ */
+const pickedItem = computed(() => items.value.find((it) => it.id === itemId.value) || null)
+const isExam = computed(() => pickedItem.value?.kind === 'exam')
+const paperLoading = ref(false)
+// 这一轮是不是按卷练。快照而不是读 `isExam`：作答中途换材料不该改掉正在做的那一轮
+const paperRun = ref(false)
+
 async function loadItems() {
   loading.value = true
   listError.value = ''
@@ -96,6 +108,7 @@ function toggleType(type) {
 
 async function generate() {
   if (!canGenerate.value || phase.value === 'generating') return
+  paperRun.value = false
   phase.value = 'generating'
   questions.value = []
   skips.value = 0
@@ -145,6 +158,34 @@ function stopGenerating() {
   if (!questions.value.length) toast.info('已停止生成')
 }
 
+/**
+ * 按卷练（T10.5）：把整份卷子的题取回来直接作答，不走模型。
+ *
+ * 没有「出题」这一步，所以不显示进度条也不占 SSE —— 试卷导入时题已经在库里了。
+ * 排序由后端按原卷题号给，前端不再排（TEXT 题号直接排会把第 10 题排到第 2 题前面）。
+ */
+async function startPaper() {
+  if (!itemId.value || phase.value !== 'idle' || paperLoading.value) return
+  paperLoading.value = true
+  genError.value = ''
+  try {
+    const data = await api.quizPaper(itemId.value)
+    questions.value = data.questions || []
+    requested.value = questions.value.length
+    skips.value = 0
+    if (!questions.value.length) toast.info('这份试卷还没有导进题目')
+    else {
+      paperRun.value = true
+      phase.value = 'answering'
+    }
+  } catch (err) {
+    genError.value = `${friendlyMessage(err)}${humanDetail(err.detail) ? `（${humanDetail(err.detail)}）` : ''}`
+  } finally {
+    paperLoading.value = false
+    runKey.value += 1
+  }
+}
+
 /** 本页自动收起的那一次，换回展开；用户自己收的不管 */
 function restoreConfig() {
   if (!autoCollapsedConfig) return
@@ -164,7 +205,7 @@ function backToIdle() {
 /** 交卷后自动回到 idle 之外的「再来一组」由 QuizRunner 抛 restart，这里只提示一下 */
 function onFinished(result) {
   if (result?.total) {
-    toast.ok(`本组完成：${result.correct_count}/${result.total}`)
+    toast.ok(`${paperRun.value ? '本卷' : '本组'}完成：${result.correct_count}/${result.total}`)
   }
 }
 
@@ -219,7 +260,8 @@ onMounted(loadItems)
                   @click="itemId = item.id"
                 >
                   <span class="item-title">{{ item.title }}</span>
-                  <span class="item-cat">{{ item.category || '未分类' }}</span>
+                  <span v-if="item.kind === 'exam'" class="item-cat exam">试卷</span>
+                  <span v-else class="item-cat">{{ item.category || '未分类' }}</span>
                 </button>
               </li>
             </ul>
@@ -228,68 +270,85 @@ onMounted(loadItems)
             </p>
           </section>
 
-          <section class="cfg-block">
-            <h2 class="cfg-title">题型</h2>
-            <div class="chips">
-              <button
-                v-for="type in TYPES"
-                :key="type"
-                class="chip"
-                type="button"
-                :class="{ on: types.includes(type) }"
-                :disabled="phase === 'generating'"
-                @click="toggleType(type)"
-              >
-                {{ TYPE_LABELS[type] }}
-              </button>
-            </div>
-          </section>
+          <template v-if="!isExam">
+            <section class="cfg-block">
+              <h2 class="cfg-title">题型</h2>
+              <div class="chips">
+                <button
+                  v-for="type in TYPES"
+                  :key="type"
+                  class="chip"
+                  type="button"
+                  :class="{ on: types.includes(type) }"
+                  :disabled="phase === 'generating'"
+                  @click="toggleType(type)"
+                >
+                  {{ TYPE_LABELS[type] }}
+                </button>
+              </div>
+            </section>
 
-          <section class="cfg-block">
-            <h2 class="cfg-title">难度</h2>
-            <div class="chips">
-              <button
-                v-for="level in DIFFICULTIES"
-                :key="level"
-                class="chip"
-                type="button"
-                :class="{ on: difficulty === level }"
-                :disabled="phase === 'generating'"
-                @click="difficulty = level"
-              >
-                {{ DIFFICULTY_LABELS[level] }}
-              </button>
-            </div>
-          </section>
+            <section class="cfg-block">
+              <h2 class="cfg-title">难度</h2>
+              <div class="chips">
+                <button
+                  v-for="level in DIFFICULTIES"
+                  :key="level"
+                  class="chip"
+                  type="button"
+                  :class="{ on: difficulty === level }"
+                  :disabled="phase === 'generating'"
+                  @click="difficulty = level"
+                >
+                  {{ DIFFICULTY_LABELS[level] }}
+                </button>
+              </div>
+            </section>
 
-          <section class="cfg-block">
-            <h2 class="cfg-title">题数</h2>
-            <div class="chips">
-              <button
-                v-for="n in COUNTS"
-                :key="n"
-                class="chip"
-                type="button"
-                :class="{ on: count === n }"
-                :disabled="phase === 'generating'"
-                @click="count = n"
-              >
-                {{ n }} 题
-              </button>
-            </div>
-          </section>
+            <section class="cfg-block">
+              <h2 class="cfg-title">题数</h2>
+              <div class="chips">
+                <button
+                  v-for="n in COUNTS"
+                  :key="n"
+                  class="chip"
+                  type="button"
+                  :class="{ on: count === n }"
+                  :disabled="phase === 'generating'"
+                  @click="count = n"
+                >
+                  {{ n }} 题
+                </button>
+              </div>
+            </section>
+          </template>
+
+          <p v-else class="cfg-note">
+            这是一份试卷：题目、选项、题号都按原卷来，不用挑题型和题数。
+          </p>
 
           <div class="cfg-foot">
             <button
+              v-if="isExam"
               class="btn btn-primary"
               type="button"
-              :disabled="!canGenerate || phase !== 'idle'"
-              :title="phase === 'answering' ? '先做完这一组，或点结果页的「再来一组」' : ''"
-              @click="generate"
+              :disabled="phase !== 'idle' || paperLoading"
+              @click="startPaper"
             >
-              {{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}
+              {{ paperLoading ? '正在取题…' : `按卷练：${pickedTitle}` }}
             </button>
-            <p class="cfg-note">{{ estimate }}</p>
+            <template v-else>
+              <button
+                class="btn btn-primary"
+                type="button"
+                :disabled="!canGenerate || phase !== 'idle'"
+                :title="phase === 'answering' ? '先做完这一组，或点结果页的「再来一组」' : ''"
+                @click="generate"
+              >
+                {{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}
+              </button>
+              <p class="cfg-note">{{ estimate }}</p>
+            </template>
           </div>
         </div>
 
@@ -328,14 +387,16 @@ onMounted(loadItems)
           v-else-if="phase === 'answering' && questions.length"
           :key="runKey"
           :questions="questions"
+          :numbered="paperRun"
           @finished="onFinished"
           @restart="onRestart"
         />
 
         <!-- 空态 -->
         <div v-else class="state">
-          <p class="state-title">{{ genError ? '出题失败' : '还没开始' }}</p>
+          <p class="state-title">{{ genError ? (isExam ? '取题失败' : '出题失败') : '还没开始' }}</p>
           <p v-if="genError" class="state-error">{{ genError }}</p>
+          <p v-else-if="isExam">左边已经选好试卷，点「按卷练」就按原卷题序从头做到尾</p>
           <p v-else>左侧挑一条材料、选题型与题数，点「出题」</p>
         </div>
       </section>
@@ -464,6 +525,14 @@ onMounted(loadItems)
   flex: none;
   font-size: var(--fs-xs);
   color: var(--c-text-3);
+}
+
+/* 试卷用主色标一下：列表里混着「试卷」和「材料」，两者点了之后行为不一样 */
+.item-cat.exam {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-primary-soft);
+  color: var(--c-primary-ink);
 }
 
 .chips {

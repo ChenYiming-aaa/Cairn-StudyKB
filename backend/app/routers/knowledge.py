@@ -56,6 +56,8 @@ def _list_shape(row: sqlite3.Row) -> dict:
         "id": item["id"], "title": item["title"],
         "source_type": item["source_type"], "category": item["category"],
         "tags": item["tags"], "status": item["status"],
+        # T10.5：练习页要分「材料出题」与「按卷练」，列表里就得知道哪条是试卷
+        "kind": item.get("kind") or "material",
         # T9.9：列表项要显示「属于哪个工作区」，名字由前端按 id 映射（不多查一次 SQL）
         "workspace_id": item["workspace_id"],
         "created_at": item["created_at"],
