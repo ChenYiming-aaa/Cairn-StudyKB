@@ -315,6 +315,8 @@ v0.2.1 就是这样，不粉饰：
 
 它们是本地验收素材，**不随安装包发布，16 份 docx/pdf 与配图也不进仓库**（见 `.gitignore`）；生成脚本与清单保留。验收脚本按四个主题目录**遍历全部 16 份**，不挑单组。文件清单、构造特征、自检数据和重新生成方法见 [`samples/README.md`](samples/README.md)。
 
+**跑全部验收只要一条命令**：`python tools/regress.py`（按 `m1 → m9` 顺序，任一脚本用例失败就停并打出它最后 30 行）。只补某一段用 `--from 9`，只跑几个用 `--only 7,9`。缺 `samples/` 时相关用例记 SKIP + WARN 而不是失败 —— 干净机上不该永远是红的。
+
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。用、改、分发都行，保留版权声明即可；不提供任何担保。第三方组件遵循各自许可（FastAPI、Vue、Electron、`faster-whisper`、`sentence-transformers`、`sqlite-vec`、`trafilatura`、`yt-dlp` 等）。

@@ -8,10 +8,20 @@
     cd backend && uv run python scripts/verify_m9.py --only workspace # 只跑工作区（不需要识别组件）
     cd backend && uv run python scripts/verify_m9.py --only raw       # 只跑原文页签的数据面（不需要识别组件）
     cd backend && uv run python scripts/verify_m9.py --only kind      # 只跑整理按 kind 分派（不调模型）
+    cd backend && uv run python scripts/verify_m9.py --only schema    # 只跑表结构与升级（不需要组件）
+    cd backend && uv run python scripts/verify_m9.py --only files     # 只跑上传边界（不需要组件）
+    cd backend && uv run python scripts/verify_m9.py --only ocr       # 只跑识别三态与页图（组件状态打桩）
 
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足（缺组件）
 
-覆盖分组（**T9.6 两组 + T9.7 一组**，T9.8–T9.11 的用例在 T9.12 往这里加）：
+**一条命令跑完 m1–m9**：`python tools/regress.py`（`--from 9` 只跑本段）。
+
+覆盖分组（T9.6–T9.11 逐段长出来的）：
+  §schema  T9.2 / T9.12 新建库即 v5、`item_page.line_conf` 在册、新内容默认值、
+           删工作区外键 SET NULL、v4 老库升级后老页不丢且 `line_conf` 为 NULL（不假装有行级精度）
+  §files   T9.3 上传六字段、同文件去重、413 / 422 / 415、原件落盘、删内容连带删原件与页图
+  §ocr     T9.5 组件三态（打桩验「没装」那条路）、`OCR_MISSING` 前后端分工、进度形状、
+           页图是 JPEG 且长边 ≤1600
   §layout  T9.6 四组 `samples/*/twocol.pdf` 共 40 页：不丢行 / 双栏不交错 / 单栏 y 不回头 /
            行数不膨胀 / `python` 第 1 页字面锚词
   §resume  T9.6 断点续跑（跑 3 页 → 续跑只补 4..7 → 再跑一页不动）与单页重试（只识别点名页）
@@ -20,8 +30,17 @@
            以及端到端：上传即排队 → 正文覆盖 → 页可读 → 坏文件不留半份正文
   §workspace T9.9 工作区 CRUD、计数口径（`item_count` / `none_count` / 列表 / 状态计数
            四处对齐）、「未归类」= `IS NULL`、删工作区只移出不删内容、批量整理按工作区收窄
+  §raw     T9.10 原文页签的数据面：`pages/{n}` 字段齐不齐、`line_conf` 与文字逐行对齐、
+           `order_lines` 与 `order_lines_detail` 完全同序、docx 净化 HTML、PPT 大纲、
+           坏 `line_conf` 不让详情 500
+  §kind    T9.11 整理按 kind 分派（打桩 LLM，不联网）：exam 不出笔记、image 只出说明、
+           非 material 的 `structured_note` 落库为 NULL、占位正文 409 `FILE_NOT_READY`、
+           批量整理跳过没读完的且不整批失败
 
-**为什么这两组值得单独落成脚本**：`ocr_layout.order_lines` 和 `ingest_file` 是 T9.6 里最容易
+**缺样本是 SKIP 不是 FAIL**：`samples/` 不入库（只有三个生成脚本进 git），干净机上本来就没有。
+缺前置条件走 `skip()` 并记一条 WARN，末尾统一打印 —— 否则这条命令在干净机上是恒红的，
+红久了就没人看了。
+**为什么这些组值得单独落成脚本**：`ocr_layout.order_lines` 和 `ingest_file` 是 T9.6 里最容易
 被后手改坏的两处（T9.8 / T9.10 会碰它们周边）。判列错了不会报错，只会让检索和整理拿到
 语义断裂的文本 —— 没有回归网就是裸奔。
 
@@ -64,6 +83,16 @@ _TAG = re.compile("\x00(\\d+)\x00")
 LIMIT = 0          # --pages N：每组只跑前 N 页（调试判列用；正式跑不要给）
 
 RESULTS: list[tuple[bool, str, str]] = []
+WARNINGS: list[str] = []
+
+
+def skip(name: str, detail: str = "") -> None:
+    """缺前置条件（多半是没跑 `samples/_generate.py`）→ SKIP + WARN，**不算 FAIL**。
+
+    干净机上样本本来就没有，判 FAIL 会让这条命令永远是红的，红着红着就没人看了。
+    """
+    WARNINGS.append(name)
+    print(f"  SKIP  {name}" + (f"   → {detail}" if detail else ""))
 
 
 def check(name: str, ok: bool, detail: str = "") -> bool:
@@ -191,7 +220,7 @@ def group_layout() -> None:
     for name in SAMPLES:
         path = ROOT / "samples" / name / "twocol.pdf"
         if not path.is_file():
-            check(f"{name}/twocol.pdf 存在", False, str(path))
+            skip(f"缺 {name}/twocol.pdf，这一组判列断言跳过", str(path))
             continue
         # 伪 file_id 兼作页图缓存键：同一常量会让四组读到同一份缓存（2026-11-12 踩过）
         fid = 9100 + zlib.crc32(str(path).encode("utf-8")) % 900
@@ -220,6 +249,9 @@ def group_layout() -> None:
 
     # 字面锚词：左栏后段的词必须排在右栏开头的词之前（交错就会翻过来）
     path = ROOT / "samples" / "python" / "twocol.pdf"
+    if not path.is_file():
+        skip("缺 python/twocol.pdf，跳过字面锚词断言")
+        return
     fid = 9100 + zlib.crc32(str(path).encode("utf-8")) % 900
     pdf = pdf_pages.open_pdf(path)
     try:
@@ -251,11 +283,17 @@ def group_resume() -> None:
         rendered.append(index + 1)
         return real_render(pdf, index, file_id)
 
+    exam_pdf = ROOT / "samples" / "python" / "exam.pdf"
+    if not exam_pdf.is_file():
+        skip("缺 python/exam.pdf，断点续跑整组跳过", str(exam_pdf))
+        pdf_pages.render = real_render
+        return
+
     pdf_pages.render = spy
     try:
         with TestClient(app):
             # 走服务层 save：HTTP 上传会当场排队识别，和下面手动 run 打架
-            with (ROOT / "samples" / "python" / "exam.pdf").open("rb") as handle:
+            with exam_pdf.open("rb") as handle:
                 saved = file_service.save(handle, filename="exam.pdf")
             payload = {"file_id": saved.file_id}
 
@@ -357,8 +395,13 @@ def _make_fixtures() -> dict[str, Path]:
     markdown.write_text("# 标题\n\n正文\n", encoding="utf-8")
 
     # 只有图、没有字的 docx：正文不该被覆盖（否则整理会照着空正文写笔记）
+    # 图自己生成：samples/images/ 不在库里（要跑 _generate.py），不能拿它当循环依赖
+    from PIL import Image as _Image
+
+    logo = FIXTURES / "logo.png"
+    _Image.new("RGB", (240, 120), (63, 111, 95)).save(logo, format="PNG")
     doc = Document()
-    doc.add_picture(str(ROOT / "samples" / "images" / "python_logo.png"), width=Inches(2))
+    doc.add_picture(str(logo), width=Inches(2))
     image_only = FIXTURES / "image-only.docx"
     doc.save(str(image_only))
 
@@ -384,7 +427,7 @@ def group_extract() -> None:
     for name in SAMPLES:
         path = ROOT / "samples" / name / "course.docx"
         if not path.is_file():
-            check(f"{name}/course.docx 存在", False, str(path))
+            skip(f"缺 {name}/course.docx，这份的结构断言跳过", str(path))
             continue
         doc = extractors.extract(path, "docx", path.name)
         want = expected[name]["course"]
@@ -455,8 +498,11 @@ def group_extract() -> None:
     scheduled: list[int] = []
     embedder.schedule = lambda item_id, *a, **k: scheduled.append(int(item_id))  # noqa: ARG005
 
+    docx_path = ROOT / "samples" / "python" / "course.docx"
+    if not docx_path.is_file():
+        skip("缺 python/course.docx，上传-抽取端到端整段跳过", str(docx_path))
+        return
     with TestClient(app) as client:
-        docx_path = ROOT / "samples" / "python" / "course.docx"
         body = docx_path.read_bytes()
         started = time.monotonic()
         resp = client.post("/api/files", files={"file": ("course.docx", body)})
@@ -560,12 +606,34 @@ def group_workspace() -> None:
     """
     from fastapi.testclient import TestClient
 
+    from app.db.conn import get_conn
     from app.main import app
     from app.services import tasks as task_queue
 
     with TestClient(app) as c:
         def make(text: str) -> int:
             return int(c.post("/api/knowledge", json={"raw_content": text}).json()["id"])
+
+        # 计数断言一律「基线 + 本组新增」：本组可能不是这一轮第一个跑的
+        # （全跑时前面几组已经留下内容），写死 1 / 7 / 4 只有「--only workspace」才成立。
+        # 基线用 SQL 自己数，不拿接口去验接口。
+        def sql_none() -> int:
+            conn = get_conn()
+            try:
+                return int(conn.execute(
+                    "SELECT COUNT(*) FROM knowledge_item WHERE workspace_id IS NULL"
+                ).fetchone()[0])
+            finally:
+                conn.close()
+
+        def sql_all() -> int:
+            conn = get_conn()
+            try:
+                return int(conn.execute("SELECT COUNT(*) FROM knowledge_item").fetchone()[0])
+            finally:
+                conn.close()
+
+        base_none = sql_none()
 
         # ① 建：名字上限 20、同名允许（用户叫两个「英语」不算错）
         a = c.post("/api/workspaces", json={"name": "数据结构"})
@@ -593,13 +661,14 @@ def group_workspace() -> None:
         counts = {w["id"]: w["item_count"] for w in listing["items"]}
         check("工作区列表带内容数", counts == {ws_a: 3, ws_b: 3}, str(counts))
         check("none_count = 没有工作区的内容数",
-              listing["none_count"] == 1, str(listing["none_count"]))
+              listing["none_count"] == base_none + 1, f'{listing["none_count"]} vs 基线 {base_none} + 1')
         check("总数守恒（各工作区 + 未归类 = 全部）",
-              sum(counts.values()) + listing["none_count"] == 7, str(listing))
+              sum(counts.values()) + listing["none_count"] == sql_all(), str(listing))
         check("列表按工作区筛出 3 条",
               c.get("/api/knowledge", params={"workspace_id": ws_a}).json()["total"] == 3)
         check("列表 workspace_id=none 只看未归类",
-              c.get("/api/knowledge", params={"workspace_id": "none"}).json()["total"] == 1)
+              c.get("/api/knowledge",
+                    params={"workspace_id": "none"}).json()["total"] == base_none + 1)
         check("workspace_id 不是数字时 422",
               c.get("/api/knowledge", params={"workspace_id": "abc"}).status_code == 422)
         scoped = c.get("/api/knowledge/categories", params={"workspace_id": ws_a}).json()
@@ -609,7 +678,7 @@ def group_workspace() -> None:
               len(scoped["categories"]) == len(c.get("/api/knowledge/categories").json()["categories"]))
         check("未归类也能量（none）",
               c.get("/api/knowledge/categories",
-                    params={"workspace_id": "none"}).json()["counts"]["total"] == 1)
+                    params={"workspace_id": "none"}).json()["counts"]["total"] == base_none + 1)
 
         # ③ 列表项与会话详情都带 workspace_id（前端靠它显示「属于哪个工作区」）
         first = c.get("/api/knowledge", params={"workspace_id": ws_a}).json()["items"][0]
@@ -649,9 +718,10 @@ def group_workspace() -> None:
               deleted.text[:80])
         check("内容数不变（只移出不删）", after_total == before_total, str(before_total))
         check("被删工作区的内容回到未归类",
-              listing["none_count"] == 4, str(listing["none_count"]))
+              listing["none_count"] == base_none + 4, f'{listing["none_count"]} vs 基线 {base_none} + 4')
         check("那些内容确实变回 NULL",
-              c.get("/api/knowledge", params={"workspace_id": "none"}).json()["total"] == 4)
+              c.get("/api/knowledge",
+                    params={"workspace_id": "none"}).json()["total"] == base_none + 4)
         check("删不存在的工作区 404", c.delete(f"/api/workspaces/{ws_b}").status_code == 404)
 
 
@@ -879,15 +949,20 @@ def group_kind() -> None:
                   f"note={got['structured_note']} chunks={note_chunks(material)}")
 
             # ⑤ 闸：正文还是 `[文件] 原名` 一律拒绝整理
+            #
+            # 三条内容专门放进一个独立工作区：批量整理的断言要靠「这一批里都有谁」，
+            # 混在全局里会被前面几组留下的待整理挤掉（`limit` 一截就全乱）。
+            gate_ws = int(c.post("/api/workspaces", json={"name": "整理闸"}).json()["id"])
             conn = get_conn()
             try:
                 with conn:
                     placeholder = conn.execute(
                         """INSERT INTO knowledge_item
                            (title, source_type, raw_content, content_hash, status,
-                            created_at, updated_at, kind)
+                            created_at, updated_at, kind, workspace_id)
                            VALUES ('扫描件', 'file', '[文件] a.pdf', 'verify-m9-placeholder',
-                                   'pending', '2026-11-13', '2026-11-13', 'material')"""
+                                   'pending', '2026-11-13', '2026-11-13', 'material', ?)""",
+                        (gate_ws,),
                     ).lastrowid
                     conn.execute(
                         """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
@@ -899,9 +974,10 @@ def group_kind() -> None:
                     partial = conn.execute(
                         """INSERT INTO knowledge_item
                            (title, source_type, raw_content, content_hash, status,
-                            created_at, updated_at, kind)
+                            created_at, updated_at, kind, workspace_id)
                            VALUES ('长表格', 'file', '真实的表格内容', 'verify-m9-partial',
-                                   'pending', '2026-11-13', '2026-11-13', 'material')"""
+                                   'pending', '2026-11-13', '2026-11-13', 'material', ?)""",
+                        (gate_ws,),
                     ).lastrowid
                     conn.execute(
                         """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
@@ -910,6 +986,17 @@ def group_kind() -> None:
                                    'application/vnd.ms-excel', 10, 'files/b.xlsx', 1, 'partial')""",
                         (partial,),
                     )
+                    # 同一批里还得有一条**真能整理**的：只验「谁被跳过」而不验「谁被派发」，
+                    # 批量整理整个坏掉（一条都不派）也照样通过。
+                    ready = conn.execute(
+                        """INSERT INTO knowledge_item
+                           (title, source_type, raw_content, content_hash, status,
+                            created_at, updated_at, kind, workspace_id)
+                           VALUES ('能整理的', 'text', '这是一段真能整理的正经正文。',
+                                   'verify-m9-ready', 'pending', '2026-11-13', '2026-11-13',
+                                   'material', ?)""",
+                        (gate_ws,),
+                    ).lastrowid
             finally:
                 conn.close()
 
@@ -924,7 +1011,8 @@ def group_kind() -> None:
             task_queue.submit = lambda *args, **kw: "fake-task"
             try:
                 allowed = c.post(f"/api/knowledge/{partial}/organize")
-                batch = c.post("/api/knowledge/organize-pending", params={"limit": 10}).json()
+                batch = c.post("/api/knowledge/organize-pending",
+                               params={"workspace_id": gate_ws, "limit": 10}).json()
             finally:
                 task_queue.submit = original_submit
             check("内容不全（partial）的放行：有真内容就该能整理", allowed.status_code == 202,
@@ -932,7 +1020,10 @@ def group_kind() -> None:
 
             # ⑥ 批量整理：跳过没读完的，并如实回报跳了哪几条
             check("批量整理把没读完的跳过并回报",
-                  placeholder in batch["skipped"], str(batch["skipped"]))
+                  batch["skipped"] == [placeholder], str(batch["skipped"]))
+            check("同一批里能整理的那条照常派发（别只验跳过）",
+                  [entry["item_id"] for entry in batch["items"]] == [ready],
+                  str(batch["items"])[:80])
             check("批量整理不会把跳过的也算成已派发",
                   all(entry["item_id"] != placeholder for entry in batch["items"]),
                   str(batch["items"])[:80])
@@ -940,7 +1031,240 @@ def group_kind() -> None:
         organizer.llm.chat = original_chat
 
 
+# ── §schema（T9.12）────────────────────────────────────────────
+def group_schema() -> None:
+    """表结构这一层：新库默认值、v4 → v5 升级、删工作区 SET NULL。
+
+    **用独立的库文件**（不碰本组数据目录里的 data.db）：升级测试要把版本退回去、
+    把列删掉，混在主库里会把后面的组带坏。
+    """
+    import sqlite3
+
+    from app.db.migrate import SCHEMA_VERSION, init_db
+
+    db = TMP / "schema-probe.db"
+    db.unlink(missing_ok=True)
+    init_db(db)
+
+    conn = sqlite3.connect(str(db))
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        check(f"新建库直接到 v{SCHEMA_VERSION}", version == SCHEMA_VERSION, str(version))
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(item_page)")}
+        check("item_page 带 line_conf（v5）", "line_conf" in cols, str(sorted(cols)))
+
+        with conn:
+            conn.execute(
+                """INSERT INTO knowledge_item (title, raw_content, source_type, content_hash,
+                       created_at, updated_at)
+                   VALUES ('t', 'body', 'text', 'schema-h1', '2026-01-01', '2026-01-01')"""
+            )
+        row = conn.execute(
+            "SELECT id, kind, workspace_id, file_id, status, note_edited FROM knowledge_item"
+        ).fetchone()
+        check("新内容默认：kind=material / 未归类 / 没有原件 / 待整理",
+              row[1] == "material" and row[2] is None and row[3] is None
+              and row[4] == "pending" and row[5] == 0, str(row))
+        item_id = int(row[0])
+
+        ws = conn.execute(
+            "INSERT INTO workspace (name, created_at, updated_at) VALUES ('w', 'x', 'x')"
+        ).lastrowid
+        with conn:
+            conn.execute("UPDATE knowledge_item SET workspace_id=? WHERE id=?", (ws, item_id))
+            conn.execute("DELETE FROM workspace WHERE id=?", (ws,))
+        left = conn.execute(
+            "SELECT workspace_id FROM knowledge_item WHERE id=?", (item_id,)
+        ).fetchone()[0]
+        check("删工作区后内容回落到未归类（外键 SET NULL）", left is None, str(left))
+
+        # 模拟 v4 老库：有页数据、没有 line_conf 列
+        with conn:
+            file_id = conn.execute(
+                """INSERT INTO item_file (item_id, role, original_name, ext, mime, size,
+                       stored_path, page_count, has_text_layer, ocr_status)
+                   VALUES (?, 'main', 'a.pdf', 'pdf', 'application/pdf', 10,
+                           'files/a.pdf', 2, 0, 'done')""",
+                (item_id,),
+            ).lastrowid
+            conn.execute(
+                """INSERT INTO item_page (item_id, file_id, page_no, text, source, avg_conf)
+                   VALUES (?, ?, 1, '老页文字', 'ocr', 0.9)""",
+                (item_id, file_id),
+            )
+            conn.execute("ALTER TABLE item_page DROP COLUMN line_conf")
+            conn.execute("PRAGMA user_version=4")
+    finally:
+        conn.close()
+
+    init_db(db)      # 4 → 5
+    conn = sqlite3.connect(str(db))
+    try:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(item_page)")}
+        kept = conn.execute("SELECT text, avg_conf, line_conf FROM item_page").fetchall()
+        check("v4 老库升级到 v5", version == SCHEMA_VERSION, str(version))
+        check("升级把 line_conf 加回来了", "line_conf" in cols, str(sorted(cols)))
+        check("老页一条不丢、line_conf 回填为 NULL（不假装有行级精度）",
+              kept == [("老页文字", 0.9, None)], str(kept))
+    finally:
+        conn.close()
+
+
+# ── §files（T9.12）─────────────────────────────────────────────
+def group_files() -> None:
+    """上传这条路的边界：形状 / 去重 / 上限 / 空文件 / 不支持的格式 / 删内容删原件。
+
+    **读字任务打桩**：这一组只验 HTTP 边界，不验抽取本身（抽取在 `§extract`）。
+    真派任务会留一条后台线程，删内容时它正好跑完写 `item_page`，日志里冒一条
+    `FOREIGN KEY constraint failed` —— 断言照样过，但红字噪音会盖住真问题。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.services import files as file_service
+    from app.services import tasks as task_queue
+
+    payload = ("这是一份用来验上传边界的文本，长度足够走完落盘与抽取。" * 40).encode("utf-8")
+
+    original_submit = task_queue.submit
+    task_queue.submit = lambda *args, **kw: "fake-task"
+    try:
+        with TestClient(app) as c:
+            first = c.post("/api/files", files={"file": ("上传验收.txt", payload)})
+            body = first.json()
+            check("上传返回 201 + 六个字段",
+                  first.status_code == 201
+                  and set(body) >= {"file_id", "item_id", "page_count", "ocr_status", "preview", "task_id"},
+                  str(sorted(body)))
+            item_id, file_id = int(body["item_id"]), int(body["file_id"])
+            check("文本文件不需要识别组件（直接走抽取）", body["ocr_status"] in ("running", "pending", "done"),
+                  body["ocr_status"])
+
+            again = c.post("/api/files", files={"file": ("上传验收.txt", payload)})
+            twice = again.json()
+            check("同一份文件二次上传不新建内容（去重）",
+                  int(twice["item_id"]) == item_id and int(twice["file_id"]) == file_id,
+                  f'{twice["item_id"]}/{twice["file_id"]} vs {item_id}/{file_id}')
+
+            original_max = file_service.MAX_BYTES
+            file_service.MAX_BYTES = 512
+            try:
+                big = c.post("/api/files", files={"file": ("大文件.txt", b"x" * 4096)})
+            finally:
+                file_service.MAX_BYTES = original_max
+            check("超过大小上限 413 FILE_TOO_LARGE",
+                  big.status_code == 413 and big.json()["error"]["code"] == "FILE_TOO_LARGE",
+                  big.text[:100])
+
+            empty = c.post("/api/files", files={"file": ("空的.txt", b"")})
+            check("空文件 422 FILE_EMPTY",
+                  empty.status_code == 422 and empty.json()["error"]["code"] == "FILE_EMPTY",
+                  empty.text[:100])
+
+            legacy = c.post("/api/files", files={"file": ("旧版.doc", b"xx")})
+            check("不支持的格式 415，并说清另存成什么",
+                  legacy.status_code == 415 and "docx" in legacy.json()["error"]["message"],
+                  legacy.text[:120])
+
+            # 删内容连带删原件：盘上目录要一起清掉，否则数据目录只涨不跌
+            data_dir = TMP
+            item_dir = data_dir / "files" / str(item_id)
+            check("原件已落盘", item_dir.is_dir(), str(item_dir))
+            deleted = c.delete(f"/api/knowledge/{item_id}")
+            check("删内容成功", deleted.status_code == 200, deleted.text[:80])
+            check("删内容后原件目录没了", not item_dir.exists(), str(item_dir))
+            check("删内容后页图目录没了", not pdf_pages.file_dir(file_id).exists(),
+                  str(pdf_pages.file_dir(file_id)))
+            check("删完再取这条 404", c.get(f"/api/knowledge/{item_id}").status_code == 404)
+    finally:
+        task_queue.submit = original_submit
+
+
+# ── §ocr（T9.12）───────────────────────────────────────────────
+def group_ocr() -> None:
+    """识别这一层的三态与页图：缺组件要说清楚、别假装读过。
+
+    **组件状态用打桩**：这台机器装了组件也照样能验「没装的那条路」，
+    否则干净机上永远只跑得到一半。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.services import ocr
+
+    pdf_path = ROOT / "samples" / "math" / "twocol.pdf"
+    if not pdf_path.is_file():
+        skip("缺 math/twocol.pdf，识别三态与页图整组跳过", str(pdf_path))
+        return
+
+    real_available = ocr.available
+    try:
+        with TestClient(app) as c:
+            # ① 没装组件：上传不失败，状态停在 pending，重读明确回 OCR_MISSING
+            ocr.available = lambda: "none"
+            up = c.post("/api/files", files={"file": ("扫描件.pdf", pdf_path.read_bytes())})
+            body = up.json()
+            check("没装组件也能上传（原件留住，不报错）", up.status_code == 201, up.text[:100])
+            check("没装组件时状态停在 pending（不假装读过）",
+                  body["ocr_status"] == "pending" and not body["task_id"], str(body))
+            blocked = c.post(f"/api/knowledge/{body['item_id']}/ocr", json={})
+            check("没装组件时重读 409 OCR_MISSING",
+                  blocked.status_code == 409
+                  and blocked.json()["error"]["code"] == "OCR_MISSING", blocked.text[:120])
+            # 去处分两层管事：后端只说「缺什么」（文案表 §错误码），
+            # 「去设置 → 下载」这句在 frontend/src/api/client.js 的错误码映射里。
+            # 所以这条要验两处，只验后端会误判成「没给去处」。
+            hint = blocked.json()["error"]["message"]
+            check("后端话说清缺什么（识别组件）", "识别组件" in hint, hint)
+            client_js = ROOT / "frontend" / "src" / "api" / "client.js"
+            mapping = ""
+            if client_js.is_file():
+                for line in client_js.read_text(encoding="utf-8").splitlines():
+                    if "OCR_MISSING" in line:
+                        mapping = line.strip()
+                        break
+            check("前端把 OCR_MISSING 指到「设置」", "设置" in mapping, mapping or "client.js 里没找到映射")
+
+            progress = c.get(f"/api/knowledge/{body['item_id']}/ocr").json()
+            check("进度形状齐（status / done / total / failed）",
+                  set(progress) >= {"status", "done_pages", "total_pages", "failed_pages"},
+                  str(sorted(progress)))
+            check("没读的字就是没进度（0 页）",
+                  progress["done_pages"] == 0, str(progress["done_pages"]))
+
+            # ② 组件可用：同一个 409 不再出现
+            ocr.available = lambda: "component"
+            allowed = c.post(f"/api/knowledge/{body['item_id']}/ocr", json={})
+            check("组件可用时重读不再 409（202 + task_id）",
+                  allowed.status_code == 202 and allowed.json()["task_id"], allowed.text[:120])
+
+            # ③ 文字内容没有原件：这条路的 404 要说人话
+            text_item = c.post("/api/knowledge", json={"raw_content": "粘贴来的文字"}).json()["id"]
+            no_file = c.get(f"/api/knowledge/{text_item}/ocr")
+            check("没有原件的内容查进度 404", no_file.status_code == 404, no_file.text[:80])
+            check("重读没有原件的内容 404 FILE_NOT_FOUND",
+                  c.post(f"/api/knowledge/{text_item}/ocr", json={}).status_code == 404)
+    finally:
+        ocr.available = real_available
+
+    # ④ 页图渲染：不依赖任何识别结果，pypdfium2 直接出图
+    pdf = pdf_pages.open_pdf(pdf_path)
+    try:
+        image = pdf_pages.render(pdf, 0, 9900)
+    finally:
+        pdf.close()
+    out = pdf_pages.abs_path(image.path)
+    head = out.read_bytes()[:3] if out.is_file() else b""
+    check("页图渲染成 JPEG（FF D8 FF）", out.is_file() and head == b"\xff\xd8\xff",
+          f"{out.name} {head!r}")
+    check("页图长边不超过 1600 px（控制体积）",
+          max(image.width, image.height) <= 1600, f"{image.width}x{image.height}")
+
+
 GROUPS = (
+    ("schema", group_schema), ("files", group_files), ("ocr", group_ocr),
     ("layout", group_layout), ("resume", group_resume), ("extract", group_extract),
     ("workspace", group_workspace), ("raw", group_raw), ("kind", group_kind),
 )
@@ -956,7 +1280,7 @@ def main() -> int:
     print(f"Cairn M9 验收 · 临时数据目录 {TMP}")
     # 抽取（§extract）与工作区（§workspace）都不碰识别组件：
     # 单独跑它们时不该被"没构建组件"挡住
-    if only not in ("extract", "workspace", "raw", "kind"):
+    if only not in ("extract", "workspace", "raw", "kind", "schema", "files"):
         hint = prepare_component()
         if hint:
             print(f"× {hint}")
@@ -974,6 +1298,11 @@ def main() -> int:
     components.stop_all()
     bad = [r for r in RESULTS if not r[0]]
     print(f"\n{len(RESULTS) - len(bad)}/{len(RESULTS)} PASS · {time.monotonic() - started:.0f} s")
+    if WARNINGS:
+        # SKIP 不算失败，但必须看得见 —— 否则「全绿」可能只是样本没生成
+        print(f"{len(WARNINGS)} 项 SKIP（缺样本/缺前置，不影响结论）")
+        for name in WARNINGS:
+            print(f"  · {name}")
     print(f"临时数据目录：{TMP}")
     return 1 if bad else 0
 

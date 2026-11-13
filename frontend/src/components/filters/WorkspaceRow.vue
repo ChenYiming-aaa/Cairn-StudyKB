@@ -169,7 +169,7 @@ function save() {
 }
 
 .act-del:hover {
-  color: var(--c-danger, #c0392b);
+  color: var(--c-danger);
 }
 
 .editor {

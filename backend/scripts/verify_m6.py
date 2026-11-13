@@ -52,7 +52,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config import config_audit, get_settings, load_settings, reload_settings  # noqa: E402
 from app.db.conn import get_conn  # noqa: E402
-from app.db.migrate import init_db  # noqa: E402
+from app.db.migrate import SCHEMA_VERSION, init_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services import llm, prefs  # noqa: E402
 
@@ -540,8 +540,13 @@ def main() -> int:
                   not hardcoded, "；".join(hardcoded[:5]))
 
             # ── 8. 迁移 v2 → v3（S-2）───────────────────────────
-            step("8. 老库升级到 v3：加列不丢数据")
+            step("8. 老库（v2）一路升到当前版本：加列不丢数据")
 
+            # 桩只要「v2 那一年的形态」：llm_call_log 老两列 + v4 迁移要 ALTER 的两张表。
+            # **为什么还得有 knowledge_item / question**：T9.2 加了 v4 之后链条变成
+            # v2→v3→v4→v5，v4 会对这两张表 `ALTER TABLE ... ADD COLUMN`；
+            # 桩里没有就报 `no such table`（2026-11-13 全量回归第一次捞到这条）。
+            # 只写迁移会碰的列，其余列不重要 —— 迁移只看表在不在、列在不在。
             legacy = TMP / "legacy-v2.db"
             raw = sqlite3.connect(str(legacy))
             try:
@@ -555,6 +560,24 @@ def main() -> int:
                     );
                     INSERT INTO llm_call_log (agent, model, ok, created_at)
                     VALUES ('asker', 'old-model', 1, '2026-01-01T00:00:00');
+
+                    CREATE TABLE knowledge_item (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      title TEXT NOT NULL DEFAULT '',
+                      raw_content TEXT NOT NULL DEFAULT '',
+                      category TEXT, tags TEXT, summary TEXT, key_points TEXT,
+                      structured_note TEXT,
+                      status TEXT NOT NULL DEFAULT 'pending',
+                      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+                    );
+                    INSERT INTO knowledge_item (title, raw_content, created_at, updated_at)
+                    VALUES ('老内容', 'v2 时代写下的正文', '2026-01-01', '2026-01-01');
+
+                    CREATE TABLE question (
+                      id INTEGER PRIMARY KEY AUTOINCREMENT,
+                      question TEXT NOT NULL, options TEXT, answer TEXT,
+                      created_at TEXT NOT NULL
+                    );
                     PRAGMA user_version=2;
                 """)
                 raw.commit()
@@ -569,13 +592,34 @@ def main() -> int:
                 kept = old.execute(
                     "SELECT model, effort, effort_dropped FROM llm_call_log"
                 ).fetchall()
+                tables = {row[0] for row in old.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'")}
+                item_cols = {row[1]: row[4] for row in old.execute(
+                    "PRAGMA table_info(knowledge_item)")}
+                page_cols = {row[1] for row in old.execute("PRAGMA table_info(item_page)")}
+                q_cols = {row[1] for row in old.execute("PRAGMA table_info(question)")}
+                old_item = old.execute(
+                    "SELECT title, kind, workspace_id, file_id FROM knowledge_item"
+                ).fetchall()
             finally:
                 old.close()
-            check("升级后 user_version=3", version == 3, str(version))
+            check("升级后 user_version = 当前版本", version == SCHEMA_VERSION, str(version))
             check("两个新列都加上了",
                   {"effort", "effort_dropped"} <= cols, str(sorted(cols)))
             check("老数据没丢，新列按 NULL / 0 回填",
                   kept == [("old-model", None, 0)], str(kept))
+            # 后面几版（v4 / v5）也真的跑过了：别只看版本号跳没跳
+            check("v4 建的三张表都在",
+                  {"workspace", "item_file", "item_page"} <= tables, str(sorted(tables)))
+            check("v4 给 knowledge_item 补的三列在，kind 默认 material",
+                  {"kind", "workspace_id", "file_id"} <= set(item_cols)
+                  and item_cols["kind"] == "'material'", str(item_cols))
+            check("v5 给 item_page 补的 line_conf 在", "line_conf" in page_cols,
+                  str(sorted(page_cols)))
+            check("v4 给 question 补的 origin / number 在",
+                  {"origin", "number"} <= q_cols, str(sorted(q_cols)))
+            check("老内容一条不丢，且按默认值落成「普通资料 / 未归类 / 无原件」",
+                  old_item == [("老内容", "material", None, None)], str(old_item))
 
             # ── 9. 严格模式（S-3）──────────────────────────────
             step("9. 配置来源可检查：不再从老地方拿 Key")
