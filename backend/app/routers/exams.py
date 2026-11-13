@@ -16,9 +16,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from typing import Any
 
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
+
+from app.services.exam import commit as exam_commit
 from app.services.exam import parse as exam_parse
 
 router = APIRouter(prefix="/api/exams", tags=["exams"])
@@ -37,3 +41,17 @@ def parse(body: ParseBody) -> dict:
     """`{file_id}` → `{drafts, stats}`。不建内容、不写库。"""
     result = exam_parse.parse(body.file_id, use_llm=body.use_llm)
     return {"drafts": result["drafts"], "stats": result["stats"]}
+
+
+class CommitBody(BaseModel):
+    file_id: int
+    # 复核页原样回传它拿到的那批草稿（可能被用户改过几处）。
+    # 不收 `drafts` 之外的字段：题号↔id 的映射由后端重新算，前端不参与对账。
+    drafts: list[dict[str, Any]] = Field(default_factory=list)
+
+
+@router.post("/commit")
+def commit(body: CommitBody) -> JSONResponse:
+    """复核后的草稿 → 1 条 `kind='exam'` 内容 + N 条 `origin='imported'` 题目（201）。"""
+    result = exam_commit.commit(body.file_id, body.drafts)
+    return JSONResponse(status_code=201, content=result)

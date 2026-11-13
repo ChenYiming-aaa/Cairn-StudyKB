@@ -270,6 +270,37 @@ def to_draft(block: Block, answers: dict, explanations: dict, subjective: dict) 
     }
 
 
+def find_gaps(drafts: list[dict]) -> list[dict]:
+    """题号跳号 → `[{"section": "二、基本操作题…", "missing": ["22"]}]`。
+
+    识别漏行是常态（实测 python 卷的第 22 题整行没被认出来），**必须如实报出来**：
+    默认当成「这份卷子只有 24 题」交上去，用户到练习时才会发现少一题，而那时
+    已经不知道漏在哪了。所以复核页据此提示「第 22 题没认出来，可以手动补一道」。
+
+    只在**同一章节内**判跳号：不少卷子每个大题都从 1 重新编号，
+    跨章节比较会把「二、1」当成「一、20 之后缺 19 个号」。
+    """
+    groups: list[tuple[str, list[int]]] = []
+    for draft in drafts:
+        number = str(draft.get("number") or "").strip()
+        if not number.isdigit():
+            continue
+        section = draft.get("group") or ""
+        if not groups or groups[-1][0] != section:
+            groups.append((section, []))
+        groups[-1][1].append(int(number))
+
+    out: list[dict] = []
+    for section, values in groups:
+        if len(values) < 2:
+            continue
+        seen = set(values)
+        missing = [str(n) for n in range(min(values), max(values) + 1) if n not in seen]
+        if missing:
+            out.append({"section": section, "missing": missing})
+    return out
+
+
 def parse(file_id: int, *, use_llm: bool = True) -> dict:
     """解析入口。返回 `{"item_id", "drafts", "stats"}`；0 题抛 `EXAM_NO_QUESTIONS`。"""
     item_id, pages = load_pages(file_id)
@@ -315,6 +346,7 @@ def parse(file_id: int, *, use_llm: bool = True) -> dict:
         "missing_answer": [d["number"] for d in drafts if d["answer"] is None],
         "by_type": by_type,
         "number_conflicts": conflicts,
+        "gaps": find_gaps(drafts),
         "model_refined": refined,
     }
     return {"item_id": item_id, "drafts": drafts, "stats": stats}
