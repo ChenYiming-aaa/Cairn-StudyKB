@@ -23,6 +23,9 @@ import re
 # 一次把所有全角字母换成半角会把正文里的全角引号、单位符号一起搅乱。
 _PUNCT_TO_FULL = {",": "，", "?": "？", ":": "：", ";": "；", "(": "（", ")": "）"}
 CJK = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+# 全角标点后面跟着的空格（识别常在逗号后留半个空格）：后面紧跟中文字才吃掉。
+# 不吞的话题干会变成「下列各项中， 属于不可变类型」，每个逗号前都多一口气
+_PUNCT_SPACE = re.compile(r"([，。；：？！、）】」』])(?:[ \t]+)(?=[\u3400-\u4dbf\u4e00-\u9fff])")
 # 每页边上的行数（代理 y 坐标：页眉在首行，页码在末行；双栏页首尾各有 1–2 行页边内容）
 EDGE_LINES = 2
 
@@ -113,7 +116,7 @@ def normalize_width(text: str) -> str:
             out.append(")" if keep else "）")
         else:
             out.append(_PUNCT_TO_FULL.get(ch, ch))
-    return "".join(out)
+    return _PUNCT_SPACE.sub(r"\1", "".join(out))
 
 
 def normalize_number(line: str) -> dict | None:

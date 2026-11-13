@@ -22,19 +22,19 @@
 
 | 项 | 值 |
 |---|---|
-| 里程碑 | **M9 本地文件、本地识别、工作区 · 已完成并发布 `v0.3.0-alpha.1`（预览版）**（CP6 已过，T9.1–T9.12 全部完成；收口见「收口」行）。M8 已完成、出口 `v0.2.1` 已发布；下一步 **M10 试卷导入与校对**，方案见 `docs/dev/执行计划-v0.3-M9-M11.md` §T10 |
-| 当前里程碑 | **M9 · CP4 已过（2026-11-13）**：T9.1–T9.7 都已推（`6531c8c` / `8981641` / `80ad950` / `0ceaea1` / `f443861` / `1f30804` / 见「推送状态」）。识别链路与四种文本格式的抽取都通了：PDF/图片走 `pypdfium2` 逐页渲染 + `cairn-ocr` + 行框判列 + 断点续跑；docx/pptx/xlsx/txt 走 `services/extractors/`（python-docx / mammoth / python-pptx / openpyxl），两条链路共用 `ingest_file._finish()` 的「整份齐了才覆盖正文」。性能口径 **不承诺秒数、只承诺行为**（实测耗时随每页字数线性变化：试卷 3–7 秒/页、双栏讲义 15.7 秒/页），见需求 §8.2 与 §12。**T9.8 已完成（`9690d54`）**：`IngestPanel.vue` 878 → 205 行，拆出 `ingest/` 六个组件；tab 三个收成两个；文件卡片多选各跑各的、上传百分比与读字进度分两条、上传中可取消、未装组件时 PDF/图片给引导而 docx 照常。**T9.9 已完成（见「推送状态」）**：工作区四个端点（建/列/改/删，名字 ≤20 字、同名允许、删只移出不删内容）+ `item_count` / `none_count`；`workspace_id` 收进 `items._scope_clause`，列表 / 状态计数 / 批量整理 / 工作区计数四处同口径，「未归类」= `workspace_id IS NULL`（哨兵 `"none"`）；左栏新增「工作区」段（全部 / 各工作区 / 未归类，与「分类」分隔线 + 不同字重），列表可勾选批量移入、详情一个下拉。**T9.10 已完成**：原文页签按 `ext` 分派成四个视图（`raw/PdfView` 页图+该页文字按页翻、`DocxView` 后端净化 HTML、`PptxView` 逐页大纲、`ImageView` 左原图右文字），`RawPane` 改成 66 行分派壳、原纯文本逻辑搬到 `raw/TextRawPane`（问答高亮保留）；`pages/{n}` 增 `line_conf`（逐行置信度）与 `html`（docx 版式），为此加 **v5 迁移** `item_page.line_conf`（只加列不回填，老页为 NULL 就不标黄）并给 `ocr_layout` 加 `order_lines_detail`（行序与置信度同源，同一视觉行取最低分）。**T9.11 已完成**：「整理」按 `kind` 分派 —— `material` 照旧，`exam` 只出卷面概览、`image` 只出一句话说明 + 图上要点，这两类 `structured_note` 恒为 NULL（`_normalize` 强行丢弃、落库传 `""` 明确清空，从 material 改成 exam 时旧笔记会消失）；新增 `prompts/organize_exam.md` / `organize_image.md` 与按 kind 分开的重试提示；占位正文（`[文件] 原名` / `ocr_status` ∈ pending·running·failed·none）整理返回 409 `FILE_NOT_READY`，`partial` **放行**（有真内容就该能整理，261 行的 Excel 不能永远不能整理）；批量整理跳过没读完的并在 `skipped` 里回报。试卷详情不显示「整理笔记」页签。**T9.12 已完成**：`verify_m9.py` 长成九组 **305 条**（§schema 7 / §files 11 / §ocr 12 / §layout 126 / §resume 8 / §extract 80 / §workspace 25 / §raw 17 / §kind 19），`tools/regress.py` 一条命令顺序跑 m1–m9（脚本靠扫 `backend/scripts/verify_m*.py` 得出，M10/M11 加了自动带上；失败即停并打最后 30 行；退出码 2 = 环境不满足，不算失败也不算全绿）。**回归第一次拉起来就捞到三处真问题**：①`WorkspaceRow.vue` 的 `var(--c-danger, #c0392b)` 写死了颜色；②`verify_m6` §8 的「v2 老库」桩只有一个 `llm_call_log` 表，T9.2 把链条加长到 v2→v5 后 v4 要 `ALTER TABLE knowledge_item`/`question`，桩里没有就 `no such table` —— **自 T9.2 起这条用例就没跑过**（已补桩 + 断言升到 v5，m6 78 → 83/83）；③`ocr.CALL_TIMEOUT` 180 秒对密集讲义页只剩 1.5 倍余量（5 页一批正常 100–120 秒），已放宽到 300 秒。**下一步**：M9 收口（是否打 `v0.3.0`、发版与更新器实测）计划里没写，需另开卡；M10 从 T10.1 规则清洗层起 |
-| 上一里程碑 | **M7 已验收**（tag `m7-done`，`verify_m7` 41/41）；M6 已验收（`m6-done`） |
+| 里程碑 | **M10 试卷导入与校对 · 已完成**（T10.1–T10.7 七张卡全部落地（`d8ef918` / `c7a726a` / `3c5e394` / `988ab0c` / `aa37f52` / `b7878a3` / 见下），`verify_m10` **94/94**、`python tools/regress.py` **m1–m10 全绿（6.7 分钟）**）；上一里程碑 M9 已完成并发布 `v0.3.0-alpha.1`（预览版，CP6 已过，T9.1–T9.12 全部完成）。下一步 **M11 引用跳到第 N 页**，方案见 `docs/dev/执行计划-v0.3-M9-M11.md` §T11 |
+| 当前里程碑 | **M10 · 已完成（2026-11-13）**：① **拆题两段式**（`services/exam/`）——**规则先切**（题号 / 选项字母 / 答案速查表），模型只补规则切不出的字段（answer / type / score，options 仅在规则一个都没切出时才收），**题干与题号任何情况下不让模型改**；答案区靠「整行就是标题」定位，题干里的「正确答案」不会把后半张卷子划进去；题号只在同一 `group` 内判跳号，折行接回、向前跳号才是新题；`find_gaps` 让复核页明说「第 N 题没认出来」。② **复核页**（`views/ExamReview.vue`，700+ 行）左页图右卡片，题干 / 选项 / 题型 / 答案都能改，**中途退出什么都不落库**；提交前预警「这个选项不够两个会降级成简答」「这道题答案丢了」；提交走一次事务（1 条 `kind='exam'` + N 条 `origin='imported'`，同时把内容状态置 `ready`）。③ **练过的题删不掉**：删题连带删 `quiz_attempt`，所以改成置 `number=NULL` 摘出卷子、留在库里（`_drop_unused`）。④ **文字校对**（`services/exam/proofread.py`）三道闸门 —— 只收结构化 diff / 编辑距离 ≤ 行长 30% / **原文永不覆盖**（写 `text_reviewed`，随时能退）；第四道是**答案行只许改标点**（`答案：B`→`答案：C` 只差 1 字符，编辑距离拦不住）；`apply` 从原文重建后落库，幂等。⑤ **按卷练**：`list_paper` 只取 `origin='imported'` 且 `number IS NOT NULL`，题号按数值排（`_number_key`，否则第 10 题会排到第 2 题前）；`QuizRunner` 加 `numbered`，「再做一遍」不换卷。⑥ **文件夹批量导入**（`routers/imports.py` + `ingest/FolderImport.vue`）：先 scan 后 run、**只扫一层**、自然序、100 个上限、一个失败不拖垮整批（成功 / 重复 / 失败分三堆报）；特权侧只加了 `import:pick-directory` 一个通道（主进程只弹选择框，读文件仍在后端）。⑦ **`verify_m10.py` 六组 94 条**（§clean 25 / §parse 16 / §commit 22 / §proofread 16 / §paper 7 / §import 18），模型打桩不联网，真样本缺 `samples/` 时整段 SKIP。**顺带修的两件事**：`verify_m8` 的「preload 只四个方法」改成**列名单**（T10.6 新增第五个通道，新增特权必须显式登记）；文案把复核页与设置任务说明里的「解析」改成「**讲解**」，`文案规范.md` §2 补 6 条口径（其中「文件夹」只许指磁盘上那一层，应用内归类仍叫「工作区」）。**仍未解决的**：识别漏一整行那道题就没了（只能提示 + 手动补）；校对一次只改一行、不合并断句；图表题与跨页题干仍不干净。M9 的完整台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1–T9.12 已全部勾选） |
+| 上一里程碑 | **M9 已验收**（`verify_m9` 305/305，CP6 已过，发布预览版 `v0.3.0-alpha.1`）；M8 已验收（tag `m8-done`、`v0.2.1`）；M7 已验收（`m7-done`） |
 | 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
 | 版本 | **0.3.0-alpha.1**（四处一致，`tools/bump_version.py --check` 通过；`bump_version.py` 从这一版起认预发布后缀） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` |
-| 验收 | **M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿**；**T9.5（2026-11-12）自检 16 条 + 端到端 9 条全过（三态 / 单页隔离 / 5+1 分批 / 拷包即用 / 卸载回落 / `OCR_MISSING`），`verify_m7` 41/41、`verify_m8` 105/105、前端 lint 干净、build 通过（JS 330.87 kB / gzip 120.68；CSS 96.21 / 14.45）**；**T9.6（2026-11-12）自检 39 条全过、四组 `twocol.pdf` 40 页判列零错行、断点续跑与单页重试实测通过、30 页 102 秒 / 130 秒（3.4–4.3 秒/页）**；**T9.7（2026-11-13）`verify_m9.py --only extract` 76/76（四组 course.docx 的表/图/标题/段落数与 `samples/_check.json` 逐项相等、HTML 无 base64 图、pptx 备注与表格、xlsx 200 行截断与转义、txt 三档编码、端到端覆盖正文；坏文件与只有图的 docx 都不留半份），`--only resume` 8/8、`--only layout --pages 2` 30/30，回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.8（2026-11-13）`verify_m7` 45/45（新增 4 条采集面板文案扫描）、`verify_m9 --only extract` 77/77（新增 1 条 xlsx 截断断言）、五文件同传与未装组件两轮界面实跑、上传取消实测零残留、前端 lint 干净、build 通过（JS 341.16 kB / gzip 124.34）**；**T9.9（2026-11-13）`verify_m9 --only workspace` 25/25（工作区 CRUD、四处计数对齐、`none` = `IS NULL`、删只移出、批量整理按工作区收窄；不碰识别组件，2 秒）、`verify_m7` 57/57（+12 条工作区界面用例：建 2 个各放 3 条、左栏数字与接口逐条相同、改名同步、删除回落未归类、详情下拉移出）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 与 `--only extract` 77/77 全绿、前端 build 通过**；**T9.10（2026-11-13）`verify_m9 --only raw` 17/17（`pages/{n}` 七字段齐、`line_conf` 逐行对齐、坏 JSON 不 500、docx 版式三条净化断言、`order_lines_detail` 保序取最低分）、`--only extract` 80/80（+3 条：版式随页返回 / 无 `<script>` / 抽取页 `line_conf` 为 NULL）、`verify_m7` 84/84（+20 条：Word 版式 DOM、PDF 页图 `naturalWidth>0` + 低分行标黄 + 翻页换文字 + 无页图占位、PPT 标题/要点/备注 + 翻页、图片原图 + 文字对照、`<script>` 不执行、纯文本仍走 `.raw`）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿、lint 干净、build 通过（JS 359.86 kB / gzip 129.84）**；**T9.11（2026-11-13）`verify_m9 --only kind` 18/18（模型硬塞笔记被丢、图片允许 0 要点且不重试、material→exam 旧笔记清空、占位拒绝 409 / partial 放行 202、批量跳过并回报）、`verify_m7` 88/88（+4 条页签用例：试卷无「整理笔记」且默认停摘要、普通资料仍有）、回归 m1 53 · m3 61 · m4 69 全绿、`--only layout` 126/126 与 `--only resume` 8/8（`ocr_layout` 重构后真 OCR 复核 1193 s + 151 s）、lint 干净、build 通过（JS 360.36 kB / gzip 129.99）**；**T9.12（2026-11-13）`verify_m9` 全九组 305/305（326–1034 s，波动全在 §layout 真识别）、`python tools/regress.py` 一条命令 m1–m9 全绿（两轮 9.4 与 20.0 分钟；m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 105 · m9 305），顺带修了 `WorkspaceRow.vue` 写死颜色、`verify_m6` §8 的 v2 老库桩、`ocr.CALL_TIMEOUT` 180→300 秒，并把「缺样本」真跑成了 SKIP** |
+| 验收 | **M10（2026-11-13）`verify_m10.py` 94/94、`python tools/regress.py` m1–m10 全绿 6.7 分钟（m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 106 · m9 305 · m10 94）、前端 lint 干净、build 通过（JS 381.50 kB / gzip 136.78；CSS 117.16 / 17.13）**；**M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿**；**T9.5（2026-11-12）自检 16 条 + 端到端 9 条全过（三态 / 单页隔离 / 5+1 分批 / 拷包即用 / 卸载回落 / `OCR_MISSING`），`verify_m7` 41/41、`verify_m8` 105/105、前端 lint 干净、build 通过（JS 330.87 kB / gzip 120.68；CSS 96.21 / 14.45）**；**T9.6（2026-11-12）自检 39 条全过、四组 `twocol.pdf` 40 页判列零错行、断点续跑与单页重试实测通过、30 页 102 秒 / 130 秒（3.4–4.3 秒/页）**；**T9.7（2026-11-13）`verify_m9.py --only extract` 76/76（四组 course.docx 的表/图/标题/段落数与 `samples/_check.json` 逐项相等、HTML 无 base64 图、pptx 备注与表格、xlsx 200 行截断与转义、txt 三档编码、端到端覆盖正文；坏文件与只有图的 docx 都不留半份），`--only resume` 8/8、`--only layout --pages 2` 30/30，回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.8（2026-11-13）`verify_m7` 45/45（新增 4 条采集面板文案扫描）、`verify_m9 --only extract` 77/77（新增 1 条 xlsx 截断断言）、五文件同传与未装组件两轮界面实跑、上传取消实测零残留、前端 lint 干净、build 通过（JS 341.16 kB / gzip 124.34）**；**T9.9（2026-11-13）`verify_m9 --only workspace` 25/25（工作区 CRUD、四处计数对齐、`none` = `IS NULL`、删只移出、批量整理按工作区收窄；不碰识别组件，2 秒）、`verify_m7` 57/57（+12 条工作区界面用例：建 2 个各放 3 条、左栏数字与接口逐条相同、改名同步、删除回落未归类、详情下拉移出）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 与 `--only extract` 77/77 全绿、前端 build 通过**；**T9.10（2026-11-13）`verify_m9 --only raw` 17/17（`pages/{n}` 七字段齐、`line_conf` 逐行对齐、坏 JSON 不 500、docx 版式三条净化断言、`order_lines_detail` 保序取最低分）、`--only extract` 80/80（+3 条：版式随页返回 / 无 `<script>` / 抽取页 `line_conf` 为 NULL）、`verify_m7` 84/84（+20 条：Word 版式 DOM、PDF 页图 `naturalWidth>0` + 低分行标黄 + 翻页换文字 + 无页图占位、PPT 标题/要点/备注 + 翻页、图片原图 + 文字对照、`<script>` 不执行、纯文本仍走 `.raw`）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿、lint 干净、build 通过（JS 359.86 kB / gzip 129.84）**；**T9.11（2026-11-13）`verify_m9 --only kind` 18/18（模型硬塞笔记被丢、图片允许 0 要点且不重试、material→exam 旧笔记清空、占位拒绝 409 / partial 放行 202、批量跳过并回报）、`verify_m7` 88/88（+4 条页签用例：试卷无「整理笔记」且默认停摘要、普通资料仍有）、回归 m1 53 · m3 61 · m4 69 全绿、`--only layout` 126/126 与 `--only resume` 8/8（`ocr_layout` 重构后真 OCR 复核 1193 s + 151 s）、lint 干净、build 通过（JS 360.36 kB / gzip 129.99）**；**T9.12（2026-11-13）`verify_m9` 全九组 305/305（326–1034 s，波动全在 §layout 真识别）、`python tools/regress.py` 一条命令 m1–m9 全绿（两轮 9.4 与 20.0 分钟；m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 105 · m9 305），顺带修了 `WorkspaceRow.vue` 写死颜色、`verify_m6` §8 的 v2 老库桩、`ocr.CALL_TIMEOUT` 180→300 秒，并把「缺样本」真跑成了 SKIP** |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
 | 预览版 | **`v0.3.0-alpha.1`**（GitHub 标 pre-release，`/releases/latest` 仍是 `v0.2.1`，**更新器不会推它**）：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.3.0-alpha.1>，正文取 `release-notes-v0.3.0-alpha.1.md`，附件 `Cairn-0.3.0-alpha.1-setup.exe` + `.sha256`。组件包不用重发（`components-v1` 里四个 zip 的 sha256 与 `app/components.json` 逐个比对一致） |
 | 发布 | 最新 Release **`v0.2.1`**：<https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.2.1>（正文取 `release-notes-v0.2.1.md`，附件 `Cairn-0.2.1-setup.exe` **172,078,997 B** + `.sha256`）。历史：`v0.2.0`（172,075,794 B）、`v0.1.0`（426,428,660 B，0.1.0 里没有更新器，只能手动下）。组件包在 **`components-v1`**（三个 zip，`make_latest=false`，别设 latest 否则更新器会认错） |
-| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 进度台账在 `执行计划-v0.3-M9-M11.md` §9（T9.1–T9.12 已全部勾选；CP6 已过；T9.13 识别提速已记「跳过」；收口与发版已完成（见下））** |
+| 台账 | M0–M3 已归档到 `docs/dev/archive/HANDOFF-2026-11-05至11-07.md`；M4 三条 + M5 三条留在本文件（M5 验收后 M4+M5 一起移）；**M9 / M10 进度台账都在 `执行计划-v0.3-M9-M11.md` §9**（T9.1–T9.12、**T10.1–T10.7 已全部勾选**；CP6 已过；M9 收口与发版已完成；T9.13 识别提速记「跳过」） |
 
 **M9 收口（2026-11-13）**：版本 `0.3.0-alpha.1`（预发布）、安装包 **180,933,111 B**（sha256 `f5580fa2…`）、`tools/e2e_update.py --only all` 在 scratch 安装（`D:/cairn-t930`，0.2.1 → 0.3.0-alpha.1）**27/27 PASS**（断网人话 / 取消删净 / 起安装器且无孤儿后端 / 真 API 判「已是最新」）；线上演示站 fixture 用 `tools/capture_demo.py` 重抓（6 条内容原样灌库 + 真后端抓 GET，新增工作区与 `kind` / `workspace_id` / `file` 字段）；`tools/audit_kb.py`、`tools/build_signed.py`、`tools/capture_demo.py` 入库；`%TEMP%` 里 385 个 `cairn-verify-*`（4.9 GB）已清
 
@@ -2289,3 +2289,66 @@ tab 三个收成两个（「粘贴文本」「文件与链接」），原生「�
 > 左栏上「工作区」下「分类」两段（用分隔线与字重区分，别让用户以为是同一棵树）、
 > 详情页一个下拉做移入、列表批量移动、`organize_pending` 加 `workspace_id`。
 > 「未归类」转 SQL 用 `workspace_id IS NULL`，**不要**用 `0`。
+
+---
+
+## 2026-11-13 20:45 · v0.3 M10 · 试卷导入与校对（**七张卡全部完成**，`verify_m10` 94/94）
+
+**这一轮做了什么**（T10.1–T10.7，逐卡提交推送：`d8ef918` / `c7a726a` / `3c5e394` / `988ab0c` /
+`aa37f52` / `b7878a3` / 本提交）
+
+- **T10.1 规则清洗**（`services/exam/clean.py`，五个纯函数、不碰库不调模型）：页眉页脚（页边出现 +
+  全文重复两条都满足才丢，页码单独一条规则）、断行合并（题号 / 选项 / 项目符号 / 标题都不合）、
+  全半角（**按行判中文语境**，≥15% 才动；英文与代码零改动 —— `s[1:4]`、`3.14`、`round(2.5)` 都不许变）、
+  题号归一、选项对齐。
+- **T10.2 解析**（`parse.py` + `routers/exams.py` + `prompts/exam_parse.md`）：答案区靠**整行就是标题**
+  定位（题干里的「正确答案」不会把后半张卷子划进去）；速查表 `1.B 2.D` 与逐题 `1.（B）…` 两种认法，
+  后者更可信；题号**只在同一题组内判跳号**，折行（`value <= prev_num`）接回、向前跳号才是新题。
+- **T10.3 复核页 + 提交**（`commit.py` + `views/ExamReview.vue`）：**不落库**，中途退出什么都不留；
+  提交一次事务写 1 条 `kind='exam'` + N 条 `origin='imported'`；`_same_number` **认题号不认指纹**
+  （指纹含题干，复核页最常见的改动就是改错字）；**练过的题删不掉** —— 删题要连带删 `quiz_attempt`，
+  所以改成置 `number=NULL` 摘出卷子、留在库里。
+- **T10.4 文字校对**（`proofread.py` + `prompts/exam_proof.md`）：三道闸门 = 只收结构化 diff /
+  编辑距离 ≤ 行长 30% / **原文永不覆盖**（写 `text_reviewed`）；第四道是**答案行只许改标点** ——
+  `答案：B`→`答案：C` 只差 1 字符，编辑距离拦不住。`apply` 从原文重建、幂等、落库前再校验一遍。
+- **T10.5 按卷练**（`list_paper` + `Practice.vue` + `QuizRunner` 的 `numbered`）：题号是 TEXT，
+  `ORDER BY` 会把第 10 题排到第 2 题前，得按数值排（`_number_key`）；只取 `origin='imported'`，
+  空卷 404 `ITEM_NOT_FOUND`；`commit` 同时把内容状态置 `ready`（不置就永远挂「待整理」）。
+- **T10.6 文件夹批量导入**（`routers/imports.py` + `ingest/FolderImport.vue`）：先 scan 后 run、
+  **只扫一层**、自然序、100 个上限、一个失败不拖垮整批（成功 / 重复 / 失败分三堆报）；
+  特权侧只加 `import:pick-directory` 一个通道，主进程只弹选择框，读文件与建内容仍在后端。
+- **T10.7 验收**：`verify_m10.py` 六组 **94 条**（§clean 25 / §parse 16 / §commit 22 / §proofread 16 /
+  §paper 7 / §import 18），模型打桩不联网；`python tools/regress.py` **m1–m10 全绿 6.7 分钟**
+  （m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 106 · m9 305 · m10 94）。
+
+**顺带修的两件事（都不是 M10 的功能）**
+
+1. `verify_m8` 的「preload 暴露四个方法（不多不少）」写死了数字 4，T10.6 加了第五个通道就红。
+   改成**列名单**（`re.findall` 出五个通道名逐个比对）+ 新增「main 侧有对应 handler」，
+   以后再加特权通道必须在这里显式登记，悄悄多开一个会被逮住。
+2. 界面「解析」→「**讲解**」：复核页的「解析与分值」、设置里 `TaskMatrix` 的「简答判分与解析」。
+   `文案规范.md` §2 因此补了 6 条口径，其中两条是**例外**：**「文件夹」只许指磁盘上真实那一层**
+   （批量导入选的那个），应用内自建归类仍然只叫「工作区」；**「导入」只用于把本地文件整份放进库**
+   （试卷导入、文件夹导入），从网址取正文仍叫「采集」。
+
+**踩到的坑**
+
+- **提交信息里的反引号会被 bash 当命令执行**：`答案：B`→`答案：C` 那行写进 `-m "…"` 里被吞成空。
+  改法：消息写进 `$TEMP/msg.txt`，用 `git commit -F`。`git log -1 --format=%B` 是唯一可靠的核对手段。
+- **`git commit --amend` 前先确认没推**：T10.2 那次 `parse.py` 依赖 `clean.py` 的新语义却漏 stage，
+  `--amend` 补齐后才推（`git status --short` 与 `git log origin/main..HEAD` 两个都要看）。
+- **`load_dotenv` 会污染 `os.environ`**：验收脚本想「跳过那次读取」没用，上次塞进去的 Key 还在。
+  要真隔离只能用 `dotenv_values()`（纯解析不落地）—— 这就是 `CAIRN_ENV_STRICT=1` 的来路。
+- **验收断言别在异步动作刚返回时下结论**：装组件 → 补向量是后台任务，首次还要下 92 MB 模型（实测 29 s）。
+  写 `wait_until(predicate)`，别把断言放宽 —— 否则真缺陷会和「还没跑完」混成一片 ERROR。
+
+**仍未解决的（都写进 README「已知不足」了）**
+
+- 识别漏一整行 → 那道题就没了。复核页会明说「第 N 题没认出来」，但只能手动补。
+- 校对一次只改一行，**不合并断成两半的句子**；也不补内容（认错整句得看页图）。
+- 图表题、跨页题干、选项被压成一行，都还处理不干净。
+
+**下一会话第一件事**
+> 做 **M11 原件级呈现**（`执行计划-v0.3-M9-M11.md` §T11）：PDF 逐页原样渲染、
+> 引用跳到第 N 页并高亮、docx 图片与表格。动手前先读 §9 台账与「踩坑手册」；
+> 引用跳页要落在检索结果的 `page_no` 上（`item_page` 已有页表，别再新开一套坐标）。

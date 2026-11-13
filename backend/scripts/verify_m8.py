@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -589,8 +590,16 @@ def group_update() -> None:
     check("窗口真的挂了 preload", "preload.js" in main_js and "preload:" in main_js)
     for ch in ("update:check", "update:download", "update:cancel", "update:install"):
         check(f"main 注册通道 {ch}", f"ipcMain.handle('{ch}'" in main_js)
-    check("preload 暴露四个方法（不多不少）",
-          preload_js.count("ipcRenderer.invoke") == 4, str(preload_js.count("ipcRenderer.invoke")))
+    # T10.6 起多了第五个通道 import:pick-directory（只弹个选文件夹的框，读文件仍在后端）。
+    # 断言从「数个数」改成「列名单」：特权通道每加一个都必须在这里显式登记，
+    # 否则哪天多开一个也没人知道。
+    exposed = re.findall(r"ipcRenderer\.invoke\('([^']+)'\)", preload_js)
+    check("preload 只挂这五个通道（不多不少）",
+          exposed == ["update:check", "update:download", "update:cancel",
+                      "update:install", "import:pick-directory"],
+          " / ".join(exposed) or "一个都没读到")
+    check("目录导入通道 main 侧有对应 handler",
+          "ipcMain.handle('import:pick-directory'" in main_js)
     check("preload 不把 ipcRenderer 本身递出去",
           "ipcRenderer," not in preload_js and "ipcRenderer:" not in preload_js)
     check("IPC 校验调用来源", "trusted" in main_js and "FORBIDDEN" in main_js)

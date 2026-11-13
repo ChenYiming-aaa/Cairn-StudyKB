@@ -19,7 +19,7 @@ const AGENTS = [
   { id: 'organizer', name: '整理', desc: '重写标题、摘要、要点、笔记' },
   { id: 'asker', name: '问答', desc: '对整库提问，带引用' },
   { id: 'quizzer', name: '出题', desc: '按内容生成题目' },
-  { id: 'grader', name: '批改', desc: '简答判分与解析' },
+  { id: 'grader', name: '批改', desc: '简答判分与讲解' },
 ]
 
 const EFFORTS = [
