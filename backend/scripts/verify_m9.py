@@ -217,9 +217,11 @@ def _audit_page(label: str, result) -> None:
 # ── §layout ────────────────────────────────────────────────────
 def group_layout() -> None:
     total_pages = 0
+    # 干净机上四份样本可能一份都没有：那就别对「共 40 页」下结论（缺什么已经 SKIP 过了）。
+    available = [n for n in SAMPLES if (ROOT / "samples" / n / "twocol.pdf").is_file()]
     for name in SAMPLES:
         path = ROOT / "samples" / name / "twocol.pdf"
-        if not path.is_file():
+        if name not in available:
             skip(f"缺 {name}/twocol.pdf，这一组判列断言跳过", str(path))
             continue
         # 伪 file_id 兼作页图缓存键：同一常量会让四组读到同一份缓存（2026-11-12 踩过）
@@ -244,8 +246,12 @@ def group_layout() -> None:
                     total_pages += 1
         finally:
             pdf.close()
-    check(f"四组共 {total_pages} 页都跑过判列", total_pages == (4 * LIMIT if LIMIT else 40),
-          f"{total_pages} 页")
+    expect = len(available) * (min(10, LIMIT) if LIMIT else 10)
+    if available:
+        check(f"{len(available)} 组共 {total_pages} 页都跑过判列", total_pages == expect,
+              f"{total_pages} 页 / 应 {expect}")
+    else:
+        skip("四组 twocol.pdf 都不在，判列汇总断言跳过")
 
     # 字面锚词：左栏后段的词必须排在右栏开头的词之前（交错就会翻过来）
     path = ROOT / "samples" / "python" / "twocol.pdf"
@@ -421,12 +427,18 @@ def group_extract() -> None:
     from app.services import embedder, extractors
 
     fixtures = _make_fixtures()
-    expected = json.loads((ROOT / "samples" / "_check.json").read_text(encoding="utf-8"))
+    # `samples/_check.json` 与样本同生共死；干净机上它也不在（别让上面那句 read_text 直接把这一组炸掉）
+    check_file = ROOT / "samples" / "_check.json"
+    expected: dict = {}
+    if check_file.is_file():
+        expected = json.loads(check_file.read_text(encoding="utf-8"))
+    else:
+        skip("缺 samples/_check.json，四份真实 docx 的结构断言跳过", str(check_file))
 
     # ① 四份真实 docx：结构与样本自检记录逐项对齐（比"字数看着差不多"可靠）
     for name in SAMPLES:
         path = ROOT / "samples" / name / "course.docx"
-        if not path.is_file():
+        if not path.is_file() or name not in expected:
             skip(f"缺 {name}/course.docx，这份的结构断言跳过", str(path))
             continue
         doc = extractors.extract(path, "docx", path.name)
