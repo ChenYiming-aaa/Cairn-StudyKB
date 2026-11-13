@@ -22,6 +22,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.services.exam import audit as exam_audit
 from app.services.exam import commit as exam_commit
 from app.services.exam import parse as exam_parse
 from app.services.exam import proofread as exam_proof
@@ -56,6 +57,23 @@ def commit(body: CommitBody) -> JSONResponse:
     """复核后的草稿 → 1 条 `kind='exam'` 内容 + N 条 `origin='imported'` 题目（201）。"""
     result = exam_commit.commit(body.file_id, body.drafts)
     return JSONResponse(status_code=201, content=result)
+
+
+class AuditBody(BaseModel):
+    # 初审只看草稿，不读原件 —— 所以这里没有 `file_id`。
+    # 收了反而会让人以为它会去翻页图（它不会，页图对照是复核页里人做的事）
+    drafts: list[dict[str, Any]] = Field(default_factory=list)
+    use_llm: bool = True
+
+
+@router.post("/audit")
+def audit(body: AuditBody) -> dict:
+    """题目初审（T10.9）→ `{issues, stats, dropped}`。**纯计算不落库。**
+
+    与 `/parse` 同一套纪律：判断先给用户看，改不改由「用这条」决定。
+    模型挂了只降级成规则体检，不 500 —— 少一层判断总比整份导不进来好。
+    """
+    return exam_audit.audit(body.drafts, use_llm=body.use_llm)
 
 
 class ProofreadBody(BaseModel):

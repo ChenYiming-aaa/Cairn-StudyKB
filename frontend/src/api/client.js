@@ -359,6 +359,8 @@ export const api = {
   quizPaper: (itemId) => get(`/api/quiz/paper/${itemId}`),
   /** 试卷草稿（T10.2）：纯计算不落库，返回 {drafts, stats} */
   examParse: (payload) => post('/api/exams/parse', payload),
+  /** 题目初审（T10.9）：只看草稿、不读原件，返回 {issues, stats}，改不改由人定 */
+  examAudit: (payload) => post('/api/exams/audit', payload),
   /** 复核后一次写入（T10.3）：返回 {item_id, imported, replaced, downgraded} */
   examCommit: (payload) => post('/api/exams/commit', payload),
   /** 文字校对（T10.4）：跑模型拿逐条改动，不落库 */

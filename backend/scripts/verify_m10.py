@@ -8,6 +8,7 @@
     cd backend && uv run python scripts/verify_m10.py --only proofread  # 只跑校对
     cd backend && uv run python scripts/verify_m10.py --only paper      # 只跑按卷练习
     cd backend && uv run python scripts/verify_m10.py --only import     # 只跑批量导入
+    cd backend && uv run python scripts/verify_m10.py --only audit      # 只跑题目初审
 
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足
 
@@ -19,6 +20,8 @@
   §proofread T10.4 三道闸门（结构化 diff / 编辑距离 / 原文不覆盖）+ 答案行守卫
   §paper   T10.5 按原卷题号排序（TEXT 题号直排会把第 10 题排到第 2 题前）、只取导入题
   §import  T10.6 只列不导、自然序、老格式给替代、逐个失败不影响其余、上限 100
+  §audit   T10.9 初审：规则体检不误报、缺答案只报不猜、模型改法的三道守卫
+           （动数字 / 带题号 / 换成另一句）、分批、模型挂了降级不 500
 
 **不联网、不调 LLM**：模型那两处（`prompt.refine` / `proofread.review_page`）全部打桩，
 用固定返回验守卫。判据在脚本里独立重算（不 import 被测函数的判定），
@@ -55,7 +58,7 @@ from fastapi.testclient import TestClient      # noqa: E402
 from app.db.conn import get_conn               # noqa: E402
 from app.db.migrate import init_db             # noqa: E402
 from app.main import app                       # noqa: E402
-from app.services.exam import clean, parse, proofread          # noqa: E402
+from app.services.exam import audit, clean, parse, proofread   # noqa: E402
 
 RESULTS: list[tuple[bool, str, str]] = []
 WARNINGS: list[str] = []
@@ -305,6 +308,23 @@ def group_parse() -> None:
     check("解析不落库（题目表还是 0 条）",
           _count("SELECT COUNT(*) FROM question WHERE item_id=?", (item_id,)) == 0)
     check("解析不把内容定性成试卷", _item_field(item_id, "kind") == "material")
+
+    # 校对过的页文本要进解析。写了 `text_reviewed` 却只读 `text`，
+    # 用户校对完再导一遍，题目还是认错的原样 —— 那校对等于没做（2026-11-13 修）
+    item2, file2 = make_item(["1. 表达试 3**2//2 的值是\nA. 4\nB. 5\nC. 6\nD. 7"])
+    conn = get_conn()
+    try:
+        with conn:
+            conn.execute("UPDATE item_page SET text_reviewed=? WHERE file_id=? AND page_no=1",
+                         ("1. 表达式 3**2//2 的值是\nA. 4\nB. 5\nC. 6\nD. 7", file2))
+    finally:
+        conn.close()
+    polished = parse.parse(file2, use_llm=False)
+    check("解析读校对后的文本（不是只读识别原文）",
+          polished["drafts"][0]["question"] == "表达式 3**2//2 的值是",
+          polished["drafts"][0]["question"])
+    check("校对后原文照样留着", "表达试" in (_page_field(file2, 1, "text") or ""),
+          (_page_field(file2, 1, "text") or "")[:16])
 
     # 真样本：题数要与 _check.json 记的题号数对上
     check_file = SAMPLES / "_check.json"
@@ -690,6 +710,161 @@ def _question(question_id: int) -> dict:
         conn.close()
 
 
+# ── §audit T10.9 ───────────────────────────────────────────
+def _draft(**kw) -> dict:
+    """一条干净的草稿；用例只改它关心的那一个字段。"""
+    base = {"number": "1", "type": "single", "question": "表达式 3**2//2 的值是",
+            "options": ["4", "5", "6", "7"], "answer": "A"}
+    base.update(kw)
+    return base
+
+
+def group_audit() -> None:
+    # 体检的第一条纪律是「不许误报」：一条好题被标红，用户就学会无视整排提示
+    check("完整的题一条问题都不报", audit.faults(_draft()) == [], str(audit.faults(_draft())))
+    check("判断题（两个选项 + 布尔答案）不报问题",
+          audit.faults(_draft(type="boolean", options=["正确", "错误"], answer=True)) == [],
+          str(audit.faults(_draft(type="boolean", options=["正确", "错误"], answer=True))))
+    check("简答题有参考答案不报问题",
+          audit.faults(_draft(type="short", options=[], answer="x = 1\nprint(x)")) == [])
+    # 「…的值是」「…正确的是」是最常见的结尾，它不该被当成断句
+    check("「…的值是」不算断句",
+          not [f for f in audit.faults(_draft()) if f["code"] == "STEM_TAIL"])
+    # 「1 到 10 的和」是完整的名词短语 —— 这条是拿真卷子跑出来才发现的误报
+    check("「输出 1 到 10 的和」不算断句",
+          not [f for f in audit.faults(_draft(type="short", options=[], question="编写程序, 输出 1 到 10 的和",
+                                             answer="print(sum(range(1, 11)))"))
+               if f["code"] == "STEM_TAIL"])
+
+    cases = [
+        ("缺答案", _draft(answer=None), "NO_ANSWER", "error"),
+        ("题干是空的", _draft(question=""), "NO_STEM", "error"),
+        ("单选题选项不到两个", _draft(options=["4"]), "FEW_OPTIONS", "warn"),
+        ("答案指向不存在的选项", _draft(answer="D", options=["4", "5"]), "ANSWER_OUT_OF_RANGE", "warn"),
+        ("题干只有三个字", _draft(question="正确吗"), "SHORT_STEM", "warn"),
+        ("题干断在半路", _draft(question="下列各项中"), "STEM_TAIL", "warn"),
+        ("选项混进题干", _draft(question="下列说法正确的是 A. 甲乙丙丁"), "OPTION_IN_STEM", "warn"),
+        ("两个选项内容一样", _draft(options=["4", " 4 ", "6", "7"]), "DUP_OPTION", "warn"),
+        ("题干里有一句重复", _draft(question="下列哪项正确。下列哪项正确。"), "STEM_DUP", "warn"),
+    ]
+    for name, draft, code, level in cases:
+        hits = [f for f in audit.faults(draft) if f["code"] == code]
+        check(f"{name} → {code}（{level}）", len(hits) == 1 and hits[0]["level"] == level,
+              str([f["code"] for f in audit.faults(draft)]))
+
+    # 缺答案只报不猜：答案必须由人在复核页定（猜一个答案比留空伤害大）
+    no_answer = audit.faults(_draft(answer=None))
+    check("缺答案时不替人编答案（没有任何 fix 字段）",
+          all("fix" not in f or f["fix"] is None for f in no_answer), str(no_answer))
+
+    # ── 模型那一层的守卫 ──
+    block = [(0, _draft(question="下列各项中")), (1, _draft(question="关于列表的说法"))]
+    fixes = [
+        {"index": 1, "code": "STEM_CUT", "fix": "下列各项中，属于不可变类型的是", "note": "读到「中」就断了"},
+        {"index": 2, "code": "STEM_CUT", "fix": "关于列表的说法，正确的是"},
+        {"index": 2, "code": "UNREADABLE"},
+    ]
+    got, _lost = audit.verify(fixes, block)
+    check("模型报的三条都收下", len(got) == 3, str([(g["index"], g["code"]) for g in got]))
+    check("index 是 1 基，落到草稿下标时要减 1", got[0]["index"] == 0, str(got[0]["index"]))
+    check("能改的两题各挂一条改法", sum(1 for g in got if g["fix"]) == 2,
+          str([g["fix"] for g in got]))
+    check("note 并进固定的报文案里", "读到「中」就断了" in got[0]["message"], got[0]["message"])
+
+    bad = [
+        {"index": 1, "code": "STEM_CUT", "fix": "下列各项中，属于不可变类型的是 3 种"},
+        {"index": 1, "code": "STEM_MIXED", "fix": "1. 下列各项中"},
+        {"index": 1, "code": "OPTION_MIXED", "fix": "这部分内容与原来完全无关，说的是另外一件不相干的事"},
+        {"index": 9, "code": "STEM_CUT"},
+        {"index": 1, "code": "HAS_ANSWER"},
+    ]
+    kept, dropped = audit.verify(bad, block)
+    check("改法动了数字被拒（问题照报、改法丢掉）",
+          any(d["scope"] == "fix" and d["why"] == "改法动了数字" for d in dropped), str(dropped))
+    check("带题号的改法被拒", any(d["why"] == "改法里带了题号" for d in dropped))
+    check("换成另一句话被拒", any(d["why"] == "改法与原文差得太远" for d in dropped))
+    check("题号越界整条丢", any(d["why"] == "题号不在这一批里" for d in dropped))
+    check("不认识的问题类型整条丢", any("不认识的问题类型" in d["why"] for d in dropped))
+    check("被拒的只是改法，问题本身还留着",
+          len(kept) == 3 and all(k["fix"] is None for k in kept),
+          str([(k["code"], k["fix"]) for k in kept]))
+
+    check("一题最多一条同一类问题",
+          len([k for k in audit.verify(
+              [{"index": 1, "code": "STEM_CUT"}, {"index": 1, "code": "STEM_CUT"}], block)[0]]) == 1)
+
+    # ── 分批 ──
+    many = [_draft(number=str(i)) for i in range(1, 26)]
+    sizes = [len(group) for group in audit.batches(many)]
+    check("25 题分成 5 批、每批 ≤6 题", sizes == [6, 6, 6, 6, 1], str(sizes))
+    check("超长题自己占一批（不把别人挤掉）",
+          [len(g) for g in audit.batches([_draft(question="材料" * 700), _draft()])] == [1, 1])
+    check("空草稿切出 0 批", audit.batches([]) == [])
+
+    # ── 端点：端到端，模型打桩 ──
+    client = TestClient(app)
+    calls = {"n": 0}
+
+    def fake_chat(messages, **kwargs):     # noqa: ARG001
+        calls["n"] += 1
+        return json.dumps({"issues": [
+            {"index": 1, "code": "STEM_CUT", "fix": "表达式 3**2//2 的值是"},
+        ]}, ensure_ascii=False)
+
+    real_chat = audit.llm.chat
+    audit.llm.chat = fake_chat
+    try:
+        # 规则与模型说同一件事时只留一条：界面上曾同时出现「断在半路」与「像是被截断」
+        audit.llm.chat = lambda messages, **kw: json.dumps(     # noqa: ARG005
+            {"issues": [{"index": 1, "code": "STEM_CUT"}]}, ensure_ascii=False)
+        one = audit.audit([_draft(question="下列各项中")], use_llm=True)
+        codes = [i["code"] for i in one["issues"]]
+        check("同一件事只说一遍（模型报了断句，规则那条收起）",
+              "STEM_TAIL" not in codes and codes.count("STEM_CUT") == 1, str(codes))
+
+        audit.llm.chat = fake_chat
+
+        paper, _meta = drafts_of([PAPER])
+        item3, file3 = make_item([PAPER], title="初审用试卷")
+        r = client.post("/api/exams/audit", json={"drafts": paper, "use_llm": True})
+        data = r.json()
+        check("初审端点跑通", r.status_code == 200, r.text[:120])
+        check("6 题走 1 批", data["stats"]["blocks"] == 1 and calls["n"] == 1,
+              f"blocks={data['stats'].get('blocks')} calls={calls['n']}")
+        check("问题挂在下标 0 上",
+              any(i["index"] == 0 and i["code"] == "STEM_CUT" for i in data["issues"]),
+              str([(i["index"], i["code"]) for i in data["issues"]]))
+        check("统计里数得清几题有问题",
+              data["stats"]["flagged"] == len({i["index"] for i in data["issues"]}),
+              str(data["stats"]))
+        check("初审不落库（页文本没动）", _page_field(file3, 1, "text_reviewed") is None)
+        check("初审不建题目", _count("SELECT COUNT(*) FROM question WHERE item_id=?", (item3,)) == 0)
+        check("初审不改草稿（返回里没有 drafts）", "drafts" not in data, str(list(data)))
+
+        before = calls["n"]
+        r2 = client.post("/api/exams/audit", json={"drafts": paper, "use_llm": False})
+        check("关掉模型就不调模型", calls["n"] == before and r2.json()["stats"]["model"] == "off",
+              f"calls={calls['n']} model={r2.json()['stats'].get('model')}")
+
+        def boom(messages, **kwargs):      # noqa: ARG001
+            raise audit.llm.LLMError("LLM_HTTP_ERROR", "连不上", "")
+
+        audit.llm.chat = boom
+        r3 = client.post("/api/exams/audit", json={
+            "drafts": [_draft(number="1", question="", options=[], answer=None)], "use_llm": True})
+        d3 = r3.json()
+        check("模型挂了降级成规则体检（不 500）",
+              r3.status_code == 200 and d3["stats"]["model"] == "failed", r3.text[:120])
+        check("模型挂了也要报出缺答案与空题干",
+              {"NO_ANSWER", "NO_STEM"} <= {i["code"] for i in d3["issues"]},
+              str([i["code"] for i in d3["issues"]]))
+
+        r4 = client.post("/api/exams/audit", json={"drafts": [], "use_llm": True})
+        check("空草稿不崩", r4.status_code == 200 and r4.json()["issues"] == [], r4.text[:120])
+    finally:
+        audit.llm.chat = real_chat
+
+
 def _page_field(file_id: int, page_no: int, field: str):
     conn = get_conn()
     try:
@@ -703,6 +878,7 @@ def _page_field(file_id: int, page_no: int, field: str):
 GROUPS = (
     ("clean", group_clean), ("parse", group_parse), ("commit", group_commit),
     ("proofread", group_proofread), ("paper", group_paper), ("import", group_import),
+    ("audit", group_audit),
 )
 
 
