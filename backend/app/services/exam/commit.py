@@ -153,6 +153,9 @@ def commit(file_id: int, drafts: list[dict]) -> dict:
         used: set[int] = set()
         with conn:
             item_repo.set_kind(conn, item_id, "exam")
+            # 状态一起置 ready：题目导进来了，这条内容就能练了（T10.5 按卷练）。
+            # 不置的话它在知识库里永远挂着「待整理」，而试卷根本没有「整理正文」这一步
+            item_repo.set_status(conn, item_id, "ready")
             for draft in kept:
                 qtype, answer = _settle(draft)
                 if qtype != draft["type"]:
