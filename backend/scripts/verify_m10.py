@@ -193,6 +193,38 @@ def group_clean() -> None:
     check("小数点与版本号不当标点",
           clean.normalize_width("Python 3.11 的 3.14 是 pi") == "Python 3.11 的 3.14 是 pi")
 
+    # 「中文句子里的代码」：整行含中文，但那一小段是代码/算式，标点一个都不许动。
+    # 2026-11-13 真样本实测踩到：`randint(1, 10)` 被改成 `randint(1， 10)`，
+    # 用户照着背的就是另一段代码了（答案本身是错的）。
+    mixed = [
+        "random.randint(1, 10) 生成的随机整数范围是",
+        "已知 d = {'a': 1}，表达式 d.get('b', 0) 的值是",
+        "for i in range(2, 10, 3) 循环体执行的次数是",
+        "函数 f(x) = ln(x - 1) + √(4 - x²) 的定义域是",
+        "计算定积分 ∫[0, π/2] sin²x dx",
+    ]
+    for line in mixed:
+        check(f"混排行里的代码不失真：{line[:16]}…", clean.normalize_width(line) == line,
+              clean.normalize_width(line))
+    check("但同一个句子里的中文标点照旧改全角",
+          clean.normalize_width("已知 d = {'a': 1}, 表达式 x 的值") == "已知 d = {'a': 1}，表达式 x 的值",
+          clean.normalize_width("已知 d = {'a': 1}, 表达式 x 的值"))
+
+    # 跨页断开的那一刀：题干最后半句落到下一页，不能被当成选项的续行
+    spread = clean.clean_pages([
+        ["一、单选题", "1. 下列关于 Python 的说法中正确"],
+        ["的是", "A. 甲", "B. 乙", "C. 丙", "D. 丁"],
+    ])
+    check("跨页断行接回同一行",
+          spread[0][-1] == "1. 下列关于 Python 的说法中正确的是" and spread[1][0] == "A. 甲",
+          str(spread))
+    keep = clean.clean_pages([["1. 题干", "A. 甲", "B. 乙"], ["的是", "C. 丙"]])
+    check("上一页收尾是选项行就不接（否则两个选项会并成一个）",
+          keep[0][-1] == "B. 乙" and keep[1][0] == "的是", str(keep))
+    head = clean.clean_pages([["一、单项选择题"], ["本卷共 10 题"]])
+    check("上一页收尾是大题标题也不接",
+          head[0][-1] == "一、单项选择题" and head[1][0] == "本卷共 10 题", str(head))
+
     check("题号归一 12、", clean.normalize_number("12、题干")["num"] == "12",
           str(clean.normalize_number("12、题干")))
     check("题号归一 第1题", clean.normalize_number("第1题 题干")["num"] == "1")
@@ -206,6 +238,17 @@ def group_clean() -> None:
     check("选项字母剥掉、只留文本", opts == ["list", "dict", "tuple", "set"] and complete, str(opts))
     spread, spread_ok = clean.align_options(["A. list  B. dict  C. tuple  D. set"])
     check("行内并排的四个选项切开", spread == ["list", "dict", "tuple", "set"] and spread_ok, str(spread))
+    # 真样本里更常见的是**单空格**：见一个空格就切会把正文腰斩，所以只在「≥3 段且字母递增」时切
+    one_space, one_ok = clean.align_options(["A. list B. dict C. tuple D. set"])
+    check("单空格并排的四个选项也切开",
+          one_space == ["list", "dict", "tuple", "set"] and one_ok, str(one_space))
+    hanzi, hanzi_ok = clean.align_options(["A.正弦 B.余弦 C.正切 D.余切"])
+    check("中文选项单空格并排也切得开",
+          hanzi == ["正弦", "余弦", "正切", "余切"] and hanzi_ok, str(hanzi))
+    trap, _trap_ok = clean.align_options(["A. 见 B 项的做法"])
+    check("正文里顺带出现 B 项不腰斩", trap == ["见 B 项的做法"], str(trap))
+    two, two_ok = clean.align_options(["A. x = 1  B. y = 2"], expected=2)
+    check("两个选项并排（判断题）也算齐", two == ["x = 1", "y = 2"] and two_ok, str(two))
     three, three_ok = clean.align_options(["A. list", "B. dict", "C. tuple"])
     check("只有三个选项 → 标不全", len(three) == 3 and not three_ok, str(three))
     judge, judge_ok = clean.align_options(["正确", "错误"], expected=2)
@@ -285,6 +328,13 @@ def group_parse() -> None:
         want = int(expect.get(topic, {}).get("exam", {}).get("question_marks") or 0)
         check(f"真样本 {topic} 题数 {len(drafts)} = 卷面 {want}",
               bool(want) and len(drafts) == want, f"{len(drafts)} vs {want}")
+        if topic == "python":
+            # 这句最容易被「全半角归一」改坏：中文里夹着 `randint(1, 10)`，
+            # 改成「1，10」就不是同一段代码，用户照着背进考场是错的
+            hits = [d["question"] for d in drafts if "randint" in (d["question"] or "")]
+            check("真样本里的代码没被全角化（randint(1, 10) 原样）",
+                  bool(hits) and "randint(1, 10)" in hits[0],
+                  hits[0][:70] if hits else "没找到那道题")
 
 
 # ── §commit T10.3 ──────────────────────────────────────────

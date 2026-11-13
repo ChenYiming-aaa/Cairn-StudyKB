@@ -77,12 +77,31 @@ def _squeeze(text: str) -> str:
     return _WS.sub("", text or "")
 
 
+def _near(text: str, i: int, step: int) -> str:
+    """`i` 左（`step=-1`）或右（`step=1`）最近的**非空白**字符，没有就返回空串。"""
+    j = i + step
+    while 0 <= j < len(text) and text[j].isspace():
+        j += step
+    return text[j] if 0 <= j < len(text) else ""
+
+
+def _outer(text: str, i: int) -> bool:
+    """这个标点两边（跳过空格）都不挨中文 → 它属于算式或代码，必须保持半角。
+
+    为什么不能只按行判：`random.randint(1, 10) 生成…` 这种句子一半中文一半代码，
+    整行判语境会把代码里的逗号改成全角，`randint(1， 10)` 就不再是那段代码了 ——
+    用户照着背，错的是答案本身。
+    """
+    left, right = _near(text, i, -1), _near(text, i, 1)
+    return bool(left) and bool(right) and not CJK.match(left) and not CJK.match(right)
+
+
 def normalize_width(text: str) -> str:
     """中文语境下把 ASCII 标点归一到全角；**英文段落与代码行零改动**。
 
-    判定按行：含中文的字符占比 ≥15% 才算「中文语境」。这一条同时挡住了两类误改 ——
-    英文阅读理解段（`He said, "yes."`）和代码块（`print(1, 2)`）。
-    数字里的 `.` 与 `,` 不动（`3.14` / `1,000`），紧跟字母数字的括号也不动（`round(2.5)`）。
+    两道判定：整行含中文占比 ≥15%（挡英文阅读理解段），并且**这个标点两侧都不挨中文**
+    （挡「中文句子里的代码」这种混排行）。数字里的 `.` 与 `,` 不动（`3.14` / `1,000`），
+    紧跟字母数字的括号也不动（`round(2.5)`）。
     """
     if not text:
         return text
@@ -98,21 +117,22 @@ def normalize_width(text: str) -> str:
     for i, ch in enumerate(text):
         prev = text[i - 1] if i else ""
         nxt = text[i + 1] if i + 1 < len(text) else ""
+        outer = _outer(text, i)
         if ch == ".":
             # 小数点、版本号、英文缩写（e.g.）都保持原样
             keep = (prev.isascii() and prev.isalnum()) or (nxt.isascii() and nxt.isalnum())
             out.append("." if keep else "。")
         elif ch == ",":
-            out.append("," if (prev.isdigit() and nxt.isdigit()) else "，")
+            out.append("," if outer else "，")
         elif ch == ":":
             # `s[1:4]` 里的冒号不能变全角：切片写成「1：4」就是另一段代码，答案会错
-            out.append(":" if (prev.isascii() and prev.isalnum() and nxt.isascii() and nxt.isalnum()) else "：")
+            out.append(":" if outer else "：")
         elif ch == "(":
-            keep = (prev.isascii() and prev.isalnum()) or (nxt.isascii() and nxt.isalpha())
+            keep = outer or (prev.isascii() and prev.isalnum())
             paren.append(keep)
             out.append("(" if keep else "（")
         elif ch == ")":
-            keep = paren.pop() if paren else (prev.isascii() and prev.isalnum())
+            keep = paren.pop() if paren else (outer or (prev.isascii() and prev.isalnum()))
             out.append(")" if keep else "）")
         else:
             out.append(_PUNCT_TO_FULL.get(ch, ch))
@@ -154,19 +174,45 @@ def is_option_line(line: str) -> bool:
     return bool(_OPTION_HEAD.match(line or ""))
 
 
+_INLINE_MARK = re.compile(r"(?:^|(?<=\s))([%s])\s*[.．、)）]\s*" % _LETTER)
+
+
+def _split_inline(line: str) -> list[str]:
+    """行内并排的选项切成多条；看不准就原样返回一条。
+
+    两种写法都要认：`A. list  B. dict`（两个以上空格）与 `A. list B. dict`（单空格）。
+    单空格这种**不能见空格就切** —— 只在「切出来 ≥3 段、字母正好按 A、B、C 递增」时才切，
+    否则「A. 见 B 项」这类正文会被腰斩成两个选项。先试这条严的，再退回宽的两空格规则。
+    """
+    text = line or ""
+    marks = list(_INLINE_MARK.finditer(text))
+    if len(marks) >= 3:
+        letters = [_FW_LETTERS.get(m.group(1), m.group(1)).upper() for m in marks]
+        if letters == [chr(ord("A") + i) for i in range(len(letters))]:
+            out: list[str] = []
+            for idx, mark in enumerate(marks):
+                end = marks[idx + 1].start() if idx + 1 < len(marks) else len(text)
+                part = text[mark.start():end].strip()
+                if part:
+                    out.append(part)
+            return out
+    spaced = [part for part in _OPTION_SPLIT.split(text) if part.strip()]
+    return spaced or ([text] if text.strip() else [])
+
+
 def align_options(lines: list[str], *, expected: int = 4) -> tuple[list[str], bool]:
     """选项归一：`A` `A.` `A、` `Ａ` → 一律认作 A，返回**裸文本**（字母交给界面画，同 M4 口径）。
 
     返回 `(按字母排好的裸文本, 是否不全)`。`expected` 由调用方给：单选/多选 4 个，
-    判断题 2 个。行内并排的多个选项会先切开（`A. list  B. dict  C. tuple  D. set`），
-    否则真实卷子里四个选项挤一行时只会认出一个。
+    判断题 2 个。行内并排的多个选项会先切开（`A. list  B. dict  C. tuple  D. set`，
+    单空格同样认），否则真实卷子里四个选项挤一行时只会认出一个。
 
     **不全要标出来而不是静默补齐**：少一个选项的题，答案比对必然错，
     而「补一个空选项」会让用户以为题是完整的（需求 §8.3）。
     """
     flat: list[str] = []
     for line in lines:
-        flat.extend(part for part in _OPTION_SPLIT.split(line or "") if part.strip())
+        flat.extend(_split_inline(line))
 
     found: dict[str, str] = {}
     loose: list[str] = []
@@ -306,14 +352,37 @@ def join_lines(lines: list[str]) -> str:
     return out
 
 
+def _stitch_pages(pages: list[list[str]]) -> list[list[str]]:
+    """把「上一页最后一行没说完、下一页第一行接着它」的那半句接回同一行。
+
+    `merge_broken` 只在一页之内看，跨页的那一刀它看不见：题干最后半句落到下一页，
+    就成了下一页的第一行，于是被当成**选项的续行**（选项 B 的文本里凭空多出「的是」）
+    或被当成新题的开头。判据与页内合并完全一致，只是多跨了一道页。
+
+    只在「上一页收尾不是选项行、也不是大题标题」时接 —— 选项的续行很少见，接错了会把
+    两个选项并成一个；标题行后面跟的是新内容，接上去就是把标题和下一题缝合在一起。
+    """
+    out = [list(lines) for lines in pages]
+    for i in range(1, len(out)):
+        if not out[i - 1] or not out[i]:
+            continue
+        if _OPTION_HEAD.match(out[i - 1][-1]) or _is_heading(out[i - 1][-1]):
+            continue
+        if _can_merge(out[i - 1][-1], out[i][0]):
+            out[i - 1][-1] = _join(out[i - 1][-1], out[i][0])
+            out[i] = out[i][1:]
+    return out
+
+
 def clean_pages(pages: list[list[str]]) -> list[list[str]]:
-    """三件套的顺序在此定死：**先去页眉 → 再合断行 → 最后归标点**。
+    """三件套的顺序在此定死：**先去页眉 → 再合断行（含跨页）→ 最后归标点**。
 
     顺序不能换：先归标点会给没说完的行补上「。」，紧接着 `merge_broken` 就认为
     「这句说完了」，断行再也合不上；先合断行再去页眉，页眉会先被合并成一大段。
     """
     dropped = drop_headers(pages)
-    return [[normalize_width(line) for line in merge_broken(lines)] for lines in dropped]
+    stitched = _stitch_pages([merge_broken(lines) for lines in dropped])
+    return [[normalize_width(line) for line in lines] for lines in stitched]
 
 
 def split_pages(text: str) -> list[str]:
