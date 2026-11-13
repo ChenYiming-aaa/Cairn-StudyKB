@@ -29,6 +29,7 @@ from app.db.repo import files as file_repo
 from app.db.repo import items as item_repo
 from app.db.repo import workspaces as workspace_repo
 from app.errors import ApiError
+from app.services.extractors import EXTRACT_EXT
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ class Saved:
     ocr_status: str
     preview: str
     duplicated: bool
+    ext: str = ""                # 路由按它决定排哪条读字任务（识别 / 抽取）
 
 
 def root() -> Path:
@@ -213,12 +215,14 @@ def _create_item(conn: sqlite3.Connection, *, filename: str, digest: str,
 
 
 def _initial_ocr_status(ext: str) -> str:
-    """标识待办状态：PDF 与图片要等识别，其余由抽取适配器直接读。
+    """标识待办状态：白名单里的格式**落盘后都要读字**，所以一律 `pending`。
 
-    这里只置 `pending`，真正入队发生在 T9.6/T9.7（任务处理器在那边注册）——
-    绝不静默留 `none`，否则前端会显示「不需要识别」，用户以为已经读完了。
+    这条字段名叫 `ocr_status`，但它记的是「这份原件读到哪一步了」：
+    PDF / 图片靠识别组件（T9.6），docx / pptx / xlsx / txt 靠抽取适配器（T9.7）。
+    两者都在上传后由路由排队，绝不静默留 `none` —— 否则前端会显示「不需要识别」，
+    用户以为已经读完了。只剩极其罕见的未知扩展名会落到 `none`。
     """
-    if ext == "pdf" or ext in IMAGE_EXT:
+    if ext == "pdf" or ext in IMAGE_EXT or ext in EXTRACT_EXT:
         return "pending"
     return "none"
 
@@ -248,6 +252,7 @@ def save(stream: BinaryIO, *, filename: str, workspace_id: int | None = None) ->
                 ocr_status=hit["ocr_status"] or "none",
                 preview=(item["raw_content"] if item else "")[:500],
                 duplicated=True,
+                ext=str(hit["ext"] or ""),
             )
 
         item_id: int | None = None
@@ -285,6 +290,7 @@ def save(stream: BinaryIO, *, filename: str, workspace_id: int | None = None) ->
         file_id=int(saved["id"]), item_id=item_id,
         page_count=int(saved["page_count"] or 0),
         ocr_status=saved["ocr_status"],
+        ext=ext,
         # preview 一律取正文前 500 字（契约口径），别在这里另拼一遍名字：
         # 撞哈希时正文带 sha 后缀，另拼就会和库里对不上
         preview=(row["raw_content"] or "")[:500],

@@ -29,6 +29,13 @@ dependencies = [
   "python-multipart>=0.0.9,<1",
   "rapidocr>=3.10,<4",
   "pypdfium2>=4.30,<5",
+  # 非 PDF 抽取（T9.7）：docx / pptx / xlsx 有可靠的结构化读取，不该渲染成图再识别。
+  # 四个库都进主包（实测解包合计 16.2 MB，其中 lxml 8.6 MB 是 docx/pptx 的公共依赖），
+  # 因为 Word/PPT/Excel 读不了就等于不支持办公资料
+  "python-docx>=1.1,<2",
+  "mammoth>=1.8,<2",
+  "python-pptx>=1.0,<2",
+  "openpyxl>=3.1,<4",
 ]
 
 # 本地识别（T9.4 / ADR-035）只给 `cairn-ocr` 组件用，主程序一行都不 import。

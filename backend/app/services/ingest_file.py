@@ -1,4 +1,16 @@
-"""识别流水线（T9.6）：渲染一页 → 识别一页 → 落库一页 → 释放。
+"""读字流水线：PDF/图片走识别（T9.6），docx/pptx/xlsx/txt 走抽取（T9.7）。
+
+**两条路，一个收口**：`run()` 按扩展名分派 —— `OCR_EXT` 进 `_run_ocr()`，
+`extractors.EXTRACT_EXT` 进 `run_extract()`，两者最后都汇到 `_finish()`。
+这样「只有每一页都有行才覆盖正文」这条不变量只写一次，不会出现
+"识别那条守住了、抽取那条忘了"的裂缝（少写一次覆盖，用户看到的是半份笔记）。
+
+识别是**逐页**的（30 页可以崩在第 12 页），抽取是**整份**的（一次解析要么成要么败）——
+所以抽取不需要断点续跑：失败时一页都不写，重试就是从头再来，代价不过一两秒。
+
+--- 以下是识别链路的细节（T9.6）---
+
+渲染一页 → 识别一页 → 落库一页 → 释放。
 
 **逐页流式**不是讲究：30 页 A4 在 150 dpi 下约 1.3 MB/页，一次全渲染就是 40 MB 常驻，
 300 页的教材会直接把内存吃掉（执行计划 §8.3「内存涨到 1 GB+」）。所以任何时刻
@@ -30,20 +42,35 @@ from app.db.repo import items as item_repo
 from app.db.repo import pages as page_repo
 from app.errors import ApiError
 from app.services import files as file_service
-from app.services import ocr, ocr_layout, pdf_pages, tasks as task_queue
+from app.services import extractors, ocr, ocr_layout, pdf_pages, tasks as task_queue
 
 log = logging.getLogger(__name__)
 
 TASK_TYPE = "ocr_pages"
+TASK_EXTRACT = "extract_text"
 STAGE = "ocr"
+STAGE_EXTRACT = "extract"
 OCR_EXT = {"pdf"} | file_service.IMAGE_EXT
 
 
 def run(payload: dict, task_id: str | None = None) -> dict:
-    """任务入口。`payload = {"file_id": 12, "pages": [3]}`，`pages` 不给就是整份。"""
-    file_id = int(payload.get("file_id") or 0)
-    only = _page_list(payload.get("pages"))
+    """任务入口：`payload = {"file_id": 12, "pages": [3]}`，按扩展名分派。
 
+    不认识的格式**静默跳过**而不是报错：调用方可能是批量导入的通用入口，
+    它不该为"这格式不用读"失败（T9.6 定的口径，T9.7 沿用）。
+    """
+    row = _load_file(payload)
+    ext = _ext(row)
+    if ext in OCR_EXT:
+        return _run_ocr(row, _page_list(payload.get("pages")), task_id)
+    if extractors.for_ext(ext) is not None:
+        return run_extract(payload, task_id)
+    return {"skipped": True, "file_id": int(row["id"]),
+            "reason": f"{ext or '未知格式'} 没有读取路径"}
+
+
+def _load_file(payload: dict) -> sqlite3.Row:
+    file_id = int(payload.get("file_id") or 0)
     conn = get_conn()
     try:
         row = file_repo.get(conn, file_id)
@@ -51,19 +78,23 @@ def run(payload: dict, task_id: str | None = None) -> dict:
         conn.close()
     if row is None:
         raise ApiError("FILE_NOT_FOUND", "原件不存在，可能已经被删了", status=404)
+    return row
 
-    ext = str(row["ext"] or "").lower()
-    if ext not in OCR_EXT:
-        # docx / pptx / xlsx 走抽取（T9.7），不进这条链路。静默返回而不是报错：
-        # 调用方可能是批量导入的通用入口，它不该为"这格式不用识别"失败
-        return {"skipped": True, "file_id": file_id, "reason": f"{ext} 不走识别"}
 
+def _ext(row: sqlite3.Row) -> str:
+    return str(row["ext"] or "").lower()
+
+
+def _run_ocr(row: sqlite3.Row, only: list[int], task_id: str | None) -> dict:
+    file_id = int(row["id"])
+    item_id = int(row["item_id"])
+    ext = _ext(row)
     source = file_service.abs_path(str(row["stored_path"] or ""))
     if not source.is_file():
         raise ApiError("FILE_NOT_FOUND", "原件在盘上找不到了，重新上传一次", status=404)
 
-    item_id = int(row["item_id"])
     pdf = pdf_pages.open_pdf(source) if ext == "pdf" else None
+
     try:
         total = pdf_pages.page_count(pdf) if pdf is not None else 1
         if total <= 0:
@@ -97,6 +128,41 @@ def run(payload: dict, task_id: str | None = None) -> dict:
             pdf.close()
 
     return _finish(file_id, item_id, total, task_id)
+
+
+def run_extract(payload: dict, task_id: str | None = None) -> dict:
+    """抽取入口（T9.7）：一次解析、一次落库、一次收口。
+
+    **整份要么成要么败**：不像识别那样逐页写，所以这里先把解析做完再动库 ——
+    解析到一半失败时库里一页都没写，重试就是干净的重来（也正因此不需要断点续跑）。
+    """
+    row = _load_file(payload)
+    file_id = int(row["id"])
+    item_id = int(row["item_id"])
+    ext = _ext(row)
+    if extractors.for_ext(ext) is None:
+        return {"skipped": True, "file_id": file_id, "reason": f"{ext} 不走抽取"}
+
+    source = file_service.abs_path(str(row["stored_path"] or ""))
+    if not source.is_file():
+        raise ApiError("FILE_NOT_FOUND", "原件在盘上找不到了，重新上传一次", status=404)
+
+    _mark(file_id, "running")
+    try:
+        doc = extractors.extract(source, ext, original_name=str(row["original_name"] or ""))
+    except BaseException:
+        # 打不开 / 加密 / 空表：状态必须是 failed，不能停在 running
+        _mark(file_id, "failed")
+        raise
+    if task_id:
+        task_queue.update_progress(task_id, 50, f"{STAGE_EXTRACT} 已读取 {doc.page_count} 页")
+
+    _write_extracted(item_id, file_id, doc)
+    if task_id:
+        task_queue.update_progress(task_id, 90, f"{STAGE_EXTRACT} 已写入 {doc.page_count} 页")
+    result = _finish(file_id, item_id, doc.page_count, task_id)
+    result["meta"] = doc.meta
+    return result
 
 
 # ── 对内 ────────────────────────────────────────────────
@@ -180,6 +246,46 @@ def _write_page(item_id: int, file_id: int, page_no: int,
             )
     finally:
         conn.close()
+
+
+def _write_extracted(item_id: int, file_id: int, doc) -> None:
+    """抽取结果一次写完：先删旧页再插新页，同一个事务。
+
+    删旧页是为了「重新读取」：第二次解析如果页数变少（改了 pptx 再传一次，
+    但内容相同不会重传，这条主要防手工触发的重读），残留的旧页会让
+    `done != total` 永远不成立，正文永远不覆盖。
+    """
+    conn = get_conn()
+    try:
+        with conn:
+            page_repo.delete_by_file(conn, file_id)
+            for page in doc.pages:
+                page_repo.upsert(
+                    conn, item_id=item_id, file_id=file_id, page_no=page.page_no,
+                    text=page.text, source="extract", image_path=None,
+                )
+            file_repo.update(conn, file_id, {
+                "has_text_layer": 1, "page_count": doc.page_count,
+            })
+    finally:
+        conn.close()
+    # HTML 存盘而不是入库：它是给原文页签渲染用的，检索用不到，
+    # 进库只会把 SQLite 撑大（一份带版式的讲义 HTML 有几十 KB）
+    _save_html(file_id, doc.pages)
+
+
+def _save_html(file_id: int, pages: list) -> None:
+    """docx 的 HTML 落到 `pages/<file_id>/0001.html`（与页图同目录，删内容时一并清掉）。"""
+    for page in pages:
+        if not page.html:
+            continue
+        path = pdf_pages.file_dir(file_id) / f"{page.page_no:04d}.html"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(page.html, encoding="utf-8")
+        except OSError as exc:
+            # 原文页签缺一份 HTML 不影响检索与整理，不值得让整份抽取失败
+            log.warning("第 %s 页 HTML 没写成（%s）", page.page_no, exc)
 
 
 def _finish(file_id: int, item_id: int, total: int, task_id: str | None,

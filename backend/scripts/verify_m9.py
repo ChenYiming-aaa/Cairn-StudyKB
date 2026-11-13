@@ -4,13 +4,17 @@
     cd backend && uv run python scripts/verify_m9.py
     cd backend && uv run python scripts/verify_m9.py --only layout    # 只跑判列
     cd backend && uv run python scripts/verify_m9.py --only resume    # 只跑断点续跑
+    cd backend && uv run python scripts/verify_m9.py --only extract   # 只跑抽取（不需要识别组件）
 
 退出码：0 全绿 / 1 有用例失败 / 2 环境不满足（缺组件）
 
-覆盖分组（**当前只有 T9.6 的两组**，T9.7–T9.11 的用例在 T9.12 往这里加）：
+覆盖分组（**T9.6 两组 + T9.7 一组**，T9.8–T9.11 的用例在 T9.12 往这里加）：
   §layout  T9.6 四组 `samples/*/twocol.pdf` 共 40 页：不丢行 / 双栏不交错 / 单栏 y 不回头 /
            行数不膨胀 / `python` 第 1 页字面锚词
   §resume  T9.6 断点续跑（跑 3 页 → 续跑只补 4..7 → 再跑一页不动）与单页重试（只识别点名页）
+  §extract T9.7 四组 `course.docx` 结构与 `samples/_check.json` 逐项对齐、HTML 无 base64 图、
+           pptx 备注与表格、xlsx 200 行截断与竖线转义、txt 三种编码判定，
+           以及端到端：上传即排队 → 正文覆盖 → 页可读 → 坏文件不留半份正文
 
 **为什么这两组值得单独落成脚本**：`ocr_layout.order_lines` 和 `ingest_file` 是 T9.6 里最容易
 被后手改坏的两处（T9.8 / T9.10 会碰它们周边）。判列错了不会报错，只会让检索和整理拿到
@@ -275,7 +279,253 @@ def group_resume() -> None:
         pdf_pages.render = real_render
 
 
-GROUPS = (("layout", group_layout), ("resume", group_resume))
+# ── §extract（T9.7）────────────────────────────────────────────
+FIXTURES = TMP / "fixtures"
+DOCX_LEN = (2000, 20000)     # 四份讲义都在 2700–3400 字；出这个区间就是漏段或重复
+
+
+def _wait_until(predicate, timeout: float = 120.0, interval: float = 0.3):
+    """等后台任务收口。**别在"刚返回"那一瞬间下结论**（T9.6 验收踩过）。"""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        value = predicate()
+        if value:
+            return value
+        time.sleep(interval)
+    return None
+
+
+def _make_fixtures() -> dict[str, Path]:
+    """合成 pptx / xlsx / txt：真实格式、随脚本生成，不往仓库里塞二进制。"""
+    from docx import Document
+    from docx.shared import Inches
+    from openpyxl import Workbook
+    from pptx import Presentation
+    from pptx.util import Inches as PInches
+
+    FIXTURES.mkdir(parents=True, exist_ok=True)
+
+    # pptx：1 页标题+要点（带层级）、1 页表格、第 1 页有备注
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    slide.shapes.title.text = "第三章 线性表"
+    frame = slide.placeholders[1].text_frame
+    frame.text = "顺序存储：用一段连续空间"
+    sub = frame.add_paragraph()
+    sub.text = "随机访问 O(1)"
+    sub.level = 1
+    slide.notes_slide.notes_text_frame.text = "这里强调插入删除的复杂度对比"
+    table_slide = prs.slides.add_slide(prs.slide_layouts[5])
+    table_slide.shapes.title.text = "复杂度对比"
+    table = table_slide.shapes.add_table(
+        2, 3, PInches(1), PInches(2), PInches(6), PInches(1.2)
+    ).table
+    for col, head in enumerate(("结构", "插入", "查找")):
+        table.cell(0, col).text = head
+    for col, value in enumerate(("顺序表", "O(n)", "O(1)")):
+        table.cell(1, col).text = value
+    prs.slides.add_slide(prs.slide_layouts[6])        # 空白页：文字为空
+    pptx = FIXTURES / "lecture.pptx"
+    prs.save(str(pptx))
+
+    # xlsx：261 行 → 应截到 200；单元格里带竖线与换行；第二张表用来验"写明了读哪张"
+    wb = Workbook()
+    sheet = wb.active
+    sheet.title = "成绩"
+    sheet.append(["题型", "题量", "备注"])
+    for i in range(1, 261):
+        sheet.append([f"题{i}", i, "含|竖线"])
+    sheet["C2"] = "含|竖线和\n换行"
+    other = wb.create_sheet("透视")
+    other.append(["不该被读到"])
+    xlsx = FIXTURES / "score.xlsx"
+    wb.save(str(xlsx))
+
+    utf8 = FIXTURES / "notes.txt"
+    utf8.write_text("第一行：数据结构\n第二行：算法\n", encoding="utf-8")
+    gbk = FIXTURES / "gbk.txt"
+    gbk.write_bytes("中文编码测试：线性表".encode("gbk"))
+    broken = FIXTURES / "broken.txt"
+    broken.write_bytes(b"\xff\xff\xff\xff")
+    markdown = FIXTURES / "note.md"
+    markdown.write_text("# 标题\n\n正文\n", encoding="utf-8")
+
+    # 只有图、没有字的 docx：正文不该被覆盖（否则整理会照着空正文写笔记）
+    doc = Document()
+    doc.add_picture(str(ROOT / "samples" / "images" / "python_logo.png"), width=Inches(2))
+    image_only = FIXTURES / "image-only.docx"
+    doc.save(str(image_only))
+
+    # 坏 docx：改后缀的二进制，抽取必须报 failed 而不是崩在半路
+    bad = FIXTURES / "broken.docx"
+    bad.write_bytes(b"not a real docx" * 100)
+    return {"pptx": pptx, "xlsx": xlsx, "txt": utf8, "gbk": gbk, "broken_txt": broken,
+            "md": markdown, "image_only_docx": image_only, "bad_docx": bad}
+
+
+def group_extract() -> None:
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.services import embedder, extractors
+
+    fixtures = _make_fixtures()
+    expected = json.loads((ROOT / "samples" / "_check.json").read_text(encoding="utf-8"))
+
+    # ① 四份真实 docx：结构与样本自检记录逐项对齐（比"字数看着差不多"可靠）
+    for name in SAMPLES:
+        path = ROOT / "samples" / name / "course.docx"
+        if not path.is_file():
+            check(f"{name}/course.docx 存在", False, str(path))
+            continue
+        doc = extractors.extract(path, "docx", path.name)
+        want = expected[name]["course"]
+        meta = doc.meta
+        check(f"{name} docx 表数对得上（{want['tables']}）", meta["tables"] == want["tables"],
+              f"抽到 {meta['tables']}")
+        check(f"{name} docx 图数对得上（{want['images']}）",
+              meta["images"] == want["images"], f"抽到 {meta['images']}")
+        check(f"{name} docx 标题数对得上（{want['headings']}）",
+              meta["headings"] == want["headings"], f"抽到 {meta['headings']}")
+        check(f"{name} docx 段落数对得上（{want['paragraphs']}）",
+              meta["paragraphs"] == want["paragraphs"], f"抽到 {meta['paragraphs']}")
+        low, high = DOCX_LEN
+        check(f"{name} docx 正文字数在 {low}–{high}",
+              low <= len(doc.text) <= high, f"{len(doc.text)} 字")
+        heads = sum(1 for line in doc.text.splitlines() if line.startswith("#"))
+        check(f"{name} docx 有标题层级（# 开头）", heads > 0, f"{heads} 个标题行")
+        separators = doc.text.count("\n| --- |")
+        check(f"{name} docx 表格都转成了 Markdown（{want['tables']} 个）",
+              separators == want["tables"], f"表头分隔行 {separators} 个")
+        html = doc.pages[0].html or ""
+        check(f"{name} docx HTML 含 <table>", "<table" in html, f"{len(html)} 字符")
+        check(f"{name} docx HTML 无 base64 内联图", "data:image" not in html,
+              f"html {len(html)} 字符，含 data:image={'data:image' in html}")
+        check(f"{name} docx HTML 无 <script> / <img>",
+              "<script" not in html.lower() and "<img" not in html.lower())
+        check(f"{name} docx 单页且非空", doc.page_count == 1 and bool(doc.text.strip()))
+
+    # ② 合成样本
+    pptx = extractors.extract(fixtures["pptx"], "pptx")
+    check("pptx 按幻灯片分页（3 页）", pptx.page_count == 3, f"{pptx.page_count} 页")
+    check("pptx 抽到演讲者备注", "复杂度对比" in pptx.pages[0].text, pptx.pages[0].text[-40:])
+    check("pptx 要点层级带缩进", "  - 随机访问" in pptx.pages[0].text)
+    check("pptx 表格转 Markdown", "| 顺序表 | O(n) | O(1) |" in pptx.pages[1].text,
+          pptx.pages[1].text[:60])
+    check("pptx 空白页如实为空页", pptx.pages[2].text == "", repr(pptx.pages[2].text))
+
+    xlsx = extractors.extract(fixtures["xlsx"], "xlsx")
+    check("xlsx 截到 200 行并标记 truncated",
+          xlsx.meta["truncated"] and xlsx.meta["rows_read"] == 200, str(xlsx.meta))
+    check("xlsx 只读第一张表并写明表名", xlsx.text.startswith("工作表：成绩"),
+          xlsx.text[:30])
+    check("xlsx 没把第二张表读进来", "不该被读到" not in xlsx.text)
+    check("xlsx 单元格竖线被转义", "含\\|竖线" in xlsx.text,
+          f"转义 {xlsx.text.count(chr(92) + '|')} 处")
+    check("xlsx 单元格换行被压平", "换行" in xlsx.text and "含\\|竖线和 换行" in xlsx.text)
+    # 200 行含表头，数据行 199；用 `题<数字>` 判行，别用「以 | 题 开头」——表头也是"题"
+    data_rows = sum(1 for line in xlsx.text.splitlines() if re.match(r"\| 题\d+ \|", line))
+    check("xlsx Markdown 表行数与读取行数一致（199 数据行）", data_rows == 199,
+          f"{data_rows} 行")
+
+    txt = extractors.extract(fixtures["txt"], "txt")
+    check("txt utf-8 直读", txt.meta["encoding"] == "utf-8" and "数据结构" in txt.text,
+          str(txt.meta))
+    gbk = extractors.extract(fixtures["gbk"], "txt")
+    check("txt GBK 识别正确（无替换符）",
+          gbk.meta["encoding"] == "gbk" and "中文编码测试" in gbk.text, str(gbk.meta))
+    broken = extractors.extract(fixtures["broken_txt"], "txt")
+    check("txt 混合编码兜底为 replace 且不整份拒收",
+          "replace" in broken.meta["encoding"] and broken.page_count == 1, str(broken.meta))
+    md = extractors.extract(fixtures["md"], "md")
+    check("md 与 txt 同一套读取（内容原样）", "# 标题" in md.text, md.text[:20])
+
+    image_only = extractors.extract(fixtures["image_only_docx"], "docx")
+    check("只有图的 docx 抽出来是空正文", image_only.text == "", repr(image_only.text[:20]))
+
+    # ③ 端到端：HTTP 上传 → 后台抽取 → 正文覆盖 → 页可读
+    scheduled: list[int] = []
+    embedder.schedule = lambda item_id, *a, **k: scheduled.append(int(item_id))  # noqa: ARG005
+
+    with TestClient(app) as client:
+        docx_path = ROOT / "samples" / "python" / "course.docx"
+        body = docx_path.read_bytes()
+        started = time.monotonic()
+        resp = client.post("/api/files", files={"file": ("course.docx", body)})
+        cost = time.monotonic() - started
+        check("上传 docx 返回 201 + running + task_id",
+              resp.status_code == 201 and resp.json()["ocr_status"] == "running"
+              and resp.json()["task_id"], resp.text[:160])
+        check(f"上传 {cost:.2f} s 内返回（不等抽取）", cost < 3.0, f"{cost:.2f}s")
+        item_id = resp.json()["item_id"]
+
+        progress = _wait_until(
+            lambda: (lambda p: p if p["status"] in ("done", "partial", "failed") else None)(
+                client.get(f"/api/knowledge/{item_id}/ocr").json()),
+            timeout=120,
+        ) or client.get(f"/api/knowledge/{item_id}/ocr").json()
+        check("docx 抽取收口为 done（1/1 页）",
+              progress["status"] == "done" and progress["done_pages"] == 1, str(progress))
+
+        page = client.get(f"/api/knowledge/{item_id}/pages/1").json()
+        detail = client.get(f"/api/knowledge/{item_id}").json()
+        check("页文字与抽取结果一致",
+              page["text"].startswith("全国计算机等级考试") and page["source"] == "extract",
+              page["text"][:30])
+        check("抽取页没有页图，image_url 为 null", page["image_url"] is None, str(page["image_url"]))
+        check("正文已被覆盖（不再是 [文件] 占位）",
+              not detail["raw_content"].startswith("[文件] "), detail["raw_content"][:30])
+        check("正文重建了 chunk", len(detail["chunks"]) > 0, f"{len(detail['chunks'])} 块")
+        check("原件信息标了有文字层", detail["file"]["has_text_layer"] == 1,
+              str(detail["file"]))
+        check("整份读完后派了补向量", scheduled.count(item_id) == 1, str(scheduled))
+
+        original = client.get(f"/api/knowledge/{item_id}/file")
+        check("原件仍可下载（字节数一致）",
+              original.status_code == 200 and len(original.content) == len(body),
+              f"{original.status_code} / {len(original.content)} B")
+        html_path = TMP / "pages" / str(detail["file"]["id"]) / "0001.html"
+        check("docx HTML 落到 pages/<file_id>/0001.html", html_path.is_file(),
+              str(html_path))
+
+        again = client.post(f"/api/knowledge/{item_id}/ocr", json={})
+        check("docx 也能「重新读取」（202，不是 409）", again.status_code == 202, again.text[:120])
+        _wait_until(lambda: client.get(f"/api/knowledge/{item_id}/ocr").json()["status"]
+                    != "running", timeout=60)
+
+        # ④ 坏文件：状态 failed、不留半份正文
+        bad = client.post("/api/files", files={
+            "file": ("broken.docx", fixtures["bad_docx"].read_bytes())})
+        bad_item = bad.json()["item_id"]
+        bad_progress = _wait_until(
+            lambda: (lambda p: p if p["status"] in ("failed", "done", "partial") else None)(
+                client.get(f"/api/knowledge/{bad_item}/ocr").json()),
+            timeout=60,
+        ) or client.get(f"/api/knowledge/{bad_item}/ocr").json()
+        check("坏 docx 收口为 failed", bad_progress["status"] == "failed", str(bad_progress))
+        bad_detail = client.get(f"/api/knowledge/{bad_item}").json()
+        check("坏 docx 正文保持占位（不留半份）",
+              bad_detail["raw_content"].startswith("[文件] "), bad_detail["raw_content"][:30])
+
+        # ⑤ 只有图的 docx：partial，且正文不覆盖（整理会照着空正文写笔记）
+        img = client.post("/api/files", files={
+            "file": ("image-only.docx", fixtures["image_only_docx"].read_bytes())})
+        img_item = img.json()["item_id"]
+        img_progress = _wait_until(
+            lambda: (lambda p: p if p["status"] in ("failed", "done", "partial") else None)(
+                client.get(f"/api/knowledge/{img_item}/ocr").json()),
+            timeout=60,
+        ) or client.get(f"/api/knowledge/{img_item}/ocr").json()
+        check("只有图的 docx 收口为 partial", img_progress["status"] == "partial",
+              str(img_progress))
+        img_detail = client.get(f"/api/knowledge/{img_item}").json()
+        check("只有图的 docx 正文仍为占位",
+              img_detail["raw_content"].startswith("[文件] "), img_detail["raw_content"][:30])
+
+
+GROUPS = (("layout", group_layout), ("resume", group_resume), ("extract", group_extract))
 
 
 def main() -> int:
@@ -286,10 +536,12 @@ def main() -> int:
     if "--pages" in sys.argv:
         LIMIT = int(sys.argv[sys.argv.index("--pages") + 1])
     print(f"Cairn M9 验收 · 临时数据目录 {TMP}")
-    hint = prepare_component()
-    if hint:
-        print(f"× {hint}")
-        return 2
+    # 抽取（§extract）不碰识别组件：那一组单独跑时不该被"没构建组件"挡住
+    if only != "extract":
+        hint = prepare_component()
+        if hint:
+            print(f"× {hint}")
+            return 2
     started = time.monotonic()
     for name, fn in GROUPS:
         if only and only != name:

@@ -20,6 +20,7 @@ TASK_TRANSCRIBE_VIDEO = "transcribe_video"
 TASK_INDEX_EMBED = "index_embed"
 TASK_COMPONENT_INSTALL = component_install.TASK_TYPE
 TASK_OCR_PAGES = ingest_file.TASK_TYPE
+TASK_EXTRACT_TEXT = ingest_file.TASK_EXTRACT
 
 # type → (执行函数, 是否需要 task_id)
 RUNNERS = {
@@ -32,6 +33,10 @@ RUNNERS = {
     TASK_COMPONENT_INSTALL: (component_install.run, True),
     # 逐页识别（T9.6）：要按页上报进度，所以必须拿到自己的 task_id
     TASK_OCR_PAGES: (ingest_file.run, True),
+    # 整份抽取（T9.7）：docx / pptx / xlsx / txt 直读，不碰识别组件。
+    # 与识别分开登记，是为了任务中心能如实显示"读取"而不是"识别"，
+    # 也让组件没装时这批任务照样能重试
+    TASK_EXTRACT_TEXT: (ingest_file.run_extract, True),
 }
 
 

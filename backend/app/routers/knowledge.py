@@ -20,6 +20,7 @@ from app.services import dispatch
 from app.services import embedder
 from app.services import files as file_store
 from app.services import ingest_file, mindmap, ocr, pdf_pages
+from app.services import extractors
 from app.services import tasks as task_queue
 from app.services.agents import organizer
 
@@ -349,30 +350,36 @@ class OcrBody(BaseModel):
 
 @router.post("/{item_id}/ocr")
 def start_ocr(item_id: int, body: OcrBody | None = None):
-    """202 + task_id。识别是后台任务：上传/重识别都不许同步等（契约 §3.1）。"""
+    """202 + task_id。读字是后台任务：上传/重读都不许同步等（契约 §3.1）。
+
+    这个端点的语义是**「把这份原件重新读一遍」**，两条路都接受：
+    PDF/图片重新识别（可点名页号），docx/pptx/xlsx/txt 重新抽取（整份，没有页号概念）。
+    只回 409 不给路的话，"抽取失败"就没有任何重试入口 —— 用户只能删了重传。
+    """
     conn = get_conn()
     try:
         if repo.get_item(conn, item_id) is None:
             return _not_found()
         file = _main_file(conn, item_id)
         if file is None:
-            return _file_not_found("这条内容没有原件，没什么可识别的")
+            return _file_not_found("这条内容没有原件，没什么可读的")
         ext = str(file["ext"] or "").lower()
-        if ext not in ingest_file.OCR_EXT:
+        is_ocr = ext in ingest_file.OCR_EXT
+        if not is_ocr and extractors.for_ext(ext) is None:
             return JSONResponse(
                 status_code=409,
                 content=error_payload("OCR_NOT_APPLICABLE",
-                                      "这个格式不用识别，文字是直接读出来的"),
+                                      "这个格式没有可用的读取方式"),
             )
-        if ocr.available() == "none":
+        if is_ocr and ocr.available() == "none":
             return JSONResponse(status_code=409, content=error_payload(**ocr.missing_hint()))
         if (file["ocr_status"] or "") == "running":
             return JSONResponse(
                 status_code=409,
-                content=error_payload("OCR_RUNNING", "这份文件正在识别，等它跑完再试"),
+                content=error_payload("OCR_RUNNING", "这份文件正在读，等它跑完再试"),
             )
 
-        pages = [n for n in (body.pages or []) if n >= 1]
+        pages = [n for n in (body.pages or []) if n >= 1] if is_ocr else []
         total = int(file["page_count"] or 0)
         if pages and total and max(pages) > total:
             raise ApiError("OCR_PAGE_OUT_OF_RANGE",
@@ -381,8 +388,11 @@ def start_ocr(item_id: int, body: OcrBody | None = None):
         # 先落 running 再派任务：中间的毫秒级窗口里第二个请求不该又派一份
         with conn:
             file_repo.set_ocr_status(conn, int(file["id"]), "running")
-        task_id = dispatch.submit(dispatch.TASK_OCR_PAGES,
-                                 {"file_id": int(file["id"]), "pages": pages or None})
+        task_type = dispatch.TASK_OCR_PAGES if is_ocr else dispatch.TASK_EXTRACT_TEXT
+        payload = {"file_id": int(file["id"])}
+        if is_ocr:
+            payload["pages"] = pages or None
+        task_id = dispatch.submit(task_type, payload)
         return JSONResponse(status_code=202, content={"task_id": task_id})
     finally:
         conn.close()
@@ -415,7 +425,8 @@ def get_page(item_id: int, n: int):
             "text": row["text"] or "",
             "source": row["source"],
             "avg_conf": row["avg_conf"],
-            "image_url": _page_image_url(item_id, n),
+            # 抽取来的页（docx/pptx/xlsx/txt）没有页图：给 null，别给一个必然 404 的地址
+            "image_url": _page_image_url(item_id, n) if row["image_path"] else None,
         }
     finally:
         conn.close()
