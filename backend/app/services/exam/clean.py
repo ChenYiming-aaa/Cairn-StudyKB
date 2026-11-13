@@ -36,6 +36,9 @@ PAGE_NO = re.compile(
     r")\s*$"
 )
 _WS = re.compile(r"\s+")
+# 页眉和页码被识别成一行是常态（`二级 Python 模拟试卷（一）第 3 页`）：
+# 这样既不是重复行（页号不同）也不是纯页码，两条规则都漏 —— 所以先切掉页号尾巴再比。
+_PAGE_TAIL = re.compile(r"\s*(?:第\s*\d{1,4}\s*页|[-—–]{1,2}\s*\d{1,4}\s*[-—–]{1,2})\s*$")
 
 # ── 题号 ─────────────────────────────────────────────────
 _CJK_NUM = "一二三四五六七八九十"
@@ -98,6 +101,9 @@ def normalize_width(text: str) -> str:
             out.append("." if keep else "。")
         elif ch == ",":
             out.append("," if (prev.isdigit() and nxt.isdigit()) else "，")
+        elif ch == ":":
+            # `s[1:4]` 里的冒号不能变全角：切片写成「1：4」就是另一段代码，答案会错
+            out.append(":" if (prev.isascii() and prev.isalnum() and nxt.isascii() and nxt.isalnum()) else "：")
         elif ch == "(":
             keep = (prev.isascii() and prev.isalnum()) or (nxt.isascii() and nxt.isalpha())
             paren.append(keep)
@@ -139,6 +145,12 @@ def _letter_of(line: str) -> tuple[str, str] | None:
     return _FW_LETTERS.get(letter, letter).upper(), line[hit.end():].strip()
 
 
+def is_option_line(line: str) -> bool:
+    """行首是不是选项字母（`A.` / `（B）` …）。公开出来是因为 `parse.py` 要用同一条判据 ——
+    两处各写一份正则，改了一处另一处就会把选项当题干。"""
+    return bool(_OPTION_HEAD.match(line or ""))
+
+
 def align_options(lines: list[str], *, expected: int = 4) -> tuple[list[str], bool]:
     """选项归一：`A` `A.` `A、` `Ａ` → 一律认作 A，返回**裸文本**（字母交给界面画，同 M4 口径）。
 
@@ -173,11 +185,15 @@ def align_options(lines: list[str], *, expected: int = 4) -> tuple[list[str], bo
     letters = sorted(found)
     want = [chr(ord("A") + i) for i in range(len(letters))]
     complete = letters == want[:len(letters)] and len(letters) == expected
-    return [found[letter] for letter in letters], not complete
+    return [found[letter] for letter in letters], complete
 
 
 def _is_page_no(line: str) -> bool:
     return bool(PAGE_NO.match(line or ""))
+
+
+def _without_page_no(line: str) -> str:
+    return _PAGE_TAIL.sub("", line or "")
 
 
 def drop_headers(
@@ -201,7 +217,7 @@ def drop_headers(
     counts: dict[str, int] = {}
     for lines in pages:
         # 同一页里页眉重复出现只算一次：短页（正文只有两行）首尾会重叠
-        for key in {_squeeze(line) for line in _edge_slices(lines, edge_lines)}:
+        for key in {_squeeze(_without_page_no(line)) for line in _edge_slices(lines, edge_lines)}:
             if key and len(key) <= max_len:
                 counts[key] = counts.get(key, 0) + 1
     repeated = {key for key, n in counts.items() if n >= threshold} if total >= 3 else set()
@@ -213,7 +229,8 @@ def drop_headers(
         tail_start = max(head, len(lines) - edge_lines)
         for i, line in enumerate(lines):
             edge = i < head or i >= tail_start
-            if edge and (_is_page_no(line) or (repeated and _squeeze(line) in repeated)):
+            stripped = _squeeze(_without_page_no(line))
+            if edge and (_is_page_no(line) or (repeated and stripped in repeated)):
                 continue
             keep.append(line)
         out.append(keep)
@@ -269,6 +286,21 @@ def _join(prev: str, nxt: str) -> str:
     ) and (nxt[0].isalnum() or nxt[0] in "\"'"):
         return f"{prev} {nxt}"
     return prev + nxt
+
+
+def join_lines(lines: list[str]) -> str:
+    """多行拼成一段，用与 `merge_broken` 同一套空格规则（中文不加、英文加一个）。
+
+    题干、材料、答案都要拼，各写一份空格判断必然漂移：同一句话在题干里是
+    「Python的」、在解析里变成「Python 的」，检索与比对就会认为不是一个东西。
+    """
+    out = ""
+    for line in lines:
+        text = (line or "").strip()
+        if not text:
+            continue
+        out = _join(out, text) if out else text
+    return out
 
 
 def clean_pages(pages: list[list[str]]) -> list[list[str]]:
