@@ -2566,3 +2566,80 @@ Word 内嵌图片走文件流（T11.3）、`verify_m11` 四组 **61 条**（T11.
 **交付**：用户裁决发 **v0.3.1 补丁版** —— 已重打包（`desktop/release-v031/`）并发布，
 0.3.0 用户在「检查更新」里会收到它。`v0.3.0` 的包与 Release 保持原样（不覆盖附件、不平移 tag）——
 已经下过的人手里那份仍然是对的。
+
+---
+
+## 2026-11-14 23:30 · 演示站补 v0.3 + 「自带 Key 真跑一遍」（试用页）
+
+**为什么要做**：演示站停在 v0.2 的样子（只有笔记类内容），用户看不到原件呈现、试卷、
+连续滚动这些 v0.3 的能力；而且「只能看不能生成」让人没法确认功能到底能不能用。
+用户问的原话是「寻找能让用户自己输入 api key 自己在网页体验的方法，我也可以用演示站证实功能是否可用」。
+
+**① 演示数据从 6 条涨到 9 条，且全部真跑**
+
+`tools/capture_demo.py` 加了真上传模式（`--with-files`）：起临时 `DATA_DIR` 的后端 →
+真传原件 → 等识别完 → 抓 `/pages/{n}` → organize → 导出。三条新内容：
+
+| 内容 | 实测 | 页图 / 原件 |
+|---|---|---|
+| `twocol.pdf`（10 页讲义） | 10 页 / 25 块 | `pdf-p1..p10.jpg` + `pdf.pdf` |
+| `course.docx`（带图） | 1 页 / 6 块 / 2 张图 | `docx-5e1353a933d5.jpg`、`docx-ed0d60299344.jpg` |
+| `exam.pdf`（试卷） | 24 题（20 单选 + 4 简答），答案率 1.0 | 走 `/api/quiz/paper/{id}` 现取 |
+
+踩到的三处：`mimetypes` 忘 import；Word 内嵌图**不在 detail 里**，要从 `/pages/{n}` 的
+`html` 里正则取附件名（`/api/knowledge/\d+/assets/<hash>`）；第二次跑抓取时把上一轮
+真上传的三条也灌进了临时库（id 漂到 10/11/12，产生 `file: None` 的空壳）→ `_seed` 改成
+跳过 `file` 非空的条目、`pages`/`files` 重建而非继承。
+
+**② 试用页 `/try`：浏览器直连，没有任何中转**
+
+先证伪了「网页里用真 Key 必须要服务器」：带 Pages 的 Origin 打 `OPTIONS` 预检，
+DeepSeek / OpenAI / DashScope 都回 CORS 头（DeepSeek 回显 Origin、DashScope 给 `*`），
+**智谱 GLM 没有 CORS 头** → 预设只放前三家 + 「其他 OpenAI 兼容」。
+于是纯静态站就能跑：Key 只进本机 localStorage，请求直发用户填的那个端点。
+
+- 提示词不抄副本：`vite.config.js` 的 `demoPrompts()` 在 `VITE_DEMO=1` 时把
+  `backend/app/prompts/{organize,ask,quiz}.md` 读进来 `JSON.stringify` 成 `__DEMO_PROMPTS__`；
+  正式构建是 `'null'`，Rollup 连带 `Try.vue` 一起摇掉（已实测 `dist/assets` 无 Try、无提示词）。
+- 请求体与后端一致（`model + messages + max_tokens + stream`，结构化任务带 `response_format`，
+  不认就自动去掉重试一次）。错误码分到 `NO_KEY / NETWORK / TIMEOUT / AUTH / QUOTA / NO_MODEL / UPSTREAM / BAD_JSON`，
+  `NETWORK` 明说「多半是接口不允许网页直连」—— 不做静默降级，这是演示站最容易变成谎言的地方。
+- 三步都是真调用：整理（标题/分类/标签/摘要/要点/笔记，marked + DOMPurify 渲染）→
+  追问（材料切段编号 `[1]..[n]` 全给，回答里的 `[n]` 拆成可点角标，点开摊出那段原文）→
+  出 3 道题（单选/判断本地判分，简答只给参考答案）。右上角显示累计次数与 token。
+- 真 Key 实测：**4 次调用 2268 in / 939 out token**，整理 4 s、问答 2 s、出题 2 s。
+
+**③ 走查工具两条（都留在 `tools/`）**
+
+- `walk_demo.py`（19 条断言，不花钱）：侧栏三类原件 → PDF 页图垫底 + canvas 真画出来 →
+  检索「操作题的评分点是文件」→ 切原文页签 → 第 1 页 / 共 10 页 → `.line.hit` 14 行 →
+  Word 图走 `demo/` 静态地址且 `naturalWidth>0` → 试卷「按卷练」第 1 / 24 题 → 试用页渲染。
+  自带 Handler 给 `.mjs` 送 `text/javascript`（`python -m http.server` 送 `text/plain`，
+  浏览器拒载 → pdf.js 退化成 fake worker，症状是「页图画得好好的、canvas 一个都没有」）。
+- `walk_try.py`（真花钱，约 3.3k token）：唯一能验出服务端行为变化的那条。
+
+**④ 走查自己也会错，两处判据是错的（改了）**
+
+- 「回答里带 `[n]`」用 `'[' in innerText` 判 —— 角标是 `<button>{{ n }}</button>`，方括号被模板拆掉了，
+  这条**靠回答里的 `s[1:4]` 蒙对**。改成数 `.answer .body .cite` 的个数。
+- 「① 连得上」判 `steps.conn.msg` 里的「通了」，而连上后第 1 步自动收起、提示语一起被 `v-if` 藏了 →
+  61 s 白等。真正的成功标志是右上角绿色 `.pill.ok` 与「1 次调用」（单独计时证明直连只要 0.27–0.78 s）。
+
+**⑤ 一个诚实的发现：模型约 17% 会回退到「知识库中没有找到相关内容」**
+
+同一段材料、同一句问题，`ask.md` 规则 2 的原句会偶发出现（含真机两次）。做了 6+6 次对照：
+材料段带不带 `《标题》` 头不是原因（bare 0/6、titled 2/6），是采样随机。
+**这不是要压掉的 bug**：产品里「材料没有就说没有」是有意的防线。所以：
+- `TryAnswer` 在回退时给一段说明（「这不是没接上……桌面版问到材料外的东西时也是这样回答的」），
+  把一个死胡同变成产品承诺的展示；
+- `walk_try` 遇到回退就像真人一样**再问一遍**，两次都回退才算 FAIL（噪声降到 ~3%）。
+
+**⑥ 顺手统一了文案**：试用页原写「整理成结构化笔记」，`文案规范.md` §6 禁「结构化」、§2 术语是
+「笔记」→ 改「整理成笔记」（`walk_try` 的按名定位同步改）。
+
+**验证**：`walk_demo` 19/19、`walk_try` 14/14（真 Key）、`verify_m7` **93/93**、前端 lint 干净、
+`npm run build` 通过且正式包查不到试用页、`doc_check` 通过。
+
+**下一会话第一件事**
+> 演示站随 push 自动重建（`pages.yml`），推完去线上点一遍 `/try`：填自己的 Key，
+> 问一句、点一个角标、答一道题。要重抓演示数据跑 `python tools/capture_demo.py --with-files`。

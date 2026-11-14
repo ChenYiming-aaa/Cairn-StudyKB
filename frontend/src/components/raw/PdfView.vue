@@ -53,7 +53,8 @@ async function open() {
   opening.value = true
   pdfError.value = ''
   try {
-    const opened = await openPdf(`/api/knowledge/${props.itemId}/file`, {
+    // 走 api 客户端：演示站要把这条地址换成本地那份 PDF（手写 URL 换不掉）
+    const opened = await openPdf(api.fileUrl(props.itemId), {
       onSizes: (next) => {
         sizes.value = next
       },

@@ -52,6 +52,29 @@ function pdfAssets() {
   return { name: 'cairn-pdf-assets', buildStart: copy, configureServer: copy }
 }
 
+/**
+ * 演示站的「自带 Key 试用」要把提示词原样复刻到前端。
+ *
+ * 为什么不手抄一份到 `src/demo/`：抄一遍就多一份会漂的副本。提示词改了口径，
+ * 演示站却还按旧的跑 —— 那是「演示效果不代表产品效果」，比不演示更糟。
+ * 所以构建演示包时直接从 `backend/app/prompts/` 读，正式构建注入 `null`（约 10 KB 不进包）。
+ */
+function demoPrompts() {
+  if (process.env.VITE_DEMO !== '1') return 'null'
+  const dir = join(ROOT, '..', 'backend', 'app', 'prompts')
+  const out = {}
+  for (const name of ['organize', 'ask', 'quiz']) {
+    const file = join(dir, `${name}.md`)
+    // 缺一条就整条构建失败，不做「缺哪个跳过哪个」：演示站少一条提示词，
+    // 那一步就成了空跑，而页面看起来完全正常 —— 这类错最难发现。
+    if (!existsSync(file)) throw new Error(`演示站要读 ${file}，但它不在（提示词目录被挪了？）`)
+    const text = readFileSync(file, 'utf-8')
+    if (!text.trim()) throw new Error(`${file} 是空的，注入进去会把那一步变成空跑`)
+    out[name] = text
+  }
+  return JSON.stringify(out)
+}
+
 // 开发期：/api 反代到后端 8756，前端走同源，不依赖 CORS（M1 §7 排障表）。
 // 生产（Electron）由 window.api.baseUrl 注入绝对地址，见 src/api/client.js。
 // CAIRN_API_TARGET 只给「另起一个实例做联调/UI 验收」用：不覆盖时行为与以前完全一致。
@@ -59,6 +82,7 @@ export default defineConfig({
   plugins: [vue(), pdfAssets()],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+    __DEMO_PROMPTS__: demoPrompts(),
   },
   server: {
     port: 5173,

@@ -21,6 +21,16 @@ const BASE = import.meta.env.BASE_URL || '/'
 const clone = (value) => JSON.parse(JSON.stringify(value))
 const data = clone(fixtures)
 
+/** 原件那三条（v0.3）：PDF / Word / 试卷。vi 有 `pages` 与 `files` 两个键才启用。 */
+const PAGES = data.pages || {}
+const FILES = data.files || {}
+
+/** item_id → 演示静态资源的 tag（pdf / docx / exam），用来把接口地址换成静态文件 */
+const TAG_OF = {}
+for (const [tag, info] of Object.entries(FILES)) {
+  if (info?.item_id) TAG_OF[Number(info.item_id)] = tag
+}
+
 /** 演示期内的可变状态：复习答过的题、交卷结果。刷新页面即回到初始值。 */
 const state = {
   reviewed: new Set(),
@@ -72,24 +82,34 @@ function snippetOf(text, needle) {
   return (from > 0 ? '…' : '') + text.slice(from, from + 140) + '…'
 }
 
-/** 演示版没有 FTS5/向量：用子串匹配兜底，结果里明说 match_type=demo */
+/**
+ * 演示版没有 FTS5/向量：用子串匹配兜底，结果里明说 match_type=demo。
+ *
+ * `chunk_id` 要给**真的数字 id**（在 `detail.chunks` 里按内容找），不能编一个
+ * `${id}-raw`：问答引用点过来时后端是按 chunk_id 取原文再定位的，编的 id 查不到，
+ * 界面就只能靠搜索词硬找 —— 搜索词短于 12 个字时落不到页，看起来像「跳转坏了」。
+ */
 function searchItems(q) {
   const needle = q.trim()
   if (!needle) return { items: [], total: 0, fallback: 'none', match_type: 'demo' }
+  const lower = needle.toLowerCase()
   const hits = []
   for (const detail of Object.values(data.details)) {
+    const chunks = detail.chunks || []
     for (const [source, text] of [
       ['raw', detail.raw_content || ''],
       ['note', detail.structured_note || ''],
     ]) {
-      if (!text.toLowerCase().includes(needle.toLowerCase())) continue
+      if (!text.toLowerCase().includes(lower)) continue
+      // 优先挂在真分块上（同一段内容可能被切进多个块，取第一个命中的）
+      const chunk = chunks.find((c) => (c.content || '').toLowerCase().includes(lower))
       hits.push({
-        chunk_id: `${detail.id}-${source}`,
+        chunk_id: chunk ? chunk.id : `${detail.id}-${source}`,
         item_id: detail.id,
         item_title: detail.title,
         snippet: snippetOf(text, needle),
-        content: text,
-        source,
+        content: chunk ? chunk.content : text,
+        source: chunk ? chunk.source : source,
         match_type: 'demo',
       })
     }
@@ -118,8 +138,80 @@ function gradeOne(entry) {
   }
 }
 
-/** 路由表：按 pathname 匹配，顺序有意义（更具体的放前面） */
-// 演示站也要能打开设置窗口（M6 T6.7/T6.8）：没有这两个接口，齿轮一点就是一片报错。
+// ── v0.3 原件：页文字 / 内嵌图 / 定位 ───────────────────
+//
+// 这一层不写死「第几页长什么样」：页文字来自真识别、页图来自真渲染，
+// 定位也在前端按**同一套判据**现算（去空白比对 + 长锚点优先），
+// 所以点引用落到哪一页是真算出来的，不是查表。
+
+const TAG_FOR_PAGES = (itemId) => TAG_OF[Number(itemId)] || ''
+
+/** Word 的版式 HTML 里图指向 `/api/knowledge/{id}/assets/<hash>`，换成静态文件 */
+function rewriteAssets(html, itemId) {
+  const tag = TAG_FOR_PAGES(itemId)
+  if (!tag || !html) return html
+  return String(html).replace(
+    /\/api\/knowledge\/\d+\/assets\/([0-9a-f]+\.(?:png|jpe?g|gif|webp))/g,
+    (whole, name) => `${BASE}demo/${tag}-${name}`,
+  )
+}
+
+const squash = (s) => String(s || '').replace(/[\s\u3000]+/g, '')
+
+/**
+ * chunk → 页（与后端 `services/locate.py` 同一判据）。
+ *
+ * 长锚点优先：先用整段试遍所有页，再 600/400/…/12 递减，同长才看页序。
+ * 页优先会让「前几页重述了十几字」截胡「后面那页的完整段落」——
+ * 这是桌面版在真讲义上踩过的坑，演示层不能退回去。
+ */
+function locateInPages(pages, chunkText, hint) {
+  const list = Object.entries(pages)
+    .map(([n, page]) => ({ page_no: Number(n), text: (page && page.text) || '' }))
+    .sort((a, b) => a.page_no - b.page_no)
+
+  const search = (needle) => {
+    for (const size of [600, 400, 300, 200, 150, 100, 60, 40, 24, 12, needle.length]) {
+      const cut = needle.slice(0, size)
+      if (cut.length < Math.min(12, needle.length)) continue
+      for (const page of list) {
+        const flat = squash(page.text)
+        const at = flat.indexOf(cut)
+        if (at < 0) continue
+        // 命中位置映射回原文本算行号：前端按行下标标黄
+        let seen = 0
+        let start = 0
+        let end = page.text.length
+        for (let i = 0; i < page.text.length; i += 1) {
+          if (squash(page.text[i]) === '') continue
+          if (seen === at) start = i
+          if (seen === at + cut.length - 1) {
+            end = i + 1
+            break
+          }
+          seen += 1
+        }
+        return {
+          page_no: page.page_no,
+          line_from: page.text.slice(0, start).split('\n').length - 1,
+          line_to: page.text.slice(0, end).split('\n').length - 1,
+          matched: page.text.slice(start, end),
+        }
+      }
+    }
+    return null
+  }
+
+  for (const [text, floor] of [[hint, 12], [chunkText, 12]]) {
+    const needle = squash(text)
+    if (!needle || needle.length < floor) continue
+    const hit = search(needle)
+    if (hit) return hit
+  }
+  return null
+}
+
+/** 路由表：按 pathname 匹配，顺序有意义（更具体的放前面） */// 演示站也要能打开设置窗口（M6 T6.7/T6.8）：没有这两个接口，齿轮一点就是一片报错。
 // 外观读 localStorage 而不是写死，否则观众选了主题一刷新就被打回默认。
 const look = () => ({
   theme: localStorage.getItem('cairn.theme') || 'paper',
@@ -215,6 +307,41 @@ const ROUTES = [
     },
   ],
   [/^\/api\/knowledge\/(\d+)$/, (m) => data.details[m[1]] || { error: { code: 'ITEM_NOT_FOUND' } }],
+  // 页文字（PDF / Word / PPT / 图片都走这条）：`html` 里的图要换成静态地址
+  [
+    /^\/api\/knowledge\/(\d+)\/pages\/(\d+)$/,
+    (m) => {
+      const page = (PAGES[m[1]] || {})[m[2]]
+      if (!page) {
+        return { error: { code: 'PAGE_NOT_FOUND', message: '演示站只有这几页，刷新看看' } }
+      }
+      return { ...page, html: rewriteAssets(page.html || '', m[1]) }
+    },
+  ],
+  // 引用定位：真按页文字算，不是查表
+  [
+    /^\/api\/knowledge\/(\d+)\/locate$/,
+    (m, { params }) => {
+      const pages = PAGES[m[1]]
+      if (!pages) return { page_no: null }
+      const detail = data.details[m[1]] || {}
+      const chunkId = Number(params.get('chunk_id') || 0)
+      const chunk = (detail.chunks || []).find((c) => Number(c.id) === chunkId)
+      // 演示站的分块 id 与桌面版一致（抓的时候就是它）
+      const text = chunk ? chunk.content : params.get('q') || ''
+      const hit = locateInPages(pages, text, params.get('q') || '')
+      return hit || { page_no: null }
+    },
+  ],
+  // 按卷练：整份试卷的题
+  [
+    /^\/api\/quiz\/paper\/(\d+)$/,
+    (m) => {
+      const tag = TAG_FOR_PAGES(m[1])
+      const paper = FILES[tag]?.paper
+      return paper || { item_id: Number(m[1]), title: '', questions: [], total: 0 }
+    },
+  ],
   [
     /^\/api\/tasks$/,
     (_m, { params }) => {
@@ -337,6 +464,32 @@ function resolve(url, method, body) {
   return { ok: false }
 }
 
+/**
+ * 二进制资源的落点：原件（PDF 本身 / 页图）与 Word 内嵌图。
+ *
+ * 这些不能变成 JSON —— pdf.js 要拿真 PDF 字节自己解析，`<img>` 要真 JPEG。
+ * 所以直接把请求转发到 `public/demo/` 里的静态文件，浏览器照常做 Range / 缓存处理。
+ * 返回空串表示「这条不是资源请求」。
+ */
+function assetUrlOf(path, params) {
+  const assets = path.match(/^\/api\/knowledge\/(\d+)\/assets\/([0-9a-f]+\.(?:png|jpe?g|gif|webp))$/)
+  if (assets) {
+    const tag = TAG_FOR_PAGES(assets[1])
+    return tag ? `${BASE}demo/${tag}-${assets[2]}` : ''
+  }
+
+  const file = path.match(/^\/api\/knowledge\/(\d+)\/file$/)
+  if (!file) return ''
+  const tag = TAG_FOR_PAGES(file[1])
+  if (!tag) return ''
+  const info = FILES[tag]?.assets || {}
+  const pageNo = Number(params.get('page') || 0)
+  if (pageNo) return info.page_images?.[pageNo - 1] ? `${BASE}demo/${info.page_images[pageNo - 1]}` : ''
+  if (info.original) return `${BASE}demo/${info.original}`
+  // 没有原件（理论上不该发生）时给出第 1 页页图，至少不是一片白
+  return info.page_images?.[0] ? `${BASE}demo/${info.page_images[0]}` : ''
+}
+
 export function installDemo() {
   const original = window.fetch.bind(window)
   window.fetch = async (input, init = {}) => {
@@ -359,6 +512,13 @@ export function installDemo() {
       }
     }
 
+    // 原件与图先走一遍：它们要字节，不是 JSON
+    if (method === 'GET') {
+      const path = url.pathname.replace(/^.*?\/api\//, '/api/')
+      const staticUrl = assetUrlOf(path, url.searchParams)
+      if (staticUrl) return original(new URL(staticUrl, window.location.href).href, init)
+    }
+
     // 给交互留一点网络感，避免界面闪得太假（也让 loading 态能被看见）
     await new Promise((resolve) => setTimeout(resolve, 80))
 
@@ -372,6 +532,19 @@ export function installDemo() {
     `${BASE}demo/mindmap-${mode === 'dark' ? 'dark' : 'light'}.svg`
   api.htmlUrl = (id) => `${BASE}demo/page-${id}.html`
   api.htmlDownloadUrl = (id) => `${BASE}demo/page-${id}.html`
+
+  // 页图与原件同理（T11.1）：PDF 的左栏页图、图片原文都走这两条
+  api.pageImageUrl = (itemId, n) => {
+    const tag = TAG_FOR_PAGES(itemId)
+    const info = FILES[tag]?.assets || {}
+    const name = info.page_images?.[Number(n) - 1]
+    return name ? `${BASE}demo/${name}` : ''
+  }
+  api.fileUrl = (itemId) => {
+    const tag = TAG_FOR_PAGES(itemId)
+    const info = FILES[tag]?.assets || {}
+    return info.original ? `${BASE}demo/${info.original}` : api.pageImageUrl(itemId, 1)
+  }
 
   // 顶栏的「已连接」是真判断，这里补一句，免得用户以为连到了什么远端服务
   window.__CAIRN_DEMO__ = true

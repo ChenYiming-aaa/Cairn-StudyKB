@@ -1,8 +1,8 @@
 {
-  "captured_at": "2026-11-13T10:40:04.811301+00:00",
+  "captured_at": "2026-11-14T15:13:12.894891+00:00",
   "health": {
     "status": "ok",
-    "version": "0.3.0-alpha.1"
+    "version": "0.3.1"
   },
   "env": {
     "ffmpeg": {
@@ -12,12 +12,12 @@
     "whisper": {
       "ok": false,
       "detail": "模型 small 未下载",
-      "hint": "首次转录时自动下载（约 500MB）到 C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-sf6xqrud\\models\\whisper"
+      "hint": "首次转录时自动下载（约 500MB）到 C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-tqyp2o7c\\models\\whisper"
     },
     "embedding": {
       "ok": false,
       "detail": "未加载",
-      "hint": "首次做向量检索时自动下载（bge-small-zh-v1.5，约 100MB）到 C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-sf6xqrud\\models\\embedding"
+      "hint": "首次做向量检索时自动下载（bge-small-zh-v1.5，约 100MB）到 C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-tqyp2o7c\\models\\embedding"
     },
     "sqlite_vec": {
       "ok": true,
@@ -27,11 +27,11 @@
       "ok": true,
       "detail": "deepseek-flash"
     },
-    "env_file": "C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-sf6xqrud\\.env",
+    "env_file": "C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-tqyp2o7c\\.env",
     "config": {
       "ok": true,
       "strict": true,
-      "env_file": "C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-sf6xqrud\\.env",
+      "env_file": "C:\\Users\\cwqjk\\AppData\\Local\\Temp\\cairn-demo-tqyp2o7c\\.env",
       "legacy_file": null,
       "legacy_keys": [],
       "hint": "配置只来自上面这一个文件（严格模式）"
@@ -118,6 +118,32 @@
         ]
       },
       {
+        "name": "Python考试",
+        "count": 1,
+        "tags": [
+          {
+            "name": "turtle绘图",
+            "count": 1
+          },
+          {
+            "name": "二级Python",
+            "count": 1
+          },
+          {
+            "name": "易错点",
+            "count": 1
+          },
+          {
+            "name": "考点精讲",
+            "count": 1
+          },
+          {
+            "name": "词频统计",
+            "count": 1
+          }
+        ]
+      },
+      {
         "name": "时间管理",
         "count": 1,
         "tags": [
@@ -144,6 +170,11 @@
         ]
       },
       {
+        "name": "未分类",
+        "count": 1,
+        "tags": []
+      },
+      {
         "name": "知识管理",
         "count": 1,
         "tags": [
@@ -168,16 +199,87 @@
             "count": 1
           }
         ]
+      },
+      {
+        "name": "考试复习",
+        "count": 1,
+        "tags": [
+          {
+            "name": "二级Python",
+            "count": 1
+          },
+          {
+            "name": "易错点",
+            "count": 1
+          },
+          {
+            "name": "标准库",
+            "count": 1
+          },
+          {
+            "name": "考点讲义",
+            "count": 1
+          },
+          {
+            "name": "题型分值",
+            "count": 1
+          }
+        ]
       }
     ],
     "counts": {
-      "total": 6,
+      "total": 9,
       "pending": 0,
       "organizing": 0
     }
   },
   "items": {
     "items": [
+      {
+        "id": 9,
+        "title": "二级Python模拟卷",
+        "source_type": "file",
+        "category": null,
+        "tags": [],
+        "status": "ready",
+        "kind": "exam",
+        "workspace_id": null,
+        "created_at": "2026-11-14T23:14:13+08:00"
+      },
+      {
+        "id": 8,
+        "title": "二级Python考试考点与题型结构梳理",
+        "source_type": "file",
+        "category": "考试复习",
+        "tags": [
+          "二级Python",
+          "考点讲义",
+          "题型分值",
+          "标准库",
+          "易错点"
+        ],
+        "status": "ready",
+        "kind": "material",
+        "workspace_id": null,
+        "created_at": "2026-11-14T23:14:06+08:00"
+      },
+      {
+        "id": 7,
+        "title": "计算机二级Python考点精讲与冲刺复习",
+        "source_type": "file",
+        "category": "Python考试",
+        "tags": [
+          "二级Python",
+          "考点精讲",
+          "词频统计",
+          "turtle绘图",
+          "易错点"
+        ],
+        "status": "ready",
+        "kind": "material",
+        "workspace_id": null,
+        "created_at": "2026-11-14T23:13:12+08:00"
+      },
       {
         "id": 6,
         "title": "留缓冲与可判断任务让计划更可持续",
@@ -191,6 +293,7 @@
           "坚持"
         ],
         "status": "ready",
+        "kind": "material",
         "workspace_id": 2,
         "created_at": "2026-11-08T19:47:47+08:00"
       },
@@ -207,6 +310,7 @@
           "主题综述"
         ],
         "status": "ready",
+        "kind": "material",
         "workspace_id": 2,
         "created_at": "2026-11-08T19:47:47+08:00"
       },
@@ -223,6 +327,7 @@
           "复述"
         ],
         "status": "ready",
+        "kind": "material",
         "workspace_id": null,
         "created_at": "2026-11-08T19:47:47+08:00"
       },
@@ -238,6 +343,7 @@
           "复习效率"
         ],
         "status": "ready",
+        "kind": "material",
         "workspace_id": 1,
         "created_at": "2026-11-08T19:47:47+08:00"
       },
@@ -254,6 +360,7 @@
           "记忆巩固"
         ],
         "status": "ready",
+        "kind": "material",
         "workspace_id": 1,
         "created_at": "2026-11-08T19:47:47+08:00"
       },
@@ -269,11 +376,12 @@
           "记忆保持"
         ],
         "status": "ready",
+        "kind": "material",
         "workspace_id": 1,
         "created_at": "2026-11-08T19:47:47+08:00"
       }
     ],
-    "total": 6
+    "total": 9
   },
   "details": {
     "6": {
@@ -564,6 +672,407 @@
         }
       ],
       "file": null
+    },
+    "7": {
+      "id": 7,
+      "title": "计算机二级Python考点精讲与冲刺复习",
+      "source_type": "file",
+      "source_url": null,
+      "raw_content": "Cairn 备考讲义· 二级 Python\n二级 Python\n冲刺讲义（双栏版）\n计算机二级 Python· 双栏排版·\n考点精讲与例题\n§1 命题规律与复习路径\n二级Python\n的命题以「读懂小程序」为核心：40\n道选择题里有近半数给出一段3~8行的代码\n，要求判断输出结果或变量类型。这类题不考\n算法设计，考的是对运算符优先级、可变对象\n、切片边界和函数副作用的理解。复习时不要\n背结论，应当把每段代码在解释器里跑一遍，\n把输出记在旁边。\n操作题的评分点是文件，而不是屏幕输出\n。基本操作题通常要求把格式化结果写入指定\n文件；综合应用题几乎固定为 jieba 分词与\n词频统计的组合。因此复习顺序建议为：语法\n与表达式 → 组合数据 → 文件与编码 →\n标准库→整套限时模拟。\n【提示】考试120分钟，建议选择题控制在35\n分钟内完成，给操作题留出足够时间。\n课堂笔记（留白）\n§2数值运算与表达式求值\nint\n是任意精度整数，不存在溢出；float遵循\nIEEE 754 双精度，因此 0.1 + 0.2 不等于\n0.3。//\n是向下取整除，对负数同样向下取整：-7 //\n第 1 页\n3得 -3，而 -7 % 3 得 2，因为余数要满足\na = b * q + r 且 r 与除数同号。\n>>> -7 // 3, -7 % 3\n(-3, 2)\n>>> 2 ** 3 ** 2\n512\n>>> int ('0xff', 16)\n255\n>>> 3 > 2 > 1\nTrue\n** 是右结合的，2 ** 3 ** 2 等价于 2\n** 9 = 512。比较运算符可以连写，3 > 2 >\n1 等价于 3 > 2 and 2 > 1， 中间的 2\n只求值一次。逻辑运算 and / or返回的是操\n作数本身而非布尔值，这一点常被用来出「表\n达式的值」题。\n【提示】优先级从高到低：** → 单目正负 → */ //\n% → + - → 比较 → not → and → or。\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§3字符串与格式化\n字符串是不可变序列，任何「修改」操作\n都会生成新对象。s[1:4]取下标\n1、2、3，右端点不含；s[：:-1]\n逆序；s.strip()去首尾空白；s. split()\n默认按任意空白切分，与 s.split(’')\n在连续空格时结果不同。\nCairn 备考讲义· 二级 Python\ns =’Python 二级'\nprint(s.strip().split()) #['Python','二级']\nprint('{:.2f}'.format(3.14159)) # 3.14\nprint(f'{65:c} {255:x} {255:X}') # A ff FF\nprint('-'. join(['a','b','c']))# a-b-c\n格式化有%运算符、str.format()与\nf-string三种写法，考试以format\n为主。格式规范里:>10 右对齐、:<10\n左对齐、：^10居中、：.2f 保留两位小数、：,\n千位分隔、:d / :x / : / :b\n分别对应十进制/十六进制/八进制/二进制。\n【提示】f-string 在 Python 3.6 引入，真题偶有出\n现；注意冒号后的格式串与变量之间用冒号分隔。\n课堂笔记（留白）\n§4列表、元组与切片\n列表是可变序列，append\n追加一个元素，extend\n追加可迭代对象的每个元素，insert\n在指定位置插入。若把 append([4,5])写成\nextend([4,5])，列表长度会从 4 变成\n5，这是选择题最常见的两选项差异。sort()\n原地排序返回None，sorted() 返回新列表。\na = [1, 2, 3]\na.append([4, 5]) # [1, 2, 3, [4, 5]], len=4\nb = [1, 2, 3]\nb.extend([4, 5]) # [1, 2, 3, 4, 5], len=5\nprint(sorted(a, key=lambda x: str(x))[:2])\n切片赋值可以改变长度，a[:] []\n清空列表但保留对象引用。列表的浅拷贝b =\na[:]或 b = a.copy() 只复制一层，嵌套子\n列表仍共享；多维结构要用copy.deepcopy。\n元组不可变，但元组中的列表元素仍可修改，\n这两句常被放在一起考。\n第 2 页\n方法作用返回值\nappend(x)末尾追加单个元素None\nextend(it)展开可迭代对象追None\n加\ninsert(i, x)在下标 i 前插入None\npop(i)删除并返回元素被删元素\nremove(x)删除首个等于 x None\n的元素\nsort(key=...)原地排序None\n表 4 列表常用方法速查\n课堂笔记（留白）\n§5字典与集合\n字典是键值映射，键必须是可哈希对象（\n数字、字符串、元组），列表和字典不能作键\n。d[k] 在键不存在时抛 KeyError,d. get (k,\ndefault)\n则返回默认值且不抛异常；d.setdefault(k,\nv)还会把默认值写回字典。遍历时优先用\nfor k, v in d.items()。\nd = {'a': 1, 'b': 2}\nprint(d.get('c', 0)) # 0\nprint(d.setdefault('c',3)) # 3, 且 d 增加'c'\nprint({k: v * 2 for k, v in d.items ()})\nprint(sorted(d, key=d. get, reverse=True))\n集合用 {} 或 set() 创建，注意 {}\n创建的是空字典而不是空集合。集合支持|&\n分别对应并、交、差、对称差。frozenset不\n可变。字典推导式、集合推导式与列表推导式\n语法一致，只是外层括号不同。\n【提示】词频统计题的标准写法：counts[word]=\ncounts.get(word, 0) + 1,避免 KeyError。\nCairn 备考讲义· 二级 Python\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§6分支、循环与异常\nif elif else\n只会执行其中一个分支；for常与\nrange、enumerate、zip配合；while\n必须保证条件能变假。循环的else\n子句在循环「正常耗尽」时执行，被break\n中断时不执行，这一点与 try 的 else\n类似但容易混淆。\ntry:\nn = int(input())\nr = 10 / n\nexcept ZeroDivisionError:\nprint('除数不能为0')\nexcept ValueError:\nprint('不是整数')\nelse:\nprint('计算成功'，r)\nfinally:\nprint('无论是否异常都会执行')\n异常捕获按顺序匹配，子类异常要写在父\n类之前；except Exception as e\n可捕获绝大多数异常。finally 中的 return\n会覆盖try中的\nreturn，真题偶尔以此设陷阱。自定义异常用\nraise 抛出，断言用assert。\n【提示】执行顺序记忆：try →（无异常）else →\nfinally；（有异常） except → finally。\n3\n第3 页\n课堂笔记（留白）\n§7函数、作用域与递归\n函数定义中的默认值在定义时求值一次，\n因此 def f(a,1st=[])会让多次调用共享同\n一个列表，是经典错误。可变参数*args\n收成元组，**kwargs收成字典；调用时用*\n展开序列、用**\n展开字典。函数内给全局变量赋值必须用\nglobal声明，嵌套函数修改外层变量用\nnonlocal。\ndef fib(n, memo={0: 0, 1: 1}):\nif n not in memo:\nmemo[n] = fib(n − 1) + fib(n − 2)\nreturn memo[n]\nprint(fib(10)) # 55\nprint(list(map(lambda x: x ** 2, range(5))))\n递归要有明确的终止条件，Python\n默认递归深度约 1000层。1ambda 只能写单\n个表达式，不能含语句。sorted、max、min\n的key参数接收一个函数，常与\noperator.itemgetter或lambda\n组合，用于按词频或指定字段排序。\n【提示】综合应用题排序的固定句式：1s=\nsorted(counts.items(), key=lambda x: x[1],\nreverse=True)。\n课堂笔记（留白）\n§8文件读写与数据格式化\nopen(path, mode, encoding='utf-8')\n返回文件对象；read()读全部、readline()\n读一行、readlines()读成列表、for line\nCairn 备考讲义· 二级 Python\nin f 逐行迭代最省内存。写文件用 write或\nwritelines，字符串写入不会自动换行。with\n语句在块结束时自动\nclose，即使中途抛异常也能释放句柄。\nwith open('data.txt', 'r', encoding='utf-8') as f:\ntext = f. read()\nwords = text.split()\nwith open('out.txt', 'w', encoding='utf-8') as f:\nf.write('\\n'.join(words[:10]))\nimport json, csv\nobj = json. loads('{\"a\": 1}')\nrows = list(csv. reader(open('s. csv',\nencoding='utf-8')))\nCSV 用 csv.reader / csv.writer 处理\n，能正确应对字段内含逗号的情况；JSON用\njson. load json. dump（文件）与\njson. loads / json. dumps（字符串）。dumps\n默认会把非 ASCII 字符转义成 \\uXXXX，加\nensure_ascii=False 才能保留中文。\n【提示】中文文件必写\nencoding='utf-8'；考试机上若用默认 GBK\n编码，读写中文会报错或乱码。\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§9 turtle、random 与time\nturtle 是二级考试唯一的绘图库。画笔\n初始朝右（正东），forward / backward\n第4 页\n前进后退，left / right\n按角度转向，circle(r, extent)画半径\nr、圆心角extent的弧，extent\n省略时为整圆。penup pendown\n控制落笔，goto 定位，pencolor / pensize\n设置样式，最后用done()保持窗口。\nimport turtle as t\nimport random\nt. pensize(3)\nt. pencolor('red')\nfor i in range(36):\nt.forward(100)\nt.right(170)\nt. done ()\nrandom. seed(10)\nprint (random.randint(1, 10)) # 含 10\nprint (random. choice('abcd'))\nrandom的randint(a, b)\n包含两端，randrange(a,b)不含右端；seed\n固定后随机序列可复现，这是判断题常考点。\ntime.time() 返回时间戳，time.localtime()\n得结构化时间，time.strftime(’%Y-%m-%d'，\nt)格式化输出，time.sleep(秒)\n让程序暂停。\n【提示】turtle.circle(50,180)\n画的是半圆；radius\n为负时圆心在画笔右侧，方向也随之改变。\n课堂笔记（留白）\n§10jieba 分词与词频统计\n综合应用题的主线几乎不变：读中文文本\n→ jieba.lcut 分词 → 过滤单字与标点 →\n用字典统计词频←按频次降序排序\n输出前N项（或生成词云）。jieba.1cut\n返回列表，cut 返回生成器；cut_all=True\n为全模式，默认精确模式。wordcloud的\n4\nCairn 备考讲义· 二级 Python\nWordCloud需指定font_path\n指向中文字体，否则中文会显示成方框。\nimport jieba\ntxt = open('data.txt', encoding='utf-8').read()\nwords = jieba.lcut(txt)\ncounts = {}\nfor w in words:\nif len(w) < 2:\ncontinue\ncounts[w] = counts.get(w, 0) + 1\n1s = sorted(counts.items(), key=lambda x: x[1],\nreverse=True)\nfor w, c in ls[:10]:\nprint(f'{w}:{c}')\n过滤环节要注意：中文文本里常混有全角\n标点、空格与换行，应先 strip 或按停用词\n表剔除。排序时若要求「频次相同按词语字典\n序」，可写 key=lambda x: (-x[1]，x[0])。\n输出格式要与题目示例逐字符一致，包括冒号\n是全角还是半角、是否换行。\n【提示】评分程序按输出文件比对，少一个换行或多\n一个空格都可能被判错，务必对照样例输出。\n课堂笔记（留白）\n第 5 页\n5\nCairn 备考讲义· 二级 Python\n附录 A 真题自测（选择题）\n以下题目选自本讲配套模拟卷，答案与解\n析见附录B。建议先独立作答，再对照解析回\n看对应章节。\n1. 表达式 3 ** 2 // 2 + 5 % 3 的值是\nA. 5 B. 6 C. 7 D. 8\n2. 已知 s = \"Python\"，表达式 s[1:4]\n的结果是\nA. \"Pyt\" B. \"yth\" C. \"ytho\" D. \"ythoP\"\n3. 下列数据类型中，属于不可变类型的是\nA. list B. dict C. tuple D. set\n4. 表达式 round(2.5) 的结果是\nA. 2 B. 3 C. 2.5 D. 3.0\n5. 执行 a=[1,2,3]; a.append([4,5])\n后，len(a)的值是\nA. 3 B. 4 C. 5 D. 6\n6. random.randint(1, 10)\n生成的随机整数范围是\nA. 1 到 9 B. 1 到 10 C. 0 到 10 D. 0 到 9\n7.以追加方式打开文本文件\na. txt，应使用的模式是\nA. \"r\" B. \"w\" C. \"a\" D. \"x\"\n表达式'-'. join(['a','b', 'c'])\n的结果是\nA. \"abc\" B. ″a-b-c\" C. \"a, b, c\" D. 报错\n9. 已知 d = {'a': 1}，表达式 d.get('b'，\n0)的值是\nA. None B. 0 C. 报错 KeyError D. {'b': 0}\n10. 表达式 set([1,1,2,3]) 的结果是\nA. [1, 1, 2, 3] B. {1, 2, 3} C. (1, 2, 3) D. 报错\n11. for i in range(2, 10, 3)\n循环体执行的次数是\nA. 2 B. 3 C. 4 D. 5\n6\n第6页\n12.关于turtle.circle(50,\n180)，说法正确的是\nA. 画半径 50 的整圆 B. 画半径 50 的半圆 C. 画直径\n50 的整圆 D. 画笔旋转 180 度\n13. 下列语句中，能正确定义函数并返回两数\n之和的是\nA. def f(a,b): a+b B. def f(a,b): return a+b C.\nlambda a, b: return a+b D. def f(a, b) = a+b\n14. 表达式 format(3.14159,'.2f')\n的结果是\nA. \"3.14\" B. \"3.15\" C. 3.14 D. \"3.141\"\n15. try\n语句中，无论是否发生异常都会执行的是\nA. else 子句 B. except 子句 C. finally 子句 D. if\n子句\n16. jieba.lcut('全国计算机等级考试')\n的返回值类型是\nA. 字符串 B. 列表 C. 生成器 D. 字典\n17. 关于字符串，下列说法正确的是\nA. 可用 s[0]='P’修改首字符 B. 字符串是可变序列 C.\ns*3 表示重复 3 次 D. 字符串不能切片\n18. 表达式 eval('2 + 3 * 4')的值是\nA. '2 + 3 * 4' B. 14 C. 20 D. 报错\n19. time.strftime('%Y-%m-%d')的作用是\nA. 返回时间戳 B. 返回格式化日期字符串 C. 让程序暂停\nD. 返回随机数\n20. 读取 CSV 文件应使用的标准库是\nA. json B. csv C. os D. turtle\n附录 B 参考答案与考点回指\n1.【B】先算3**2=9，9//2=4，5%3=2，4+2=6。\n2.【B】切片取下标1、2、3，不含右端点4，得到 yth。\n3.【C】str、tuple、数值为不可变；list、dict、set\n可变。\n4.【A】Python ε采用银行家舍入，恰为\n时向偶数靠拢。\n5.【B】append把整个列表作为单个元素追加，长度由3\n变 4。\n6.【B】randint包含左右两个端点；randrange\n不含右端点。\nCairn 备考讲义· 二级 Python\n7.【C】a为追加写，w为覆盖写，r为只读，x\n为独占创建。\n8.【B】join用调用它的字符串把序列元素连接起来。\n9.【B】get在键不存在时返回默认值，且不修改原字典。\n10.【B】集合自动去重且无序，字面量用花括号表示。\n11. 【B】i依次取 2、5、8，共3 次。\n12.【B】extent=180表示画180度圆弧，即半圆。\n13.【B】必须有return；lambda 只能写表达式。\n14. 【A】format 返回字符串，保留两位小数并四舍五入。\n15. 【C】finally常用于释放资源，必定执行。\n16.【B】lcut 返回 list；cut 返回可迭代生成器。\n17.【C】字符串不可变，但支持*重复与切片。\n18.【B】eval\n把字符串当表达式求值，遵循运算符优先级。\n19.【B】strftime按格式串输出日期时间字符串。\n20.【B】csv. reader csv.writer\n专门处理逗号分隔文件。\n附录C公式与考点速查表\n题型题量分值主要考查内容\n语法、表达\n单项选择题40 题40分式、程序输出、公共基\n础知识\n代码补全、\n基本操作题15 分格式化输出\n、简单计算\n列表/字典处\n简单应用题2 题20 分绘图、文件理、turtle\n读写\n中文分词、\n综合应用题1 题25 分词频统计、\n数据格式化\n表 1 二级 Python 试卷结构与分值\n类型可变性字面量示例常用操作\nint / float不可变42 / 3.14  / + - * / //\n/ complex 2+3j %**\n切片、split\nstr不可变\"Python\"、join、for\nmat\nappend、ins\nlist可变[1, 2, 3] ert、sort、\n切片赋值\n第7页\n类型可变性字面量示例常用操作\n索引、拆包\ntuple不可变(1, 2)、作为字典\n键\nkeys、value\ndict可变{″a\": 1} s、get、ite\nms\nset可变{1, 2, 3} &|-^、ad d、discard\n表 2 常用数据类型对照\n库名典型用途高频函数\nturtle图形绘制forward、circle、pensize、done\nrandom、randint\nrandom随机数、choice、shuffl\ne、seed\ntime时间与计时time、sleep、str ftime、localtime\njieba中文分词lcut、lcut_for_s earch、add_word\nwordcloud词云生成WordCloud、gener ate、to_file\ncsv / json数据格式化reader、writer、dumps、loads\n表 3 二级 Python 常考标准库\n方法作用返回值\nappend (x)末尾追加单个元素None\nextend(it)加展开可迭代对象追None\ninsert(i, x)在下标 i 前插入None\npop (i)删除并返回元素被删元素\nremove (x)的元素删除首个等于 x None\nsort(key=...)原地排序None\n表 4 列表常用方法速查\n附录D非选择题参考解答\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n题目：编写程序，接收用户输入的一个正整数 n，计算1\n到n的累加和，并以「sum=结果」的形式输出。请在考生\n文件夹下的 op1. py 中补全代码。\nn = int(input ())\ns = sum(range(1, n + 1))\n-7-\nCairn 备考讲义· 二级 Python\nprint('sum={}'.format(s))\n题目：已知列表 1s = [3, 1, 4, 1, 5, 9, 2,\n6]，请去重后按降序输出，结果写入\nop2.txt，元素之间用英文逗号分隔。\n1s = [3, 1, 4, 1, 5, 9, 2, 6]\nout = sorted(set(1s), reverse=True)\nopen('op2.txt','w',\nencoding='utf-8').write(','.join(map(str, out)))\n题目：读取 data.txt（UTF-8 编码），统计其中英文单词\n数（按空白切分），把结果写入op3.txt。\ntxt = open('data.txt', encoding='utf-8').read()\nopen('op3.txt','w',\nencoding='utf-8').write(str(len(txt.split())))\n三、综合应用题（共2小题，共45分）\n题目：文件 article.txt 中保存了一篇中文短文。请用\njieba 精确模式分词，过滤掉长度小于 2 的词语与常见标\n点，统计词频，按词频降序（频次相同按词语字典序升序\n）输出前10个词，每行格式为「词语频次」，结果写入\nresult.txt。\nimport jieba\ntxt = open('article. txt', encoding='utf-8').read()\nwords = jieba.lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\ncounts[w] = counts. get(w, 0) + 1\nls = sorted(counts.items(), key=lambda x: (-x[1],\nx[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in ls[:10]:\nf.write('{}{}\\n'.format(w, c))\n题目：在上一题基础上，用turtle\n绘制一个正十二边形，边长60，画笔宽\n2、颜色为蓝色，图形保存为程序即可，不要求导出图片。\nimport turtle as t\nt. pensize(2)\nt. pencolor ('blue')\nfor _ in range(12):\nt. forward(60)\nt.right(30)\nt. done ()\n附录 E 易错点清单\n1. round()\n采用「银行家舍入」：小数部分恰为0.5\n时向偶数靠拢，故round(2.5)=2、round(3.5\n)=4。这是选择题高频陷阱。\n8\n第8页\n2. 考试 120 分钟，建议选择题控制在 35\n分钟内完成，给操作题留出足够时间。\n3. 优先级从高到低：** → 单目正负 → * /\n// % → + - → 比较 → not → and →\nor。\n4. f-string 在 Python 3.6 引入，真题偶有\n出现；注意冒号后的格式串与变量之间用冒号\n分隔。\n5. 词频统计题的标准写法：counts[word]=\ncounts. get (word, 0) + 1, 避免 KeyError。\n6. 执行顺序记忆：try → (无异常） else →\nfinally；(有异常） except → finally。\n7.综合应用题排序的固定句式：1s二\nsorted(counts.items(),key=lambda x:\nx[1], reverse=True)。\n8.中文文件必写\nencoding='utf-8'；考试机上若用默认GBK\n编码，读写中文会报错或乱码。\n9. turtle.circle(50, 180)\n画的是半圆；radius\n为负时圆心在画笔右侧，方向也随之改变。\n10. 评分程序按输出文件比对，少一个换行或\n多一个空格都可能被判错，务必对照样例输出\nCairn 备考讲义· 二级 Python\n附录F拍照真题选登（考生回忆版）\n以下题目来自同主题的另一套试卷，供课\n堂限时练习使用。原卷为手机拍摄，此处按印\n刷体重排，题号沿用原卷。\n一、单项选择题（每题2分）\n1. 以下选项中，不属于 Python 语言特点的是\nA. 开源免费 B. 跨平台 C. 编译执行 D. 语法简洁\n2. 表达式 7 // 2 与 7 % 2 的结果分别是\nA. 3, 1 B. 3.5, 1 C. 4, 1 D. 3, 3\n3. 已知 s ='abcdefg'，s[2:5] 的值是\nA. 'bcd' B. 'cde' C. 'cdef' D. 'bcde'\n4. 下列哪个选项可以创建一个空集合\nA. {} B. set () C. [] D. ()\n5. 关于 Python 的注释，正确的是\nA. 只能用 # B. 只能用三引号 C. # 与三引号均可 D.\n不支持注释\n6. 表达式 [x*2 for x in range(3)] 的结果是\nA. [0,2,4] B. [2,4,6] C. [0,1,2] D. 报错\n7. 函数内修改全局变量 n 的值，需要\nA. global n B. nonlocal n C. static n D. 直接赋值\n8. turtle 画笔默认朝向是\nA. 正北 B. 正东 C. 正南 D. 正西\n9. 打开文件时使用 with 语句的好处是\nA. 加快读写 B. 自动关闭文件 C. 自动编码 D. 自动去重\n10. json.dumps({'a':1}) 返回值的类型是\nA. dict B. str C. bytes D. list\n二、程序填空与读程题\n11.补全代码，使其输出1~100中所有能被3\n整除的整数之和。\ns = 0\nfor i in range(1, 101):\nif i % 3 == 0:\ns +=\nprint(s)\n参考答案：i（该空3分）\n12. 阅读程序，写出运行结果。\nd = {'a': 1, 'b': 2}\nd['c'] = 3\nprint(len(d), sum(d. values()))\n参考答案：36（该空4分）\n13. 阅读程序，写出运行结果。\n1s = [1, 2, 3]\n1s. insert (1, 9)\nprint(1s[1:4])\n参考答案：[9，2，3]（该空4分）\n14. 写出以只读方式打开 UTF-8 编码文件的语句。\n9\n第 9 页\n参考答案：open('f.txt','r',encoding='utf-8')\n三、操作题（请在考生文件夹内作答）\n15.编写程序，统计data.txt\n中每个英文单词出现的次数，\n输出出现次数最多的 5 个单词，结果存入 top5.txt。\n16. 使用 turtle 绘制边长为 80 的正五边形，\n线条颜色为红色，线宽 3，程序保存为 draw.py。\n17.用jieba对article.txt\n分词，过滤单字后按词频降序\n输出前15个词，每行「词语:频次」，保存到\nfreq.txt。\n(本页为考生手写答题区，以下为草稿，不计入评分)\ncounts = {}\nfor w in words:\nif len(w) > 1:\ncounts[w] = counts. get(w, 0) + 1\nCairn 备考讲义· 二级 Python\n附录G主观题限时练习（留白作答）\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n1.编写程序，接收用户输入的一个正整数\nn，计算 1 到 n 的累加和，并以「sum=结果\n」的形式输出。请在考生文件夹下的op1.py\n中补全代码。\n2. 已知列表 1s = [3, 1, 4, 1, 5, 9, 2,\n6]，请去重后按降序输出，结果写入\nop2.txt，元素之间用英文逗号分隔。\n3. 读取 data.txt（UTF-8 编码），统计其中\n英文单词数（按空白切分），把结果写入\nop3.txt。\n三、综合应用题（共2小题，共45分）\n4.文件article.txt\n中保存了一篇中文短文。请用jieba\n精确模式分词，过滤掉长度小于 2 的词语与\n常见标点，统计词频，按词频降序（频次相同\n按词语字典序升序）输出前10\n个词，每行格式为「词语频次」，结果写入\nresult.txt。\n5.在上一题基础上，用turtle\n绘制一个正十二边形，边长60，画笔宽2、\n颜色为蓝色，图形保存为程序即可，不要求导\n-10\n第 10 页\n出图片。",
+      "content_hash": "5be0fb6932d6b8e1c3cbe76ede2c9a6028ef4f533212ae5c26abf552f9e504b7",
+      "summary": "这是一份计算机二级Python冲刺讲义，按命题规律梳理数值运算、字符串格式化、列表字典集合、分支循环异常、函数作用域、文件读写、turtle与random、jieba词频统计等考点，并附真题自测、参考答案、速查表和操作题参考解答。",
+      "key_points": [
+        "选择题近半数是读小程序判断输出，重点考运算符优先级、可变对象、切片边界与函数副作用。",
+        "操作题按输出文件评分，综合应用题几乎固定为jieba分词加词频统计的组合。",
+        "-7//3得-3、-7%3得2，**右结合，2**3**2为512，比较运算可连写。",
+        "append追加单个元素、extend展开追加，sort原地排序返回None，sorted返回新列表。",
+        "词频统计标准写法counts[word]=counts.get(word,0)+1，避免KeyError。",
+        "中文文件必写encoding='utf-8'，输出格式要与样例逐字符一致。"
+      ],
+      "structured_note": "# 计算机二级Python冲刺要点\n\n## 命题规律与复习路径\n- 选择题40道，近半数给3~8行代码，判断输出或变量类型。\n- 考查重点：运算符优先级、可变对象、切片边界、函数副作用。\n- 操作题评分点是文件而非屏幕输出。\n- 复习顺序：语法与表达式 → 组合数据 → 文件与编码 → 标准库 → 整套限时模拟。\n- 考试120分钟，选择题建议控制在35分钟内。\n\n## 数值运算与表达式\n- int为任意精度整数，无溢出；float遵循IEEE 754，0.1+0.2不等于0.3。\n- `//`向下取整：-7//3得-3，-7%3得2（余数与除数同号）。\n- `**`右结合，2**3**2等价于2**9=512。\n- 比较运算符可连写，3>2>1等价于3>2 and 2>1。\n- and/or返回操作数本身而非布尔值。\n- 优先级：** → 单目正负 → */ // % → + - → 比较 → not → and → or。\n- round采用银行家舍入：round(2.5)=2、round(3.5)=4。\n\n## 字符串与格式化\n- 字符串不可变，任何修改都生成新对象；s[1:4]取下标1、2、3。\n- s[::-1]逆序；strip去首尾空白；split默认按任意空白切分。\n- 三种写法：%运算符、str.format()、f-string（考试以format为主）。\n- 格式规范：>10右对齐、<10左对齐、^10居中、.2f保留两位、,千位分隔。\n- f-string在Python 3.6引入。\n\n## 列表、元组与切片\n- append追加单个元素，extend展开追加，insert在指定位置插入。\n- 同样追加[4,5]：append后len=4，extend后len=5。\n- sort()原地排序返回None，sorted()返回新列表。\n- a[:] = []清空列表但保留对象引用。\n- 浅拷贝b=a[:]或a.copy()只复制一层，多维要用copy.deepcopy。\n- 元组不可变，但元组内的列表元素仍可修改。\n\n## 字典与集合\n- 键必须可哈希（数字、字符串、元组），列表和字典不能作键。\n- d[k]键不存在抛KeyError；get返回默认值不抛异常；setdefault还会写回字典。\n- 遍历优先用for k, v in d.items()。\n- {}创建的是空字典，空集合要用set()。\n- 集合支持| & - ^（并、交、差、对称差）；frozenset不可变。\n\n## 分支、循环与异常\n- if/elif/else只执行一个分支；循环else在正常耗尽时执行，被break中断时不执行。\n- 异常捕获按顺序匹配，子类异常写在父类之前。\n- finally中的return会覆盖try中的return。\n- 执行顺序：try →（无异常）else → finally；（有异常）except → finally。\n\n## 函数、作用域与递归\n- 默认值在定义时求值一次，def f(a, lst=[])会让多次调用共享同一列表。\n- *args收成元组，**kwargs收成字典；调用时用*和**展开。\n- 函数内给全局变量赋值需global，嵌套函数修改外层变量用nonlocal。\n- Python默认递归深度约1000层；lambda只能写单个表达式。\n- 排序固定句式：sorted(counts.items(), key=lambda x: x[1], reverse=True)。\n\n## 文件读写与数据格式化\n- open(path, mode, encoding='utf-8')；read/readline/readlines/for line in f。\n- write写入不会自动换行；with语句自动close并释放句柄。\n- CSV用csv.reader/csv.writer；JSON用json.load/dump（文件）与loads/dumps（字符串）。\n- dumps默认转义非ASCII，加ensure_ascii=False保留中文。\n- 中文文件必写encoding='utf-8'，否则可能报错或乱码。\n\n## turtle、random与time\n- 画笔初始朝右（正东）；forward/backward前进后退，left/right转向。\n- circle(r, extent)画半径r、圆心角extent的弧，省略extent为整圆，180为半圆。\n- penup/penodwn控制落笔，goto定位，pencolor/pensize设置样式，最后done()。\n- randint(a,b)含两端，randrange(a,b)不含右端；seed固定后序列可复现。\n- time.time()返回时间戳，strftime格式化输出，sleep暂停。\n\n## jieba分词与词频统计\n- 主线：读文本 → jieba.lcut分词 → 过滤单字与标点 → 字典统计词频 → 按频次降序输出前N项。\n- lcut返回列表，cut返回生成器；cut_all=True为全模式，默认精确模式。\n- 词频标准写法：counts[w] = counts.get(w, 0) + 1。\n- 频次相同按词语字典序：key=lambda x: (-x[1], x[0])。\n- wordcloud需指定font_path指向中文字体。\n- 输出格式要与题目示例逐字符一致，含全角半角与换行。\n\n## 试卷结构速查\n- 单项选择题40题40分；基本操作题15分；简单应用题2题20分；综合应用题1题25分。\n- 常考标准库：turtle、random、time、jieba、wordcloud、csv/json。",
+      "note_edited": 0,
+      "category": "Python考试",
+      "tags": [
+        "二级Python",
+        "考点精讲",
+        "词频统计",
+        "turtle绘图",
+        "易错点"
+      ],
+      "status": "ready",
+      "truncated": 0,
+      "created_at": "2026-11-14T23:13:12+08:00",
+      "updated_at": "2026-11-14T23:14:04+08:00",
+      "workspace_id": null,
+      "kind": "material",
+      "file_id": 1,
+      "chunks": [
+        {
+          "id": 38,
+          "position": 0,
+          "content": "# 计算机二级Python冲刺要点## 命题规律与复习路径\n- 选择题40道，近半数给3~8行代码，判断输出或变量类型。- 考查重点：运算符优先级、可变对象、切片边界、函数副作用。- 操作题评分点是文件而非屏幕输出。- 复习顺序：语法与表达式 → 组合数据 → 文件与编码 → 标准库 → 整套限时模拟。- 考试120分钟，选择题建议控制在35分钟内。## 数值运算与表达式\n- int为任意精度整数，无溢出；float遵循IEEE 754，0.1+0.2不等于0.3。- `//`向下取整：-7//3得-3，-7%3得2（余数与除数同号）。- `**`右结合，2**3**2等价于2**9=512。- 比较运算符可连写，3>2>1等价于3>2 and 2>1。- and/or返回操作数本身而非布尔值。- 优先级：** → 单目正负 → */ // % → + - → 比较 → not → and → or。- round采用银行家舍入：round(2.5)=2、round(3.5)=4。## 字符串与格式化\n- 字符串不可变，任何修改都生成新对象；s[1:4]取下标1、2、3。- s[::-1]逆序；strip去首尾空白；split默认按任意空白切分。- 三种写法：%运算符、str.format()、f-string（考试以format为主）。- 格式规范：>10右对齐、<10左对齐、^10居中、.2f保留两位、,千位分隔。",
+          "source": "note"
+        },
+        {
+          "id": 39,
+          "position": 1,
+          "content": "- 三种写法：%运算符、str.format()、f-string（考试以format为主）。- 格式规范：>10右对齐、<10左对齐、^10居中、.2f保留两位、,千位分隔。- f-string在Python 3.6引入。## 列表、元组与切片\n- append追加单个元素，extend展开追加，insert在指定位置插入。- 同样追加[4,5]：append后len=4，extend后len=5。- sort()原地排序返回None，sorted()返回新列表。- a[:] = []清空列表但保留对象引用。- 浅拷贝b=a[:]或a.copy()只复制一层，多维要用copy.deepcopy。- 元组不可变，但元组内的列表元素仍可修改。## 字典与集合\n- 键必须可哈希（数字、字符串、元组），列表和字典不能作键。- d[k]键不存在抛KeyError；get返回默认值不抛异常；setdefault还会写回字典。- 遍历优先用for k, v in d.items()。- {}创建的是空字典，空集合要用set()。- 集合支持| & - ^（并、交、差、对称差）；frozenset不可变。## 分支、循环与异常\n- if/elif/else只执行一个分支；循环else在正常耗尽时执行，被break中断时不执行。- 异常捕获按顺序匹配，子类异常写在父类之前。- finally中的return会覆盖try中的return。",
+          "source": "note"
+        },
+        {
+          "id": 40,
+          "position": 2,
+          "content": "循环else在正常耗尽时执行，被break中断时不执行。- 异常捕获按顺序匹配，子类异常写在父类之前。- finally中的return会覆盖try中的return。- 执行顺序：try →（无异常）else → finally；（有异常）except → finally。## 函数、作用域与递归\n- 默认值在定义时求值一次，def f(a, lst=[])会让多次调用共享同一列表。- *args收成元组，**kwargs收成字典；调用时用*和**展开。- 函数内给全局变量赋值需global，嵌套函数修改外层变量用nonlocal。- Python默认递归深度约1000层；lambda只能写单个表达式。- 排序固定句式：sorted(counts.items(), key=lambda x: x[1], reverse=True)。## 文件读写与数据格式化\n- open(path, mode, encoding='utf-8')；read/readline/readlines/for line in f。- write写入不会自动换行；with语句自动close并释放句柄。- CSV用csv.reader/csv.writer；JSON用json.load/dump（文件）与loads/dumps（字符串）。- dumps默认转义非ASCII，加ensure_ascii=False保留中文。",
+          "source": "note"
+        },
+        {
+          "id": 41,
+          "position": 3,
+          "content": "JSON用json.load/dump（文件）与loads/dumps（字符串）。- dumps默认转义非ASCII，加ensure_ascii=False保留中文。- 中文文件必写encoding='utf-8'，否则可能报错或乱码。## turtle、random与time\n- 画笔初始朝右（正东）；forward/backward前进后退，left/right转向。- circle(r, extent)画半径r、圆心角extent的弧，省略extent为整圆，180为半圆。- penup/penodwn控制落笔，goto定位，pencolor/pensize设置样式，最后done()。- randint(a,b)含两端，randrange(a,b)不含右端；seed固定后序列可复现。- time.time()返回时间戳，strftime格式化输出，sleep暂停。## jieba分词与词频统计\n- 主线：读文本 → jieba.lcut分词 → 过滤单字与标点 → 字典统计词频 → 按频次降序输出前N项。- lcut返回列表，cut返回生成器；cut_all=True为全模式，默认精确模式。- 词频标准写法：counts[w] = counts.get(w, 0) + 1。- 频次相同按词语字典序：key=lambda x: (-x[1], x[0])。- wordcloud需指定font_path指向中文字体。",
+          "source": "note"
+        },
+        {
+          "id": 42,
+          "position": 4,
+          "content": "- 词频标准写法：counts[w] = counts.get(w, 0) + 1。- 频次相同按词语字典序：key=lambda x: (-x[1], x[0])。- wordcloud需指定font_path指向中文字体。- 输出格式要与题目示例逐字符一致，含全角半角与换行。## 试卷结构速查\n- 单项选择题40题40分；基本操作题15分；简单应用题2题20分；综合应用题1题25分。- 常考标准库：turtle、random、time、jieba、wordcloud、csv/json。",
+          "source": "note"
+        },
+        {
+          "id": 13,
+          "position": 0,
+          "content": "Cairn 备考讲义· 二级 Python\n二级 Python\n冲刺讲义（双栏版）\n计算机二级 Python· 双栏排版·\n考点精讲与例题\n§1 命题规律与复习路径\n二级Python\n的命题以「读懂小程序」为核心：40\n道选择题里有近半数给出一段3~8行的代码\n，要求判断输出结果或变量类型。这类题不考\n算法设计，考的是对运算符优先级、可变对象\n、切片边界和函数副作用的理解。复习时不要\n背结论，应当把每段代码在解释器里跑一遍，\n把输出记在旁边。操作题的评分点是文件，而不是屏幕输出\n基本操作题通常要求把格式化结果写入指定\n文件；综合应用题几乎固定为 jieba 分词与\n词频统计的组合。因此复习顺序建议为：语法\n与表达式 → 组合数据 → 文件与编码 →\n标准库→整套限时模拟。【提示】考试120分钟，建议选择题控制在35\n分钟内完成，给操作题留出足够时间。课堂笔记（留白）\n§2数值运算与表达式求值\nint\n是任意精度整数，不存在溢出；float遵循\nIEEE 754 双精度，因此 0.1 + 0.2 不等于\n0.3。//\n是向下取整除，对负数同样向下取整：-7 //\n第 1 页\n3得 -3，而 -7 % 3 得 2，因为余数要满足\na = b * q + r 且 r 与除数同号。>>> -7 // 3, -7 % 3\n(-3, 2)\n>>> 2 ** 3 ** 2\n512\n>>> int ('0xff', 16)",
+          "source": "raw"
+        },
+        {
+          "id": 14,
+          "position": 1,
+          "content": "a = b * q + r 且 r 与除数同号。>>> -7 // 3, -7 % 3\n(-3, 2)\n>>> 2 ** 3 ** 2\n512\n>>> int ('0xff', 16)\n255\n>>> 3 > 2 > 1\nTrue\n** 是右结合的，2 ** 3 ** 2 等价于 2\n** 9 = 512。比较运算符可以连写，3 > 2 >\n1 等价于 3 > 2 and 2 > 1， 中间的 2\n只求值一次。逻辑运算 and / or返回的是操\n作数本身而非布尔值，这一点常被用来出「表\n达式的值」题。【提示】优先级从高到低：** → 单目正负 → */ //\n% → + - → 比较 → not → and → or。图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§3字符串与格式化\n字符串是不可变序列，任何「修改」操作\n都会生成新对象。s[1:4]取下标\n1、2、3，右端点不含；s[：:-1]\n逆序；s.strip()去首尾空白；s. split()\n默认按任意空白切分，与 s.split(’')\n在连续空格时结果不同。Cairn 备考讲义· 二级 Python\ns =’Python 二级'\nprint(s.strip().split()) #['Python','二级']\nprint('{:.2f}'.format(3.14159)) # 3.14",
+          "source": "raw"
+        },
+        {
+          "id": 15,
+          "position": 2,
+          "content": "print(s.strip().split()) #['Python','二级']\nprint('{:.2f}'.format(3.14159)) # 3.14\nprint(f'{65:c} {255:x} {255:X}') # A ff FF\nprint('-'. join(['a','b','c']))# a-b-c\n格式化有%运算符、str.format()与\nf-string三种写法，考试以format\n为主。格式规范里:>10 右对齐、:<10\n左对齐、：^10居中、：.2f 保留两位小数、：,\n千位分隔、:d / :x / : / :b\n分别对应十进制/十六进制/八进制/二进制。【提示】f-string 在 Python 3.6 引入，真题偶有出\n现；注意冒号后的格式串与变量之间用冒号分隔。课堂笔记（留白）\n§4列表、元组与切片\n列表是可变序列，append\n追加一个元素，extend\n追加可迭代对象的每个元素，insert\n在指定位置插入。若把 append([4,5])写成\nextend([4,5])，列表长度会从 4 变成\n5，这是选择题最常见的两选项差异。sort()\n原地排序返回None，sorted() 返回新列表。a = [1, 2, 3]\na.append([4, 5]) # [1, 2, 3, [4, 5]], len=4\nb = [1, 2, 3]",
+          "source": "raw"
+        },
+        {
+          "id": 16,
+          "position": 3,
+          "content": "原地排序返回None，sorted() 返回新列表。a = [1, 2, 3]\na.append([4, 5]) # [1, 2, 3, [4, 5]], len=4\nb = [1, 2, 3]\nb.extend([4, 5]) # [1, 2, 3, 4, 5], len=5\nprint(sorted(a, key=lambda x: str(x))[:2])\n切片赋值可以改变长度，a[:] []\n清空列表但保留对象引用。列表的浅拷贝b =\na[:]或 b = a.copy() 只复制一层，嵌套子\n列表仍共享；多维结构要用copy.deepcopy。元组不可变，但元组中的列表元素仍可修改，\n这两句常被放在一起考。第 2 页\n方法作用返回值\nappend(x)末尾追加单个元素None\nextend(it)展开可迭代对象追None\n加\ninsert(i, x)在下标 i 前插入None\npop(i)删除并返回元素被删元素\nremove(x)删除首个等于 x None\n的元素\nsort(key=...)原地排序None\n表 4 列表常用方法速查\n课堂笔记（留白）\n§5字典与集合\n字典是键值映射，键必须是可哈希对象（\n数字、字符串、元组），列表和字典不能作键\nd[k] 在键不存在时抛 KeyError,d. get (k,\ndefault)\n则返回默认值且不抛异常；d.setdefault(k,",
+          "source": "raw"
+        },
+        {
+          "id": 17,
+          "position": 4,
+          "content": "数字、字符串、元组），列表和字典不能作键\nd[k] 在键不存在时抛 KeyError,d. get (k,\ndefault)\n则返回默认值且不抛异常；d.setdefault(k,\nv)还会把默认值写回字典。遍历时优先用\nfor k, v in d.items()。d = {'a': 1, 'b': 2}\nprint(d.get('c', 0)) # 0\nprint(d.setdefault('c',3)) # 3, 且 d 增加'c'\nprint({k: v * 2 for k, v in d.items ()})\nprint(sorted(d, key=d. get, reverse=True))\n集合用 {} 或 set() 创建，注意 {}\n创建的是空字典而不是空集合。集合支持|&\n分别对应并、交、差、对称差。frozenset不\n可变。字典推导式、集合推导式与列表推导式\n语法一致，只是外层括号不同。【提示】词频统计题的标准写法：counts[word]=\ncounts.get(word, 0) + 1,避免 KeyError。Cairn 备考讲义· 二级 Python\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§6分支、循环与异常\nif elif else\n只会执行其中一个分支；for常与\nrange、enumerate、zip配合；",
+          "source": "raw"
+        },
+        {
+          "id": 18,
+          "position": 5,
+          "content": "图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§6分支、循环与异常\nif elif else\n只会执行其中一个分支；for常与\nrange、enumerate、zip配合；while\n必须保证条件能变假。循环的else\n子句在循环「正常耗尽」时执行，被break\n中断时不执行，这一点与 try 的 else\n类似但容易混淆。try:\nn = int(input())\nr = 10 / n\nexcept ZeroDivisionError:\nprint('除数不能为0')\nexcept ValueError:\nprint('不是整数')\nelse:\nprint('计算成功'，r)\nfinally:\nprint('无论是否异常都会执行')\n异常捕获按顺序匹配，子类异常要写在父\n类之前；except Exception as e\n可捕获绝大多数异常。finally 中的 return\n会覆盖try中的\nreturn，真题偶尔以此设陷阱。自定义异常用\nraise 抛出，断言用assert。【提示】执行顺序记忆：try →（无异常）else →\nfinally；（有异常） except → finally。3\n第3 页\n课堂笔记（留白）\n§7函数、作用域与递归\n函数定义中的默认值在定义时求值一次，\n因此 def f(a,1st=[])会让多次调用共享同",
+          "source": "raw"
+        },
+        {
+          "id": 19,
+          "position": 6,
+          "content": "（有异常） except → finally。3\n第3 页\n课堂笔记（留白）\n§7函数、作用域与递归\n函数定义中的默认值在定义时求值一次，\n因此 def f(a,1st=[])会让多次调用共享同\n一个列表，是经典错误。可变参数*args\n收成元组，**kwargs收成字典；调用时用*\n展开序列、用**\n展开字典。函数内给全局变量赋值必须用\nglobal声明，嵌套函数修改外层变量用\nnonlocal。def fib(n, memo={0: 0, 1: 1}):\nif n not in memo:\nmemo[n] = fib(n − 1) + fib(n − 2)\nreturn memo[n]\nprint(fib(10)) # 55\nprint(list(map(lambda x: x ** 2, range(5))))\n递归要有明确的终止条件，Python\n默认递归深度约 1000层。1ambda 只能写单\n个表达式，不能含语句。sorted、max、min\n的key参数接收一个函数，常与\noperator.itemgetter或lambda\n组合，用于按词频或指定字段排序。【提示】综合应用题排序的固定句式：1s=\nsorted(counts.items(), key=lambda x: x[1],\nreverse=True)。课堂笔记（留白）\n§8文件读写与数据格式化\nopen(path, mode, encoding='utf-8')",
+          "source": "raw"
+        },
+        {
+          "id": 20,
+          "position": 7,
+          "content": "sorted(counts.items(), key=lambda x: x[1],\nreverse=True)。课堂笔记（留白）\n§8文件读写与数据格式化\nopen(path, mode, encoding='utf-8')\n返回文件对象；read()读全部、readline()\n读一行、readlines()读成列表、for line\nCairn 备考讲义· 二级 Python\nin f 逐行迭代最省内存。写文件用 write或\nwritelines，字符串写入不会自动换行。with\n语句在块结束时自动\nclose，即使中途抛异常也能释放句柄。with open('data.txt', 'r', encoding='utf-8') as f:\ntext = f. read()\nwords = text.split()\nwith open('out.txt', 'w', encoding='utf-8') as f:\nf.write('\\n'.join(words[:10]))\nimport json, csv\nobj = json. loads('{\"a\": 1}')\nrows = list(csv. reader(open('s. csv',\nencoding='utf-8')))\nCSV 用 csv.reader / csv.writer 处理\n，能正确应对字段内含逗号的情况；",
+          "source": "raw"
+        },
+        {
+          "id": 21,
+          "position": 8,
+          "content": "rows = list(csv. reader(open('s. csv',\nencoding='utf-8')))\nCSV 用 csv.reader / csv.writer 处理\n，能正确应对字段内含逗号的情况；JSON用\njson. load json. dump（文件）与\njson. loads / json. dumps（字符串）。dumps\n默认会把非 ASCII 字符转义成 \\uXXXX，加\nensure_ascii=False 才能保留中文。【提示】中文文件必写\nencoding='utf-8'；考试机上若用默认 GBK\n编码，读写中文会报错或乱码。图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§9 turtle、random 与time\nturtle 是二级考试唯一的绘图库。画笔\n初始朝右（正东），forward / backward\n第4 页\n前进后退，left / right\n按角度转向，circle(r, extent)画半径\nr、圆心角extent的弧，extent\n省略时为整圆。penup pendown\n控制落笔，goto 定位，pencolor / pensize\n设置样式，最后用done()保持窗口。import turtle as t\nimport random\nt. pensize(3)\nt. pencolor('red')",
+          "source": "raw"
+        },
+        {
+          "id": 22,
+          "position": 9,
+          "content": "设置样式，最后用done()保持窗口。import turtle as t\nimport random\nt. pensize(3)\nt. pencolor('red')\nfor i in range(36):\nt.forward(100)\nt.right(170)\nt. done ()\nrandom. seed(10)\nprint (random.randint(1, 10)) # 含 10\nprint (random. choice('abcd'))\nrandom的randint(a, b)\n包含两端，randrange(a,b)不含右端；seed\n固定后随机序列可复现，这是判断题常考点。time.time() 返回时间戳，time.localtime()\n得结构化时间，time.strftime(’%Y-%m-%d'，\nt)格式化输出，time.sleep(秒)\n让程序暂停。【提示】turtle.circle(50,180)\n画的是半圆；radius\n为负时圆心在画笔右侧，方向也随之改变。课堂笔记（留白）\n§10jieba 分词与词频统计\n综合应用题的主线几乎不变：读中文文本\n→ jieba.lcut 分词 → 过滤单字与标点 →\n用字典统计词频←按频次降序排序\n输出前N项（或生成词云）。jieba.1cut\n返回列表，cut 返回生成器；cut_all=True\n为全模式，默认精确模式。",
+          "source": "raw"
+        },
+        {
+          "id": 23,
+          "position": 10,
+          "content": "用字典统计词频←按频次降序排序\n输出前N项（或生成词云）。jieba.1cut\n返回列表，cut 返回生成器；cut_all=True\n为全模式，默认精确模式。wordcloud的\n4\nCairn 备考讲义· 二级 Python\nWordCloud需指定font_path\n指向中文字体，否则中文会显示成方框。import jieba\ntxt = open('data.txt', encoding='utf-8').read()\nwords = jieba.lcut(txt)\ncounts = {}\nfor w in words:\nif len(w) < 2:\ncontinue\ncounts[w] = counts.get(w, 0) + 1\n1s = sorted(counts.items(), key=lambda x: x[1],\nreverse=True)\nfor w, c in ls[:10]:\nprint(f'{w}:{c}')\n过滤环节要注意：中文文本里常混有全角\n标点、空格与换行，应先 strip 或按停用词\n表剔除。排序时若要求「频次相同按词语字典\n序」，可写 key=lambda x: (-x[1]，x[0])。输出格式要与题目示例逐字符一致，包括冒号\n是全角还是半角、是否换行。【提示】评分程序按输出文件比对，少一个换行或多\n一个空格都可能被判错，务必对照样例输出。",
+          "source": "raw"
+        },
+        {
+          "id": 24,
+          "position": 11,
+          "content": "序」，可写 key=lambda x: (-x[1]，x[0])。输出格式要与题目示例逐字符一致，包括冒号\n是全角还是半角、是否换行。【提示】评分程序按输出文件比对，少一个换行或多\n一个空格都可能被判错，务必对照样例输出。课堂笔记（留白）\n第 5 页\n5\nCairn 备考讲义· 二级 Python\n附录 A 真题自测（选择题）\n以下题目选自本讲配套模拟卷，答案与解\n析见附录B。建议先独立作答，再对照解析回\n看对应章节。1. 表达式 3 ** 2 // 2 + 5 % 3 的值是\nA. 5 B. 6 C. 7 D. 8\n2. 已知 s = \"Python\"，表达式 s[1:4]\n的结果是\nA. \"Pyt\" B. \"yth\" C. \"ytho\" D. \"ythoP\"\n3. 下列数据类型中，属于不可变类型的是\nA. list B. dict C. tuple D. set\n4. 表达式 round(2.5) 的结果是\nA. 2 B. 3 C. 2.5 D. 3.0\n5. 执行 a=[1,2,3]; a.append([4,5])\n后，len(a)的值是\nA. 3 B. 4 C. 5 D. 6\n6. random.randint(1, 10)\n生成的随机整数范围是\nA. 1 到 9 B. 1 到 10 C. 0 到 10 D. 0 到 9\n7.以追加方式打开文本文件\na. txt，应使用的模式是",
+          "source": "raw"
+        },
+        {
+          "id": 25,
+          "position": 12,
+          "content": "6. random.randint(1, 10)\n生成的随机整数范围是\nA. 1 到 9 B. 1 到 10 C. 0 到 10 D. 0 到 9\n7.以追加方式打开文本文件\na. txt，应使用的模式是\nA. \"r\" B. \"w\" C. \"a\" D. \"x\"\n表达式'-'. join(['a','b', 'c'])\n的结果是\nA. \"abc\" B. ″a-b-c\" C. \"a, b, c\" D. 报错\n9. 已知 d = {'a': 1}，表达式 d.get('b'，\n0)的值是\nA. None B. 0 C. 报错 KeyError D. {'b': 0}\n10. 表达式 set([1,1,2,3]) 的结果是\nA. [1, 1, 2, 3] B. {1, 2, 3} C. (1, 2, 3) D. 报错\n11. for i in range(2, 10, 3)\n循环体执行的次数是\nA. 2 B. 3 C. 4 D. 5\n6\n第6页\n12.关于turtle.circle(50,\n180)，说法正确的是\nA. 画半径 50 的整圆 B. 画半径 50 的半圆 C. 画直径\n50 的整圆 D. 画笔旋转 180 度\n13. 下列语句中，能正确定义函数并返回两数\n之和的是\nA. def f(a,b): a+b B. def f(a,b): return a+b C.\nlambda a, b: return a+b D. def f(a, b) = a+b",
+          "source": "raw"
+        },
+        {
+          "id": 26,
+          "position": 13,
+          "content": "A. def f(a,b): a+b B. def f(a,b): return a+b C.\nlambda a, b: return a+b D. def f(a, b) = a+b\n14. 表达式 format(3.14159,'.2f')\n的结果是\nA. \"3.14\" B. \"3.15\" C. 3.14 D. \"3.141\"\n15. try\n语句中，无论是否发生异常都会执行的是\nA. else 子句 B. except 子句 C. finally 子句 D. if\n子句\n16. jieba.lcut('全国计算机等级考试')\n的返回值类型是\nA. 字符串 B. 列表 C. 生成器 D. 字典\n17. 关于字符串，下列说法正确的是\nA. 可用 s[0]='P’修改首字符 B. 字符串是可变序列 C.\ns*3 表示重复 3 次 D. 字符串不能切片\n18. 表达式 eval('2 + 3 * 4')的值是\nA. '2 + 3 * 4' B. 14 C. 20 D. 报错\n19. time.strftime('%Y-%m-%d')的作用是\nA. 返回时间戳 B. 返回格式化日期字符串 C. 让程序暂停\nD. 返回随机数\n20. 读取 CSV 文件应使用的标准库是\nA. json B. csv C. os D. turtle\n附录 B 参考答案与考点回指\n1.【B】先算3**2=9，9//2=4，5%3=2，4+2=6。",
+          "source": "raw"
+        },
+        {
+          "id": 27,
+          "position": 14,
+          "content": "20. 读取 CSV 文件应使用的标准库是\nA. json B. csv C. os D. turtle\n附录 B 参考答案与考点回指\n1.【B】先算3**2=9，9//2=4，5%3=2，4+2=6。2.【B】切片取下标1、2、3，不含右端点4，得到 yth。3.【C】str、tuple、数值为不可变；list、dict、set\n可变。4.【A】Python ε采用银行家舍入，恰为\n时向偶数靠拢。5.【B】append把整个列表作为单个元素追加，长度由3\n变 4。6.【B】randint包含左右两个端点；randrange\n不含右端点。Cairn 备考讲义· 二级 Python\n7.【C】a为追加写，w为覆盖写，r为只读，x\n为独占创建。8.【B】join用调用它的字符串把序列元素连接起来。9.【B】get在键不存在时返回默认值，且不修改原字典。10.【B】集合自动去重且无序，字面量用花括号表示。11. 【B】i依次取 2、5、8，共3 次。12.【B】extent=180表示画180度圆弧，即半圆。13.【B】必须有return；lambda 只能写表达式。14. 【A】format 返回字符串，保留两位小数并四舍五入。15. 【C】finally常用于释放资源，必定执行。16.【B】lcut 返回 list；cut 返回可迭代生成器。17.【C】字符串不可变，但支持*重复与切片。",
+          "source": "raw"
+        },
+        {
+          "id": 28,
+          "position": 15,
+          "content": "15. 【C】finally常用于释放资源，必定执行。16.【B】lcut 返回 list；cut 返回可迭代生成器。17.【C】字符串不可变，但支持*重复与切片。18.【B】eval\n把字符串当表达式求值，遵循运算符优先级。19.【B】strftime按格式串输出日期时间字符串。20.【B】csv. reader csv.writer\n专门处理逗号分隔文件。附录C公式与考点速查表\n题型题量分值主要考查内容\n语法、表达\n单项选择题40 题40分式、程序输出、公共基\n础知识\n代码补全、\n基本操作题15 分格式化输出\n、简单计算\n列表/字典处\n简单应用题2 题20 分绘图、文件理、turtle\n读写\n中文分词、\n综合应用题1 题25 分词频统计、\n数据格式化\n表 1 二级 Python 试卷结构与分值\n类型可变性字面量示例常用操作\nint / float不可变42 / 3.14  / + - * / //\n/ complex 2+3j %**\n切片、split\nstr不可变\"Python\"、join、for\nmat\nappend、ins\nlist可变[1, 2, 3] ert、sort、\n切片赋值\n第7页\n类型可变性字面量示例常用操作\n索引、拆包\ntuple不可变(1, 2)、作为字典\n键\nkeys、value\ndict可变{″a\": 1} s、get、ite\nms\nset可变{1, 2, 3} &|-^、ad d、discard",
+          "source": "raw"
+        },
+        {
+          "id": 29,
+          "position": 16,
+          "content": "tuple不可变(1, 2)、作为字典\n键\nkeys、value\ndict可变{″a\": 1} s、get、ite\nms\nset可变{1, 2, 3} &|-^、ad d、discard\n表 2 常用数据类型对照\n库名典型用途高频函数\nturtle图形绘制forward、circle、pensize、done\nrandom、randint\nrandom随机数、choice、shuffl\ne、seed\ntime时间与计时time、sleep、str ftime、localtime\njieba中文分词lcut、lcut_for_s earch、add_word\nwordcloud词云生成WordCloud、gener ate、to_file\ncsv / json数据格式化reader、writer、dumps、loads\n表 3 二级 Python 常考标准库\n方法作用返回值\nappend (x)末尾追加单个元素None\nextend(it)加展开可迭代对象追None\ninsert(i, x)在下标 i 前插入None\npop (i)删除并返回元素被删元素\nremove (x)的元素删除首个等于 x None\nsort(key=...)原地排序None\n表 4 列表常用方法速查\n附录D非选择题参考解答\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n题目：编写程序，接收用户输入的一个正整数 n，计算1",
+          "source": "raw"
+        },
+        {
+          "id": 30,
+          "position": 17,
+          "content": "sort(key=...)原地排序None\n表 4 列表常用方法速查\n附录D非选择题参考解答\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n题目：编写程序，接收用户输入的一个正整数 n，计算1\n到n的累加和，并以「sum=结果」的形式输出。请在考生\n文件夹下的 op1. py 中补全代码。n = int(input ())\ns = sum(range(1, n + 1))\n-7-\nCairn 备考讲义· 二级 Python\nprint('sum={}'.format(s))\n题目：已知列表 1s = [3, 1, 4, 1, 5, 9, 2,\n6]，请去重后按降序输出，结果写入\nop2.txt，元素之间用英文逗号分隔。1s = [3, 1, 4, 1, 5, 9, 2, 6]\nout = sorted(set(1s), reverse=True)\nopen('op2.txt','w',\nencoding='utf-8').write(','.join(map(str, out)))\n题目：读取 data.txt（UTF-8 编码），统计其中英文单词\n数（按空白切分），把结果写入op3.txt。txt = open('data.txt', encoding='utf-8').read()\nopen('op3.txt','w',\nencoding='utf-8').write(str(len(txt.split())))",
+          "source": "raw"
+        },
+        {
+          "id": 31,
+          "position": 18,
+          "content": "txt = open('data.txt', encoding='utf-8').read()\nopen('op3.txt','w',\nencoding='utf-8').write(str(len(txt.split())))\n三、综合应用题（共2小题，共45分）\n题目：文件 article.txt 中保存了一篇中文短文。请用\njieba 精确模式分词，过滤掉长度小于 2 的词语与常见标\n点，统计词频，按词频降序（频次相同按词语字典序升序\n）输出前10个词，每行格式为「词语频次」，结果写入\nresult.txt。import jieba\ntxt = open('article. txt', encoding='utf-8').read()\nwords = jieba.lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\ncounts[w] = counts. get(w, 0) + 1\nls = sorted(counts.items(), key=lambda x: (-x[1],\nx[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in ls[:10]:\nf.write('{}{}\\n'.format(w, c))",
+          "source": "raw"
+        },
+        {
+          "id": 32,
+          "position": 19,
+          "content": "with open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in ls[:10]:\nf.write('{}{}\\n'.format(w, c))\n题目：在上一题基础上，用turtle\n绘制一个正十二边形，边长60，画笔宽\n2、颜色为蓝色，图形保存为程序即可，不要求导出图片。import turtle as t\nt. pensize(2)\nt. pencolor ('blue')\nfor _ in range(12):\nt. forward(60)\nt.right(30)\nt. done ()\n附录 E 易错点清单\n1. round()\n采用「银行家舍入」：小数部分恰为0.5\n时向偶数靠拢，故round(2.5)=2、round(3.5\n)=4。这是选择题高频陷阱。8\n第8页\n2. 考试 120 分钟，建议选择题控制在 35\n分钟内完成，给操作题留出足够时间。3. 优先级从高到低：** → 单目正负 → * /\n// % → + - → 比较 → not → and →\nor。4. f-string 在 Python 3.6 引入，真题偶有\n出现；注意冒号后的格式串与变量之间用冒号\n分隔。5. 词频统计题的标准写法：counts[word]=\ncounts. get (word, 0) + 1, 避免 KeyError。",
+          "source": "raw"
+        },
+        {
+          "id": 33,
+          "position": 20,
+          "content": "注意冒号后的格式串与变量之间用冒号\n分隔。5. 词频统计题的标准写法：counts[word]=\ncounts. get (word, 0) + 1, 避免 KeyError。6. 执行顺序记忆：try → (无异常） else →\nfinally；(有异常） except → finally。7.综合应用题排序的固定句式：1s二\nsorted(counts.items(),key=lambda x:\nx[1], reverse=True)。8.中文文件必写\nencoding='utf-8'；考试机上若用默认GBK\n编码，读写中文会报错或乱码。9. turtle.circle(50, 180)\n画的是半圆；radius\n为负时圆心在画笔右侧，方向也随之改变。10. 评分程序按输出文件比对，少一个换行或\n多一个空格都可能被判错，务必对照样例输出\nCairn 备考讲义· 二级 Python\n附录F拍照真题选登（考生回忆版）\n以下题目来自同主题的另一套试卷，供课\n堂限时练习使用。原卷为手机拍摄，此处按印\n刷体重排，题号沿用原卷。一、单项选择题（每题2分）\n1. 以下选项中，不属于 Python 语言特点的是\nA. 开源免费 B. 跨平台 C. 编译执行 D. 语法简洁\n2. 表达式 7 // 2 与 7 % 2 的结果分别是\nA. 3, 1 B. 3.5, 1 C. 4, 1 D. 3, 3",
+          "source": "raw"
+        },
+        {
+          "id": 34,
+          "position": 21,
+          "content": "A. 开源免费 B. 跨平台 C. 编译执行 D. 语法简洁\n2. 表达式 7 // 2 与 7 % 2 的结果分别是\nA. 3, 1 B. 3.5, 1 C. 4, 1 D. 3, 3\n3. 已知 s ='abcdefg'，s[2:5] 的值是\nA. 'bcd' B. 'cde' C. 'cdef' D. 'bcde'\n4. 下列哪个选项可以创建一个空集合\nA. {} B. set () C. [] D. ()\n5. 关于 Python 的注释，正确的是\nA. 只能用 # B. 只能用三引号 C. # 与三引号均可 D.\n不支持注释\n6. 表达式 [x*2 for x in range(3)] 的结果是\nA. [0,2,4] B. [2,4,6] C. [0,1,2] D. 报错\n7. 函数内修改全局变量 n 的值，需要\nA. global n B. nonlocal n C. static n D. 直接赋值\n8. turtle 画笔默认朝向是\nA. 正北 B. 正东 C. 正南 D. 正西\n9. 打开文件时使用 with 语句的好处是\nA. 加快读写 B. 自动关闭文件 C. 自动编码 D. 自动去重\n10. json.dumps({'a':1}) 返回值的类型是\nA. dict B. str C. bytes D. list\n二、程序填空与读程题\n11.补全代码，使其输出1~100中所有能被3",
+          "source": "raw"
+        },
+        {
+          "id": 35,
+          "position": 22,
+          "content": "10. json.dumps({'a':1}) 返回值的类型是\nA. dict B. str C. bytes D. list\n二、程序填空与读程题\n11.补全代码，使其输出1~100中所有能被3\n整除的整数之和。s = 0\nfor i in range(1, 101):\nif i % 3 == 0:\ns +=\nprint(s)\n参考答案：i（该空3分）\n12. 阅读程序，写出运行结果。d = {'a': 1, 'b': 2}\nd['c'] = 3\nprint(len(d), sum(d. values()))\n参考答案：36（该空4分）\n13. 阅读程序，写出运行结果。1s = [1, 2, 3]\n1s. insert (1, 9)\nprint(1s[1:4])\n参考答案：[9，2，3]（该空4分）\n14. 写出以只读方式打开 UTF-8 编码文件的语句。9\n第 9 页\n参考答案：open('f.txt','r',encoding='utf-8')\n三、操作题（请在考生文件夹内作答）\n15.编写程序，统计data.txt\n中每个英文单词出现的次数，\n输出出现次数最多的 5 个单词，结果存入 top5.txt。16. 使用 turtle 绘制边长为 80 的正五边形，\n线条颜色为红色，线宽 3，程序保存为 draw.py。17.用jieba对article.txt\n分词，过滤单字后按词频降序",
+          "source": "raw"
+        },
+        {
+          "id": 36,
+          "position": 23,
+          "content": "16. 使用 turtle 绘制边长为 80 的正五边形，\n线条颜色为红色，线宽 3，程序保存为 draw.py。17.用jieba对article.txt\n分词，过滤单字后按词频降序\n输出前15个词，每行「词语:频次」，保存到\nfreq.txt。(本页为考生手写答题区，以下为草稿，不计入评分)\ncounts = {}\nfor w in words:\nif len(w) > 1:\ncounts[w] = counts. get(w, 0) + 1\nCairn 备考讲义· 二级 Python\n附录G主观题限时练习（留白作答）\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n1.编写程序，接收用户输入的一个正整数\nn，计算 1 到 n 的累加和，并以「sum=结果\n」的形式输出。请在考生文件夹下的op1.py\n中补全代码。2. 已知列表 1s = [3, 1, 4, 1, 5, 9, 2,\n6]，请去重后按降序输出，结果写入\nop2.txt，元素之间用英文逗号分隔。3. 读取 data.txt（UTF-8 编码），统计其中\n英文单词数（按空白切分），把结果写入\nop3.txt。三、综合应用题（共2小题，共45分）\n4.文件article.txt\n中保存了一篇中文短文。请用jieba\n精确模式分词，过滤掉长度小于 2 的词语与\n常见标点，统计词频，按词频降序（频次相同\n按词语字典序升序）输出前10",
+          "source": "raw"
+        },
+        {
+          "id": 37,
+          "position": 24,
+          "content": "4.文件article.txt\n中保存了一篇中文短文。请用jieba\n精确模式分词，过滤掉长度小于 2 的词语与\n常见标点，统计词频，按词频降序（频次相同\n按词语字典序升序）输出前10\n个词，每行格式为「词语频次」，结果写入\nresult.txt。5.在上一题基础上，用turtle\n绘制一个正十二边形，边长60，画笔宽2、\n颜色为蓝色，图形保存为程序即可，不要求导\n-10\n第 10 页\n出图片。",
+          "source": "raw"
+        }
+      ],
+      "file": {
+        "id": 1,
+        "original_name": "twocol.pdf",
+        "ext": "pdf",
+        "mime": "application/pdf",
+        "size": 251804,
+        "page_count": 10,
+        "has_text_layer": 0,
+        "ocr_status": "done"
+      }
+    },
+    "8": {
+      "id": 8,
+      "title": "二级Python考试考点与题型结构梳理",
+      "source_type": "file",
+      "source_url": null,
+      "raw_content": "全国计算机等级考试二级 Python 语言程序设计\n核心考点讲义 · 2026 年备考版\n# 第一章 考试说明与题型结构\n全国计算机等级考试（NCRE）二级 Python 语言程序设计自 2018 年 9 月首次开考，采用无纸化上机考试，时长 120 分钟，满分 100 分，60 分及以上为合格。考试环境为 Windows 平台下的 Python 3.x 解释器与 IDLE，考查范围以 Python 语言基础、程序控制、组合数据类型、函数、文件与标准库为主，不涉及 Web 框架、数据库或第三方科学计算库。\n试卷由客观题与操作题两部分组成。客观题以单项选择题为主，覆盖语法、表达式求值、程序输出与标准库常识；操作题在考生文件夹内给定素材文件，要求补全或修改代码并运行出正确结果，评分以输出文件与程序结果为准。\n| 题型 | 题量 | 分值 | 主要考查内容 |\n| --- | --- | --- | --- |\n| 单项选择题 | 40 题 | 40 分 | 语法、表达式、程序输出、公共基础知识 |\n| 基本操作题 | 3 题 | 15 分 | 代码补全、格式化输出、简单计算 |\n| 简单应用题 | 2 题 | 20 分 | 列表/字典处理、turtle 绘图、文件读写 |\n| 综合应用题 | 1 题 | 25 分 | 中文分词、词频统计、数据格式化 |\n表 1 二级 Python 试卷结构与分值\n- 考试语言版本以官方通知为准，复习时用 Python 3.8 及以上版本即可覆盖全部语法考点。\n- 操作题必须在指定路径保存源文件，文件命名错误会直接导致该题零分。\n- 允许使用标准库：turtle、random、time、jieba、wordcloud、csv、json、os 等。\n图 1 Python 官方标识（来源：python.org）\n# 第二章 数据类型与表达式\n## 2.1 数值类型与运算符\nPython 的数值类型包括 int（任意精度整数）、float（双精度浮点）、complex（复数）与 bool（bool 是 int 的子类，True 等于 1）。整除用 //，取余用 %，幂用 **，且 ** 的优先级高于单目负号，因此 -3 ** 2 的结果是 -9 而不是 9。\n>>> 3 ** 2 // 2 + 5 % 3\n6\n>>> round(2.5), round(3.5)\n(2, 4)\n>>> divmod(17, 5)\n(3, 2)\n【提示】round() 采用「银行家舍入」：小数部分恰为 0.5 时向偶数靠拢，故 round(2.5)=2、round(3.5)=4。这是选择题高频陷阱。\n## 2.2 组合数据类型\n字符串 str、元组 tuple 是不可变类型，列表 list、字典 dict、集合 set 是可变类型。切片 s[i:j:k] 取 [i, j) 区间且不含右端点；字典按键索引，Python 3.7 起保持插入顺序；集合无序且自动去重。\n| 类型 | 可变性 | 字面量示例 | 常用操作 |\n| --- | --- | --- | --- |\n| int / float / complex | 不可变 | 42 / 3.14 / 2+3j | + - * / // % ** |\n| str | 不可变 | \"Python\" | 切片、split、join、format |\n| list | 可变 | [1, 2, 3] | append、insert、sort、切片赋值 |\n| tuple | 不可变 | (1, 2) | 索引、拆包、作为字典键 |\n| dict | 可变 | {\"a\": 1} | keys、values、get、items |\n| set | 可变 | {1, 2, 3} | & \\| - ^、add、discard |\n表 2 常用数据类型对照\n图 2 turtle 标准库绘制的星形图案（来源：docs.python.org）\n# 第三章 程序控制与函数\n## 3.1 分支与循环\nif / elif / else 依据缩进划分语句块，Python 以冒号加缩进代替花括号。for 循环常与 range() 配合遍历可迭代对象，while 循环需自行维护终止条件。break 结束整个循环，continue 跳过本轮剩余语句，循环还可带 else 子句——仅当循环未被 break 中断时执行。\ntotal = 0\nfor i in range(1, 101):\n    if i % 7 == 0:\n        continue\n    total += i\nelse:\n    print('循环正常结束', total)\n## 3.2 函数与作用域\n函数用 def 定义，参数可设默认值、可变参数 *args 与关键字参数 **kwargs。函数内用 global 声明才能给全局变量重新赋值；仅读取全局变量时无需声明。lambda 用于定义匿名函数，常配合 sorted 的 key 参数或 map、filter 使用。\n- 默认值参数必须放在位置参数之后，且不要用可变对象作默认值。\n- return 可返回多个值，实质是返回一个元组。\n- 内置函数 len、sum、max、min、sorted、zip、enumerate 在真题中出现频率最高。\n# 第四章 文件与常用标准库\n文件操作的基本流程是 open → 读写 → close，推荐用 with 语句自动管理。模式 r 为只读、w 为覆盖写、a 为追加，加 b 表示二进制。文本文件要显式指定 encoding='utf-8'，否则在中文 Windows 上容易出现乱码或 UnicodeDecodeError。\n| 库名 | 典型用途 | 高频函数 |\n| --- | --- | --- |\n| turtle | 图形绘制 | forward、circle、pensize、done |\n| random | 随机数 | random、randint、choice、shuffle、seed |\n| time | 时间与计时 | time、sleep、strftime、localtime |\n| jieba | 中文分词 | lcut、lcut_for_search、add_word |\n| wordcloud | 词云生成 | WordCloud、generate、to_file |\n| csv / json | 数据格式化 | reader、writer、dumps、loads |\n表 3 二级 Python 常考标准库\n1. 先把 40 道选择题的语法点按章节过一遍，重点练表达式求值和程序输出。\n1. 每天手写 2 道操作题，务必在 IDLE 里真跑一次并核对输出文件。\n1. 综合应用题固定练「读文件 → jieba 分词 → 词频统计 → 排序输出」这条主线。\n1. 考前整理一份易错清单：round 舍入、切片右端点、字典 get 默认值、文件编码。",
+      "content_hash": "2a1cb7572f67e44e9db5f48b58e5db6273d7ddc8f24b14e252b0186ea5412975",
+      "summary": "材料系统梳理全国计算机等级考试二级Python的备考要点：先说明120分钟上机考试与四类题型的分值分布，再分章讲解数值与组合数据类型、分支循环与函数作用域、文件读写与常考标准库，最后给出复习主线与易错清单。",
+      "key_points": [
+        "考试无纸化上机120分钟，满分100分，60分合格",
+        "试卷含单选40题40分与三类操作题共60分",
+        "round采用银行家舍入，2.5得2、3.5得4",
+        "字符串元组不可变，列表字典集合可变",
+        "文件读写推荐with语句并显式指定utf-8编码",
+        "综合应用题主线为分词、词频统计、排序输出"
+      ],
+      "structured_note": "# 二级Python核心考点讲义\n\n## 第一章 考试说明与题型结构\n- 无纸化上机考试，时长120分钟，满分100分，60分合格\n- 环境为Windows下Python 3.x与IDLE，不考Web框架、数据库、第三方科学计算库\n- 题型分值：单选40题40分、基本操作3题15分、简单应用2题20分、综合应用1题25分\n- 操作题必须在指定路径保存源文件，命名错误直接零分\n- 允许使用标准库：turtle、random、time、jieba、wordcloud、csv、json、os\n\n## 第二章 数据类型与表达式\n- 数值类型含int、float、complex、bool（bool是int子类，True等于1）\n- **优先级高于单目负号，-3 ** 2 结果为-9\n- round采用银行家舍入：round(2.5)=2、round(3.5)=4，属高频陷阱\n- divmod(17,5)返回(3,2)\n- 不可变：str、tuple；可变：list、dict、set\n- 切片s[i:j:k]取[i,j)不含右端点；字典从3.7起保持插入顺序；集合无序自动去重\n\n## 第三章 程序控制与函数\n- 用冒号加缩进代替花括号划分语句块\n- for常配range()，while需自行维护终止条件\n- break结束整个循环，continue跳过本轮；循环else仅在未被break中断时执行\n- 参数支持默认值、*args、**kwargs；默认值参数须在位置参数之后，勿用可变对象作默认值\n- 函数内给全局变量重新赋值需global声明，仅读取无需声明\n- return多值实质返回元组；高频内置函数：len、sum、max、min、sorted、zip、enumerate\n\n## 第四章 文件与常用标准库\n- 流程为open→读写→close，推荐with自动管理\n- 模式r只读、w覆盖写、a追加，加b为二进制\n- 文本文件须显式指定encoding='utf-8'，否则易乱码或UnicodeDecodeError\n\n### 常考标准库\n- turtle：forward、circle、pensize、done\n- random：random、randint、choice、shuffle、seed\n- time：time、sleep、strftime、localtime\n- jieba：lcut、lcut_for_search、add_word\n- wordcloud：WordCloud、generate、to_file\n- csv/json：reader、writer、dumps、loads\n\n## 复习建议\n- 按章节过40道选择题语法点，重点练表达式求值与程序输出\n- 每天手写2道操作题并在IDLE里实跑核对输出文件\n- 固定练「读文件→jieba分词→词频统计→排序输出」主线\n- 考前整理易错清单：round舍入、切片右端点、字典get默认值、文件编码",
+      "note_edited": 0,
+      "category": "考试复习",
+      "tags": [
+        "二级Python",
+        "考点讲义",
+        "题型分值",
+        "标准库",
+        "易错点"
+      ],
+      "status": "ready",
+      "truncated": 0,
+      "created_at": "2026-11-14T23:14:06+08:00",
+      "updated_at": "2026-11-14T23:14:11+08:00",
+      "workspace_id": null,
+      "kind": "material",
+      "file_id": 2,
+      "chunks": [
+        {
+          "id": 49,
+          "position": 0,
+          "content": "# 二级Python核心考点讲义## 第一章 考试说明与题型结构\n- 无纸化上机考试，时长120分钟，满分100分，60分合格\n- 环境为Windows下Python 3.x与IDLE，不考Web框架、数据库、第三方科学计算库\n- 题型分值：单选40题40分、基本操作3题15分、简单应用2题20分、综合应用1题25分\n- 操作题必须在指定路径保存源文件，命名错误直接零分\n- 允许使用标准库：turtle、random、time、jieba、wordcloud、csv、json、os## 第二章 数据类型与表达式\n- 数值类型含int、float、complex、bool（bool是int子类，True等于1）\n- **优先级高于单目负号，-3 ** 2 结果为-9\n- round采用银行家舍入：round(2.5)=2、round(3.5)=4，属高频陷阱\n- divmod(17,5)返回(3,2)\n- 不可变：str、tuple；可变：list、dict、set\n- 切片s[i:j:k]取[i,j)不含右端点；字典从3.7起保持插入顺序；集合无序自动去重## 第三章 程序控制与函数\n- 用冒号加缩进代替花括号划分语句块\n- for常配range()，while需自行维护终止条件\n- break结束整个循环，continue跳过本轮；循环else仅在未被break中断时执行\n- 参数支持默认值、*args、**kwargs；",
+          "source": "note"
+        },
+        {
+          "id": 50,
+          "position": 1,
+          "content": "- for常配range()，while需自行维护终止条件\n- break结束整个循环，continue跳过本轮；循环else仅在未被break中断时执行\n- 参数支持默认值、*args、**kwargs；默认值参数须在位置参数之后，勿用可变对象作默认值\n- 函数内给全局变量重新赋值需global声明，仅读取无需声明\n- return多值实质返回元组；高频内置函数：len、sum、max、min、sorted、zip、enumerate## 第四章 文件与常用标准库\n- 流程为open→读写→close，推荐with自动管理\n- 模式r只读、w覆盖写、a追加，加b为二进制\n- 文本文件须显式指定encoding='utf-8'，否则易乱码或UnicodeDecodeError### 常考标准库\n- turtle：forward、circle、pensize、done\n- random：random、randint、choice、shuffle、seed\n- time：time、sleep、strftime、localtime\n- jieba：lcut、lcut_for_search、add_word\n- wordcloud：WordCloud、generate、to_file\n- csv/json：reader、writer、dumps、loads## 复习建议\n- 按章节过40道选择题语法点，重点练表达式求值与程序输出",
+          "source": "note"
+        },
+        {
+          "id": 51,
+          "position": 2,
+          "content": "- wordcloud：WordCloud、generate、to_file\n- csv/json：reader、writer、dumps、loads## 复习建议\n- 按章节过40道选择题语法点，重点练表达式求值与程序输出\n- 每天手写2道操作题并在IDLE里实跑核对输出文件\n- 固定练「读文件→jieba分词→词频统计→排序输出」主线\n- 考前整理易错清单：round舍入、切片右端点、字典get默认值、文件编码",
+          "source": "note"
+        },
+        {
+          "id": 43,
+          "position": 0,
+          "content": "全国计算机等级考试二级 Python 语言程序设计\n核心考点讲义 · 2026 年备考版\n# 第一章 考试说明与题型结构\n全国计算机等级考试（NCRE）二级 Python 语言程序设计自 2018 年 9 月首次开考，采用无纸化上机考试，时长 120 分钟，满分 100 分，60 分及以上为合格。考试环境为 Windows 平台下的 Python 3.x 解释器与 IDLE，考查范围以 Python 语言基础、程序控制、组合数据类型、函数、文件与标准库为主，不涉及 Web 框架、数据库或第三方科学计算库。试卷由客观题与操作题两部分组成。客观题以单项选择题为主，覆盖语法、表达式求值、程序输出与标准库常识；操作题在考生文件夹内给定素材文件，要求补全或修改代码并运行出正确结果，评分以输出文件与程序结果为准。| 题型 | 题量 | 分值 | 主要考查内容 |\n| --- | --- | --- | --- |\n| 单项选择题 | 40 题 | 40 分 | 语法、表达式、程序输出、公共基础知识 |\n| 基本操作题 | 3 题 | 15 分 | 代码补全、格式化输出、简单计算 |\n| 简单应用题 | 2 题 | 20 分 | 列表/字典处理、turtle 绘图、文件读写 |\n| 综合应用题 | 1 题 | 25 分 | 中文分词、词频统计、数据格式化 |\n表 1 二级 Python 试卷结构与分值",
+          "source": "raw"
+        },
+        {
+          "id": 44,
+          "position": 1,
+          "content": "| 简单应用题 | 2 题 | 20 分 | 列表/字典处理、turtle 绘图、文件读写 |\n| 综合应用题 | 1 题 | 25 分 | 中文分词、词频统计、数据格式化 |\n表 1 二级 Python 试卷结构与分值\n- 考试语言版本以官方通知为准，复习时用 Python 3.8 及以上版本即可覆盖全部语法考点。- 操作题必须在指定路径保存源文件，文件命名错误会直接导致该题零分。- 允许使用标准库：turtle、random、time、jieba、wordcloud、csv、json、os 等。图 1 Python 官方标识（来源：python.org）\n# 第二章 数据类型与表达式\n## 2.1 数值类型与运算符\nPython 的数值类型包括 int（任意精度整数）、float（双精度浮点）、complex（复数）与 bool（bool 是 int 的子类，True 等于 1）。整除用 //，取余用 %，幂用 **，且 ** 的优先级高于单目负号，因此 -3 ** 2 的结果是 -9 而不是 9。>>> 3 ** 2 // 2 + 5 % 3\n6\n>>> round(2.5), round(3.5)\n(2, 4)\n>>> divmod(17, 5)\n(3, 2)\n【提示】round() 采用「银行家舍入」：小数部分恰为 0.5 时向偶数靠拢，故 round(2.5)=2、round(3.5)=4。",
+          "source": "raw"
+        },
+        {
+          "id": 45,
+          "position": 2,
+          "content": ">>> divmod(17, 5)\n(3, 2)\n【提示】round() 采用「银行家舍入」：小数部分恰为 0.5 时向偶数靠拢，故 round(2.5)=2、round(3.5)=4。这是选择题高频陷阱。## 2.2 组合数据类型\n字符串 str、元组 tuple 是不可变类型，列表 list、字典 dict、集合 set 是可变类型。切片 s[i:j:k] 取 [i, j) 区间且不含右端点；字典按键索引，Python 3.7 起保持插入顺序；集合无序且自动去重。| 类型 | 可变性 | 字面量示例 | 常用操作 |\n| --- | --- | --- | --- |\n| int / float / complex | 不可变 | 42 / 3.14 / 2+3j | + - * / // % ** |\n| str | 不可变 | \"Python\" | 切片、split、join、format |\n| list | 可变 | [1, 2, 3] | append、insert、sort、切片赋值 |\n| tuple | 不可变 | (1, 2) | 索引、拆包、作为字典键 |\n| dict | 可变 | {\"a\": 1} | keys、values、get、items |\n| set | 可变 | {1, 2, 3} | & \\| - ^、add、discard |\n表 2 常用数据类型对照",
+          "source": "raw"
+        },
+        {
+          "id": 46,
+          "position": 3,
+          "content": "| dict | 可变 | {\"a\": 1} | keys、values、get、items |\n| set | 可变 | {1, 2, 3} | & \\| - ^、add、discard |\n表 2 常用数据类型对照\n图 2 turtle 标准库绘制的星形图案（来源：docs.python.org）\n# 第三章 程序控制与函数\n## 3.1 分支与循环\nif / elif / else 依据缩进划分语句块，Python 以冒号加缩进代替花括号。for 循环常与 range() 配合遍历可迭代对象，while 循环需自行维护终止条件。break 结束整个循环，continue 跳过本轮剩余语句，循环还可带 else 子句——仅当循环未被 break 中断时执行。total = 0\nfor i in range(1, 101):\n    if i % 7 == 0:\n        continue\n    total += i\nelse:\n    print('循环正常结束', total)\n## 3.2 函数与作用域\n函数用 def 定义，参数可设默认值、可变参数 *args 与关键字参数 **kwargs。函数内用 global 声明才能给全局变量重新赋值；仅读取全局变量时无需声明。lambda 用于定义匿名函数，常配合 sorted 的 key 参数或 map、filter 使用。",
+          "source": "raw"
+        },
+        {
+          "id": 47,
+          "position": 4,
+          "content": "函数内用 global 声明才能给全局变量重新赋值；仅读取全局变量时无需声明。lambda 用于定义匿名函数，常配合 sorted 的 key 参数或 map、filter 使用。- 默认值参数必须放在位置参数之后，且不要用可变对象作默认值。- return 可返回多个值，实质是返回一个元组。- 内置函数 len、sum、max、min、sorted、zip、enumerate 在真题中出现频率最高。# 第四章 文件与常用标准库\n文件操作的基本流程是 open → 读写 → close，推荐用 with 语句自动管理。模式 r 为只读、w 为覆盖写、a 为追加，加 b 表示二进制。文本文件要显式指定 encoding='utf-8'，否则在中文 Windows 上容易出现乱码或 UnicodeDecodeError。| 库名 | 典型用途 | 高频函数 |\n| --- | --- | --- |\n| turtle | 图形绘制 | forward、circle、pensize、done |\n| random | 随机数 | random、randint、choice、shuffle、seed |\n| time | 时间与计时 | time、sleep、strftime、localtime |\n| jieba | 中文分词 | lcut、lcut_for_search、add_word |",
+          "source": "raw"
+        },
+        {
+          "id": 48,
+          "position": 5,
+          "content": "| time | 时间与计时 | time、sleep、strftime、localtime |\n| jieba | 中文分词 | lcut、lcut_for_search、add_word |\n| wordcloud | 词云生成 | WordCloud、generate、to_file |\n| csv / json | 数据格式化 | reader、writer、dumps、loads |\n表 3 二级 Python 常考标准库\n1. 先把 40 道选择题的语法点按章节过一遍，重点练表达式求值和程序输出。1. 每天手写 2 道操作题，务必在 IDLE 里真跑一次并核对输出文件。1. 综合应用题固定练「读文件 → jieba 分词 → 词频统计 → 排序输出」这条主线。1. 考前整理一份易错清单：round 舍入、切片右端点、字典 get 默认值、文件编码。",
+          "source": "raw"
+        }
+      ],
+      "file": {
+        "id": 2,
+        "original_name": "course.docx",
+        "ext": "docx",
+        "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "size": 88798,
+        "page_count": 1,
+        "has_text_layer": 1,
+        "ocr_status": "done"
+      }
+    },
+    "9": {
+      "id": 9,
+      "title": "二级Python模拟卷",
+      "source_type": "file",
+      "source_url": null,
+      "raw_content": "二级Python模拟试卷（一）第 1 页\n全国计算机等级考试二级Python语言程序设计\n全真模拟试卷（一）·考试时间120分钟满分100分\n学校/考点：姓名：准考证号：\n注意事项：1. 答题前请填写学校、姓名与准考证号；2. 选择题答案填涂在答题卡上；3. 保持卷面整洁。\n一、单项选择题（本大题共20小题，每小题2分，共40分）\n1. 表达式 3 ** 2 // 2 + 5 % 3 的值是\nA. 5\nB. 6\nC. 7\nD. 8\n2. 已知 s = \"Python\"，表达式 s[1:4] 的结果是\nA. \"Pyt\"\nB. \"yth\"\nC. \"ytho\"\nD. \"ythoP\"\n3. 下列数据类型中，属于不可变类型的是\nA. list\nB. dict\nC. tuple\nD. set\n4. 表达式 round(2.5)的结果是\nA. 2\nB. 3\nC. 2.5\nD. 3.0\n5. 执行 a=[1,2,3];a.append([4,5]) 后，len(a) 的值是\nA. 3\nB. 4\nC. 5\nD. 6\n6. random. randint(1, 10) 生成的随机整数范围是\nA. 1 到 9\nB. 1 到 10\nC. 0 到 10\nD. 0 到 9\n7. 以追加方式打开文本文件a.txt，应使用的模式是\nA.\nB.\nC.\n二级 Python 模拟试卷（一）第2 页\nD. \"x\"\n8. 表达式'-'. join(['a','b'，'c'])的结果是\nA. \"abc\"\nB. \"a-b-c\"\nC. \"a, b, c\"\nD. 报错\n9. 已知 d = {'a': 1}，表达式 d. get('b'，0) 的值是\nA. None\nB. 0\nC. 报错 KeyError\nD. {'b': 0}\n10. 表达式 set([1,1,2,3]) 的结果是\nA. [1, 1, 2, 3]\nB. {1, 2, 3}\nC. (1, 2, 3)\nD. 报错\n11. for i in range(2, 10, 3) 循环体执行的次数是\nA. 2\nB. 3\nC. 4\nD. 5\n12. 关于 turtle.circle(50,180)，说法正确的是\nA. 画半径 50 的整圆\nB. 画半径 50 的半圆\nC. 画直径 50 的整圆\nD. 画笔旋转 180 度\n13. 下列语句中，能正确定义函数并返回两数之和的是\nA. def f(a,b): a+b\nB. def f(a, b): return a+b\nC. lambda a,b: return a+b\nD. def f(a, b) = a+b\n14. 表达式 format(3.14159,'.2f') 的结果是\nA. \"3.14\"\nB. \"3.15\"\nC. 3.14\nD. \"3.141\"\n15. try 语句中，无论是否发生异常都会执行的是\nA. else 子句\nB. except 子句\nC. finally 子句\nD. if 子句\n16. jieba.lcut('全国计算机等级考试’）的返回值类型是\nA. 字符串\n2\n二级 Python模拟试卷（一）第 3 页\nB. 列表\nC. 生成器\nD. 字典\n17. 关于字符串，下列说法正确的是\nA. 可用 s[0]='P’修改首字符\nB. 字符串是可变序列\nC. s*3 表示重复 3 次\nD. 字符串不能切片\n18. 表达式 eval('2 + 3 * 4') 的值是\nA. '2 + 3 * 4'\nB. 14\nC. 20\nD. 报错\n19. time.strftime('%Y-%m-%d')的作用是\nA. 返回时间戳\nB. 返回格式化日期字符串\nC. 让程序暂停\nD. 返回随机数\n20. 读取 CSV 文件应使用的标准库是\nA. json\nB. csv\nC. os\nD. turtle\n3\n二级 Python模拟试卷（一）第4页\n二、基本操作题（共3小题，每小题5分，共15分）\n21.编写程序，接收用户输入的一个正整数n，计算1到n\n的累加和，并以「sum=结果」的形式输出。请在考生文件夹下的op1.py中补全代码。\nop2.txt，元素之间用英文逗号分隔。\n23. 读取 data.txt（UTF-8编码），统计其中英文单词数（按空白切分），把结果写入 op3.txt。\n4\n二级 Python模拟试卷（一）第 5 页\n三、综合应用题（共2小题，共45分）\n24. 文件 article.txt 中保存了一篇中文短文。请用 jieba 精确模式分词，过滤掉长度小于 2\n的词语与常见标点，统计词频，按词频降序（频次相同按词语字典序升序）输出前10\n个词，每行格式为「词语频次」，结果写入result.txt。\n25.在上一题基础上，用turtle绘制一个正十二边形，边长60，画笔宽\n2、颜色为蓝色，图形保存为程序即可，不要求导出图片。\n二级 Python模拟试卷（一）第6页\n参考答案与解析\n一、客观题答案速查\n1  1111..B\n二、逐题解析\n1. （B）先算 3**2=9，9//2=4，5%3=2，4+2=6。\n2. （B）切片取下标1、2、3，不含右端点4，得到 yth。\n3. （C）str、tuple、数值为不可变；list、dict、set 可变。\n4. （A）Python3采用银行家舍入，恰为.5 时向偶数靠拢。\n5. （B）append 把整个列表作为单个元素追加，长度由 3 变 4。\n6.（B）randint 包含左右两个端点；randrange 不含右端点。\n7.（C）a为追加写，w为覆盖写，r为只读，x为独占创建。\n8. （B）join 用调用它的字符串把序列元素连接起来。\n9.（B）get 在键不存在时返回默认值，且不修改原字典。\n10.（B）集合自动去重且无序，字面量用花括号表示。\n11. （B）i 依次取 2、5、8，共 3 次。\n12. （B） extent=180表示画 180 度圆弧，即半圆。\n13.（B）必须有 return；lambda 只能写表达式。\n14.（A）format 返回字符串，保留两位小数并四舍五入。\n15. （C）finally常用于释放资源，必定执行。\n16. （B） lcut 返回 list；cut 返回可迭代生成器。\n17. （C）字符串不可变，但支持*重复与切片。\n18.（B）eval 把字符串当表达式求值，遵循运算符优先级。\n19.（B）strftime按格式串输出日期时间字符串。\n20. （B） csv.reader / csv.writer 专门处理逗号分隔文件。\n三、主观题参考答案\n21. n = int(input ())\ns = sum(range(1, n + 1))\nprint('sum={}'.format (s))\n22. 1s = [3, 1, 4, 1, 5, 9, 2, 6]\nout = sorted(set(1s), reverse=True)\nopen('op2.txt', 'w', encoding='utf-8').write(','. join(map(str, out)))\n23. txt = open('data. txt', encoding='utf-8'). read()\nopen('op3.txt', 'w', encoding='utf-8').write(str(len(txt.split())))\n24. import jieba\ntxt = open('article.txt', encoding='utf-8').read()\nwords = jieba. lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\n6\n二级 Python 模拟试卷（一）第7页\ncounts[w] = counts. get(w, 0) + 1\n1s = sorted(counts. items(), key=lambda x: (-x[1], x[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in 1s[:10]:\nf.write('{} {}\\n'.format(w, c))\n25. import turtle as t\nt. pensize(2)\nt. pencolor('blue')\nfor_ in range(12):\nt. forward(60)\nt.right (30)\nt. done ()",
+      "content_hash": "6c8b3adeefdae054c48ebf62978f8a2a669288368b82b0fde5c2b10ce137f0a6",
+      "summary": null,
+      "key_points": [],
+      "structured_note": null,
+      "note_edited": 0,
+      "category": null,
+      "tags": [],
+      "status": "ready",
+      "truncated": 0,
+      "created_at": "2026-11-14T23:14:13+08:00",
+      "updated_at": "2026-11-14T23:14:33+08:00",
+      "workspace_id": null,
+      "kind": "exam",
+      "file_id": 3,
+      "chunks": [
+        {
+          "id": 52,
+          "position": 0,
+          "content": "二级Python模拟试卷（一）第 1 页\n全国计算机等级考试二级Python语言程序设计\n全真模拟试卷（一）·考试时间120分钟满分100分\n学校/考点：姓名：准考证号：\n注意事项：1. 答题前请填写学校、姓名与准考证号；2. 选择题答案填涂在答题卡上；3. 保持卷面整洁。一、单项选择题（本大题共20小题，每小题2分，共40分）\n1. 表达式 3 ** 2 // 2 + 5 % 3 的值是\nA. 5\nB. 6\nC. 7\nD. 8\n2. 已知 s = \"Python\"，表达式 s[1:4] 的结果是\nA. \"Pyt\"\nB. \"yth\"\nC. \"ytho\"\nD. \"ythoP\"\n3. 下列数据类型中，属于不可变类型的是\nA. list\nB. dict\nC. tuple\nD. set\n4. 表达式 round(2.5)的结果是\nA. 2\nB. 3\nC. 2.5\nD. 3.0\n5. 执行 a=[1,2,3];a.append([4,5]) 后，len(a) 的值是\nA. 3\nB. 4\nC. 5\nD. 6\n6. random. randint(1, 10) 生成的随机整数范围是\nA. 1 到 9\nB. 1 到 10\nC. 0 到 10\nD. 0 到 9\n7. 以追加方式打开文本文件a.txt，应使用的模式是\nA.\nB.\nC.\n二级 Python 模拟试卷（一）第2 页\nD. \"x\"\n8. 表达式'-'. join(['a','b'，'c'])的结果是",
+          "source": "raw"
+        },
+        {
+          "id": 53,
+          "position": 1,
+          "content": "7. 以追加方式打开文本文件a.txt，应使用的模式是\nA.\nB.\nC.\n二级 Python 模拟试卷（一）第2 页\nD. \"x\"\n8. 表达式'-'. join(['a','b'，'c'])的结果是\nA. \"abc\"\nB. \"a-b-c\"\nC. \"a, b, c\"\nD. 报错\n9. 已知 d = {'a': 1}，表达式 d. get('b'，0) 的值是\nA. None\nB. 0\nC. 报错 KeyError\nD. {'b': 0}\n10. 表达式 set([1,1,2,3]) 的结果是\nA. [1, 1, 2, 3]\nB. {1, 2, 3}\nC. (1, 2, 3)\nD. 报错\n11. for i in range(2, 10, 3) 循环体执行的次数是\nA. 2\nB. 3\nC. 4\nD. 5\n12. 关于 turtle.circle(50,180)，说法正确的是\nA. 画半径 50 的整圆\nB. 画半径 50 的半圆\nC. 画直径 50 的整圆\nD. 画笔旋转 180 度\n13. 下列语句中，能正确定义函数并返回两数之和的是\nA. def f(a,b): a+b\nB. def f(a, b): return a+b\nC. lambda a,b: return a+b\nD. def f(a, b) = a+b\n14. 表达式 format(3.14159,'.2f') 的结果是",
+          "source": "raw"
+        },
+        {
+          "id": 54,
+          "position": 2,
+          "content": "C. lambda a,b: return a+b\nD. def f(a, b) = a+b\n14. 表达式 format(3.14159,'.2f') 的结果是\nA. \"3.14\"\nB. \"3.15\"\nC. 3.14\nD. \"3.141\"\n15. try 语句中，无论是否发生异常都会执行的是\nA. else 子句\nB. except 子句\nC. finally 子句\nD. if 子句\n16. jieba.lcut('全国计算机等级考试’）的返回值类型是\nA. 字符串\n2\n二级 Python模拟试卷（一）第 3 页\nB. 列表\nC. 生成器\nD. 字典\n17. 关于字符串，下列说法正确的是\nA. 可用 s[0]='P’修改首字符\nB. 字符串是可变序列\nC. s*3 表示重复 3 次\nD. 字符串不能切片\n18. 表达式 eval('2 + 3 * 4') 的值是\nA. '2 + 3 * 4'\nB. 14\nC. 20\nD. 报错\n19. time.strftime('%Y-%m-%d')的作用是\nA. 返回时间戳\nB. 返回格式化日期字符串\nC. 让程序暂停\nD. 返回随机数\n20. 读取 CSV 文件应使用的标准库是\nA. json\nB. csv\nC. os\nD. turtle\n3\n二级 Python模拟试卷（一）第4页\n二、基本操作题（共3小题，每小题5分，共15分）\n21.编写程序，接收用户输入的一个正整数n，计算1到n",
+          "source": "raw"
+        },
+        {
+          "id": 55,
+          "position": 3,
+          "content": "D. turtle\n3\n二级 Python模拟试卷（一）第4页\n二、基本操作题（共3小题，每小题5分，共15分）\n21.编写程序，接收用户输入的一个正整数n，计算1到n\n的累加和，并以「sum=结果」的形式输出。请在考生文件夹下的op1.py中补全代码。op2.txt，元素之间用英文逗号分隔。23. 读取 data.txt（UTF-8编码），统计其中英文单词数（按空白切分），把结果写入 op3.txt。4\n二级 Python模拟试卷（一）第 5 页\n三、综合应用题（共2小题，共45分）\n24. 文件 article.txt 中保存了一篇中文短文。请用 jieba 精确模式分词，过滤掉长度小于 2\n的词语与常见标点，统计词频，按词频降序（频次相同按词语字典序升序）输出前10\n个词，每行格式为「词语频次」，结果写入result.txt。25.在上一题基础上，用turtle绘制一个正十二边形，边长60，画笔宽\n2、颜色为蓝色，图形保存为程序即可，不要求导出图片。二级 Python模拟试卷（一）第6页\n参考答案与解析\n一、客观题答案速查\n1  1111..B\n二、逐题解析\n1. （B）先算 3**2=9，9//2=4，5%3=2，4+2=6。2. （B）切片取下标1、2、3，不含右端点4，得到 yth。3. （C）str、tuple、数值为不可变；list、dict、set 可变。4. （A）Python3采用银行家舍入，恰为.5 时向偶数靠拢。",
+          "source": "raw"
+        },
+        {
+          "id": 56,
+          "position": 4,
+          "content": "2. （B）切片取下标1、2、3，不含右端点4，得到 yth。3. （C）str、tuple、数值为不可变；list、dict、set 可变。4. （A）Python3采用银行家舍入，恰为.5 时向偶数靠拢。5. （B）append 把整个列表作为单个元素追加，长度由 3 变 4。6.（B）randint 包含左右两个端点；randrange 不含右端点。7.（C）a为追加写，w为覆盖写，r为只读，x为独占创建。8. （B）join 用调用它的字符串把序列元素连接起来。9.（B）get 在键不存在时返回默认值，且不修改原字典。10.（B）集合自动去重且无序，字面量用花括号表示。11. （B）i 依次取 2、5、8，共 3 次。12. （B） extent=180表示画 180 度圆弧，即半圆。13.（B）必须有 return；lambda 只能写表达式。14.（A）format 返回字符串，保留两位小数并四舍五入。15. （C）finally常用于释放资源，必定执行。16. （B） lcut 返回 list；cut 返回可迭代生成器。17. （C）字符串不可变，但支持*重复与切片。18.（B）eval 把字符串当表达式求值，遵循运算符优先级。19.（B）strftime按格式串输出日期时间字符串。20. （B） csv.reader / csv.writer 专门处理逗号分隔文件。",
+          "source": "raw"
+        },
+        {
+          "id": 57,
+          "position": 5,
+          "content": "18.（B）eval 把字符串当表达式求值，遵循运算符优先级。19.（B）strftime按格式串输出日期时间字符串。20. （B） csv.reader / csv.writer 专门处理逗号分隔文件。三、主观题参考答案\n21. n = int(input ())\ns = sum(range(1, n + 1))\nprint('sum={}'.format (s))\n22. 1s = [3, 1, 4, 1, 5, 9, 2, 6]\nout = sorted(set(1s), reverse=True)\nopen('op2.txt', 'w', encoding='utf-8').write(','. join(map(str, out)))\n23. txt = open('data. txt', encoding='utf-8'). read()\nopen('op3.txt', 'w', encoding='utf-8').write(str(len(txt.split())))\n24. import jieba\ntxt = open('article.txt', encoding='utf-8').read()\nwords = jieba. lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():",
+          "source": "raw"
+        },
+        {
+          "id": 58,
+          "position": 6,
+          "content": "words = jieba. lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\n6\n二级 Python 模拟试卷（一）第7页\ncounts[w] = counts. get(w, 0) + 1\n1s = sorted(counts. items(), key=lambda x: (-x[1], x[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in 1s[:10]:\nf.write('{} {}\\n'.format(w, c))\n25. import turtle as t\nt. pensize(2)\nt. pencolor('blue')\nfor_ in range(12):\nt. forward(60)\nt.right (30)\nt. done ()",
+          "source": "raw"
+        }
+      ],
+      "file": {
+        "id": 3,
+        "original_name": "二级Python模拟卷.pdf",
+        "ext": "pdf",
+        "mime": "application/pdf",
+        "size": 106896,
+        "page_count": 7,
+        "has_text_layer": 0,
+        "ocr_status": "done"
+      }
     }
   },
   "tasks": {
@@ -1630,6 +2139,1511 @@
       }
     ],
     "total": 2,
-    "none_count": 1
+    "none_count": 4
+  },
+  "pages": {
+    "7": {
+      "1": {
+        "page_no": 1,
+        "text": "Cairn 备考讲义· 二级 Python\n二级 Python\n冲刺讲义（双栏版）\n计算机二级 Python· 双栏排版·\n考点精讲与例题\n§1 命题规律与复习路径\n二级Python\n的命题以「读懂小程序」为核心：40\n道选择题里有近半数给出一段3~8行的代码\n，要求判断输出结果或变量类型。这类题不考\n算法设计，考的是对运算符优先级、可变对象\n、切片边界和函数副作用的理解。复习时不要\n背结论，应当把每段代码在解释器里跑一遍，\n把输出记在旁边。\n操作题的评分点是文件，而不是屏幕输出\n。基本操作题通常要求把格式化结果写入指定\n文件；综合应用题几乎固定为 jieba 分词与\n词频统计的组合。因此复习顺序建议为：语法\n与表达式 → 组合数据 → 文件与编码 →\n标准库→整套限时模拟。\n【提示】考试120分钟，建议选择题控制在35\n分钟内完成，给操作题留出足够时间。\n课堂笔记（留白）\n§2数值运算与表达式求值\nint\n是任意精度整数，不存在溢出；float遵循\nIEEE 754 双精度，因此 0.1 + 0.2 不等于\n0.3。//\n是向下取整除，对负数同样向下取整：-7 //\n第 1 页\n3得 -3，而 -7 % 3 得 2，因为余数要满足\na = b * q + r 且 r 与除数同号。\n>>> -7 // 3, -7 % 3\n(-3, 2)\n>>> 2 ** 3 ** 2\n512\n>>> int ('0xff', 16)\n255\n>>> 3 > 2 > 1\nTrue\n** 是右结合的，2 ** 3 ** 2 等价于 2\n** 9 = 512。比较运算符可以连写，3 > 2 >\n1 等价于 3 > 2 and 2 > 1， 中间的 2\n只求值一次。逻辑运算 and / or返回的是操\n作数本身而非布尔值，这一点常被用来出「表\n达式的值」题。\n【提示】优先级从高到低：** → 单目正负 → */ //\n% → + - → 比较 → not → and → or。\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§3字符串与格式化\n字符串是不可变序列，任何「修改」操作\n都会生成新对象。s[1:4]取下标\n1、2、3，右端点不含；s[：:-1]\n逆序；s.strip()去首尾空白；s. split()\n默认按任意空白切分，与 s.split(’')\n在连续空格时结果不同。",
+        "source": "ocr",
+        "avg_conf": 0.9758,
+        "image_url": "/api/knowledge/7/file?page=1",
+        "line_conf": [
+          0.9685,
+          0.9703,
+          0.9678,
+          0.9552,
+          0.9995,
+          0.9757,
+          0.9995,
+          0.9982,
+          0.9815,
+          0.9997,
+          0.9998,
+          0.9999,
+          0.9999,
+          0.9999,
+          0.9998,
+          1.0,
+          0.9899,
+          0.9993,
+          0.9641,
+          0.9999,
+          0.9998,
+          0.999,
+          0.998,
+          0.9992,
+          1.0,
+          0.9997,
+          0.9816,
+          0.9922,
+          0.978,
+          0.8558,
+          0.9358,
+          0.8955,
+          0.9485,
+          0.9567,
+          0.9336,
+          1.0,
+          0.9355,
+          1.0,
+          0.9174,
+          0.9997,
+          0.9174,
+          0.9357,
+          0.9359,
+          0.9641,
+          0.9995,
+          0.9976,
+          0.9326,
+          0.9227,
+          0.989,
+          0.9979,
+          0.9996,
+          0.9983,
+          0.9942,
+          0.9664,
+          0.971,
+          0.9442,
+          0.9999
+        ],
+        "html": null
+      },
+      "2": {
+        "page_no": 2,
+        "text": "Cairn 备考讲义· 二级 Python\ns =’Python 二级'\nprint(s.strip().split()) #['Python','二级']\nprint('{:.2f}'.format(3.14159)) # 3.14\nprint(f'{65:c} {255:x} {255:X}') # A ff FF\nprint('-'. join(['a','b','c']))# a-b-c\n格式化有%运算符、str.format()与\nf-string三种写法，考试以format\n为主。格式规范里:>10 右对齐、:<10\n左对齐、：^10居中、：.2f 保留两位小数、：,\n千位分隔、:d / :x / : / :b\n分别对应十进制/十六进制/八进制/二进制。\n【提示】f-string 在 Python 3.6 引入，真题偶有出\n现；注意冒号后的格式串与变量之间用冒号分隔。\n课堂笔记（留白）\n§4列表、元组与切片\n列表是可变序列，append\n追加一个元素，extend\n追加可迭代对象的每个元素，insert\n在指定位置插入。若把 append([4,5])写成\nextend([4,5])，列表长度会从 4 变成\n5，这是选择题最常见的两选项差异。sort()\n原地排序返回None，sorted() 返回新列表。\na = [1, 2, 3]\na.append([4, 5]) # [1, 2, 3, [4, 5]], len=4\nb = [1, 2, 3]\nb.extend([4, 5]) # [1, 2, 3, 4, 5], len=5\nprint(sorted(a, key=lambda x: str(x))[:2])\n切片赋值可以改变长度，a[:] []\n清空列表但保留对象引用。列表的浅拷贝b =\na[:]或 b = a.copy() 只复制一层，嵌套子\n列表仍共享；多维结构要用copy.deepcopy。\n元组不可变，但元组中的列表元素仍可修改，\n这两句常被放在一起考。\n第 2 页\n方法作用返回值\nappend(x)末尾追加单个元素None\nextend(it)展开可迭代对象追None\n加\ninsert(i, x)在下标 i 前插入None\npop(i)删除并返回元素被删元素\nremove(x)删除首个等于 x None\n的元素\nsort(key=...)原地排序None\n表 4 列表常用方法速查\n课堂笔记（留白）\n§5字典与集合\n字典是键值映射，键必须是可哈希对象（\n数字、字符串、元组），列表和字典不能作键\n。d[k] 在键不存在时抛 KeyError,d. get (k,\ndefault)\n则返回默认值且不抛异常；d.setdefault(k,\nv)还会把默认值写回字典。遍历时优先用\nfor k, v in d.items()。\nd = {'a': 1, 'b': 2}\nprint(d.get('c', 0)) # 0\nprint(d.setdefault('c',3)) # 3, 且 d 增加'c'\nprint({k: v * 2 for k, v in d.items ()})\nprint(sorted(d, key=d. get, reverse=True))\n集合用 {} 或 set() 创建，注意 {}\n创建的是空字典而不是空集合。集合支持|&\n分别对应并、交、差、对称差。frozenset不\n可变。字典推导式、集合推导式与列表推导式\n语法一致，只是外层括号不同。\n【提示】词频统计题的标准写法：counts[word]=\ncounts.get(word, 0) + 1,避免 KeyError。",
+        "source": "ocr",
+        "avg_conf": 0.98,
+        "image_url": "/api/knowledge/7/file?page=2",
+        "line_conf": [
+          0.9829,
+          0.8873,
+          0.977,
+          0.9773,
+          0.9607,
+          0.9691,
+          0.999,
+          0.9999,
+          0.9592,
+          0.867,
+          0.8882,
+          0.9998,
+          0.9861,
+          0.999,
+          0.9964,
+          0.9992,
+          0.9999,
+          1.0,
+          0.9999,
+          0.9559,
+          0.9568,
+          0.9988,
+          0.9779,
+          0.9409,
+          0.9649,
+          0.9085,
+          0.9582,
+          0.9972,
+          0.989,
+          0.9831,
+          0.9769,
+          0.9998,
+          0.9999,
+          0.9999,
+          0.8627,
+          1.0,
+          0.9999,
+          0.9995,
+          1.0,
+          0.941,
+          0.9994,
+          0.9496,
+          0.9998,
+          0.9997,
+          0.9785,
+          0.9978,
+          0.9991,
+          0.9926,
+          0.9989,
+          0.9508,
+          0.9999,
+          0.9906,
+          0.999,
+          0.9723,
+          0.9101,
+          0.959,
+          0.9301,
+          0.9823,
+          0.9919,
+          0.9299,
+          0.9914,
+          0.9999,
+          0.9999,
+          1.0,
+          0.9997,
+          0.9555
+        ],
+        "html": null
+      },
+      "3": {
+        "page_no": 3,
+        "text": "Cairn 备考讲义· 二级 Python\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§6分支、循环与异常\nif elif else\n只会执行其中一个分支；for常与\nrange、enumerate、zip配合；while\n必须保证条件能变假。循环的else\n子句在循环「正常耗尽」时执行，被break\n中断时不执行，这一点与 try 的 else\n类似但容易混淆。\ntry:\nn = int(input())\nr = 10 / n\nexcept ZeroDivisionError:\nprint('除数不能为0')\nexcept ValueError:\nprint('不是整数')\nelse:\nprint('计算成功'，r)\nfinally:\nprint('无论是否异常都会执行')\n异常捕获按顺序匹配，子类异常要写在父\n类之前；except Exception as e\n可捕获绝大多数异常。finally 中的 return\n会覆盖try中的\nreturn，真题偶尔以此设陷阱。自定义异常用\nraise 抛出，断言用assert。\n【提示】执行顺序记忆：try →（无异常）else →\nfinally；（有异常） except → finally。\n3\n第3 页\n课堂笔记（留白）\n§7函数、作用域与递归\n函数定义中的默认值在定义时求值一次，\n因此 def f(a,1st=[])会让多次调用共享同\n一个列表，是经典错误。可变参数*args\n收成元组，**kwargs收成字典；调用时用*\n展开序列、用**\n展开字典。函数内给全局变量赋值必须用\nglobal声明，嵌套函数修改外层变量用\nnonlocal。\ndef fib(n, memo={0: 0, 1: 1}):\nif n not in memo:\nmemo[n] = fib(n − 1) + fib(n − 2)\nreturn memo[n]\nprint(fib(10)) # 55\nprint(list(map(lambda x: x ** 2, range(5))))\n递归要有明确的终止条件，Python\n默认递归深度约 1000层。1ambda 只能写单\n个表达式，不能含语句。sorted、max、min\n的key参数接收一个函数，常与\noperator.itemgetter或lambda\n组合，用于按词频或指定字段排序。\n【提示】综合应用题排序的固定句式：1s=\nsorted(counts.items(), key=lambda x: x[1],\nreverse=True)。\n课堂笔记（留白）\n§8文件读写与数据格式化\nopen(path, mode, encoding='utf-8')\n返回文件对象；read()读全部、readline()\n读一行、readlines()读成列表、for line",
+        "source": "ocr",
+        "avg_conf": 0.9904,
+        "image_url": "/api/knowledge/7/file?page=3",
+        "line_conf": [
+          0.9659,
+          0.9902,
+          0.9968,
+          0.9997,
+          0.9992,
+          0.9999,
+          0.999,
+          0.9998,
+          0.9994,
+          0.9714,
+          0.9999,
+          0.9994,
+          0.9889,
+          0.9621,
+          0.9998,
+          0.9925,
+          0.9998,
+          0.9825,
+          0.9999,
+          0.9818,
+          0.9999,
+          0.9835,
+          0.9997,
+          0.9915,
+          0.9876,
+          0.9999,
+          0.9999,
+          0.9828,
+          0.9583,
+          0.9461,
+          1.0,
+          0.8949,
+          0.9946,
+          0.9997,
+          0.9999,
+          0.9655,
+          0.9999,
+          0.9986,
+          0.9999,
+          0.9998,
+          0.9871,
+          0.9834,
+          0.9749,
+          0.9999,
+          0.9512,
+          0.9999,
+          0.9639,
+          0.9926,
+          1.0,
+          0.9737,
+          0.9999,
+          0.9999,
+          0.9466,
+          0.9999,
+          0.997,
+          0.9931,
+          0.988,
+          0.9944,
+          0.9995,
+          0.9837,
+          0.9982,
+          0.9876
+        ],
+        "html": null
+      },
+      "4": {
+        "page_no": 4,
+        "text": "Cairn 备考讲义· 二级 Python\nin f 逐行迭代最省内存。写文件用 write或\nwritelines，字符串写入不会自动换行。with\n语句在块结束时自动\nclose，即使中途抛异常也能释放句柄。\nwith open('data.txt', 'r', encoding='utf-8') as f:\ntext = f. read()\nwords = text.split()\nwith open('out.txt', 'w', encoding='utf-8') as f:\nf.write('\\n'.join(words[:10]))\nimport json, csv\nobj = json. loads('{\"a\": 1}')\nrows = list(csv. reader(open('s. csv',\nencoding='utf-8')))\nCSV 用 csv.reader / csv.writer 处理\n，能正确应对字段内含逗号的情况；JSON用\njson. load json. dump（文件）与\njson. loads / json. dumps（字符串）。dumps\n默认会把非 ASCII 字符转义成 \\uXXXX，加\nensure_ascii=False 才能保留中文。\n【提示】中文文件必写\nencoding='utf-8'；考试机上若用默认 GBK\n编码，读写中文会报错或乱码。\n图：本讲配图（来源见 samples/images/_sources.json）\n课堂笔记（留白）\n§9 turtle、random 与time\nturtle 是二级考试唯一的绘图库。画笔\n初始朝右（正东），forward / backward\n第4 页\n前进后退，left / right\n按角度转向，circle(r, extent)画半径\nr、圆心角extent的弧，extent\n省略时为整圆。penup pendown\n控制落笔，goto 定位，pencolor / pensize\n设置样式，最后用done()保持窗口。\nimport turtle as t\nimport random\nt. pensize(3)\nt. pencolor('red')\nfor i in range(36):\nt.forward(100)\nt.right(170)\nt. done ()\nrandom. seed(10)\nprint (random.randint(1, 10)) # 含 10\nprint (random. choice('abcd'))\nrandom的randint(a, b)\n包含两端，randrange(a,b)不含右端；seed\n固定后随机序列可复现，这是判断题常考点。\ntime.time() 返回时间戳，time.localtime()\n得结构化时间，time.strftime(’%Y-%m-%d'，\nt)格式化输出，time.sleep(秒)\n让程序暂停。\n【提示】turtle.circle(50,180)\n画的是半圆；radius\n为负时圆心在画笔右侧，方向也随之改变。\n课堂笔记（留白）\n§10jieba 分词与词频统计\n综合应用题的主线几乎不变：读中文文本\n→ jieba.lcut 分词 → 过滤单字与标点 →\n用字典统计词频←按频次降序排序\n输出前N项（或生成词云）。jieba.1cut\n返回列表，cut 返回生成器；cut_all=True\n为全模式，默认精确模式。wordcloud的\n4",
+        "source": "ocr",
+        "avg_conf": 0.9838,
+        "image_url": "/api/knowledge/7/file?page=4",
+        "line_conf": [
+          0.9674,
+          0.9808,
+          0.9999,
+          0.9998,
+          0.9982,
+          0.9859,
+          0.9663,
+          0.9993,
+          0.9858,
+          0.999,
+          0.9953,
+          0.9532,
+          0.9741,
+          0.9838,
+          0.9788,
+          0.9998,
+          0.9681,
+          0.9515,
+          0.9506,
+          0.9869,
+          1.0,
+          0.9733,
+          0.9999,
+          0.9911,
+          0.9968,
+          0.9983,
+          0.9895,
+          0.9669,
+          0.8958,
+          0.8575,
+          0.9751,
+          0.9997,
+          1.0,
+          0.9808,
+          0.9873,
+          0.9974,
+          1.0,
+          0.9943,
+          0.9984,
+          0.9957,
+          1.0,
+          1.0,
+          0.9428,
+          0.9984,
+          0.9599,
+          0.9769,
+          0.9991,
+          0.9853,
+          0.9999,
+          0.9912,
+          0.979,
+          0.9991,
+          0.9999,
+          0.9872,
+          0.9993,
+          0.9995,
+          0.9957,
+          0.9723,
+          0.9995,
+          0.9501,
+          0.827,
+          0.9759,
+          0.9768,
+          0.9998,
+          1.0
+        ],
+        "html": null
+      },
+      "5": {
+        "page_no": 5,
+        "text": "Cairn 备考讲义· 二级 Python\nWordCloud需指定font_path\n指向中文字体，否则中文会显示成方框。\nimport jieba\ntxt = open('data.txt', encoding='utf-8').read()\nwords = jieba.lcut(txt)\ncounts = {}\nfor w in words:\nif len(w) < 2:\ncontinue\ncounts[w] = counts.get(w, 0) + 1\n1s = sorted(counts.items(), key=lambda x: x[1],\nreverse=True)\nfor w, c in ls[:10]:\nprint(f'{w}:{c}')\n过滤环节要注意：中文文本里常混有全角\n标点、空格与换行，应先 strip 或按停用词\n表剔除。排序时若要求「频次相同按词语字典\n序」，可写 key=lambda x: (-x[1]，x[0])。\n输出格式要与题目示例逐字符一致，包括冒号\n是全角还是半角、是否换行。\n【提示】评分程序按输出文件比对，少一个换行或多\n一个空格都可能被判错，务必对照样例输出。\n课堂笔记（留白）\n第 5 页\n5",
+        "source": "ocr",
+        "avg_conf": 0.9859,
+        "image_url": "/api/knowledge/7/file?page=5",
+        "line_conf": [
+          0.9866,
+          0.9996,
+          0.9996,
+          0.9998,
+          0.9903,
+          0.9952,
+          0.9778,
+          0.9553,
+          0.9476,
+          1.0,
+          0.9888,
+          0.9814,
+          0.9999,
+          0.9802,
+          0.9885,
+          0.9998,
+          0.9798,
+          0.9996,
+          0.9375,
+          0.9998,
+          1.0,
+          0.9998,
+          0.9992,
+          0.9941,
+          0.9039,
+          1.0
+        ],
+        "html": null
+      },
+      "6": {
+        "page_no": 6,
+        "text": "Cairn 备考讲义· 二级 Python\n附录 A 真题自测（选择题）\n以下题目选自本讲配套模拟卷，答案与解\n析见附录B。建议先独立作答，再对照解析回\n看对应章节。\n1. 表达式 3 ** 2 // 2 + 5 % 3 的值是\nA. 5 B. 6 C. 7 D. 8\n2. 已知 s = \"Python\"，表达式 s[1:4]\n的结果是\nA. \"Pyt\" B. \"yth\" C. \"ytho\" D. \"ythoP\"\n3. 下列数据类型中，属于不可变类型的是\nA. list B. dict C. tuple D. set\n4. 表达式 round(2.5) 的结果是\nA. 2 B. 3 C. 2.5 D. 3.0\n5. 执行 a=[1,2,3]; a.append([4,5])\n后，len(a)的值是\nA. 3 B. 4 C. 5 D. 6\n6. random.randint(1, 10)\n生成的随机整数范围是\nA. 1 到 9 B. 1 到 10 C. 0 到 10 D. 0 到 9\n7.以追加方式打开文本文件\na. txt，应使用的模式是\nA. \"r\" B. \"w\" C. \"a\" D. \"x\"\n表达式'-'. join(['a','b', 'c'])\n的结果是\nA. \"abc\" B. ″a-b-c\" C. \"a, b, c\" D. 报错\n9. 已知 d = {'a': 1}，表达式 d.get('b'，\n0)的值是\nA. None B. 0 C. 报错 KeyError D. {'b': 0}\n10. 表达式 set([1,1,2,3]) 的结果是\nA. [1, 1, 2, 3] B. {1, 2, 3} C. (1, 2, 3) D. 报错\n11. for i in range(2, 10, 3)\n循环体执行的次数是\nA. 2 B. 3 C. 4 D. 5\n6\n第6页\n12.关于turtle.circle(50,\n180)，说法正确的是\nA. 画半径 50 的整圆 B. 画半径 50 的半圆 C. 画直径\n50 的整圆 D. 画笔旋转 180 度\n13. 下列语句中，能正确定义函数并返回两数\n之和的是\nA. def f(a,b): a+b B. def f(a,b): return a+b C.\nlambda a, b: return a+b D. def f(a, b) = a+b\n14. 表达式 format(3.14159,'.2f')\n的结果是\nA. \"3.14\" B. \"3.15\" C. 3.14 D. \"3.141\"\n15. try\n语句中，无论是否发生异常都会执行的是\nA. else 子句 B. except 子句 C. finally 子句 D. if\n子句\n16. jieba.lcut('全国计算机等级考试')\n的返回值类型是\nA. 字符串 B. 列表 C. 生成器 D. 字典\n17. 关于字符串，下列说法正确的是\nA. 可用 s[0]='P’修改首字符 B. 字符串是可变序列 C.\ns*3 表示重复 3 次 D. 字符串不能切片\n18. 表达式 eval('2 + 3 * 4')的值是\nA. '2 + 3 * 4' B. 14 C. 20 D. 报错\n19. time.strftime('%Y-%m-%d')的作用是\nA. 返回时间戳 B. 返回格式化日期字符串 C. 让程序暂停\nD. 返回随机数\n20. 读取 CSV 文件应使用的标准库是\nA. json B. csv C. os D. turtle\n附录 B 参考答案与考点回指\n1.【B】先算3**2=9，9//2=4，5%3=2，4+2=6。\n2.【B】切片取下标1、2、3，不含右端点4，得到 yth。\n3.【C】str、tuple、数值为不可变；list、dict、set\n可变。\n4.【A】Python ε采用银行家舍入，恰为\n时向偶数靠拢。\n5.【B】append把整个列表作为单个元素追加，长度由3\n变 4。\n6.【B】randint包含左右两个端点；randrange\n不含右端点。",
+        "source": "ocr",
+        "avg_conf": 0.9744,
+        "image_url": "/api/knowledge/7/file?page=6",
+        "line_conf": [
+          0.9699,
+          0.8831,
+          0.9996,
+          0.9997,
+          0.9999,
+          0.9438,
+          0.9764,
+          0.9755,
+          0.9999,
+          0.9887,
+          0.9901,
+          0.9853,
+          0.9769,
+          0.9564,
+          0.9635,
+          0.9764,
+          0.8962,
+          0.9994,
+          0.9999,
+          0.9161,
+          0.9998,
+          0.982,
+          0.9308,
+          0.94,
+          0.9998,
+          0.9091,
+          0.9416,
+          0.9953,
+          0.9815,
+          0.9648,
+          0.9531,
+          0.9685,
+          0.9999,
+          0.9481,
+          0.9999,
+          0.9993,
+          0.9999,
+          0.9996,
+          0.9793,
+          0.9635,
+          0.9777,
+          1.0,
+          0.9919,
+          0.9631,
+          0.9627,
+          0.9999,
+          0.9559,
+          1.0,
+          0.9998,
+          0.9745,
+          0.9983,
+          0.9618,
+          0.9999,
+          0.9733,
+          0.9936,
+          0.9484,
+          0.9765,
+          0.9278,
+          0.9031,
+          0.9866,
+          0.9801,
+          0.9815,
+          0.9852,
+          0.9743,
+          0.9544,
+          0.9881,
+          0.9845,
+          0.9989,
+          0.9999,
+          0.7449,
+          0.9969,
+          0.9861,
+          0.877,
+          0.9998,
+          0.9999
+        ],
+        "html": null
+      },
+      "7": {
+        "page_no": 7,
+        "text": "Cairn 备考讲义· 二级 Python\n7.【C】a为追加写，w为覆盖写，r为只读，x\n为独占创建。\n8.【B】join用调用它的字符串把序列元素连接起来。\n9.【B】get在键不存在时返回默认值，且不修改原字典。\n10.【B】集合自动去重且无序，字面量用花括号表示。\n11. 【B】i依次取 2、5、8，共3 次。\n12.【B】extent=180表示画180度圆弧，即半圆。\n13.【B】必须有return；lambda 只能写表达式。\n14. 【A】format 返回字符串，保留两位小数并四舍五入。\n15. 【C】finally常用于释放资源，必定执行。\n16.【B】lcut 返回 list；cut 返回可迭代生成器。\n17.【C】字符串不可变，但支持*重复与切片。\n18.【B】eval\n把字符串当表达式求值，遵循运算符优先级。\n19.【B】strftime按格式串输出日期时间字符串。\n20.【B】csv. reader csv.writer\n专门处理逗号分隔文件。\n附录C公式与考点速查表\n题型题量分值主要考查内容\n语法、表达\n单项选择题40 题40分式、程序输出、公共基\n础知识\n代码补全、\n基本操作题15 分格式化输出\n、简单计算\n列表/字典处\n简单应用题2 题20 分绘图、文件理、turtle\n读写\n中文分词、\n综合应用题1 题25 分词频统计、\n数据格式化\n表 1 二级 Python 试卷结构与分值\n类型可变性字面量示例常用操作\nint / float不可变42 / 3.14  / + - * / //\n/ complex 2+3j %**\n切片、split\nstr不可变\"Python\"、join、for\nmat\nappend、ins\nlist可变[1, 2, 3] ert、sort、\n切片赋值\n第7页\n类型可变性字面量示例常用操作\n索引、拆包\ntuple不可变(1, 2)、作为字典\n键\nkeys、value\ndict可变{″a\": 1} s、get、ite\nms\nset可变{1, 2, 3} &|-^、ad d、discard\n表 2 常用数据类型对照\n库名典型用途高频函数\nturtle图形绘制forward、circle、pensize、done\nrandom、randint\nrandom随机数、choice、shuffl\ne、seed\ntime时间与计时time、sleep、str ftime、localtime\njieba中文分词lcut、lcut_for_s earch、add_word\nwordcloud词云生成WordCloud、gener ate、to_file\ncsv / json数据格式化reader、writer、dumps、loads\n表 3 二级 Python 常考标准库\n方法作用返回值\nappend (x)末尾追加单个元素None\nextend(it)加展开可迭代对象追None\ninsert(i, x)在下标 i 前插入None\npop (i)删除并返回元素被删元素\nremove (x)的元素删除首个等于 x None\nsort(key=...)原地排序None\n表 4 列表常用方法速查\n附录D非选择题参考解答\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n题目：编写程序，接收用户输入的一个正整数 n，计算1\n到n的累加和，并以「sum=结果」的形式输出。请在考生\n文件夹下的 op1. py 中补全代码。\nn = int(input ())\ns = sum(range(1, n + 1))\n-7-",
+        "source": "ocr",
+        "avg_conf": 0.9855,
+        "image_url": "/api/knowledge/7/file?page=7",
+        "line_conf": [
+          0.99,
+          0.9231,
+          0.9999,
+          0.9998,
+          0.9999,
+          0.9997,
+          0.938,
+          0.9875,
+          0.987,
+          0.9736,
+          0.9818,
+          0.9716,
+          0.9807,
+          0.9999,
+          0.9998,
+          0.9997,
+          0.9712,
+          0.9999,
+          0.9995,
+          0.9997,
+          1.0,
+          0.9177,
+          1.0,
+          0.9999,
+          0.9267,
+          0.9998,
+          1.0,
+          0.9048,
+          1.0,
+          0.9994,
+          0.8498,
+          1.0,
+          0.9493,
+          0.9999,
+          0.8161,
+          0.9491,
+          1.0,
+          0.9949,
+          1.0,
+          1.0,
+          0.9337,
+          0.9997,
+          0.9996,
+          0.9998,
+          0.9997,
+          0.9194,
+          0.9999,
+          1.0,
+          0.8393,
+          0.9992,
+          0.8926,
+          0.9819,
+          0.9997,
+          0.9985,
+          1.0,
+          0.9981,
+          1.0,
+          0.9999,
+          0.9981,
+          0.999,
+          0.9558,
+          0.9843,
+          0.9999,
+          0.9555,
+          0.9994,
+          0.9082,
+          0.9495,
+          0.9441,
+          0.9993,
+          0.9616,
+          0.9993,
+          0.9984,
+          0.9261,
+          0.9899,
+          0.9993,
+          0.9744,
+          0.9618,
+          0.9903,
+          0.9335
+        ],
+        "html": null
+      },
+      "8": {
+        "page_no": 8,
+        "text": "Cairn 备考讲义· 二级 Python\nprint('sum={}'.format(s))\n题目：已知列表 1s = [3, 1, 4, 1, 5, 9, 2,\n6]，请去重后按降序输出，结果写入\nop2.txt，元素之间用英文逗号分隔。\n1s = [3, 1, 4, 1, 5, 9, 2, 6]\nout = sorted(set(1s), reverse=True)\nopen('op2.txt','w',\nencoding='utf-8').write(','.join(map(str, out)))\n题目：读取 data.txt（UTF-8 编码），统计其中英文单词\n数（按空白切分），把结果写入op3.txt。\ntxt = open('data.txt', encoding='utf-8').read()\nopen('op3.txt','w',\nencoding='utf-8').write(str(len(txt.split())))\n三、综合应用题（共2小题，共45分）\n题目：文件 article.txt 中保存了一篇中文短文。请用\njieba 精确模式分词，过滤掉长度小于 2 的词语与常见标\n点，统计词频，按词频降序（频次相同按词语字典序升序\n）输出前10个词，每行格式为「词语频次」，结果写入\nresult.txt。\nimport jieba\ntxt = open('article. txt', encoding='utf-8').read()\nwords = jieba.lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\ncounts[w] = counts. get(w, 0) + 1\nls = sorted(counts.items(), key=lambda x: (-x[1],\nx[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in ls[:10]:\nf.write('{}{}\\n'.format(w, c))\n题目：在上一题基础上，用turtle\n绘制一个正十二边形，边长60，画笔宽\n2、颜色为蓝色，图形保存为程序即可，不要求导出图片。\nimport turtle as t\nt. pensize(2)\nt. pencolor ('blue')\nfor _ in range(12):\nt. forward(60)\nt.right(30)\nt. done ()\n附录 E 易错点清单\n1. round()\n采用「银行家舍入」：小数部分恰为0.5\n时向偶数靠拢，故round(2.5)=2、round(3.5\n)=4。这是选择题高频陷阱。\n8\n第8页\n2. 考试 120 分钟，建议选择题控制在 35\n分钟内完成，给操作题留出足够时间。\n3. 优先级从高到低：** → 单目正负 → * /\n// % → + - → 比较 → not → and →\nor。\n4. f-string 在 Python 3.6 引入，真题偶有\n出现；注意冒号后的格式串与变量之间用冒号\n分隔。\n5. 词频统计题的标准写法：counts[word]=\ncounts. get (word, 0) + 1, 避免 KeyError。\n6. 执行顺序记忆：try → (无异常） else →\nfinally；(有异常） except → finally。\n7.综合应用题排序的固定句式：1s二\nsorted(counts.items(),key=lambda x:\nx[1], reverse=True)。\n8.中文文件必写\nencoding='utf-8'；考试机上若用默认GBK\n编码，读写中文会报错或乱码。\n9. turtle.circle(50, 180)\n画的是半圆；radius\n为负时圆心在画笔右侧，方向也随之改变。\n10. 评分程序按输出文件比对，少一个换行或\n多一个空格都可能被判错，务必对照样例输出",
+        "source": "ocr",
+        "avg_conf": 0.983,
+        "image_url": "/api/knowledge/7/file?page=8",
+        "line_conf": [
+          0.9664,
+          0.9973,
+          0.9425,
+          0.9994,
+          0.9998,
+          0.9815,
+          0.9926,
+          0.9959,
+          0.9956,
+          0.9779,
+          0.9947,
+          0.9916,
+          0.9906,
+          0.9971,
+          0.9931,
+          0.9859,
+          0.975,
+          0.9959,
+          0.9961,
+          0.96,
+          0.9995,
+          0.9838,
+          0.9941,
+          0.988,
+          0.9914,
+          0.9959,
+          0.9764,
+          1.0,
+          0.9774,
+          0.9891,
+          0.994,
+          0.985,
+          0.9848,
+          0.9844,
+          0.9998,
+          0.9996,
+          0.9999,
+          0.9999,
+          0.9966,
+          0.977,
+          0.9721,
+          0.9972,
+          1.0,
+          0.924,
+          0.9239,
+          0.9999,
+          0.9983,
+          0.9991,
+          0.9985,
+          1.0,
+          0.9999,
+          0.9634,
+          0.9997,
+          0.9561,
+          0.9383,
+          0.9988,
+          0.9891,
+          0.9998,
+          0.9999,
+          0.9905,
+          0.9346,
+          0.9329,
+          0.9241,
+          0.6898,
+          0.9274,
+          0.9802,
+          1.0,
+          0.9805,
+          0.9999,
+          0.9996,
+          0.9999,
+          0.9999,
+          0.9978,
+          0.9998
+        ],
+        "html": null
+      },
+      "9": {
+        "page_no": 9,
+        "text": "Cairn 备考讲义· 二级 Python\n附录F拍照真题选登（考生回忆版）\n以下题目来自同主题的另一套试卷，供课\n堂限时练习使用。原卷为手机拍摄，此处按印\n刷体重排，题号沿用原卷。\n一、单项选择题（每题2分）\n1. 以下选项中，不属于 Python 语言特点的是\nA. 开源免费 B. 跨平台 C. 编译执行 D. 语法简洁\n2. 表达式 7 // 2 与 7 % 2 的结果分别是\nA. 3, 1 B. 3.5, 1 C. 4, 1 D. 3, 3\n3. 已知 s ='abcdefg'，s[2:5] 的值是\nA. 'bcd' B. 'cde' C. 'cdef' D. 'bcde'\n4. 下列哪个选项可以创建一个空集合\nA. {} B. set () C. [] D. ()\n5. 关于 Python 的注释，正确的是\nA. 只能用 # B. 只能用三引号 C. # 与三引号均可 D.\n不支持注释\n6. 表达式 [x*2 for x in range(3)] 的结果是\nA. [0,2,4] B. [2,4,6] C. [0,1,2] D. 报错\n7. 函数内修改全局变量 n 的值，需要\nA. global n B. nonlocal n C. static n D. 直接赋值\n8. turtle 画笔默认朝向是\nA. 正北 B. 正东 C. 正南 D. 正西\n9. 打开文件时使用 with 语句的好处是\nA. 加快读写 B. 自动关闭文件 C. 自动编码 D. 自动去重\n10. json.dumps({'a':1}) 返回值的类型是\nA. dict B. str C. bytes D. list\n二、程序填空与读程题\n11.补全代码，使其输出1~100中所有能被3\n整除的整数之和。\ns = 0\nfor i in range(1, 101):\nif i % 3 == 0:\ns +=\nprint(s)\n参考答案：i（该空3分）\n12. 阅读程序，写出运行结果。\nd = {'a': 1, 'b': 2}\nd['c'] = 3\nprint(len(d), sum(d. values()))\n参考答案：36（该空4分）\n13. 阅读程序，写出运行结果。\n1s = [1, 2, 3]\n1s. insert (1, 9)\nprint(1s[1:4])\n参考答案：[9，2，3]（该空4分）\n14. 写出以只读方式打开 UTF-8 编码文件的语句。\n9\n第 9 页\n参考答案：open('f.txt','r',encoding='utf-8')\n三、操作题（请在考生文件夹内作答）\n15.编写程序，统计data.txt\n中每个英文单词出现的次数，\n输出出现次数最多的 5 个单词，结果存入 top5.txt。\n16. 使用 turtle 绘制边长为 80 的正五边形，\n线条颜色为红色，线宽 3，程序保存为 draw.py。\n17.用jieba对article.txt\n分词，过滤单字后按词频降序\n输出前15个词，每行「词语:频次」，保存到\nfreq.txt。\n(本页为考生手写答题区，以下为草稿，不计入评分)\ncounts = {}\nfor w in words:\nif len(w) > 1:\ncounts[w] = counts. get(w, 0) + 1",
+        "source": "ocr",
+        "avg_conf": 0.9776,
+        "image_url": "/api/knowledge/7/file?page=9",
+        "line_conf": [
+          0.9678,
+          0.9751,
+          0.9998,
+          0.9998,
+          0.9997,
+          0.9916,
+          0.9866,
+          0.9603,
+          0.9257,
+          0.9858,
+          0.9535,
+          0.9567,
+          0.999,
+          0.9473,
+          0.9886,
+          0.9549,
+          0.9998,
+          0.9735,
+          0.955,
+          0.9549,
+          0.9725,
+          0.9928,
+          0.9745,
+          0.972,
+          0.9545,
+          0.9565,
+          0.9832,
+          1.0,
+          0.9997,
+          1.0,
+          0.9257,
+          0.993,
+          0.9282,
+          0.9558,
+          1.0,
+          0.9919,
+          0.9993,
+          0.9429,
+          0.9759,
+          0.9788,
+          0.9888,
+          0.9986,
+          0.9596,
+          0.9406,
+          0.9967,
+          0.9721,
+          0.9892,
+          0.9979,
+          0.8238,
+          0.9622,
+          0.979,
+          1.0,
+          0.9999,
+          0.9822,
+          0.9779,
+          0.9721,
+          0.9996,
+          0.9998,
+          0.9728,
+          0.956,
+          0.9758,
+          0.9719,
+          0.9999,
+          0.9619,
+          0.9667
+        ],
+        "html": null
+      },
+      "10": {
+        "page_no": 10,
+        "text": "Cairn 备考讲义· 二级 Python\n附录G主观题限时练习（留白作答）\n二、基本操作题（共3小题，每小题5\n分，共15 分）\n1.编写程序，接收用户输入的一个正整数\nn，计算 1 到 n 的累加和，并以「sum=结果\n」的形式输出。请在考生文件夹下的op1.py\n中补全代码。\n2. 已知列表 1s = [3, 1, 4, 1, 5, 9, 2,\n6]，请去重后按降序输出，结果写入\nop2.txt，元素之间用英文逗号分隔。\n3. 读取 data.txt（UTF-8 编码），统计其中\n英文单词数（按空白切分），把结果写入\nop3.txt。\n三、综合应用题（共2小题，共45分）\n4.文件article.txt\n中保存了一篇中文短文。请用jieba\n精确模式分词，过滤掉长度小于 2 的词语与\n常见标点，统计词频，按词频降序（频次相同\n按词语字典序升序）输出前10\n个词，每行格式为「词语频次」，结果写入\nresult.txt。\n5.在上一题基础上，用turtle\n绘制一个正十二边形，边长60，画笔宽2、\n颜色为蓝色，图形保存为程序即可，不要求导\n-10\n第 10 页\n出图片。",
+        "source": "ocr",
+        "avg_conf": 0.9855,
+        "image_url": "/api/knowledge/7/file?page=10",
+        "line_conf": [
+          0.9853,
+          0.9719,
+          0.9968,
+          0.9058,
+          0.9999,
+          0.9301,
+          0.9821,
+          1.0,
+          0.9623,
+          0.9992,
+          0.9997,
+          0.9751,
+          0.9968,
+          0.9745,
+          0.9954,
+          0.9999,
+          0.9999,
+          0.967,
+          0.9936,
+          0.9986,
+          0.9967,
+          0.9879,
+          0.9999,
+          0.9999,
+          0.9999,
+          0.985,
+          0.9052,
+          1.0
+        ],
+        "html": null
+      }
+    },
+    "8": {
+      "1": {
+        "page_no": 1,
+        "text": "全国计算机等级考试二级 Python 语言程序设计\n核心考点讲义 · 2026 年备考版\n# 第一章 考试说明与题型结构\n全国计算机等级考试（NCRE）二级 Python 语言程序设计自 2018 年 9 月首次开考，采用无纸化上机考试，时长 120 分钟，满分 100 分，60 分及以上为合格。考试环境为 Windows 平台下的 Python 3.x 解释器与 IDLE，考查范围以 Python 语言基础、程序控制、组合数据类型、函数、文件与标准库为主，不涉及 Web 框架、数据库或第三方科学计算库。\n试卷由客观题与操作题两部分组成。客观题以单项选择题为主，覆盖语法、表达式求值、程序输出与标准库常识；操作题在考生文件夹内给定素材文件，要求补全或修改代码并运行出正确结果，评分以输出文件与程序结果为准。\n| 题型 | 题量 | 分值 | 主要考查内容 |\n| --- | --- | --- | --- |\n| 单项选择题 | 40 题 | 40 分 | 语法、表达式、程序输出、公共基础知识 |\n| 基本操作题 | 3 题 | 15 分 | 代码补全、格式化输出、简单计算 |\n| 简单应用题 | 2 题 | 20 分 | 列表/字典处理、turtle 绘图、文件读写 |\n| 综合应用题 | 1 题 | 25 分 | 中文分词、词频统计、数据格式化 |\n表 1 二级 Python 试卷结构与分值\n- 考试语言版本以官方通知为准，复习时用 Python 3.8 及以上版本即可覆盖全部语法考点。\n- 操作题必须在指定路径保存源文件，文件命名错误会直接导致该题零分。\n- 允许使用标准库：turtle、random、time、jieba、wordcloud、csv、json、os 等。\n图 1 Python 官方标识（来源：python.org）\n# 第二章 数据类型与表达式\n## 2.1 数值类型与运算符\nPython 的数值类型包括 int（任意精度整数）、float（双精度浮点）、complex（复数）与 bool（bool 是 int 的子类，True 等于 1）。整除用 //，取余用 %，幂用 **，且 ** 的优先级高于单目负号，因此 -3 ** 2 的结果是 -9 而不是 9。\n>>> 3 ** 2 // 2 + 5 % 3\n6\n>>> round(2.5), round(3.5)\n(2, 4)\n>>> divmod(17, 5)\n(3, 2)\n【提示】round() 采用「银行家舍入」：小数部分恰为 0.5 时向偶数靠拢，故 round(2.5)=2、round(3.5)=4。这是选择题高频陷阱。\n## 2.2 组合数据类型\n字符串 str、元组 tuple 是不可变类型，列表 list、字典 dict、集合 set 是可变类型。切片 s[i:j:k] 取 [i, j) 区间且不含右端点；字典按键索引，Python 3.7 起保持插入顺序；集合无序且自动去重。\n| 类型 | 可变性 | 字面量示例 | 常用操作 |\n| --- | --- | --- | --- |\n| int / float / complex | 不可变 | 42 / 3.14 / 2+3j | + - * / // % ** |\n| str | 不可变 | \"Python\" | 切片、split、join、format |\n| list | 可变 | [1, 2, 3] | append、insert、sort、切片赋值 |\n| tuple | 不可变 | (1, 2) | 索引、拆包、作为字典键 |\n| dict | 可变 | {\"a\": 1} | keys、values、get、items |\n| set | 可变 | {1, 2, 3} | & \\| - ^、add、discard |\n表 2 常用数据类型对照\n图 2 turtle 标准库绘制的星形图案（来源：docs.python.org）\n# 第三章 程序控制与函数\n## 3.1 分支与循环\nif / elif / else 依据缩进划分语句块，Python 以冒号加缩进代替花括号。for 循环常与 range() 配合遍历可迭代对象，while 循环需自行维护终止条件。break 结束整个循环，continue 跳过本轮剩余语句，循环还可带 else 子句——仅当循环未被 break 中断时执行。\ntotal = 0\nfor i in range(1, 101):\n    if i % 7 == 0:\n        continue\n    total += i\nelse:\n    print('循环正常结束', total)\n## 3.2 函数与作用域\n函数用 def 定义，参数可设默认值、可变参数 *args 与关键字参数 **kwargs。函数内用 global 声明才能给全局变量重新赋值；仅读取全局变量时无需声明。lambda 用于定义匿名函数，常配合 sorted 的 key 参数或 map、filter 使用。\n- 默认值参数必须放在位置参数之后，且不要用可变对象作默认值。\n- return 可返回多个值，实质是返回一个元组。\n- 内置函数 len、sum、max、min、sorted、zip、enumerate 在真题中出现频率最高。\n# 第四章 文件与常用标准库\n文件操作的基本流程是 open → 读写 → close，推荐用 with 语句自动管理。模式 r 为只读、w 为覆盖写、a 为追加，加 b 表示二进制。文本文件要显式指定 encoding='utf-8'，否则在中文 Windows 上容易出现乱码或 UnicodeDecodeError。\n| 库名 | 典型用途 | 高频函数 |\n| --- | --- | --- |\n| turtle | 图形绘制 | forward、circle、pensize、done |\n| random | 随机数 | random、randint、choice、shuffle、seed |\n| time | 时间与计时 | time、sleep、strftime、localtime |\n| jieba | 中文分词 | lcut、lcut_for_search、add_word |\n| wordcloud | 词云生成 | WordCloud、generate、to_file |\n| csv / json | 数据格式化 | reader、writer、dumps、loads |\n表 3 二级 Python 常考标准库\n1. 先把 40 道选择题的语法点按章节过一遍，重点练表达式求值和程序输出。\n1. 每天手写 2 道操作题，务必在 IDLE 里真跑一次并核对输出文件。\n1. 综合应用题固定练「读文件 → jieba 分词 → 词频统计 → 排序输出」这条主线。\n1. 考前整理一份易错清单：round 舍入、切片右端点、字典 get 默认值、文件编码。",
+        "source": "extract",
+        "avg_conf": null,
+        "image_url": null,
+        "line_conf": null,
+        "html": "<p><strong>全国计算机等级考试二级 Python 语言程序设计</strong></p><p>核心考点讲义 · 2026 年备考版</p><h1><strong>第一章 考试说明与题型结构</strong></h1><p>全国计算机等级考试（NCRE）二级 Python 语言程序设计自 2018 年 9 月首次开考，采用无纸化上机考试，时长 120 分钟，满分 100 分，60 分及以上为合格。考试环境为 Windows 平台下的 Python 3.x 解释器与 IDLE，考查范围以 Python 语言基础、程序控制、组合数据类型、函数、文件与标准库为主，不涉及 Web 框架、数据库或第三方科学计算库。</p><p>试卷由客观题与操作题两部分组成。客观题以单项选择题为主，覆盖语法、表达式求值、程序输出与标准库常识；操作题在考生文件夹内给定素材文件，要求补全或修改代码并运行出正确结果，评分以输出文件与程序结果为准。</p><table><tbody><tr><td><p><strong>题型</strong></p></td><td><p><strong>题量</strong></p></td><td><p><strong>分值</strong></p></td><td><p><strong>主要考查内容</strong></p></td></tr><tr><td><p>单项选择题</p></td><td><p>40 题</p></td><td><p>40 分</p></td><td><p>语法、表达式、程序输出、公共基础知识</p></td></tr><tr><td><p>基本操作题</p></td><td><p>3 题</p></td><td><p>15 分</p></td><td><p>代码补全、格式化输出、简单计算</p></td></tr><tr><td><p>简单应用题</p></td><td><p>2 题</p></td><td><p>20 分</p></td><td><p>列表/字典处理、turtle 绘图、文件读写</p></td></tr><tr><td><p>综合应用题</p></td><td><p>1 题</p></td><td><p>25 分</p></td><td><p>中文分词、词频统计、数据格式化</p></td></tr></tbody></table><p>表 1 二级 Python 试卷结构与分值</p><ul><li>考试语言版本以官方通知为准，复习时用 Python 3.8 及以上版本即可覆盖全部语法考点。</li><li>操作题必须在指定路径保存源文件，文件命名错误会直接导致该题零分。</li><li>允许使用标准库：turtle、random、time、jieba、wordcloud、csv、json、os 等。</li></ul><p><img alt=\"插图\" src=\"/api/knowledge/8/assets/ed0d60299344.jpg\" loading=\"lazy\"></p><p>图 1 Python 官方标识（来源：python.org）</p><h1><strong>第二章 数据类型与表达式</strong></h1><h2><strong>2.1 数值类型与运算符</strong></h2><p>Python 的数值类型包括 int（任意精度整数）、float（双精度浮点）、complex（复数）与 bool（bool 是 int 的子类，True 等于 1）。整除用 //，取余用 %，幂用 **，且 ** 的优先级高于单目负号，因此 -3 ** 2 的结果是 -9 而不是 9。</p><p>&gt;&gt;&gt; 3 ** 2 // 2 + 5 % 3<br>6<br>&gt;&gt;&gt; round(2.5), round(3.5)<br>(2, 4)<br>&gt;&gt;&gt; divmod(17, 5)<br>(3, 2)</p><p>【提示】round() 采用「银行家舍入」：小数部分恰为 0.5 时向偶数靠拢，故 round(2.5)=2、round(3.5)=4。这是选择题高频陷阱。</p><h2><strong>2.2 组合数据类型</strong></h2><p>字符串 str、元组 tuple 是不可变类型，列表 list、字典 dict、集合 set 是可变类型。切片 s[i:j:k] 取 [i, j) 区间且不含右端点；字典按键索引，Python 3.7 起保持插入顺序；集合无序且自动去重。</p><table><tbody><tr><td><p><strong>类型</strong></p></td><td><p><strong>可变性</strong></p></td><td><p><strong>字面量示例</strong></p></td><td><p><strong>常用操作</strong></p></td></tr><tr><td><p>int / float / complex</p></td><td><p>不可变</p></td><td><p>42 / 3.14 / 2+3j</p></td><td><p>+ - * / // % **</p></td></tr><tr><td><p>str</p></td><td><p>不可变</p></td><td><p>&quot;Python&quot;</p></td><td><p>切片、split、join、format</p></td></tr><tr><td><p>list</p></td><td><p>可变</p></td><td><p>[1, 2, 3]</p></td><td><p>append、insert、sort、切片赋值</p></td></tr><tr><td><p>tuple</p></td><td><p>不可变</p></td><td><p>(1, 2)</p></td><td><p>索引、拆包、作为字典键</p></td></tr><tr><td><p>dict</p></td><td><p>可变</p></td><td><p>{&quot;a&quot;: 1}</p></td><td><p>keys、values、get、items</p></td></tr><tr><td><p>set</p></td><td><p>可变</p></td><td><p>{1, 2, 3}</p></td><td><p>&amp; | - ^、add、discard</p></td></tr></tbody></table><p>表 2 常用数据类型对照</p><p><img alt=\"插图\" src=\"/api/knowledge/8/assets/5e1353a933d5.jpg\" loading=\"lazy\"></p><p>图 2 turtle 标准库绘制的星形图案（来源：docs.python.org）</p><h1><strong>第三章 程序控制与函数</strong></h1><h2><strong>3.1 分支与循环</strong></h2><p>if / elif / else 依据缩进划分语句块，Python 以冒号加缩进代替花括号。for 循环常与 range() 配合遍历可迭代对象，while 循环需自行维护终止条件。break 结束整个循环，continue 跳过本轮剩余语句，循环还可带 else 子句——仅当循环未被 break 中断时执行。</p><p>total = 0<br>for i in range(1, 101):<br>    if i % 7 == 0:<br>        continue<br>    total += i<br>else:<br>    print('循环正常结束', total)</p><h2><strong>3.2 函数与作用域</strong></h2><p>函数用 def 定义，参数可设默认值、可变参数 *args 与关键字参数 **kwargs。函数内用 global 声明才能给全局变量重新赋值；仅读取全局变量时无需声明。lambda 用于定义匿名函数，常配合 sorted 的 key 参数或 map、filter 使用。</p><ul><li>默认值参数必须放在位置参数之后，且不要用可变对象作默认值。</li><li>return 可返回多个值，实质是返回一个元组。</li><li>内置函数 len、sum、max、min、sorted、zip、enumerate 在真题中出现频率最高。</li></ul><h1><strong>第四章 文件与常用标准库</strong></h1><p>文件操作的基本流程是 open → 读写 → close，推荐用 with 语句自动管理。模式 r 为只读、w 为覆盖写、a 为追加，加 b 表示二进制。文本文件要显式指定 encoding='utf-8'，否则在中文 Windows 上容易出现乱码或 UnicodeDecodeError。</p><table><tbody><tr><td><p><strong>库名</strong></p></td><td><p><strong>典型用途</strong></p></td><td><p><strong>高频函数</strong></p></td></tr><tr><td><p>turtle</p></td><td><p>图形绘制</p></td><td><p>forward、circle、pensize、done</p></td></tr><tr><td><p>random</p></td><td><p>随机数</p></td><td><p>random、randint、choice、shuffle、seed</p></td></tr><tr><td><p>time</p></td><td><p>时间与计时</p></td><td><p>time、sleep、strftime、localtime</p></td></tr><tr><td><p>jieba</p></td><td><p>中文分词</p></td><td><p>lcut、lcut_for_search、add_word</p></td></tr><tr><td><p>wordcloud</p></td><td><p>词云生成</p></td><td><p>WordCloud、generate、to_file</p></td></tr><tr><td><p>csv / json</p></td><td><p>数据格式化</p></td><td><p>reader、writer、dumps、loads</p></td></tr></tbody></table><p>表 3 二级 Python 常考标准库</p><ol><li>先把 40 道选择题的语法点按章节过一遍，重点练表达式求值和程序输出。</li><li>每天手写 2 道操作题，务必在 IDLE 里真跑一次并核对输出文件。</li><li>综合应用题固定练「读文件 → jieba 分词 → 词频统计 → 排序输出」这条主线。</li><li>考前整理一份易错清单：round 舍入、切片右端点、字典 get 默认值、文件编码。</li></ol>"
+      }
+    },
+    "9": {}
+  },
+  "files": {
+    "pdf": {
+      "item_id": 7,
+      "assets": {
+        "page_images": [
+          "pdf-p1.jpg",
+          "pdf-p2.jpg",
+          "pdf-p3.jpg",
+          "pdf-p4.jpg",
+          "pdf-p5.jpg",
+          "pdf-p6.jpg",
+          "pdf-p7.jpg",
+          "pdf-p8.jpg",
+          "pdf-p9.jpg",
+          "pdf-p10.jpg"
+        ],
+        "original": "pdf.pdf",
+        "images": {}
+      }
+    },
+    "docx": {
+      "item_id": 8,
+      "assets": {
+        "page_images": [],
+        "original": "",
+        "images": {
+          "5e1353a933d5.jpg": "docx-5e1353a933d5.jpg",
+          "ed0d60299344.jpg": "docx-ed0d60299344.jpg"
+        }
+      }
+    },
+    "exam": {
+      "item_id": 9,
+      "paper": {
+        "item_id": 9,
+        "title": "二级Python模拟卷",
+        "questions": [
+          {
+            "id": 1,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "8239fc15a6fe0be75bb27a595b32d6e1fe178537832793bc16f3dabc8fe2204a",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "1",
+            "payload": {
+              "question": "表达式 3 ** 2 // 2 + 5 % 3 的值是",
+              "options": [
+                "5",
+                "6",
+                "7",
+                "8"
+              ],
+              "answer": "B",
+              "explanation": "先算 3**2=9，9//2=4，5%3=2，4+2=6。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "表达式 3 ** 2 // 2 + 5 % 3 的值是",
+            "options": [
+              "5",
+              "6",
+              "7",
+              "8"
+            ],
+            "answer": "B",
+            "explanation": "先算 3**2=9，9//2=4，5%3=2，4+2=6。"
+          },
+          {
+            "id": 2,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "003e4297f4bc9bcfd326dd2fe650d394e0f74f3f0683000dece7776a6c92d841",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "2",
+            "payload": {
+              "question": "已知 s = \"Python\"，表达式 s[1:4] 的结果是",
+              "options": [
+                "\"Pyt\"",
+                "\"yth\"",
+                "\"ytho\"",
+                "\"ythoP\""
+              ],
+              "answer": "B",
+              "explanation": "切片取下标1、2、3，不含右端点4，得到 yth。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "已知 s = \"Python\"，表达式 s[1:4] 的结果是",
+            "options": [
+              "\"Pyt\"",
+              "\"yth\"",
+              "\"ytho\"",
+              "\"ythoP\""
+            ],
+            "answer": "B",
+            "explanation": "切片取下标1、2、3，不含右端点4，得到 yth。"
+          },
+          {
+            "id": 3,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "1ad21551a96af2d399734a4eee54e6629740e5c02398416ae32c4150ee555180",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "3",
+            "payload": {
+              "question": "下列数据类型中，属于不可变类型的是",
+              "options": [
+                "list",
+                "dict",
+                "tuple",
+                "set"
+              ],
+              "answer": "C",
+              "explanation": "str、tuple、数值为不可变；list、dict、set 可变。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "下列数据类型中，属于不可变类型的是",
+            "options": [
+              "list",
+              "dict",
+              "tuple",
+              "set"
+            ],
+            "answer": "C",
+            "explanation": "str、tuple、数值为不可变；list、dict、set 可变。"
+          },
+          {
+            "id": 4,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "fee6c8d651a6785c07a5936f643b32cccb07c29f44155127622cfac23640259e",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "4",
+            "payload": {
+              "question": "表达式 round(2.5)的结果是",
+              "options": [
+                "2",
+                "3",
+                "2.5",
+                "3.0"
+              ],
+              "answer": "A",
+              "explanation": "Python3采用银行家舍入，恰为.5 时向偶数靠拢。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "表达式 round(2.5)的结果是",
+            "options": [
+              "2",
+              "3",
+              "2.5",
+              "3.0"
+            ],
+            "answer": "A",
+            "explanation": "Python3采用银行家舍入，恰为.5 时向偶数靠拢。"
+          },
+          {
+            "id": 5,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "b8b03fb57f76755bc53ae979ba4b642d4f003596fe74fadb24a082f84472d720",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "5",
+            "payload": {
+              "question": "执行 a=[1,2,3]；a.append([4,5]) 后，len(a) 的值是",
+              "options": [
+                "3",
+                "4",
+                "5",
+                "6"
+              ],
+              "answer": "B",
+              "explanation": "append 把整个列表作为单个元素追加，长度由 3 变 4。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "执行 a=[1,2,3]；a.append([4,5]) 后，len(a) 的值是",
+            "options": [
+              "3",
+              "4",
+              "5",
+              "6"
+            ],
+            "answer": "B",
+            "explanation": "append 把整个列表作为单个元素追加，长度由 3 变 4。"
+          },
+          {
+            "id": 6,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "ef16007cfca55c769013b8bf88011f194ca81ddcbfbafa709a90886379bf7cd0",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "6",
+            "payload": {
+              "question": "random. randint(1, 10) 生成的随机整数范围是",
+              "options": [
+                "1 到 9",
+                "1 到 10",
+                "0 到 10",
+                "0 到 9"
+              ],
+              "answer": "B",
+              "explanation": "randint 包含左右两个端点；randrange 不含右端点。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "random. randint(1, 10) 生成的随机整数范围是",
+            "options": [
+              "1 到 9",
+              "1 到 10",
+              "0 到 10",
+              "0 到 9"
+            ],
+            "answer": "B",
+            "explanation": "randint 包含左右两个端点；randrange 不含右端点。"
+          },
+          {
+            "id": 7,
+            "item_id": 9,
+            "type": "short",
+            "difficulty": "understand",
+            "fingerprint": "a81d00495d5d9330c64d55dd34a403fef338e3602e563bb288987b6945b9190a",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "7",
+            "payload": {
+              "question": "以追加方式打开文本文件a.txt，应使用的模式是",
+              "options": [
+                "\"x\""
+              ],
+              "answer": "C",
+              "explanation": "a为追加写，w为覆盖写，r为只读，x为独占创建。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "以追加方式打开文本文件a.txt，应使用的模式是",
+            "options": [
+              "\"x\""
+            ],
+            "answer": "C",
+            "explanation": "a为追加写，w为覆盖写，r为只读，x为独占创建。"
+          },
+          {
+            "id": 8,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "e6781ff9252a8e1e0200d39f7f627baad1dad2c974b7011352ca22dc278b38ab",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "8",
+            "payload": {
+              "question": "表达式'-'。 join(['a','b'，'c'])的结果是",
+              "options": [
+                "\"abc\"",
+                "\"a-b-c\"",
+                "\"a, b, c\"",
+                "报错"
+              ],
+              "answer": "B",
+              "explanation": "join 用调用它的字符串把序列元素连接起来。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "表达式'-'。 join(['a','b'，'c'])的结果是",
+            "options": [
+              "\"abc\"",
+              "\"a-b-c\"",
+              "\"a, b, c\"",
+              "报错"
+            ],
+            "answer": "B",
+            "explanation": "join 用调用它的字符串把序列元素连接起来。"
+          },
+          {
+            "id": 9,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "e0dcb2c7bb9c875412906052dc7acd8dedb21f6a54a8aa41036059f91c826a32",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "9",
+            "payload": {
+              "question": "已知 d = {'a': 1}，表达式 d. get('b'，0) 的值是",
+              "options": [
+                "None",
+                "0",
+                "报错 KeyError",
+                "{'b': 0}"
+              ],
+              "answer": "B",
+              "explanation": "get 在键不存在时返回默认值，且不修改原字典。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "已知 d = {'a': 1}，表达式 d. get('b'，0) 的值是",
+            "options": [
+              "None",
+              "0",
+              "报错 KeyError",
+              "{'b': 0}"
+            ],
+            "answer": "B",
+            "explanation": "get 在键不存在时返回默认值，且不修改原字典。"
+          },
+          {
+            "id": 10,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "37167f3e79c1add53501f0ea77728ac87dbe70482953d3217ebf0cd53125ea93",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "10",
+            "payload": {
+              "question": "表达式 set([1,1,2,3]) 的结果是",
+              "options": [
+                "[1, 1, 2, 3]",
+                "{1, 2, 3}",
+                "(1, 2, 3)",
+                "报错"
+              ],
+              "answer": "B",
+              "explanation": "集合自动去重且无序，字面量用花括号表示。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "表达式 set([1,1,2,3]) 的结果是",
+            "options": [
+              "[1, 1, 2, 3]",
+              "{1, 2, 3}",
+              "(1, 2, 3)",
+              "报错"
+            ],
+            "answer": "B",
+            "explanation": "集合自动去重且无序，字面量用花括号表示。"
+          },
+          {
+            "id": 11,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "7cbdc9eb8127df2dc1d85578e543b31969516ed6ac65388b7cc20bcf5f8caba2",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "11",
+            "payload": {
+              "question": "for i in range(2, 10, 3) 循环体执行的次数是",
+              "options": [
+                "2",
+                "3",
+                "4",
+                "5"
+              ],
+              "answer": "B",
+              "explanation": "i 依次取 2、5、8，共 3 次。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "for i in range(2, 10, 3) 循环体执行的次数是",
+            "options": [
+              "2",
+              "3",
+              "4",
+              "5"
+            ],
+            "answer": "B",
+            "explanation": "i 依次取 2、5、8，共 3 次。"
+          },
+          {
+            "id": 12,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "b97a01a06d456775fca0869aa62cf31cf368c56bafd0bfb5c63b631971787446",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "12",
+            "payload": {
+              "question": "关于 turtle.circle(50,180)，说法正确的是",
+              "options": [
+                "画半径 50 的整圆",
+                "画半径 50 的半圆",
+                "画直径 50 的整圆",
+                "画笔旋转 180 度"
+              ],
+              "answer": "B",
+              "explanation": "extent=180表示画 180 度圆弧，即半圆。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "关于 turtle.circle(50,180)，说法正确的是",
+            "options": [
+              "画半径 50 的整圆",
+              "画半径 50 的半圆",
+              "画直径 50 的整圆",
+              "画笔旋转 180 度"
+            ],
+            "answer": "B",
+            "explanation": "extent=180表示画 180 度圆弧，即半圆。"
+          },
+          {
+            "id": 13,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "aff8dae0bddd865b87e21a0ea098b4c421a8879b4ab704c172d052d23e8c52b7",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "13",
+            "payload": {
+              "question": "下列语句中，能正确定义函数并返回两数之和的是",
+              "options": [
+                "def f(a,b): a+b",
+                "def f(a, b): return a+b",
+                "lambda a,b: return a+b",
+                "def f(a, b) = a+b"
+              ],
+              "answer": "B",
+              "explanation": "必须有 return；lambda 只能写表达式。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "下列语句中，能正确定义函数并返回两数之和的是",
+            "options": [
+              "def f(a,b): a+b",
+              "def f(a, b): return a+b",
+              "lambda a,b: return a+b",
+              "def f(a, b) = a+b"
+            ],
+            "answer": "B",
+            "explanation": "必须有 return；lambda 只能写表达式。"
+          },
+          {
+            "id": 14,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "cef6bbced039169937daa2bd05a31d990727cc35c2b92d64ec2de00c19cc1502",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "14",
+            "payload": {
+              "question": "表达式 format(3.14159,'.2f') 的结果是",
+              "options": [
+                "\"3.14\"",
+                "\"3.15\"",
+                "3.14",
+                "\"3.141\""
+              ],
+              "answer": "A",
+              "explanation": "format 返回字符串，保留两位小数并四舍五入。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "表达式 format(3.14159,'.2f') 的结果是",
+            "options": [
+              "\"3.14\"",
+              "\"3.15\"",
+              "3.14",
+              "\"3.141\""
+            ],
+            "answer": "A",
+            "explanation": "format 返回字符串，保留两位小数并四舍五入。"
+          },
+          {
+            "id": 15,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "60443af0f67983019a926bd8df92b87c0c9c0fae83a6563d3e5be0fdd6654d92",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "15",
+            "payload": {
+              "question": "try 语句中，无论是否发生异常都会执行的是",
+              "options": [
+                "else 子句",
+                "except 子句",
+                "finally 子句",
+                "if 子句"
+              ],
+              "answer": "C",
+              "explanation": "finally常用于释放资源，必定执行。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "try 语句中，无论是否发生异常都会执行的是",
+            "options": [
+              "else 子句",
+              "except 子句",
+              "finally 子句",
+              "if 子句"
+            ],
+            "answer": "C",
+            "explanation": "finally常用于释放资源，必定执行。"
+          },
+          {
+            "id": 16,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "fe15ef363bba1d76b2a9cad1dd3f8885c871fe291ba2bb30c755c5c748f5a765",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "16",
+            "payload": {
+              "question": "jieba.lcut('全国计算机等级考试’）的返回值类型是",
+              "options": [
+                "字符串",
+                "列表",
+                "生成器",
+                "字典"
+              ],
+              "answer": "B",
+              "explanation": "lcut 返回 list；cut 返回可迭代生成器。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "jieba.lcut('全国计算机等级考试’）的返回值类型是",
+            "options": [
+              "字符串",
+              "列表",
+              "生成器",
+              "字典"
+            ],
+            "answer": "B",
+            "explanation": "lcut 返回 list；cut 返回可迭代生成器。"
+          },
+          {
+            "id": 17,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "6da2cf433642fdb580105becd53c1bb1ae9a02118111525a09a7fb4392c9c99d",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "17",
+            "payload": {
+              "question": "关于字符串，下列说法正确的是",
+              "options": [
+                "可用 s[0]='P’修改首字符",
+                "字符串是可变序列",
+                "s*3 表示重复 3 次",
+                "字符串不能切片"
+              ],
+              "answer": "C",
+              "explanation": "字符串不可变，但支持*重复与切片。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "关于字符串，下列说法正确的是",
+            "options": [
+              "可用 s[0]='P’修改首字符",
+              "字符串是可变序列",
+              "s*3 表示重复 3 次",
+              "字符串不能切片"
+            ],
+            "answer": "C",
+            "explanation": "字符串不可变，但支持*重复与切片。"
+          },
+          {
+            "id": 18,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "170af4a2178cf3b5c54c8dda1fcf287e0db5f1becf6f3ffc8ed97f9fe07994ac",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "18",
+            "payload": {
+              "question": "表达式 eval('2 + 3 * 4') 的值是",
+              "options": [
+                "'2 + 3 * 4'",
+                "14",
+                "20",
+                "报错"
+              ],
+              "answer": "B",
+              "explanation": "eval 把字符串当表达式求值，遵循运算符优先级。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "表达式 eval('2 + 3 * 4') 的值是",
+            "options": [
+              "'2 + 3 * 4'",
+              "14",
+              "20",
+              "报错"
+            ],
+            "answer": "B",
+            "explanation": "eval 把字符串当表达式求值，遵循运算符优先级。"
+          },
+          {
+            "id": 19,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "dad1f024079c184d355111daeda5af1d99dd189702829ab7e4da134d49abea14",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "19",
+            "payload": {
+              "question": "time.strftime('%Y-%m-%d')的作用是",
+              "options": [
+                "返回时间戳",
+                "返回格式化日期字符串",
+                "让程序暂停",
+                "返回随机数"
+              ],
+              "answer": "B",
+              "explanation": "strftime按格式串输出日期时间字符串。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "time.strftime('%Y-%m-%d')的作用是",
+            "options": [
+              "返回时间戳",
+              "返回格式化日期字符串",
+              "让程序暂停",
+              "返回随机数"
+            ],
+            "answer": "B",
+            "explanation": "strftime按格式串输出日期时间字符串。"
+          },
+          {
+            "id": 20,
+            "item_id": 9,
+            "type": "single",
+            "difficulty": "understand",
+            "fingerprint": "829ca426a77edf1acb928f59850ce010b6c4ec828222d253bde0eaaed61ec80b",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "20",
+            "payload": {
+              "question": "读取 CSV 文件应使用的标准库是",
+              "options": [
+                "json",
+                "csv",
+                "os",
+                "turtle"
+              ],
+              "answer": "B",
+              "explanation": "csv.reader / csv.writer 专门处理逗号分隔文件。",
+              "score": 2.0,
+              "material": null,
+              "group": "一、单项选择题（本大题共20小题，每小题2分，共40分）"
+            },
+            "question": "读取 CSV 文件应使用的标准库是",
+            "options": [
+              "json",
+              "csv",
+              "os",
+              "turtle"
+            ],
+            "answer": "B",
+            "explanation": "csv.reader / csv.writer 专门处理逗号分隔文件。"
+          },
+          {
+            "id": 21,
+            "item_id": 9,
+            "type": "short",
+            "difficulty": "understand",
+            "fingerprint": "34694f0ebf8d70479e033900890d55462304179c9a88860433a5de2b0976aaf5",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "21",
+            "payload": {
+              "question": "编写程序，接收用户输入的一个正整数n，计算1到n的累加和，并以「sum=结果」的形式输出。请在考生文件夹下的op1.py中补全代码。op2.txt，元素之间用英文逗号分隔。",
+              "options": [],
+              "answer": "n = int(input ())\ns = sum(range(1, n + 1))\nprint('sum={}'.format (s))",
+              "explanation": "",
+              "score": 5.0,
+              "material": null,
+              "group": "二、基本操作题（共3小题，每小题5分，共15分）"
+            },
+            "question": "编写程序，接收用户输入的一个正整数n，计算1到n的累加和，并以「sum=结果」的形式输出。请在考生文件夹下的op1.py中补全代码。op2.txt，元素之间用英文逗号分隔。",
+            "options": [],
+            "answer": "n = int(input ())\ns = sum(range(1, n + 1))\nprint('sum={}'.format (s))",
+            "explanation": ""
+          },
+          {
+            "id": 22,
+            "item_id": 9,
+            "type": "short",
+            "difficulty": "understand",
+            "fingerprint": "6b89ebbd2afcb103f66cefff3a8291cef9060b7762e76ab89d624728559d0f62",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "23",
+            "payload": {
+              "question": "读取 data.txt（UTF-8编码），统计其中英文单词数（按空白切分），把结果写入 op3.txt。",
+              "options": [],
+              "answer": "txt = open('data. txt', encoding='utf-8'). read()\nopen('op3.txt', 'w', encoding='utf-8').write(str(len(txt.split())))",
+              "explanation": "",
+              "score": 5.0,
+              "material": null,
+              "group": "二、基本操作题（共3小题，每小题5分，共15分）"
+            },
+            "question": "读取 data.txt（UTF-8编码），统计其中英文单词数（按空白切分），把结果写入 op3.txt。",
+            "options": [],
+            "answer": "txt = open('data. txt', encoding='utf-8'). read()\nopen('op3.txt', 'w', encoding='utf-8').write(str(len(txt.split())))",
+            "explanation": ""
+          },
+          {
+            "id": 23,
+            "item_id": 9,
+            "type": "short",
+            "difficulty": "understand",
+            "fingerprint": "95ff6c72ae0918eaa08dbe3c10001acc13d0f9fb14ecf9c371b9a1cdc6c0b678",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "24",
+            "payload": {
+              "question": "文件 article.txt 中保存了一篇中文短文。请用 jieba 精确模式分词，过滤掉长度小于 2的词语与常见标点，统计词频，按词频降序（频次相同按词语字典序升序）输出前10个词，每行格式为「词语频次」，结果写入result.txt。",
+              "options": [],
+              "answer": "import jieba\ntxt = open('article.txt', encoding='utf-8').read()\nwords = jieba. lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\n二级 Python 模拟试卷（一）第7页\ncounts[w] = counts. get(w, 0) + 1\n1s = sorted(counts. items(), key=lambda x: (-x[1], x[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in 1s[:10]:\nf.write('{} {}\\n'.format(w, c))",
+              "explanation": "",
+              "score": null,
+              "material": null,
+              "group": "三、综合应用题（共2小题，共45分）"
+            },
+            "question": "文件 article.txt 中保存了一篇中文短文。请用 jieba 精确模式分词，过滤掉长度小于 2的词语与常见标点，统计词频，按词频降序（频次相同按词语字典序升序）输出前10个词，每行格式为「词语频次」，结果写入result.txt。",
+            "options": [],
+            "answer": "import jieba\ntxt = open('article.txt', encoding='utf-8').read()\nwords = jieba. lcut(txt)\ncounts = {}\nfor w in words:\nw = w.strip()\nif len(w) < 2 or not w.isalnum():\ncontinue\n二级 Python 模拟试卷（一）第7页\ncounts[w] = counts. get(w, 0) + 1\n1s = sorted(counts. items(), key=lambda x: (-x[1], x[0]))\nwith open('result.txt', 'w', encoding='utf-8') as f:\nfor w, c in 1s[:10]:\nf.write('{} {}\\n'.format(w, c))",
+            "explanation": ""
+          },
+          {
+            "id": 24,
+            "item_id": 9,
+            "type": "short",
+            "difficulty": "understand",
+            "fingerprint": "1f3b8b4cc11865ea5091ff91d376b055fa8a9efc1ed48710c2e985cf0ca20017",
+            "created_at": "2026-11-14T23:14:33+08:00",
+            "origin": "imported",
+            "number": "25",
+            "payload": {
+              "question": "在上一题基础上，用turtle绘制一个正十二边形，边长60，画笔宽2、颜色为蓝色，图形保存为程序即可，不要求导出图片。",
+              "options": [],
+              "answer": "import turtle as t\nt. pensize(2)\nt. pencolor('blue')\nfor_ in range(12):\nt. forward(60)\nt.right (30)\nt. done ()",
+              "explanation": "",
+              "score": null,
+              "material": null,
+              "group": "三、综合应用题（共2小题，共45分）"
+            },
+            "question": "在上一题基础上，用turtle绘制一个正十二边形，边长60，画笔宽2、颜色为蓝色，图形保存为程序即可，不要求导出图片。",
+            "options": [],
+            "answer": "import turtle as t\nt. pensize(2)\nt. pencolor('blue')\nfor_ in range(12):\nt. forward(60)\nt.right (30)\nt. done ()",
+            "explanation": ""
+          }
+        ]
+      },
+      "assets": {
+        "page_images": [],
+        "original": "",
+        "images": {}
+      }
+    }
   }
 }
