@@ -111,7 +111,7 @@ watch(
     tab.value = target.source === 'note' ? 'note' : 'raw'
     focus.value = target.source === 'note'
       ? null
-      : { text: target.text, chunkId: target.chunkId || null, key: Date.now() }
+      : { text: target.text, chunkId: target.chunkId || null, hint: target.hint || '', key: Date.now() }
     focusChunk.value = null
   },
   { immediate: true }

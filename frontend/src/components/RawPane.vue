@@ -52,9 +52,9 @@ const pageCount = computed(() => Number(props.item?.file?.page_count || 0))
   <div class="raw-pane">
     <div v-if="!item" class="state">从左侧选一条内容。</div>
     <PdfView v-else-if="kind === 'pdf'" :key="`pdf-${itemId}`" :item-id="itemId" :page-count="pageCount" :focus="focus" :active="active" />
-    <DocxView v-else-if="kind === 'docx'" :key="`docx-${itemId}`" :item-id="itemId" :active="active" />
-    <PptxView v-else-if="kind === 'pptx'" :key="`pptx-${itemId}`" :item-id="itemId" :page-count="pageCount" :active="active" />
-    <ImageView v-else-if="kind === 'image'" :key="`img-${itemId}`" :item-id="itemId" :active="active" />
+    <DocxView v-else-if="kind === 'docx'" :key="`docx-${itemId}`" :item-id="itemId" :focus="focus" :active="active" />
+    <PptxView v-else-if="kind === 'pptx'" :key="`pptx-${itemId}`" :item-id="itemId" :page-count="pageCount" :focus="focus" :active="active" />
+    <ImageView v-else-if="kind === 'image'" :key="`img-${itemId}`" :item-id="itemId" :focus="focus" :active="active" />
     <TextRawPane v-else :text="item.raw_content || ''" :focus="focus" />
   </div>
 </template>

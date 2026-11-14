@@ -6,13 +6,16 @@
  * `renderer.sanitize()` 过一遍白名单），前端绝不拼接、绝不 `innerHTML` 拼字符串。
  * 后端没转出版式时退到纯文本，不是空白页 —— 用户要看的是内容，不是版式。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
+import { highlightIn } from '../../composables/useFocus'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
   active: { type: Boolean, default: false },
+  // {text, chunkId}：问答引用要落到的那一段（T11.2）—— Word 没有页可翻，靠文字定位
+  focus: { type: Object, default: null },
 })
 
 const data = ref(null)
@@ -58,13 +61,31 @@ watch(
 // 后端给的是净化过的 HTML（唯一允许 v-html 的地方）
 const html = computed(() => data.value?.html || '')
 const text = computed(() => data.value?.text || '')
+
+const doc = ref(null)
+
+/**
+ * 引用定位（T11.2）：版式出来之后在 DOM 里找那段话。
+ *
+ * **必须等 `html` 真的挂上**：`focus` 在挂载前就设好了，早跑一次容器还是空的，
+ * 之后就再没有触发点了（PDF 那边踩过同一个坑）。
+ */
+watch(
+  [html, () => props.focus],
+  async () => {
+    if (!html.value || !props.focus) return
+    await nextTick()
+    highlightIn(doc.value, props.focus.text, props.focus.hint)
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
   <div class="docx-view">
     <p v-if="error" class="state">{{ error }}</p>
     <p v-else-if="loading" class="state">正在打开这份文件…</p>
-    <div v-else-if="html" class="doc" v-html="html" />
+    <div v-else-if="html" ref="doc" class="doc" v-html="html" />
     <pre v-else-if="text" class="fallback">{{ text }}</pre>
     <p v-else class="state">这份文件还没读出内容。</p>
   </div>
@@ -99,6 +120,17 @@ const text = computed(() => data.value?.text || '')
 
 .doc :deep(p) {
   margin: 0 0 var(--space-2);
+}
+
+/* 内嵌图片（T11.3）：按正文宽度收着放，别让 1600 px 的图把行宽撑爆 */
+.doc :deep(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: var(--space-3) 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-border);
+  background: var(--c-bg-1);
 }
 
 .doc :deep(ul),

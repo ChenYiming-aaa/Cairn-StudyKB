@@ -25,7 +25,7 @@ class PlainExtractor(Extractor):
     def __init__(self, ext: str = "txt"):
         self.ext = ext
 
-    def extract(self, path: Path, original_name: str = "") -> ExtractedDoc:
+    def extract(self, path: Path, original_name: str = "", asset_url=None) -> ExtractedDoc:
         raw = path.read_bytes()
         text, encoding = _decode(raw)
 

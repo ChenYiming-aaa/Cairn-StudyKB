@@ -6,14 +6,17 @@
  * 标题 / 要点（带层级）/ 备注。层级信息来自抽取时保留的缩进（`- ` 前的空格），
  * 丢了它就只剩一坨平铺的文字，讲义的骨架就看不出来了。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
+import { useLocate } from '../../composables/useFocus'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
   pageCount: { type: Number, default: 0 },
   active: { type: Boolean, default: false },
+  // {text, chunkId}：问答引用要落到的那一页那一条（T11.2）
+  focus: { type: Object, default: null },
 })
 
 const page = ref(1)
@@ -66,6 +69,31 @@ watch(
   { immediate: true }
 )
 
+/**
+ * 引用定位（T11.2）：先问后端落在第几页，翻过去，再把命中的那一条标出来。
+ *
+ * 一页幻灯片一屏，所以**不能只在当前页里找字** —— 目标常常在别的页上。
+ * 页号由 `knowledge/{id}/locate` 给（它比对的是 `item_page.text`，与这里的大纲同源）。
+ */
+const marks = useLocate(() => props.itemId, () => props.focus)
+const box = ref(null)
+
+watch(
+  marks,
+  async (hit) => {
+    if (!hit) return
+    const moved = hit.page !== page.value
+    page.value = hit.page
+    // 页签没开时只记住页号：切过去时 `active` 的 watch 会用 `page.value` 去取
+    if (!props.active || !moved) return
+    await load(hit.page)
+  },
+  { immediate: true }
+)
+
+// 大纲渲染出来之后再滚：命中那一条是刚算出来的，早一步 DOM 里还没有它
+// **必须写在 `outline` 之后** —— 写在前面会在 setup 阶段读未初始化的 const（TDZ）
+
 /** 抽取出的大纲 → {title, blocks[], notes}。`- ` 前缀是抽取器约定的要点标记 */
 const outline = computed(() => {
   const body = data.value?.text || ''
@@ -88,7 +116,20 @@ const outline = computed(() => {
       blocks.push({ kind: 'text', level: 0, text: line })
     }
   }
-  return { title, blocks, notes }
+  // 命中段可能跨行（chunk 是拼回来的），只拿第一行去对 —— 对到哪一条就标哪一条
+  const needle = (marks.value?.matched || '').split('\n')[0].trim()
+  const hitText = needle.length >= 8 ? needle : ''
+  return {
+    title,
+    blocks: blocks.map((block) => ({ ...block, hit: !!hitText && block.text.includes(hitText) })),
+    notes,
+  }
+})
+
+watch(outline, async () => {
+  if (!marks.value) return
+  await nextTick()
+  box.value?.querySelector('.hit')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 })
 </script>
 
@@ -107,11 +148,11 @@ const outline = computed(() => {
 
     <p v-if="error" class="state">{{ error }}</p>
     <p v-else-if="loading" class="state">正在取这一页…</p>
-    <div v-else-if="outline.title || outline.blocks.length || outline.notes" class="slide">
+    <div v-else-if="outline.title || outline.blocks.length || outline.notes" ref="box" class="slide">
       <h3 v-if="outline.title" class="slide-title">{{ outline.title }}</h3>
       <template v-for="(block, index) in outline.blocks" :key="index">
-        <p v-if="block.kind === 'bullet'" class="bullet" :style="{ paddingLeft: `calc(var(--space-4) + ${block.level * 16}px)` }">{{ block.text }}</p>
-        <p v-else class="para">{{ block.text }}</p>
+        <p v-if="block.kind === 'bullet'" class="bullet" :class="{ hit: block.hit }" :style="{ paddingLeft: `calc(var(--space-4) + ${block.level * 16}px)` }">{{ block.text }}</p>
+        <p v-else class="para" :class="{ hit: block.hit }">{{ block.text }}</p>
       </template>
       <div v-if="outline.notes" class="notes">
         <p class="notes-label">备注</p>
@@ -186,6 +227,14 @@ const outline = computed(() => {
   line-height: var(--lh-body);
   color: var(--c-text-2);
   white-space: pre-wrap;
+}
+
+/* 问答引用命中的那一条（T11.2）：与纯文本原文同一个标记色 */
+.hit {
+  background: var(--c-mark);
+  color: var(--c-text-1);
+  border-radius: 3px;
+  scroll-margin: 120px;
 }
 
 .notes {

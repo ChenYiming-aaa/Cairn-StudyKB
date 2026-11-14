@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import sqlite3
 from pathlib import Path
 
@@ -150,7 +151,12 @@ def run_extract(payload: dict, task_id: str | None = None) -> dict:
 
     _mark(file_id, "running")
     try:
-        doc = extractors.extract(source, ext, original_name=str(row["original_name"] or ""))
+        doc = extractors.extract(
+            source, ext, original_name=str(row["original_name"] or ""),
+            # 图先拿到「将来能读到的地址」，字节随 doc 一起回来再落盘（T11.3）：
+            # HTML 里进库的是地址，不是 base64 —— 几十张图进库会把 SQLite 撑大
+            asset_url=lambda name: f"/api/knowledge/{item_id}/assets/{name}",
+        )
     except BaseException:
         # 打不开 / 加密 / 空表：状态必须是 failed，不能停在 running
         _mark(file_id, "failed")
@@ -280,6 +286,27 @@ def _write_extracted(item_id: int, file_id: int, doc) -> None:
     # HTML 存盘而不是入库：它是给原文页签渲染用的，检索用不到，
     # 进库只会把 SQLite 撑大（一份带版式的讲义 HTML 有几十 KB）
     _save_html(file_id, doc.pages)
+    _save_assets(file_id, getattr(doc, "assets", None) or [])
+
+
+def _save_assets(file_id: int, assets: list) -> None:
+    """docx 内嵌图片落到 `pages/<file_id>/assets/`（T11.3）。
+
+    与页图同目录，删内容时 `pdf_pages.purge_file()` 一并清掉。重读时先清目录：
+    图片从讲义里删掉了，旧文件不该继续占着盘。
+    """
+    folder = pdf_pages.file_dir(file_id) / "assets"
+    if folder.exists():
+        shutil.rmtree(folder, ignore_errors=True)
+    if not assets:
+        return
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        for asset in assets:
+            (folder / asset.name).write_bytes(asset.data)
+    except OSError as exc:
+        # 图写不下去只是原文页签少几张图，文字与检索不受影响，不值得整份失败
+        log.warning("原件 %s 的 %s 张图没写成（%s）", file_id, len(assets), exc)
 
 
 def _save_html(file_id: int, pages: list) -> None:

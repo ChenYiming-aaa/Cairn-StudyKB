@@ -21,7 +21,7 @@ from app.services.extractors.base import ExtractedDoc, Extractor, ExtractError, 
 class PptxExtractor(Extractor):
     ext = "pptx"
 
-    def extract(self, path: Path, original_name: str = "") -> ExtractedDoc:
+    def extract(self, path: Path, original_name: str = "", asset_url=None) -> ExtractedDoc:
         try:
             pres = Presentation(str(path))
         except Exception as exc:                       # noqa: BLE001

@@ -126,7 +126,8 @@ watch(
       return
     }
     // 落不到页不是错误（chunk 被重新整理删了 / 这页还没读出来），停在当前页即可
-    const hit = await api.locate(props.itemId, target.chunkId).catch(() => null)
+    // `hint` 是搜索词：chunk 跨页时按它落页才落在用户看的那一句上
+    const hit = await api.locate(props.itemId, target.chunkId, target.hint).catch(() => null)
     if (!hit?.page_no) return
     const pageNo = Number(hit.page_no)
     marks.value = {

@@ -8,12 +8,17 @@ HTML 里塞满 `<p>` 标签会让切块和关键词命中变差，纯文本又�
 分开取会把所有表格堆到正文末尾（讲义里"见表 3"指向前文的表，一挪就对不上）。
 所以按 `document.element.body` 的子元素顺序遍历。
 
-**图片一律丢掉，两张网都不漏**：mammoth 默认把图转成 `data:image/png;base64,...`，
-一份带图讲义能到几十 MB；这里在转换回调里直接不出 `<img>`，
-再用 `renderer.sanitize` 过一遍白名单（`img` 本来就不在白名单里）兜底。
+**内嵌图片（T11.3）不进库、不 base64**：mammoth 默认把图转成 `data:image/png;base64,...`，
+一份带图讲义能到几十 MB。这里在转换回调里把图**抠出来单独存盘**（内容哈希命名，
+同图只存一份），HTML 里只留 `/api/knowledge/{id}/assets/{name}`。
+
+体积口径与 PDF 页图一致：长边钳到 1600 px，转 JPEG q85；**带透明通道的留 PNG**
+（透明区压成 JPEG 会变黑，讲义里的公式图、流程图常有透明底）。
+已经够小的 JPEG 原样留，不做二次压缩 —— 重编码一次就掉一次画质，没有收益。
 """
 from __future__ import annotations
 
+import hashlib
 import io
 from pathlib import Path
 
@@ -24,16 +29,19 @@ from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 from app.services import renderer
-from app.services.extractors.base import ExtractedDoc, Extractor, ExtractError, PageText, \
+from app.services.extractors.base import Asset, ExtractedDoc, Extractor, ExtractError, PageText, \
     md_table, tidy
 
 MAX_HEADING = 6
+MAX_SIDE = 1600          # 与 pdf_pages.MAX_SIDE_PX 同口径：长边上限
+JPEG_QUALITY = 85
+KEEP_BYTES = 300 * 1024  # 小图原样留（再压只会掉画质，省不下多少）
 
 
 class DocxExtractor(Extractor):
     ext = "docx"
 
-    def extract(self, path: Path, original_name: str = "") -> ExtractedDoc:
+    def extract(self, path: Path, original_name: str = "", asset_url=None) -> ExtractedDoc:
         try:
             document = Document(str(path))
         except Exception as exc:                       # noqa: BLE001
@@ -65,7 +73,7 @@ class DocxExtractor(Extractor):
                 lines.append(prefix + text)
 
         text = tidy("\n".join(lines))
-        html = _to_html(path)
+        html, assets, skipped = _to_html(path, asset_url)
 
         props = document.core_properties
         meta = {
@@ -75,10 +83,12 @@ class DocxExtractor(Extractor):
             "tables": tables,
             "headings": headings,
             "images": len(document.inline_shapes),
+            "images_kept": len(assets),
+            "images_skipped": skipped,
             "html_chars": len(html),
         }
         page = PageText(page_no=1, text=text, html=html)
-        return ExtractedDoc(text=text, pages=[page], page_count=1, meta=meta)
+        return ExtractedDoc(text=text, pages=[page], page_count=1, meta=meta, assets=assets)
 
 
 def _iter_blocks(document):
@@ -116,17 +126,97 @@ def _list_prefix(paragraph: Paragraph) -> str:
     return ""
 
 
-def _to_html(path: Path) -> str:
-    """mammoth → HTML → 白名单净化。图在转换阶段就丢掉，不生成 base64。"""
+def _to_html(path: Path, asset_url):
+    """mammoth → HTML → 白名单净化。返回 `(html, assets, 丢掉的图数)`。
+
+    `asset_url` 为空（老调用方 / 单测）时退回"整份不带图"，不生成 base64。
+    """
+    assets: list[Asset] = []
+    dropped = 0
+    if asset_url is None:
+        convert, counter = _drop_image, None
+    else:
+        convert, counter = _collector(assets, asset_url)
+
     try:
         with path.open("rb") as fh:
-            result = mammoth.convert_to_html(io.BytesIO(fh.read()), convert_image=_drop_image)
+            result = mammoth.convert_to_html(io.BytesIO(fh.read()), convert_image=convert)
     except Exception:                                          # noqa: BLE001
         # HTML 只是原文页签的"锦上添花"，转不出来不该让整份抽取失败
-        return ""
-    return renderer.sanitize(result.value)
+        return "", [], 0
+    if counter is not None:
+        dropped = counter[0]
+    return renderer.sanitize_page_html(result.value), assets, dropped
 
 
 def _drop_image(_image) -> list:
     """mammoth 的图片回调：返回空列表 = 这个位置什么都不输出（不出 `<img>`）。"""
     return []
+
+
+def _collector(assets: list[Asset], asset_url):
+    """把图收进 `assets`，只回一个本站地址给 mammoth。
+
+    **必须用 `mammoth.images.img_element` 包一层**：裸回调要返回 HTML **节点**列表
+    （`_drop_image` 回 `[]` 就是"什么都不输出"），回属性字典会让 mammoth 在
+    `strip_empty` 里抛 `'dict' object has no attribute '_accept0'` ——
+    而它被外层 try 吞掉，症状是「整份讲义的版式凭空没了，一个字都不报」。
+
+    **同图只存一份**：讲义里反复出现的校徽、页眉图标按内容哈希天然去重
+    （同一张 200 KB 的校徽出现 30 次，盘上只有一份）。
+    """
+    seen: dict[str, str] = {}
+    dropped = [0]
+
+    def attributes(image) -> dict:
+        # `img_element` 把 **image 对象**交进来（不是字节），自己开流读；
+        # 直接当字节用 PIL 会打不开，症状是"每张图都被跳过"，而 HTML 一切正常。
+        try:
+            with image.open() as fh:
+                raw = fh.read()
+        except Exception:                                       # noqa: BLE001
+            dropped[0] += 1
+            return {"src": "", "alt": ""}
+        packed = _pack(raw)
+        if packed is None:            # EMF / WMF 这类浏览器画不出来的，直接不要
+            dropped[0] += 1
+            # 空地址会被净化阶段整条删掉（`_ASSET_SRC` 不认空串），不会留个破图
+            return {"src": "", "alt": ""}
+        data, ext = packed
+        name = f"{hashlib.sha1(data).hexdigest()[:12]}.{ext}"
+        if name not in seen:
+            seen[name] = name
+            assets.append(Asset(name=name, data=data))
+        return {"src": asset_url(name), "alt": "插图"}
+
+    return mammoth.images.img_element(attributes), dropped
+
+
+def _pack(raw: bytes) -> tuple[bytes, str] | None:
+    """`(字节, 扩展名)`；画不出来或解不开的返回 None。"""
+    try:
+        # Pillow 由主依赖里的 rapidocr 带进来（spec 只排 rapidocr/cv2 模块本身，不排 Pillow）；
+        # 延迟 import：只有真遇到图片才付这点启动开销
+        from PIL import Image, ImageOps
+
+        with Image.open(io.BytesIO(raw)) as img:
+            img.load()
+            img = ImageOps.exif_transpose(img)     # 手机拍的讲义照片别躺倒
+            fmt = (img.format or "").upper()
+            small = max(img.size) <= MAX_SIDE and len(raw) <= KEEP_BYTES
+            if small and fmt in ("JPEG", "JPG"):
+                return raw, "jpg"
+            alpha = img.mode in ("RGBA", "LA", "PA") or (
+                img.mode == "P" and "transparency" in img.info
+            )
+            if max(img.size) > MAX_SIDE:
+                img.thumbnail((MAX_SIDE, MAX_SIDE), Image.LANCZOS)
+            buf = io.BytesIO()
+            if alpha:
+                img.convert("RGBA").save(buf, format="PNG", optimize=True)
+                return buf.getvalue(), "png"
+            img.convert("RGB").save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+            return buf.getvalue(), "jpg"
+    except Exception:                                          # noqa: BLE001
+        # EMF / WMF（Excel 粘过来的矢量图）PIL 打不开，也没有浏览器能直接画
+        return None

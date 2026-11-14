@@ -23,7 +23,7 @@ MAX_COLS = 30
 class XlsxExtractor(Extractor):
     ext = "xlsx"
 
-    def extract(self, path: Path, original_name: str = "") -> ExtractedDoc:
+    def extract(self, path: Path, original_name: str = "", asset_url=None) -> ExtractedDoc:
         try:
             # read_only 不把整本工作簿读进内存；data_only 取公式的**计算结果**，
             # 否则正文里全是 `=SUM(B2:B9)` 这种没人要的字符串
