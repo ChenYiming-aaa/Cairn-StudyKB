@@ -121,7 +121,9 @@ def _flatten(image):
     """
     if image.mode not in ("RGBA", "LA"):
         return image
-    from PIL import Image  # 组件的依赖，主包由 pypdfium2 的 to_pil 一并带上
+    # Pillow 由主依赖里的 `rapidocr` 带进来（`pypdfium2` 自己不声明任何依赖）；
+    # 打包时 spec 只排除 rapidocr / cv2 模块本身，**不排 Pillow**，所以主包里也在
+    from PIL import Image
 
     white = Image.new("RGB", image.size, (255, 255, 255))
     white.paste(image, mask=image.split()[-1])

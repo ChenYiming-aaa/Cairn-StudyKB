@@ -262,8 +262,8 @@ function onEnter(event) {
   submit()
 }
 
-function openAt(itemId, text, source, chunkId) {
-  openItemAt(itemId, { text, source, chunkId })
+function openAt(itemId, text, source, chunkId, hint) {
+  openItemAt(itemId, { text, source, chunkId, hint })
   router.push('/')
 }
 
@@ -418,8 +418,11 @@ watch(question, () => {
           </p>
           <ul class="hit-list">
             <li v-for="hit in hits" :key="hit.chunk_id">
-              <button class="hit" type="button" @click="openAt(hit.item_id, hit.content, hit.source, hit.chunk_id)">
-                <span class="hit-head">
+              <button
+                class="hit"
+                type="button"
+                @click="openAt(hit.item_id, hit.content, hit.source, hit.chunk_id, hitsQuery)"
+              >                <span class="hit-head">
                   <span class="hit-title">{{ hit.item_title }}</span>
                   <span class="badge badge-soft">{{ hit.match_type }}</span>
                   <span v-if="hit.source === 'note'" class="hit-src">笔记</span>

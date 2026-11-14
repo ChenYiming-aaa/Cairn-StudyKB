@@ -11,14 +11,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.services.extractors.base import ExtractedDoc, Extractor, ExtractError, PageText, \
+from app.services.extractors.base import Asset, ExtractedDoc, Extractor, ExtractError, PageText, \
     join_pages
 
 # 走抽取的格式。加一种格式要同时改三处：这里、`files.ALLOWED_EXT`、适配器本身。
 EXTRACT_EXT = {"docx", "pptx", "xlsx", "txt", "md"}
 
 __all__ = [
-    "EXTRACT_EXT", "ExtractedDoc", "Extractor", "ExtractError", "PageText",
+    "EXTRACT_EXT", "Asset", "ExtractedDoc", "Extractor", "ExtractError", "PageText",
     "for_ext", "extract",
 ]
 
@@ -41,12 +41,12 @@ def for_ext(ext: str) -> Extractor | None:
     return PlainExtractor(key)
 
 
-def extract(path: Path, ext: str, original_name: str = "") -> ExtractedDoc:
+def extract(path: Path, ext: str, original_name: str = "", asset_url=None) -> ExtractedDoc:
     """分派 + 归一。归一在这里做一次，适配器就不必各自保证页码连续。"""
     adapter = for_ext(ext)
     if adapter is None:
         raise ExtractError("EXTRACT_FAILED", f"暂不支持从 .{ext} 里读字")
-    doc = adapter.extract(path, original_name=original_name)
+    doc = adapter.extract(path, original_name=original_name, asset_url=asset_url)
 
     pages = [p for p in doc.pages]
     if not pages:

@@ -26,12 +26,25 @@ class PageText:
 
 
 @dataclass
+class Asset:
+    """抽取出来的二进制附件（目前只有 docx 内嵌图片，T11.3）。
+
+    **不进库、不 base64**：`name` 直接当盘上文件名（内容哈希），由调用方写到
+    `pages/<file_id>/assets/`，URL 由调用方给的 `asset_url` 拼。库里只留 HTML 里的地址。
+    """
+
+    name: str
+    data: bytes
+
+
+@dataclass
 class ExtractedDoc:
     text: str                    # 全文，写进 raw_content
     pages: list[PageText]
     page_count: int
     has_text_layer: bool = True  # 非 PDF 恒 True
     meta: dict = field(default_factory=dict)
+    assets: list[Asset] = field(default_factory=list)
 
 
 class ExtractError(Exception):
@@ -45,11 +58,14 @@ class ExtractError(Exception):
 
 
 class Extractor:
-    """一种格式一个子类。`ext` 是不带点的扩展名，注册表靠它分派。"""
+    """一种格式一个子类。`ext` 是不带点的扩展名，注册表靠它分派。
+
+    `asset_url(name) -> str` 只对 docx 有意义（内嵌图片要地址）；别的格式收下不用。
+    """
 
     ext: str = ""
 
-    def extract(self, path: Path, original_name: str = "") -> ExtractedDoc:
+    def extract(self, path: Path, original_name: str = "", asset_url=None) -> ExtractedDoc:
         raise NotImplementedError
 
 

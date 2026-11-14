@@ -500,8 +500,13 @@ def main() -> int:
             body = doc.inner_text() if doc.count() else ""
             # 判据串取自这份样本的第一个标题（samples/cet6），不是通用词
             check("版式里读得到正文", "大学英语六级考试" in body, body[:60])
-            check("Word 原文里没有 base64 图（抽取阶段已丢图）",
-                  "data:image" not in (doc.inner_html() if doc.count() else ""))
+            # T11.3 起图不再被丢掉：字节落盘、HTML 里只留 `assets/` 地址
+            doc_html = doc.inner_html() if doc.count() else ""
+            check("Word 原文里没有 base64 图", "data:image" not in doc_html)
+            srcs = re.findall(r'<img[^>]*src="([^"]+)"', doc_html)
+            check("Word 里的图走本站附件地址",
+                  all("/assets/" in src for src in srcs),
+                  f"{len(srcs)} 张 · " + " ".join(srcs[:2]))
             hits = scan_text(page, "原文·Word")
             check("原文（Word）没有禁止词", not hits, " | ".join(hits))
 

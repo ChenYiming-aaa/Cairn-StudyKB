@@ -85,8 +85,10 @@ export function useUi() {
             itemId,
             text: chunk.text || '',
             source: chunk.source || 'raw',
-            // T11.2：有 chunk id 才能让后端算出落在第几页（PDF 的引用跳页靠它）
+            // T11.2：有 chunk id 才能让后端算出落在第几页（PDF 的引用跳页靠它）；
+            // hint 是搜索词 —— 一个 chunk 跨好几页时，按它落页才落在用户看的那一句上
             chunkId: chunk.chunkId || null,
+            hint: chunk.hint || '',
           }
         : null
       focusItemId.value = itemId

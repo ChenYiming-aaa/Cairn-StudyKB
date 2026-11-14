@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sqlite3
 from typing import Literal
 from urllib.parse import quote
@@ -520,8 +521,11 @@ def get_page(item_id: int, n: int):
 
 
 @router.get("/{item_id}/locate")
-def locate_chunk(item_id: int, chunk_id: int = Query(ge=1)):
+def locate_chunk(item_id: int, chunk_id: int = Query(ge=1), q: str | None = Query(default=None, max_length=200)):
     """这段文字落在第几页第几行（T11.2）。问答点引用 → 原文页签直接翻到那一页并标黄。
+
+    `q` 是**用户真正在找的那几个字**（检索页会带上搜索词）：一个 chunk 常跨好几页，
+    只按整段起点落页会把人带到第一页，而他点的是第三页那句话上的结果。
 
     **落不到页不是错误**：chunk 被重新整理删掉、或这页文字还没读出来，都返回
     `{"page_no": null}`。跳转失败最多是"停在第一页"，弹一个红条只会打断阅读。
@@ -543,7 +547,7 @@ def locate_chunk(item_id: int, chunk_id: int = Query(ge=1)):
             (int(row["page_no"]), row["text_reviewed"] or row["text"] or "")
             for row in rows
         ]
-        hit = locate_service.locate(str(chunk["content"] or ""), pages)
+        hit = locate_service.locate(str(chunk["content"] or ""), pages, hint=q)
         if hit is None:
             return {"page_no": None, "line_from": None, "line_to": None, "matched": ""}
         return hit
@@ -592,3 +596,43 @@ def get_file(item_id: int, page: int | None = Query(default=None, ge=1)):
         return FileResponse(image, media_type="image/jpeg")
     finally:
         conn.close()
+
+
+# 只认「内容哈希 + 位图后缀」：这条正则就是防目录穿越的那道门，
+# 名字里出现 `/`、`..`、中文都在第一行被挡掉，不会拼进路径。
+_ASSET_NAME = re.compile(r"[0-9a-f]{8,32}\.(?:png|jpe?g|gif|webp|bmp)")
+
+
+@router.get("/{item_id}/assets/{name}")
+def get_asset(item_id: int, name: str):
+    """docx 内嵌图片（T11.3）：HTML 里只存地址，字节从这里出来。
+
+    **不进库、不 base64**：一份带图讲义几十张图，进库会把 SQLite 撑大，
+    base64 还会让每张图按 4/3 膨胀。盘上按内容哈希命名，同一张校徽只占一份。
+    """
+    if not _ASSET_NAME.fullmatch(name):
+        return JSONResponse(
+            status_code=404, content=error_payload("ASSET_NOT_FOUND", "这张图不在")
+        )
+    conn = get_conn()
+    try:
+        if repo.get_item(conn, item_id) is None:
+            return _not_found()
+        file = _main_file(conn, item_id)
+        if file is None:
+            return _file_not_found("这条内容没有原件")
+        file_id = int(file["id"])
+    finally:
+        conn.close()
+
+    path = pdf_pages.file_dir(file_id) / "assets" / name
+    if not path.is_file():
+        # 老内容（T11.3 之前读的）没有这份文件：重新读一遍就会补上
+        return JSONResponse(
+            status_code=404, content=error_payload("ASSET_NOT_FOUND", "这张图还在不在，重新读一遍这份文件")
+        )
+    return FileResponse(
+        path, media_type=file_store.mime_of(name.rsplit(".", 1)[-1]),
+        # 名字是内容哈希：同一张图永远不会变，可以放心长缓存
+        headers={"Cache-Control": "private, max-age=604800"},
+    )

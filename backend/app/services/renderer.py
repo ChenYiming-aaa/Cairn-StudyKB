@@ -144,6 +144,47 @@ def sanitize(body_html: str) -> str:
     )
 
 
+# ── 原文页签的版式 HTML（docx，T11.3）────────────────────
+# 比学习页多放行 `img`，但**只认本站附件地址**：图是抽取时落盘、由
+# `GET /api/knowledge/{id}/assets/{name}` 发出来的。外站地址整条删掉 ——
+# 学习页那条「零外链」的约束不能因为原文页签要显示图就被放宽。
+_PAGE_TAGS = [*_ALLOWED_TAGS, "img"]
+_PAGE_ATTRS = {**_ALLOWED_ATTRS, "img": ["src", "alt", "width", "height"]}
+_ASSET_SRC = re.compile(
+    r"^/api/knowledge/\d+/assets/[0-9a-f]{8,32}\.(?:png|jpe?g|gif|webp|bmp)$"
+)
+_IMG_TAG = re.compile(r"<img\b[^>]*>", re.I)
+_SRC_ATTR = re.compile(r"""src\s*=\s*["']([^"']*)["']""", re.I)
+
+
+def sanitize_page_html(body_html: str) -> str:
+    """docx 的版式 HTML：白名单过一遍，`<img>` 逐条核对来源，顺手加懒加载。
+
+    一份带图讲义几十张图，一次全下没必要 —— `loading="lazy"` 让浏览器只取看得见的。
+    """
+    clean = bleach.clean(
+        body_html,
+        tags=_PAGE_TAGS,
+        attributes=_PAGE_ATTRS,
+        protocols=["http", "https", "mailto"],
+        strip=True,
+        css_sanitizer=_CSS,
+    )
+
+    def keep(match: re.Match) -> str:
+        tag = match.group(0)
+        found = _SRC_ATTR.search(tag)
+        if not found or not _ASSET_SRC.match(found.group(1)):
+            return ""
+        end = "/>" if tag.endswith("/>") else ">"
+        body = tag[: -len(end)].rstrip()
+        if re.search(r"\bloading\s*=", body, re.I):
+            return body + end
+        return f'{body} loading="lazy"{end}'
+
+    return _IMG_TAG.sub(keep, clean)
+
+
 def find_external_refs(page_html: str) -> list[str]:
     """找出所有会触发网络请求的引用（含 xmlns 不算，它是命名空间不是地址）。"""
     hits = [m.group(1) for m in _EXTERNAL_REF.finditer(page_html)]

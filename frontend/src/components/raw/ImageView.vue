@@ -8,13 +8,16 @@
  * 原图地址走 `fileUrl`（原格式：png/webp 按自己的 mime 返回），
  * 不走 `pageImageUrl`（那条固定 `image/jpeg`，给 PDF 页图用的）。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
+import { useLocate } from '../../composables/useFocus'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
   active: { type: Boolean, default: false },
+  // {text, chunkId}：问答引用要落到的那一段（T11.2）—— 图片只有一页，按行标黄
+  focus: { type: Object, default: null },
 })
 
 const LOW = 0.85
@@ -63,12 +66,28 @@ watch(
 )
 
 /** 置信度缺失（老数据）时 confs 为空，一行都不标黄 */
+// 引用命中段（T11.2）：图片就一页，行号直接对上文字列表
+const marks = useLocate(() => props.itemId, () => props.focus)
+const box = ref(null)
+
 const lines = computed(() => {
   const body = data.value?.text || ''
   const confs = data.value?.line_conf || []
+  const hit = marks.value && marks.value.page === 1 ? marks.value : null
   return body
-    ? body.split('\n').map((text, index) => ({ text, low: confs[index] != null && confs[index] < LOW }))
+    ? body.split('\n').map((text, index) => ({
+        text,
+        low: confs[index] != null && confs[index] < LOW,
+        hit: !!hit && index >= hit.from && index <= hit.to,
+      }))
     : []
+})
+
+// 文字是异步来的：数据到位、命中行渲染出来之后再滚
+watch(lines, async () => {
+  if (!marks.value) return
+  await nextTick()
+  box.value?.querySelector('.line.hit')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 })
 
 const lowCount = computed(() => lines.value.filter((line) => line.low).length)
@@ -84,12 +103,17 @@ const lowCount = computed(() => lines.value.filter((line) => line.low).length)
         <figcaption v-else class="shot-missing">原图没显示出来。</figcaption>
       </figure>
 
-      <div class="text">
+      <div ref="box" class="text">
         <p v-if="lowCount" class="warn">有 {{ lowCount }} 行认不准，已标黄，对照左边的原图看看</p>
         <p v-if="error" class="state">{{ error }}</p>
         <p v-else-if="loading" class="state">正在取识别结果…</p>
         <template v-else-if="lines.length">
-          <p v-for="(line, index) in lines" :key="index" class="line" :class="{ low: line.low }">{{ line.text }}</p>
+          <p
+            v-for="(line, index) in lines"
+            :key="index"
+            class="line"
+            :class="{ low: line.low, hit: line.hit }"
+          >{{ line.text }}</p>
         </template>
         <p v-else class="state">这张图还没认出文字。等识别跑完再看。</p>
       </div>
@@ -173,6 +197,14 @@ const lowCount = computed(() => lines.value.filter((line) => line.low).length)
 .low {
   background: var(--c-warning-soft);
   border-radius: 3px;
+}
+
+/* 问答引用命中的那一段（T11.2）：与纯文本原文同一个标记色 */
+.hit {
+  background: var(--c-mark);
+  color: var(--c-text-1);
+  border-radius: 3px;
+  scroll-margin: 120px;
 }
 
 .state {
