@@ -1,6 +1,6 @@
 {
   "name": "cairn-desktop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "Cairn 桌面壳：随机端口 + HTTP 握手拉起本地后端，窗口加载同源页面",
   "main": "main.js",

@@ -20,7 +20,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey.svg" alt="Platform">
-  <img src="https://img.shields.io/badge/version-0.3.0-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.3.1-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/data-100%25%20local-success.svg" alt="Local first">
 </p>
 
@@ -97,7 +97,7 @@ Cairn 把这条链路接上：**链接丢进去 → 自动抽正文、由模型�
 **系统要求**：Windows 10 / 11，x64。**不需要装 Python、Node 或 ffmpeg**，安装包自带运行时和 ffmpeg。
 
 1. 到 [Releases](https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases) 下载对应版本的 `Cairn-<版本>-setup.exe`
-   （最新版 **v0.3.0**，约 182 MB；带本地文件、本地识别、试卷导入与原件级呈现）
+   （最新版 **v0.3.1**，约 182 MB；带本地文件、本地识别、试卷导入与原件级呈现）
 2. 双击安装。若弹出蓝色的「Windows 已保护你的电脑」，点 **更多信息 → 仍要运行**（没有代码签名，不是病毒告警）
 3. 可以改安装目录；默认装在当前用户目录下，**不需要管理员权限**
 4. 首次启动会先起本地后端，握手成功才建窗口，所以不会白屏
@@ -159,7 +159,7 @@ Cairn 把这条链路接上：**链接丢进去 → 自动抽正文、由模型�
 > **Word / PPT / Excel / 文本不需要这个组件**，它们靠结构化读取，装上组件也不会走识别。
 > 单个文件上限 200 MB。
 >
-> 当前进度（v0.3.0，2026-11-14）：契约与数据库结构、**上传与落盘**、**本地识别组件与服务**、
+> 当前进度（v0.3.1，2026-11-14）：契约与数据库结构、**上传与落盘**、**本地识别组件与服务**、
 > **识别链路（渲染 → 识别 → 逐页落库 → 双栏判列 → 断点续跑）**、
 > **非 PDF 抽取（docx / pptx / xlsx / txt）**、**采集面板（两个入口 + 上传进度 + 已识别 N/M 页）**、
 > **工作区（自建、左栏两段、勾选批量移入、详情一个下拉）**、
@@ -353,7 +353,7 @@ v0.2.0 把它们拆成三个可选组件——多数人只用得上其中一两�
 
 ## 已知限制
 
-v0.3.0 就是这样，不粉饰：
+v0.3.1 就是这样，不粉饰：
 
 - **在线试用是静态演示**：只能看不能生成
 - **安装包没有代码签名**：SmartScreen 会拦一次，正式分发需要买证书
