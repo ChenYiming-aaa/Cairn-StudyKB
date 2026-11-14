@@ -262,14 +262,15 @@ function onEnter(event) {
   submit()
 }
 
-function openAt(itemId, text, source) {
-  openItemAt(itemId, { text, source })
+function openAt(itemId, text, source, chunkId) {
+  openItemAt(itemId, { text, source, chunkId })
   router.push('/')
 }
 
 function jump(source) {
   if (!source) return
-  openAt(source.item_id, source.content, source.source)
+  // chunk_id 一起带过去：PDF 的原文要按它算「这段字在第几页」（T11.2）
+  openAt(source.item_id, source.content, source.source, source.chunk_id)
 }
 
 function switchTab(key) {
@@ -417,7 +418,7 @@ watch(question, () => {
           </p>
           <ul class="hit-list">
             <li v-for="hit in hits" :key="hit.chunk_id">
-              <button class="hit" type="button" @click="openAt(hit.item_id, hit.content, hit.source)">
+              <button class="hit" type="button" @click="openAt(hit.item_id, hit.content, hit.source, hit.chunk_id)">
                 <span class="hit-head">
                   <span class="hit-title">{{ hit.item_title }}</span>
                   <span class="badge badge-soft">{{ hit.match_type }}</span>

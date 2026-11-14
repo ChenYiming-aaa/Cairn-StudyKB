@@ -125,6 +125,13 @@ def list_chunks(conn: sqlite3.Connection, item_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_chunk(conn: sqlite3.Connection, chunk_id: int) -> sqlite3.Row | None:
+    """按 id 取一段（问答引用跳页用，T11.2）。带 `item_id` 让调用方核对归属。"""
+    return conn.execute(
+        "SELECT id, item_id, position, content, source FROM chunk WHERE id=?", (chunk_id,)
+    ).fetchone()
+
+
 def get_item(conn: sqlite3.Connection, item_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM knowledge_item WHERE id=?", (item_id,)).fetchone()
 

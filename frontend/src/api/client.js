@@ -312,6 +312,8 @@ export const api = {
   ocrProgress: (itemId) => get(`/api/knowledge/${itemId}/ocr`),
   /** 原文页签（T9.10）：{page_no, text, source, avg_conf, image_url, line_conf, html} */
   getPage: (itemId, n) => get(`/api/knowledge/${itemId}/pages/${n}`),
+  /** 这段文字落在第几页第几行（T11.2）：{page_no, line_from, line_to, matched}，落不到页时 page_no 为 null */
+  locate: (itemId, chunkId) => get(`/api/knowledge/${itemId}/locate`, { chunk_id: chunkId }),
   /** 页图地址（PDF / 扫描页）；图片原件用 fileUrl 拿原格式，别经这层固定 image/jpeg */
   pageImageUrl: (itemId, n) => `${baseUrl()}/api/knowledge/${itemId}/file?page=${n}`,
   fileUrl: (itemId) => `${baseUrl()}/api/knowledge/${itemId}/file`,
