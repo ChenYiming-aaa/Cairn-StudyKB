@@ -52,6 +52,7 @@ function pick(n) {
 <template>
   <div class="answer">
     <div class="question">{{ answer.question }}</div>
+    <p v-if="answer.tries > 1" class="retried">模型第一次回的是「没找到」，这是又问了一次的结果</p>
 
     <p class="body">
       <template v-for="(piece, i) in pieces" :key="i">
@@ -88,7 +89,7 @@ function pick(n) {
     </blockquote>
 
     <div v-if="isFallback" class="fallback">
-      <p class="fb-head">模型说这段材料里没有能回答这个问题的内容。</p>
+      <p class="fb-head">连着问了两次，模型都说材料里没有能回答这个问题的内容。</p>
       <p>
         这不是没接上：问答规则要求它只依据材料回答，材料里没有就回这一句，
         宁可空手也不许拿常识补一段。桌面版问到材料外的东西时，也是这样回答的。
@@ -196,5 +197,11 @@ function pick(n) {
 
 .fb-head {
   color: var(--c-text-1);
+}
+
+.retried {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
 }
 </style>

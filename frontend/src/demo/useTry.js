@@ -9,6 +9,10 @@
  *    所以这里的 `[1]` 是「第几段材料」，不是数据库里的 chunk id。
  * 2. 出题不做过往题面去重（桌面版会排除已经出过的题）。
  */
+
+/** ask.md 规则 2 的原句：模型判「材料不足」时只回这一句 */
+const FALLBACK = '知识库中没有找到相关内容'
+const CITED = /\[\d+\]/
 /* global __DEMO_PROMPTS__ */
 import { computed, reactive, ref } from 'vue'
 
@@ -173,7 +177,14 @@ export function useTry() {
     }
   }
 
-  /** ③ 追问：对应桌面版的 ask（材料切块后全给，编号 [1]..[n]） */
+  /**
+   * ③ 追问：对应桌面版的 ask（材料切块后全给，编号 [1]..[n]）。
+   *
+   * **回退要再问一次**：`ask.md` 规则 2 要求「材料不足以回答就只回那一句」，但模型对
+   * 「材料够不够」的判断不稳 —— 2026-11-14 实测同一份请求体重放 6 次里有 2 次把明明答得出的题
+   * 判成「没找到」（33%，与材料段带不带标题无关，改请求体也没用）。所以这里像真人一样再问一次，
+   * 并把「问了两遍」写在界面上 —— 不偷偷替换结果，只是不把一次抖动当成演示的终点。
+   */
   async function ask() {
     const q = question.value.trim()
     if (!q) return
@@ -182,10 +193,19 @@ export function useTry() {
     try {
       const blocks = paras.value.map((text, idx) => `[${idx + 1}] ${text}`).join('\n\n')
       const prompt = fill(PROMPTS.ask, { CONTEXT: blocks, QUESTION: q })
-      const got = await chat({ conn, messages: [{ role: 'user', content: prompt }] })
-      consume(got)
+      const once = async () => {
+        const got = await chat({ conn, messages: [{ role: 'user', content: prompt }] })
+        consume(got)
+        return got.text
+      }
+      let text = await once()
+      let tries = 1
+      if (text.includes(FALLBACK) && !CITED.test(text)) {
+        tries = 2
+        text = await once()
+      }
       remember()
-      answer.value = { text: got.text, question: q, blocks: paras.value }
+      answer.value = { text, question: q, blocks: paras.value, tries }
       steps.answer = { state: 'done', msg: '', detail: '' }
     } catch (err) {
       failed('answer', err)
