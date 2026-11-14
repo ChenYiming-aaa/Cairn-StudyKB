@@ -67,6 +67,9 @@ Release 页 / CHANGELOG 一致；「MB」按定义就是 10⁶）；`digits=0` �
 `/api/version` = `0.3.1` + `83361bc` + `2026-11-14T22:42:39`，`/` 200，
 `/pdf/cmaps/*.bcmap` 与 `/pdf/wasm/openjpeg.wasm` 都 200，`pdf.worker.min-*.mjs` 送 `text/javascript`，
 包内 `web/assets/index-BrWnO0vP.js` 与本地 `frontend/dist` 同名（确认进去的是新 dist 而不是旧的）。
+`tools/e2e_update.py --only all` 在 scratch 安装（`D:/cairn-t930`，**0.3.0 → 0.3.1**）**27/27 PASS** ——
+真下载、校验、起安装器、壳退出无孤儿后端、静默装到指定目录，装完「关于」报 `v0.3.1` + `83361bc` + `2026-11-14 22:42`，
+真 API 判「已是最新」。
 组件包不用重发（`components-v1` 未动）。
 
 **M9 收口（2026-11-13）**：版本 `0.3.0-alpha.1`（预发布）、安装包 **180,933,111 B**（sha256 `f5580fa2…`）、`tools/e2e_update.py --only all` 在 scratch 安装（`D:/cairn-t930`，0.2.1 → 0.3.0-alpha.1）**27/27 PASS**（断网人话 / 取消删净 / 起安装器且无孤儿后端 / 真 API 判「已是最新」）；线上演示站 fixture 用 `tools/capture_demo.py` 重抓（6 条内容原样灌库 + 真后端抓 GET，新增工作区与 `kind` / `workspace_id` / `file` 字段）；`tools/audit_kb.py`、`tools/build_signed.py`、`tools/capture_demo.py` 入库；`%TEMP%` 里 385 个 `cairn-verify-*`（4.9 GB）已清
