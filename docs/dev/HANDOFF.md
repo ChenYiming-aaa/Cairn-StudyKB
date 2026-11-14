@@ -29,7 +29,7 @@
 | 远程 | `origin/main` 见本文件最后一条「推送状态」；标签 `m8-done`、`v0.2.0`、`v0.2.1` |
 | 版本 | **0.3.0**（正式版，四处一致，`tools/bump_version.py --check` 通过） |
 | 标签 | `m0-docs` `m0-ready` `m1-backend` `m1.1` `m1-done` `m2-web` `m2-done` `m3-wip` `m3-done` `m4-wip` `m4-done` `m5-wip` `v0.1.0` `m6-wip` `m6-part1` `m6-done` `m7-wip` `m7-done` `m8-wip` `v0.2.0` `m8-done` `v0.2.1` `m10-done` `m11-done` `v0.3.0-alpha.1` `v0.3.0` |
-| 验收 | **v0.3.0 发版回归（2026-11-14）`python tools/regress.py --keep-going` m1–m11 全绿 1155 条 / 16.3 分钟**（m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 91 · m8 106 · m9 305 · m10 151 · m11 61），另跑了包内后端冒烟（装出来的 `cairn-backend.exe` 起得来、`/api/version` 报 `0.3.0` + `commit 5befae4`、`/pdf` 的 cmaps 与三个 wasm 齐全、`.mjs` 送 `text/javascript`）、`tools/e2e_update.py --only all` 在 scratch 安装（0.3.0-alpha.1 → 0.3.0）**27/27 PASS**；**M11（2026-11-14）`verify_m11.py` 61/61（pdf 11 · locate 15 · assets 19 · ui 16，12 s）、真样本走查 `tools/walk_locate.py` 整段落页 24/24 与跨页块带 q 11/11、回归 m1 53 · m7 91 · m9 `--only raw` 17 全绿**；**M10（2026-11-13）`verify_m10.py` 151/151、`python tools/regress.py` m1–m10 全绿 8.6 分钟（m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 106 · m9 305 · m10 151）、前端 lint 干净、build 通过（JS 385.05 kB / gzip 138.05；CSS 118.09 / 17.29）**；**M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿**；**T9.5（2026-11-12）自检 16 条 + 端到端 9 条全过（三态 / 单页隔离 / 5+1 分批 / 拷包即用 / 卸载回落 / `OCR_MISSING`），`verify_m7` 41/41、`verify_m8` 105/105、前端 lint 干净、build 通过（JS 330.87 kB / gzip 120.68；CSS 96.21 / 14.45）**；**T9.6（2026-11-12）自检 39 条全过、四组 `twocol.pdf` 40 页判列零错行、断点续跑与单页重试实测通过、30 页 102 秒 / 130 秒（3.4–4.3 秒/页）**；**T9.7（2026-11-13）`verify_m9.py --only extract` 76/76（四组 course.docx 的表/图/标题/段落数与 `samples/_check.json` 逐项相等、HTML 无 base64 图、pptx 备注与表格、xlsx 200 行截断与转义、txt 三档编码、端到端覆盖正文；坏文件与只有图的 docx 都不留半份），`--only resume` 8/8、`--only layout --pages 2` 30/30，回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.8（2026-11-13）`verify_m7` 45/45（新增 4 条采集面板文案扫描）、`verify_m9 --only extract` 77/77（新增 1 条 xlsx 截断断言）、五文件同传与未装组件两轮界面实跑、上传取消实测零残留、前端 lint 干净、build 通过（JS 341.16 kB / gzip 124.34）**；**T9.9（2026-11-13）`verify_m9 --only workspace` 25/25（工作区 CRUD、四处计数对齐、`none` = `IS NULL`、删只移出、批量整理按工作区收窄；不碰识别组件，2 秒）、`verify_m7` 57/57（+12 条工作区界面用例：建 2 个各放 3 条、左栏数字与接口逐条相同、改名同步、删除回落未归类、详情下拉移出）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 与 `--only extract` 77/77 全绿、前端 build 通过**；**T9.10（2026-11-13）`verify_m9 --only raw` 17/17（`pages/{n}` 七字段齐、`line_conf` 逐行对齐、坏 JSON 不 500、docx 版式三条净化断言、`order_lines_detail` 保序取最低分）、`--only extract` 80/80（+3 条：版式随页返回 / 无 `<script>` / 抽取页 `line_conf` 为 NULL）、`verify_m7` 84/84（+20 条：Word 版式 DOM、PDF 页图 `naturalWidth>0` + 低分行标黄 + 翻页换文字 + 无页图占位、PPT 标题/要点/备注 + 翻页、图片原图 + 文字对照、`<script>` 不执行、纯文本仍走 `.raw`）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿、lint 干净、build 通过（JS 359.86 kB / gzip 129.84）**；**T9.11（2026-11-13）`verify_m9 --only kind` 18/18（模型硬塞笔记被丢、图片允许 0 要点且不重试、material→exam 旧笔记清空、占位拒绝 409 / partial 放行 202、批量跳过并回报）、`verify_m7` 88/88（+4 条页签用例：试卷无「整理笔记」且默认停摘要、普通资料仍有）、回归 m1 53 · m3 61 · m4 69 全绿、`--only layout` 126/126 与 `--only resume` 8/8（`ocr_layout` 重构后真 OCR 复核 1193 s + 151 s）、lint 干净、build 通过（JS 360.36 kB / gzip 129.99）**；**T9.12（2026-11-13）`verify_m9` 全九组 305/305（326–1034 s，波动全在 §layout 真识别）、`python tools/regress.py` 一条命令 m1–m9 全绿（两轮 9.4 与 20.0 分钟；m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 105 · m9 305），顺带修了 `WorkspaceRow.vue` 写死颜色、`verify_m6` §8 的 v2 老库桩、`ocr.CALL_TIMEOUT` 180→300 秒，并把「缺样本」真跑成了 SKIP** |
+| 验收 | **v0.3.0 发版回归（2026-11-14）`python tools/regress.py --keep-going` m1–m11 全绿 1155 条 / 16.3 分钟**（m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 91 · m8 106 · m9 305 · m10 151 · m11 61），另跑了包内后端冒烟（装出来的 `cairn-backend.exe` 起得来、`/api/version` 报 `0.3.0` + `commit 5befae4`、`/pdf` 的 cmaps 与三个 wasm 齐全、`.mjs` 送 `text/javascript`）、`tools/e2e_update.py --only all` 在 scratch 安装（0.3.0-alpha.1 → 0.3.0）**27/27 PASS**；**M11（2026-11-14）`verify_m11.py` 61/61（pdf 11 · locate 15 · assets 19 · ui 16，12 s）、真样本走查 `tools/walk_locate.py` 整段落页 24/24 与跨页块带 q 11/11、回归 m1 53 · m7 91 · m9 `--only raw` 17 全绿（2026-11-14 晚统一体积口径后又加了 2 条，`verify_m7` 现为 **93/93**）**；**M10（2026-11-13）`verify_m10.py` 151/151、`python tools/regress.py` m1–m10 全绿 8.6 分钟（m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 106 · m9 305 · m10 151）、前端 lint 干净、build 通过（JS 385.05 kB / gzip 138.05；CSS 118.09 / 17.29）**；**M8 `verify_m8.py` 105/105**（§1 protocol 38 / §3 install 36 / §5 update 31） · 回归 **m1 52 · m2 118 · m3 61 · m4 69 · m5 57 · m6 78 · m7 41** · `tools/e2e_clean.py` **28/28**（干净机模拟） · `tools/e2e_update.py --only real` **4/4** · 安装包 **172,078,997 B**（sha256 `2a6f238e…`） · 前端 lint 干净、build 通过（JS 330.20 kB / gzip 120.69；CSS 96.21 / 14.45）；**CP1（2026-11-12）`doc_check` 0 FAIL、T9.2 自检 25/25、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.3（2026-11-12）自检六组全过、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.4（2026-11-12）`cairn-ocr` 打包 118 MB / 解包 266 MB、`--selftest` 断网通过（2.1 s、0.996）、协议 5 页上限与单页隔离实测通过、`verify_m8` 105/105（同步修了「三个条目」断言）、回归 m1–m5 全绿**；**T9.5（2026-11-12）自检 16 条 + 端到端 9 条全过（三态 / 单页隔离 / 5+1 分批 / 拷包即用 / 卸载回落 / `OCR_MISSING`），`verify_m7` 41/41、`verify_m8` 105/105、前端 lint 干净、build 通过（JS 330.87 kB / gzip 120.68；CSS 96.21 / 14.45）**；**T9.6（2026-11-12）自检 39 条全过、四组 `twocol.pdf` 40 页判列零错行、断点续跑与单页重试实测通过、30 页 102 秒 / 130 秒（3.4–4.3 秒/页）**；**T9.7（2026-11-13）`verify_m9.py --only extract` 76/76（四组 course.docx 的表/图/标题/段落数与 `samples/_check.json` 逐项相等、HTML 无 base64 图、pptx 备注与表格、xlsx 200 行截断与转义、txt 三档编码、端到端覆盖正文；坏文件与只有图的 docx 都不留半份），`--only resume` 8/8、`--only layout --pages 2` 30/30，回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿**；**T9.8（2026-11-13）`verify_m7` 45/45（新增 4 条采集面板文案扫描）、`verify_m9 --only extract` 77/77（新增 1 条 xlsx 截断断言）、五文件同传与未装组件两轮界面实跑、上传取消实测零残留、前端 lint 干净、build 通过（JS 341.16 kB / gzip 124.34）**；**T9.9（2026-11-13）`verify_m9 --only workspace` 25/25（工作区 CRUD、四处计数对齐、`none` = `IS NULL`、删只移出、批量整理按工作区收窄；不碰识别组件，2 秒）、`verify_m7` 57/57（+12 条工作区界面用例：建 2 个各放 3 条、左栏数字与接口逐条相同、改名同步、删除回落未归类、详情下拉移出）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 与 `--only extract` 77/77 全绿、前端 build 通过**；**T9.10（2026-11-13）`verify_m9 --only raw` 17/17（`pages/{n}` 七字段齐、`line_conf` 逐行对齐、坏 JSON 不 500、docx 版式三条净化断言、`order_lines_detail` 保序取最低分）、`--only extract` 80/80（+3 条：版式随页返回 / 无 `<script>` / 抽取页 `line_conf` 为 NULL）、`verify_m7` 84/84（+20 条：Word 版式 DOM、PDF 页图 `naturalWidth>0` + 低分行标黄 + 翻页换文字 + 无页图占位、PPT 标题/要点/备注 + 翻页、图片原图 + 文字对照、`<script>` 不执行、纯文本仍走 `.raw`）、回归 m1 53 · m2 118 · m3 61 · m4 69 · m5 57 全绿、lint 干净、build 通过（JS 359.86 kB / gzip 129.84）**；**T9.11（2026-11-13）`verify_m9 --only kind` 18/18（模型硬塞笔记被丢、图片允许 0 要点且不重试、material→exam 旧笔记清空、占位拒绝 409 / partial 放行 202、批量跳过并回报）、`verify_m7` 88/88（+4 条页签用例：试卷无「整理笔记」且默认停摘要、普通资料仍有）、回归 m1 53 · m3 61 · m4 69 全绿、`--only layout` 126/126 与 `--only resume` 8/8（`ocr_layout` 重构后真 OCR 复核 1193 s + 151 s）、lint 干净、build 通过（JS 360.36 kB / gzip 129.99）**；**T9.12（2026-11-13）`verify_m9` 全九组 305/305（326–1034 s，波动全在 §layout 真识别）、`python tools/regress.py` 一条命令 m1–m9 全绿（两轮 9.4 与 20.0 分钟；m1 53 · m2 118 · m3 61 · m4 69 · m5 57 · m6 83 · m7 88 · m8 105 · m9 305），顺带修了 `WorkspaceRow.vue` 写死颜色、`verify_m6` §8 的 v2 老库桩、`ocr.CALL_TIMEOUT` 180→300 秒，并把「缺样本」真跑成了 SKIP** |
 
 | 许可证 | MIT（`LICENSE`，与 AnythingLLM / Quivr 同类项目一致） |
 | 在线演示 | **<https://chenyiming-aaa.github.io/Cairn-StudyKB/> 已上线（200）** —— `VITE_DEMO=1` 构建的只读静态演示（fixture 抓自真实后端），`.github/workflows/pages.yml` 在 main 更新后自动部署。**仓库必须 Public**（免费账号私有仓库不支持 Pages，这是首次 404 的原因）；Source 必须是 `GitHub Actions` |
@@ -51,11 +51,15 @@ GitHub Release <https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases/tag/v0.
 4. 组件包没动：`components-v1` 四个 zip 与 `app/components.json` 逐个比对一致（组件入口在 `components/` 自己目录，
    `app/services` 不在包里，所以 M10/M11 的改动进不去）
 
-**两个口径问题（只记录，没改代码）**：① **同一个安装包，文档写 182 MB、「检查更新」里写 174 MB** ——
-`182,438,848 B` 按 1000 起算是 182、按 1024 起算是 174。代码里两套算法同时存在：
-`composables/useUpdater.js` 与 `utils/format.js` 用 `1024 × 1024`，`views/Setup.vue` 用 `1e6`，
-文档跟着 `Setup.vue` 那一套。用户对着 Release 页下载时，看到的是 182 MB 的文件和 174 MB 的进度。
+**体积口径（2026-11-14 晚已修）**：① 发版时逮到 **同一个安装包，文档写 182 MB、「检查更新」里写 174 MB** ——
+`182,438,848 B` 按 10⁶ 是 182、按 1024² 是 174。根因是**五处各写了一份体积格式化**：
+`utils/format.fileSize` 与 `composables/useUpdater.js` 用 `1024 × 1024`，
+`views/Setup.vue`、`settings/DownloadsTab.vue`、`views/HtmlPages.vue` 各写一份 `1e6`/`1024`。
 ② 老版本一样有这个问题（0.2.1 文档 172 MB、检查更新里是 164 MB），只是以前没人同时看两处。
+**修法**：全部收进 `utils/format.fileSize(bytes, digits)`，口径**统一十进制**（1 MB = 10⁶，与 README /
+Release 页 / CHANGELOG 一致；「MB」按定义就是 10⁶）；`digits=0` 给下载与组件体积（`182 MB`），
+默认 1 位给文件列表（`12.9 MB`），小于 1 KB 显示 `812 B`。`文案规范.md` §7 加了这条，
+`verify_m7` 加两条断言钉住（下载页数字必须等于字节数按 10⁶ 算、前端不许出现第二套算法），91 → 93 条。
 
 **M9 收口（2026-11-13）**：版本 `0.3.0-alpha.1`（预发布）、安装包 **180,933,111 B**（sha256 `f5580fa2…`）、`tools/e2e_update.py --only all` 在 scratch 安装（`D:/cairn-t930`，0.2.1 → 0.3.0-alpha.1）**27/27 PASS**（断网人话 / 取消删净 / 起安装器且无孤儿后端 / 真 API 判「已是最新」）；线上演示站 fixture 用 `tools/capture_demo.py` 重抓（6 条内容原样灌库 + 真后端抓 GET，新增工作区与 `kind` / `workspace_id` / `file` 字段）；`tools/audit_kb.py`、`tools/build_signed.py`、`tools/capture_demo.py` 入库；`%TEMP%` 里 385 个 `cairn-verify-*`（4.9 GB）已清
 
@@ -2517,6 +2521,37 @@ Word 内嵌图片走文件流（T11.3）、`verify_m11` 四组 **61 条**（T11.
 - 图片只有一页、PPT 有页无页图，所以这两类的「跳转」是文内定位不是翻页。
 
 **下一会话第一件事**
-> 收口 v0.3：先 `python tools/regress.py`（m1–m11 全量，约 10 分钟）确认零回归，
-> 再裁决发版号（`0.3.0` 正式版 vs 再发一个 `alpha.2`），然后按 §M9 收口那套打 tag、写 release notes、
-> 上传安装包与 `.sha256`。改 `locate` 任何判据前先跑 `python tools/walk_locate.py`。
+> **v0.3.0 已发布**（v0.3 收口完成，见本文件顶部「v0.3.0 收口」）。下一步是 backlog：
+> 引用定位落不到时的提示、Word 图保原图选项、老内容批量重读、演示站 fixture 补试卷导入与 PDF 连续滚动。
+> 改 `locate` 任何判据前先跑 `python tools/walk_locate.py`。
+
+---
+
+## 2026-11-14 夜 · 修发版留下的两处问题（体积口径统一 + 过时条数）
+
+**① 界面与文档的体积对不上 —— 不是笔误，是五份实现**
+
+`182,438,848 B` 在「检查更新」里显示 **174 MB**、README 与 Release 页写 **182 MB**。
+根因：前端有**五份**体积格式化，各算各的 ——
+`utils/format.fileSize`、`composables/useUpdater.js` 用 `1024²`；
+`views/Setup.vue`、`settings/DownloadsTab.vue`、`views/HtmlPages.vue` 各写一份 `1e6` / `1024`。
+
+**裁决（用户选十进制）**：全部收进 `utils/format.fileSize(bytes, digits)`，口径 **1 MB = 10⁶**
+（与 README / Release 页 / CHANGELOG 一致；「MB」按定义就是 10⁶）。
+`digits=0` 给下载与组件体积（`182 MB`）、默认 1 位给文件列表（`12.9 MB`）、< 1 KB 显示 `812 B`。
+`useUpdater` 保留导出的 `fmtBytes` 名字（「关于」页在用），实现改成调 `fileSize(n, 0)`；
+`Setup.vue` / `DownloadsTab.vue` / `HtmlPages.vue` 里那三个本地函数删掉。
+`文案规范.md` §7 加一行「体积」，`verify_m7` 加两条断言 ——
+下载页数字必须等于 `round(字节 / 10⁶)`、前端不许再出现 `1048576` / `1024 * 1024` 这类第二套算法，**91 → 93**。
+
+**② 两处过时条数（改了）**
+
+`运行与打包.md` 写 `verify_m8` 105/105（实跑 **106**，§5 更新 31 → 32）、`verify_m7` 88/88（实跑 91，现 **93**），
+并补上 m10（151）与 m11（61）两行；`00-总纲.md` M8 行的 `verify_m8` 105 → 106。
+都是「后加用例没回头改文档」，不是回归。
+
+**验证**：`verify_m7` **93/93**（含 2 条新断言）、`verify_m8` **106/106**、前端 lint 干净、build 通过、`doc_check` 通过。
+
+**待决**：这两处改动还没进安装包 —— `v0.3.0` 的 `Cairn-0.3.0-setup.exe` 里是旧 `dist`，
+装出来的界面仍显示 174 MB。要发 **v0.3.1** 补丁版才有意义（改前端就得重打包、重发 Release、更新器才会推送）。
+代码与文档已提交，包没重打。

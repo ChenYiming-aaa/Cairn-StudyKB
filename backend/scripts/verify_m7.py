@@ -18,7 +18,9 @@
   6b. 采集面板（T9.8）两个 tab 与文件卡片的文案同样过一遍：面板是模态，
       不点开就永远扫不到那半屏
   7. 两个搜索框的 placeholder / aria-label 可区分（S-12）
-  8. 设置窗口四个 tab 的可见文案同样过禁止词
+  8. 设置窗口四个 tab 的可见文案同样过禁止词；顺带钉住**体积口径** ——
+     下载页的数字必须是字节数按 10⁶ 算出来的（2026-11-14 统一之前，
+     更新页按 1024² 算，同一个安装包两处差 8 MB），且前端不许有第二套算法
   9. 选中分类后状态计数收窄到该类（分类树仍是全库）、点「全部内容」回到全库
  10. 分类手风琴：展开第二个分类时第一个自动收起
  11. 导图请求带主题 id 与明暗，不同主题产出不同配色
@@ -845,6 +847,28 @@ def main() -> int:
                 check(f"设置·{tab} 没有禁止词", not hits, " | ".join(hits))
                 if shots and tab == "外观":
                     page.screenshot(path=str(shots / "09-settings-appearance.png"))
+
+            # ── 体积口径（2026-11-14）───────────────────────
+            # 界面上写 262 MB，就得是 261,959,001 字节按 10⁶ 算出来。
+            # 曾经下载页按 10⁶、更新页按 1024²，同一个安装包两处差 8 MB（174 vs 182）。
+            page.get_by_role("tab", name=re.compile("^下载")).click()
+            page.wait_for_timeout(400)
+            dialog_text = page.inner_text("[role='dialog']")
+            sizes = [c["size"] for c in get_json(base, "api/components").get("items", []) if c.get("size")]
+            want = [f"{round(s / 1e6)} MB" for s in sizes]
+            check("下载页的体积按 10⁶ 算（与 README / Release 页同一口径）",
+                  bool(want) and all(w in dialog_text for w in want),
+                  "期望 " + " / ".join(want) + " · 实际 " + dialog_text.replace("\n", " ")[:100])
+
+            # 全应用只许有一处体积格式化函数：多一份就会各算各的（这轮就是这么来的）
+            pat = re.compile(r"1048576|1024\s*\*\s*1024|/\s*1024\s*/\s*1024")
+            dup = sorted(
+                p.relative_to(ROOT).as_posix()
+                for p in (ROOT / "frontend" / "src").rglob("*")
+                if p.suffix in (".js", ".vue") and pat.search(p.read_text(encoding="utf-8", errors="ignore"))
+            )
+            check("前端没有第二套体积算法（都走 utils/format.fileSize）", not dup, " | ".join(dup))
+
             page.keyboard.press("Escape")
             page.wait_for_timeout(300)
 
