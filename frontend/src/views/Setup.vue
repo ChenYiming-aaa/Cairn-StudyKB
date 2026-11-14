@@ -7,6 +7,7 @@ import { useToast } from '../composables/useToast'
 import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
 import ProviderForm from '../components/settings/ProviderForm.vue'
+import { fileSize } from '../utils/format'
 
 /**
  * 首次引导（T5.7）。
@@ -76,13 +77,6 @@ function onModels(list) {
 const comps = ref([])
 const picked = ref(['embed'])          // 向量默认勾上（"按意思搜"是最常被感知的一项）
 const starting = ref(false)
-
-function fmtSize(bytes) {
-  const n = Number(bytes) || 0
-  if (n <= 0) return '—'
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`
-  return `${Math.round(n / 1e6)} MB`
-}
 
 function isInstalled(id) {
   return (comps.value.find((c) => c.id === id) || {}).state === 'installed'
@@ -239,7 +233,7 @@ onMounted(async () => {
               </span>
             </label>
             <span class="pick-size">
-              {{ isInstalled(comp.id) ? '已安装' : comp.state === 'downloading' ? '安装中' : fmtSize(comp.size) }}
+              {{ isInstalled(comp.id) ? '已安装' : comp.state === 'downloading' ? '安装中' : fileSize(comp.size, 0) }}
             </span>
             <p class="pick-why">{{ comp.why }}</p>
           </li>

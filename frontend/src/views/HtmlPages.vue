@@ -5,7 +5,7 @@ import { api, friendlyMessage } from '../api/client'
 import RailToggle from '../components/RailToggle.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useToast } from '../composables/useToast'
-import { shortTime } from '../utils/format'
+import { fileSize, shortTime } from '../utils/format'
 
 /**
  * T3.10 学习页：左侧多选条目 → 填标题 → 生成 → 右侧 iframe 预览 → 下载。
@@ -47,12 +47,6 @@ const pickedItems = computed(() =>
   picked.value.map((id) => items.value.find((it) => it.id === id)).filter(Boolean)
 )
 
-function humanSize(bytes) {
-  const n = Number(bytes) || 0
-  return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB`
-    : n >= 1024 ? `${(n / 1024).toFixed(0)} KB` : `${n} B`
-}
-
 async function loadItems() {
   loading.value = true
   listError.value = ''
@@ -92,7 +86,7 @@ async function generate() {
     current.value = result
     previewKey.value += 1
     if (!title.value.trim()) title.value = result.title
-    toast.ok(`已生成「${result.title}」，${humanSize(result.size_bytes)}`)
+    toast.ok(`已生成「${result.title}」，${fileSize(result.size_bytes)}`)
     loadHistory()
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -268,7 +262,7 @@ onMounted(() => {
           <div class="frame-head">
             <span class="frame-title">{{ current.title }}</span>
             <span class="frame-meta">
-              {{ humanSize(current.size_bytes) }} · 单文件离线 · 浅色排版（便于打印）
+              {{ fileSize(current.size_bytes) }} · 单文件离线 · 浅色排版（便于打印）
             </span>
           </div>
           <div class="stage-frame-clip">
@@ -303,7 +297,7 @@ onMounted(() => {
             <span class="drawer-title">{{ entry.title }}</span>
             <span class="drawer-sub">
               {{ shortTime(entry.created_at) }} · {{ entry.item_count }} 条 ·
-              {{ humanSize(entry.size_bytes) }}
+              {{ fileSize(entry.size_bytes) }}
             </span>
           </button>
           <button

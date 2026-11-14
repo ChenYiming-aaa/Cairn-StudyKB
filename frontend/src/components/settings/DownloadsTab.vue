@@ -17,6 +17,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
 import { useToast } from '../../composables/useToast'
+import { fileSize } from '../../utils/format'
 
 const toast = useToast()
 
@@ -35,13 +36,6 @@ let timer = null
 let stopped = false
 
 const anyRunning = computed(() => items.value.some((i) => i.state === 'downloading'))
-
-function fmt(bytes) {
-  const n = Number(bytes) || 0
-  if (n <= 0) return '—'
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`
-  return `${Math.round(n / 1e6)} MB`
-}
 
 /** 状态徽标：文案要说清"现在到底能不能用"，不是复述枚举 */
 function badge(item) {
@@ -91,7 +85,7 @@ async function install(item) {
   busy.value = { ...busy.value, [item.id]: true }
   try {
     await api.installComponent(item.id)
-    toast.info(`开始下载${item.name}，${fmt(item.size)}。可以关掉设置窗口，装完会通知`)
+    toast.info(`开始下载${item.name}，${fileSize(item.size, 0)}。可以关掉设置窗口，装完会通知`)
     await load()
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -118,7 +112,7 @@ async function uninstall(item) {
   busy.value = { ...busy.value, [item.id]: true }
   try {
     const res = await api.uninstallComponent(item.id)
-    toast.ok(`已卸载${item.name}，释放 ${fmt(res?.freed || item.bytes)}`)
+    toast.ok(`已卸载${item.name}，释放 ${fileSize(res?.freed || item.bytes, 0)}`)
     await load()
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -168,7 +162,7 @@ onBeforeUnmount(() => {
             {{ item.name }}
             <span class="badge" :class="badge(item).tone">{{ badge(item).text }}</span>
           </h4>
-          <span class="size">{{ item.state === 'installed' ? fmt(item.bytes) : fmt(item.size) }}</span>
+          <span class="size">{{ item.state === 'installed' ? fileSize(item.bytes, 0) : fileSize(item.size, 0) }}</span>
         </div>
 
         <p class="why">{{ item.why }}</p>
@@ -177,7 +171,7 @@ onBeforeUnmount(() => {
         <div v-if="item.state === 'downloading'" class="progress">
           <div class="bar"><i :style="{ width: (item.install?.pct || 0) + '%' }" /></div>
           <div class="progress-meta">
-            <span class="phase">{{ item.install?.phase === 'verify' ? '校验文件…' : item.install?.phase === 'extract' ? '解压中…' : `${fmt(item.install?.got)} / ${fmt(item.install?.total)}` }}</span>
+            <span class="phase">{{ item.install?.phase === 'verify' ? '校验文件…' : item.install?.phase === 'extract' ? '解压中…' : `${fileSize(item.install?.got, 0)} / ${fileSize(item.install?.total, 0)}` }}</span>
             <button
               class="btn btn-sm btn-ghost"
               type="button"
@@ -215,7 +209,7 @@ onBeforeUnmount(() => {
           </template>
 
           <template v-else>
-            <span class="hint">{{ isDemo ? '演示版不能装' : item.state === 'broken' ? '重装一次通常能修' : `下载 ${fmt(item.size)}` }}</span>
+            <span class="hint">{{ isDemo ? '演示版不能装' : item.state === 'broken' ? '重装一次通常能修' : `下载 ${fileSize(item.size, 0)}` }}</span>
             <button
               class="btn btn-sm btn-primary"
               type="button"

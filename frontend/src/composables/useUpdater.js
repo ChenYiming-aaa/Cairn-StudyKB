@@ -11,6 +11,8 @@
  */
 import { computed, ref } from 'vue'
 
+import { fileSize } from '../utils/format'
+
 const bridge = typeof window !== 'undefined' ? window.cairn : null
 const canUpdate = Boolean(bridge && bridge.update)
 
@@ -46,12 +48,11 @@ function listen() {
   })
 }
 
-function fmtBytes(n) {
-  const size = Number(n) || 0
-  if (size <= 0) return '—'
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
-  return `${(size / (1024 * 1024)).toFixed(0)} MB`
-}
+/**
+ * 下载体积一律走 `utils/format.fileSize`（十进制，与 README / Release 页同一个数）。
+ * 名字保留成 `fmtBytes` 是因为「关于」页从这里取 —— 换名字会让调用点跟着动，不值当。
+ */
+const fmtBytes = (n) => fileSize(n, 0)
 
 async function check() {
   if (!canUpdate) return
