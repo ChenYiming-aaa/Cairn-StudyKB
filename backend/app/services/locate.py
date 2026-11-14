@@ -12,6 +12,10 @@
 **比对的是 `text_reviewed or text`**：M10 的校对写的是 `text_reviewed`，
 识别原文永不覆盖。拿 `text` 比会「校对完再点引用，跳不过去」——
 用户看到的、以及切成 chunk 的都是校对后的文本。
+
+**命中优先看锚点长短，其次才看页序**：讲义里「课堂笔记」页会把前面几页的要点重述一遍，
+按页序取第一个能对上的页，会把「第 8 页那段完整的话」判到「第 2 页的相似半句」上
+（真样本实测 25 块错 2 块）。详见 `_search`。
 """
 from __future__ import annotations
 
@@ -42,7 +46,7 @@ def _flatten(text: str) -> tuple[str, list[int]]:
 
 
 def locate(chunk_text: str, pages: list[tuple[int, str]], hint: str | None = None) -> dict | None:
-    """`pages` 是 `[(page_no, text)]`，按页序找第一处命中。
+    """`pages` 是 `[(page_no, text)]`，找**对得最长**的那一处。
 
     返回 `{page_no, line_from, line_to, matched}`：行号是**该页文字按 `\\n` 切**的下标，
     与 `pages/{n}` 返回的 `text` 一致（前端就按这个下标标黄）。
@@ -63,25 +67,43 @@ def locate(chunk_text: str, pages: list[tuple[int, str]], hint: str | None = Non
 
 
 def _search(needle: str, pages: list[tuple[int, str]]) -> dict | None:
+    """**锚点长的优先，同一长度再按页序**。
+
+    2026-11-14 真样本走查改的这里：原先是「先扫第 1 页，每页从 600 字递减到 12 字」，
+    于是**早一页的短前缀**会截胡**后一页的完整段落** —— 10 页双栏讲义 25 块里有 2 块落错页。
+    真讲义里「课堂笔记」页会把前几页的要点重述一遍，`注意冒号后的格式串与变量` 这种
+    十几个字的重述到处都是，而用户点的是第 8 页那段完整的话。
+
+    「能对上更长的前缀」这一条本身就说明那一页更像真正的所在：
+    我们永远只拿 chunk 的**开头**去比，别页能对上 240 字，就意味着这 240 字连续躺在那一页上。
+    长度相同才轮到页序 —— 同一段话在两页都完整出现时，落到靠前那页更符合「从哪开始」。
+    """
+    flats: list[tuple[int, str, str, list[int]]] = []
     for page_no, text in pages:
         body = text or ""
         if not body:
             continue
         flat, offsets = _flatten(body)
-        if not flat:
+        if flat:
+            flats.append((int(page_no), body, flat, offsets))
+    if not flats:
+        return None
+
+    floor = min(MIN_ANCHOR, len(needle))
+    # 去重并保持从长到短：needle 比 600 短时，前几个尺寸切出来的是同一个整串，
+    # 不 dedupe 就会对同一份文件做四遍全文扫描
+    for size in dict.fromkeys(min(size, len(needle)) for size in (*PREFIX_SIZES, len(needle))):
+        cut = needle[:size]
+        if len(cut) < floor:
             continue
-        # 先试整段，再按 600/400/.../12 递减：跨页的 chunk 只有前缀落在这一页
-        for size in (*PREFIX_SIZES, len(needle)):
-            cut = needle[:size]
-            if len(cut) < min(MIN_ANCHOR, len(needle)):
-                continue
+        for page_no, body, flat, offsets in flats:
             at = flat.find(cut)
             if at < 0:
                 continue
             start = offsets[at]
             end = offsets[at + len(cut) - 1]
             return {
-                "page_no": int(page_no),
+                "page_no": page_no,
                 "line_from": body.count("\n", 0, start),
                 "line_to": body.count("\n", 0, end),
                 # 按**原文**回一段：去空白后的串对不上页面文字，前端要拿它标黄

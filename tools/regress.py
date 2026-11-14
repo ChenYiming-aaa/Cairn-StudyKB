@@ -7,14 +7,14 @@
 要等到下一轮才发现。这里把「跑全部」变成一条命令。
 
 用法：
-    python tools/regress.py            # m1 → m9 全跑
+    python tools/regress.py            # 扫到的全部跑（当前 m1 → m11）
     python tools/regress.py --from 9   # 从 m9 开始（改完 M9 只补这一段）
     python tools/regress.py --only 7,9 # 只跑 m7 和 m9
     python tools/regress.py --list     # 只列将要跑哪些，不执行
     python tools/regress.py --keep-going   # 有 FAIL 也接着跑完（定位多处回归用）
 
 脚本列表**靠扫目录**得出（`backend/scripts/verify_m<N>.py`），不写死 m1..m9：
-M10 / M11 加了脚本自然会被带上，不用回来改这里。
+M10 / M11 就是这么被自动带上的（`--list` 已见 m11），以后加脚本不用回来改这里。
 
 退出码：0 全绿；1 有 FAIL；2 没 FAIL 但有环境不满足（脚本自己退 2）
         —— 2 与 0 必须分开：干净机上缺识别组件是正常事，不能让它冒充「全绿」。
