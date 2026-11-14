@@ -15,7 +15,7 @@ from __future__ import annotations
 import sys
 
 # 唯一真源。改版本号请用 `python tools/bump_version.py --to X.Y.Z`，别只手改这里。
-VERSION = "0.3.0-alpha.1"
+VERSION = "0.3.0"
 
 
 def _build_info() -> tuple[str, str]:
