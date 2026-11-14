@@ -8,16 +8,17 @@
  * - 首屏不等解析：后端页图先显示（识别时已落在盘上），pdf.js 画好再盖上去。
  *   30 页的扫描件整份下完要好几秒，但第一页的页图几十毫秒就出来了。
  *
- * 行级置信度（`line_conf`）与文字逐行对齐，`< 0.85` 的行标黄；页级 `avg_conf`
- * 低的在页头提示一句。老识别结果没有行级数据，那时就只提示不标黄。
+ * 这个文件只管「壳」：翻页、开原件、引用跳页。文字与标黄在 `pdf/PdfTextPanel.vue`，
+ * 页的挂载与虚拟滚动在 `pdf/PdfScroller.vue`。
  *
  * pdf.js 打不开（文件坏了 / 用了不支持的加密）时退回「只看页图 + 文字」：
  * 用户要的是读到这一页，不是看一个报错页。
  */
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
-import { api, friendlyMessage } from '../../api/client'
+import { api } from '../../api/client'
 import PdfScroller from './pdf/PdfScroller.vue'
+import PdfTextPanel from './pdf/PdfTextPanel.vue'
 import { fallbackSizes, openPdf } from './pdf/usePdf'
 
 const props = defineProps({
@@ -26,7 +27,7 @@ const props = defineProps({
   pageCount: { type: Number, default: 0 },
   // 页签是否可见：不可见时不发请求，打开原文才取
   active: { type: Boolean, default: false },
-  // {text, page}：问答引用要落到的那一页与那一段（T11.2）
+  // {text, chunkId}：问答引用要落到的那一段（T11.2）
   focus: { type: Object, default: null },
 })
 
@@ -40,11 +41,11 @@ const sizes = ref([])
 const current = ref(1)
 const opening = ref(false)
 const pdfError = ref('')
-const data = ref(null)
-const textLoading = ref(false)
-const textError = ref('')
+// 右侧面板回报的整页数据：顶部那句「这一页可能有错」要靠它算
+const pageData = ref(null)
+// 引用命中段：{page, from, to}。**带 page** —— 翻到别的页就不能再标
+const marks = ref(null)
 let loaded = false
-let textSeq = 0
 
 const total = computed(() => doc.value?.numPages || props.pageCount || sizes.value.length || 0)
 
@@ -68,39 +69,22 @@ async function open() {
   }
 }
 
-async function loadText(pageNo) {
-  const mine = ++textSeq
-  textLoading.value = true
-  textError.value = ''
-  try {
-    const next = await api.getPage(props.itemId, pageNo)
-    if (mine === textSeq) data.value = next
-  } catch (err) {
-    if (mine !== textSeq) return
-    data.value = null
-    textError.value = friendlyMessage(err)
-  } finally {
-    if (mine === textSeq) textLoading.value = false
-  }
-}
-
 function go(pageNo) {
   if (pageNo < 1 || (total.value && pageNo > total.value) || pageNo === current.value) return
   current.value = pageNo
 }
 
 function reset() {
-  textSeq += 1
   // destroy 是异步的，且可能在渲染进行中被调用：吞掉拒绝，别让控制台多一条
   // 「切换内容时的报错」，那对用户没有任何意义
-  const current = doc.value
-  if (current?.destroy) Promise.resolve(current.destroy()).catch(() => {})
+  const prev = doc.value
+  if (prev?.destroy) Promise.resolve(prev.destroy()).catch(() => {})
   doc.value = null
   sizes.value = []
-  data.value = null
+  pageData.value = null
+  marks.value = null
   current.value = 1
   pdfError.value = ''
-  textError.value = ''
   loaded = false
 }
 
@@ -111,7 +95,6 @@ watch(
     if (props.active) {
       loaded = true
       open()
-      loadText(1)
     }
   }
 )
@@ -122,37 +105,50 @@ watch(
     if (!on || loaded) return
     loaded = true
     open()
-    loadText(current.value)
   },
   { immediate: true }
 )
 
-watch(current, (pageNo) => loadText(pageNo))
-
-// 引用跳转：先滚到那一页，命中段在文字里标黄（T11.2）
+/**
+ * 引用跳转（T11.2）：先问后端「这段字在第几页」，再翻过去，命中行交给右侧面板标黄。
+ *
+ * **必须 immediate**：从问答点进来时组件是刚挂载的，`focus` 在挂载前就设好了，
+ * 非 immediate 的 watch 根本不会触发（纯文本原文那边同理）。
+ */
 watch(
   () => props.focus,
-  (target) => {
+  async (target) => {
+    marks.value = null
     if (!target) return
-    if (target.page && target.page !== current.value) current.value = target.page
-    else scroller.value?.scrollToPage(current.value, true)
-  }
+    if (!target.chunkId) {
+      // 没有 chunk id（老接口 / 笔记）就只停在当前页，不做假定位
+      scroller.value?.scrollToPage(current.value, true)
+      return
+    }
+    // 落不到页不是错误（chunk 被重新整理删了 / 这页还没读出来），停在当前页即可
+    const hit = await api.locate(props.itemId, target.chunkId).catch(() => null)
+    if (!hit?.page_no) return
+    const pageNo = Number(hit.page_no)
+    marks.value = {
+      page: pageNo,
+      from: Number(hit.line_from) || 0,
+      to: Number(hit.line_to) || 0,
+    }
+    if (pageNo !== current.value) current.value = pageNo
+    else scroller.value?.scrollToPage(pageNo, true)
+  },
+  { immediate: true }
 )
 
 /** 行级置信度缺失（老数据 / 抽取页）时 confs 为空，所有行都不标 */
-const lines = computed(() => {
-  const body = data.value?.text || ''
-  const confs = data.value?.line_conf || []
-  return body
-    ? body.split('\n').map((text, index) => ({ text, low: confs[index] != null && confs[index] < LOW }))
-    : []
+const lowCount = computed(() => {
+  const confs = pageData.value?.line_conf || []
+  return confs.filter((conf) => conf != null && conf < LOW).length
 })
-
-const lowCount = computed(() => lines.value.filter((line) => line.low).length)
 
 /** 页级平均分低 = 这页整体可疑；0 表示什么都没认出来，单独说 */
 const pageSuspicious = computed(() => {
-  const conf = data.value?.avg_conf
+  const conf = pageData.value?.avg_conf
   return typeof conf === 'number' && conf > 0 && conf < LOW
 })
 
@@ -185,14 +181,13 @@ onBeforeUnmount(reset)
         :item-id="itemId"
       />
 
-      <div class="text">
-        <p v-if="textLoading" class="state">正在取这一页…</p>
-        <p v-else-if="textError" class="state">{{ textError }}</p>
-        <template v-else-if="lines.length">
-          <p v-for="(line, index) in lines" :key="index" class="line" :class="{ low: line.low }">{{ line.text }}</p>
-        </template>
-        <p v-else class="state">这页没认出文字，可以对照页图看看。</p>
-      </div>
+      <PdfTextPanel
+        :item-id="itemId"
+        :page-no="current"
+        :active="active"
+        :marks="marks"
+        @data="pageData = $event"
+      />
     </div>
   </div>
 </template>
@@ -255,33 +250,5 @@ onBeforeUnmount(reset)
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   }
-}
-
-.text {
-  min-height: 0;
-  overflow: auto;
-  padding-right: var(--space-2);
-  font-family: var(--font-reading);
-  font-size: 14px;
-  line-height: 1.9;
-  color: var(--c-text-2);
-}
-
-.line {
-  margin: 0 0 2px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-/* 认不准的行标黄：只给底色不改字色，读起来还是正文 */
-.low {
-  background: var(--c-warning-soft);
-  border-radius: 3px;
-}
-
-.state {
-  margin: var(--space-3) 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
 }
 </style>

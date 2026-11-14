@@ -109,7 +109,9 @@ watch(
     if (!target || !props.item || target.itemId !== props.item.id) return
     // 笔记片段在 textarea 里定位不到，只能切到对应 Tab 让用户自己看
     tab.value = target.source === 'note' ? 'note' : 'raw'
-    focus.value = target.source === 'note' ? null : { text: target.text, key: Date.now() }
+    focus.value = target.source === 'note'
+      ? null
+      : { text: target.text, chunkId: target.chunkId || null, key: Date.now() }
     focusChunk.value = null
   },
   { immediate: true }

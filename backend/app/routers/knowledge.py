@@ -23,6 +23,7 @@ from app.services import embedder
 from app.services import files as file_store
 from app.services import ingest_file, mindmap, ocr, pdf_pages
 from app.services import extractors
+from app.services import locate as locate_service
 from app.services import tasks as task_queue
 from app.services.agents import organizer
 
@@ -514,6 +515,38 @@ def get_page(item_id: int, n: int):
             # docx 的版式 HTML（已过 bleach），原文页签直接 v-html
             "html": _page_html(int(file["id"]), n) if row["source"] == "extract" else None,
         }
+    finally:
+        conn.close()
+
+
+@router.get("/{item_id}/locate")
+def locate_chunk(item_id: int, chunk_id: int = Query(ge=1)):
+    """这段文字落在第几页第几行（T11.2）。问答点引用 → 原文页签直接翻到那一页并标黄。
+
+    **落不到页不是错误**：chunk 被重新整理删掉、或这页文字还没读出来，都返回
+    `{"page_no": null}`。跳转失败最多是"停在第一页"，弹一个红条只会打断阅读。
+
+    只对**有原件**的内容有意义；没有原件的（粘贴来的文本）走原来的纯文本定位。
+    """
+    conn = get_conn()
+    try:
+        if repo.get_item(conn, item_id) is None:
+            return _not_found()
+        chunk = repo.get_chunk(conn, chunk_id)
+        if chunk is None or int(chunk["item_id"]) != item_id:
+            return {"page_no": None, "line_from": None, "line_to": None, "matched": ""}
+        file = _main_file(conn, item_id)
+        if file is None:
+            return {"page_no": None, "line_from": None, "line_to": None, "matched": ""}
+        rows = page_repo.list_by_file(conn, int(file["id"]))
+        pages = [
+            (int(row["page_no"]), row["text_reviewed"] or row["text"] or "")
+            for row in rows
+        ]
+        hit = locate_service.locate(str(chunk["content"] or ""), pages)
+        if hit is None:
+            return {"page_no": None, "line_from": None, "line_to": None, "matched": ""}
+        return hit
     finally:
         conn.close()
 

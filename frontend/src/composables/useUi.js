@@ -81,7 +81,13 @@ export function useUi() {
     /** 跳转并定位到某段原文（问答点 [n] 用；ItemDetail 消费后置回 null） */
     openItemAt: (itemId, chunk) => {
       focusChunk.value = chunk
-        ? { itemId, text: chunk.text || '', source: chunk.source || 'raw' }
+        ? {
+            itemId,
+            text: chunk.text || '',
+            source: chunk.source || 'raw',
+            // T11.2：有 chunk id 才能让后端算出落在第几页（PDF 的引用跳页靠它）
+            chunkId: chunk.chunkId || null,
+          }
         : null
       focusItemId.value = itemId
     },
