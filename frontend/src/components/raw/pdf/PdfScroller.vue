@@ -12,6 +12,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { api } from '../../../api/client'
 import PdfPage from './PdfPage.vue'
 
 const props = defineProps({
@@ -69,7 +70,9 @@ const range = computed(() => {
 })
 
 function shotUrl(pageNo) {
-  return props.itemId ? `/api/knowledge/${props.itemId}/file?page=${pageNo}` : ''
+  // 走 api 客户端而不是手写 `/api/knowledge/...`：演示站（静态）要把这条地址换成本地页图，
+  // 手写的 URL 不经 fetch，换不掉 —— 表现就是「页图全 404、只剩一句『这一页没有页图』」。
+  return props.itemId ? api.pageImageUrl(props.itemId, pageNo) : ''
 }
 
 /** 当前读到哪一页：视口上沿往下 1/4 处 */

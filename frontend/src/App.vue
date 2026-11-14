@@ -163,6 +163,8 @@ function onOpen(itemId) {
         <router-link to="/pages" class="nav-item" active-class="on">学习</router-link>
         <router-link to="/practice" class="nav-item" active-class="on">练习</router-link>
         <router-link to="/review" class="nav-item" active-class="on">复习</router-link>
+        <!-- 试用（只在演示站注册）：用自己的 Key 真跑一遍整理 / 追问 / 出题 -->
+        <router-link v-if="isDemo" to="/try" class="nav-item" active-class="on">试用</router-link>
       </nav>
       <div class="topbar-spacer" />
       <!-- 待配置（T5.7）：只在缺 Key / 缺 ffmpeg 时出现，配好就消失 -->
@@ -240,7 +242,9 @@ function onOpen(itemId) {
     <!-- 静态演示横幅：常驻，不参与布局，避免遮挡内容 -->
     <div v-if="isDemo" class="demo-bar">
       <b>演示模式</b>
-      <span>这里的内容是预先准备好的，不能新增或生成。装桌面版即可完整使用。</span>
+      <span>这里的内容是预先准备好的，不能新增或生成。</span>
+      <router-link to="/try" class="demo-cta">用自己的 Key 真跑一遍</router-link>
+      <span class="demo-sep">·</span>
       <a href="https://github.com/ChenYiming-aaa/Cairn-StudyKB/releases" target="_blank" rel="noreferrer">
         下载桌面版
       </a>
@@ -486,5 +490,19 @@ function onOpen(itemId) {
   color: var(--c-primary-ink);
   text-decoration: none;
   border-bottom: 1px solid currentColor;
+}
+
+/* 试用入口比「下载桌面版」更值得点：给它一个实心按钮的样子 */
+.demo-bar a.demo-cta {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--c-primary-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-0);
+  color: var(--c-primary-ink);
+  white-space: nowrap;
+}
+
+.demo-bar .demo-sep {
+  color: var(--c-text-3);
 }
 </style>
