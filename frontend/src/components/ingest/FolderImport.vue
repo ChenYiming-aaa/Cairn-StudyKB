@@ -31,6 +31,16 @@ const picked = computed(() => files.value.filter((f) => f.picked && f.supported)
 const supported = computed(() => files.value.filter((f) => f.supported).length)
 const unsupported = computed(() => files.value.filter((f) => !f.supported).length)
 
+/**
+ * 分批导（L 组）：`/api/import/run` 一次收一串路径、在后端逐个处理，中途没有任何
+ * 进度可看 —— 20 个文件时面板上只有「正在导入…」，用户既不知道到哪了，也没法停。
+ * 改成前端每 5 个发一次：每批之间能刷新「已导 10/20」、能停下来（当前这一批会导完，
+ * 这一点在按钮旁明说，不做假装瞬停）。重复文件仍然按「跳过」处理，重发不会重复入库。
+ */
+const BATCH = 5
+const ranCount = ref(0)
+const stopRequested = ref(false)
+
 async function choose() {
   if (phase.value === 'scanning' || phase.value === 'running') return
   phase.value = 'scanning'
@@ -62,27 +72,60 @@ function toggleAll(flag) {
 async function run() {
   if (phase.value === 'running' || !picked.value.length) return
   phase.value = 'running'
+  stopRequested.value = false
+  ranCount.value = 0
+  result.value = null
+
+  const targets = picked.value.map((f) => f.path)
+  const agg = { total: 0, added: [], skipped: [], failed: [] }
+  // 处理过的不再留在清单里（成功、重复、失败都算处理过）：留着会让用户以为还没导，
+  // 再点一次也只是又跳一遍重复 —— 失败原因在下面写着，比留在列表里更清楚
+  const handled = new Set()
+
   try {
-    const data = await api.importRun({ paths: picked.value.map((f) => f.path) })
-    result.value = data
-    phase.value = 'done'
-    // 处理过的不再留在清单里（成功、重复、失败都算处理过）：留着会让用户以为还没导，
-    // 再点一次也只是又跳一遍重复 —— 失败原因在下面写着，比留在列表里更清楚
-    const handled = new Set([
-      ...data.added.map((x) => x.path),
-      ...data.skipped.map((x) => x.path),
-      ...data.failed.map((x) => x.path),
-    ])
-    files.value = files.value.filter((f) => !handled.has(f.path))
-    for (const added of data.added) emit('saved', added.item_id)
-    if (data.added_count) toast.ok(`新导入 ${data.added_count} 个文件`)
-    if (data.skipped_count) toast.info(`${data.skipped_count} 个已经在库里，没重复导`)
-    if (data.failed_count) toast.error(`${data.failed_count} 个没导进来，下面写了原因`)
+    for (let start = 0; start < targets.length; start += BATCH) {
+      if (stopRequested.value) break
+      const slice = targets.slice(start, start + BATCH)
+      const data = await api.importRun({ paths: slice })
+      agg.total += data.total ?? slice.length
+      agg.added.push(...(data.added || []))
+      agg.skipped.push(...(data.skipped || []))
+      agg.failed.push(...(data.failed || []))
+      for (const x of [...(data.added || []), ...(data.skipped || []), ...(data.failed || [])]) {
+        handled.add(x.path)
+      }
+      ranCount.value = Math.min(start + slice.length, targets.length)
+      // 每批回头刷新一次清单，让「还没导的」越来越少
+      files.value = files.value.filter((f) => !handled.has(f.path))
+      result.value = {
+        total: agg.total,
+        added: agg.added,
+        added_count: agg.added.length,
+        skipped_count: agg.skipped.length,
+        failed_count: agg.failed.length,
+      }
+      for (const added of data.added || []) emit('saved', added.item_id)
+    }
+
+    if (stopRequested.value && ranCount.value < targets.length) {
+      toast.info(`已停下：导了 ${ranCount.value} 个，剩 ${targets.length - ranCount.value} 个还在清单里`)
+    }
+    if (agg.added.length) toast.ok(`新导入 ${agg.added.length} 个文件`)
+    if (agg.skipped.length) toast.info(`${agg.skipped.length} 个已经在库里，没重复导`)
+    if (agg.failed.length) toast.error(`${agg.failed.length} 个没导进来，下面写了原因`)
   } catch (err) {
+    // 某一批整体失败（后端挂了 / 校验没过）：前面已导的照样算数，报清楚停在哪
     toast.error(friendlyMessage(err))
+    if (ranCount.value) toast.info(`已经导进去 ${ranCount.value} 个，剩下的还在清单里`)
   } finally {
     if (phase.value === 'running') phase.value = 'done'
+    stopRequested.value = false
   }
+}
+
+/** 停：当前这一批会导完（请求已经发出去了），之后不再发下一批 —— 不做假装瞬停 */
+function stop() {
+  stopRequested.value = true
 }
 
 function reset() {
@@ -91,6 +134,8 @@ function reset() {
   files.value = []
   result.value = null
   truncated.value = false
+  ranCount.value = 0
+  stopRequested.value = false
 }
 </script>
 
@@ -159,13 +204,24 @@ function reset() {
       <button v-if="files.length || result" class="btn btn-sm btn-ghost" type="button" @click="reset">
         清空
       </button>
+      <!-- 进行中要给两个东西：走到哪了、能不能停 -->
+      <button
+        v-if="phase === 'running' && !stopRequested"
+        class="btn btn-sm btn-ghost"
+        type="button"
+        title="当前这一批会导完，之后不再继续"
+        @click="stop"
+      >停止</button>
+      <span v-if="phase === 'running' && stopRequested" class="hint">这批导完就停…</span>
       <button
         v-if="picked.length"
         class="btn btn-primary"
         type="button"
         :disabled="phase === 'running'"
         @click="run"
-      >{{ phase === 'running' ? '正在导入…' : `导入选中的 ${picked.length} 个` }}</button>
+      >{{ phase === 'running'
+        ? `正在导入 ${ranCount}/${ranCount + picked.length}`
+        : `导入选中的 ${picked.length} 个` }}</button>
     </div>
   </section>
 </template>

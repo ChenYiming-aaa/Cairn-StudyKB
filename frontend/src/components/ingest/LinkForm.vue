@@ -29,7 +29,14 @@ const urlInput = ref(null)
 
 let stopPoll = null
 
-const busy = computed(() => task.value?.status === 'queued' || task.value?.status === 'running')
+/**
+ * 「不再等这次结果」（L 组）。后端没有任务取消接口（`/api/tasks/*` 只有 list/get/retry），
+ * 所以这里**不发明** `cancelTask`：只是不再盯这条任务，任务本身继续在后台跑。
+ * 话说在前面 —— 面板上直接写「还在后台跑，去任务里看」，不假装停了。
+ */
+const leftBehind = ref(false)
+
+const busy = computed(() => (task.value?.status === 'queued' || task.value?.status === 'running') && !leftBehind.value)
 const done = computed(() => task.value?.status === 'done')
 const failed = computed(() => task.value?.status === 'failed')
 const progress = computed(() => task.value?.progress ?? 0)
@@ -68,6 +75,14 @@ function clearTask() {
   stopPoll = null
   task.value = null
   errorText.value = ''
+  leftBehind.value = false
+}
+
+/** 不再盯这条任务：停止轮询，界面回到「可以再采一条」的状态 */
+function giveUp() {
+  stopPoll?.()
+  stopPoll = null
+  leftBehind.value = true
 }
 
 function switchKind(kind) {
@@ -82,6 +97,7 @@ function switchKind(kind) {
 
 function watchTask(id) {
   stopPoll?.()
+  leftBehind.value = false
   task.value = { id, status: 'queued', progress: 0, stage: '' }
   stopPoll = pollTask(id, {
     onUpdate: (t) => {
@@ -220,6 +236,9 @@ onBeforeUnmount(() => {
           {{ task.output_json?.source === 'subtitle' ? '已用视频自带的字幕，没有跑语音识别。' : '已存进知识库。' }}
         </template>
       </p>
+      <p v-else-if="leftBehind" class="wait-msg">
+        不再盯这条了。任务还在后台跑，跑完在「任务」里能看到；不会自动跳回这里。
+      </p>
       <p v-else-if="waitHint" class="wait-msg">{{ waitHint }}</p>
     </section>
 
@@ -229,6 +248,9 @@ onBeforeUnmount(() => {
       <span v-if="errorText" class="error">{{ errorText }}</span>
       <span v-if="busy" class="hint">关掉面板任务会继续跑</span>
       <div class="grow" />
+      <button v-if="busy" class="btn btn-sm btn-ghost" type="button" @click="giveUp">
+        不再等
+      </button>
       <button v-if="failed" class="btn" type="button" :disabled="submitting" @click="retry">
         重试
       </button>

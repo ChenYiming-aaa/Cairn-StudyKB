@@ -12,6 +12,11 @@ defineProps({
     </div>
 
     <template v-else>
+      <!-- 整理中显示的是**上一版**摘要：不说一句，页面一边挂着「整理中」徽标、
+           一边展示旧摘要，看起来像这次整理什么都没产出（L 组） -->
+      <p v-if="item.status === 'organizing'" class="stale">
+        正在重写，下面是上一版；整理完会自己刷新。
+      </p>
       <div class="block">
         <h2 class="block-title">摘要</h2>
         <p class="summary">{{ item.summary || '（模型这次没给摘要，可以重新整理试试）' }}</p>
@@ -63,5 +68,11 @@ defineProps({
 .muted {
   color: var(--c-text-3);
   font-size: var(--fs-sm);
+}
+
+.stale {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
 }
 </style>

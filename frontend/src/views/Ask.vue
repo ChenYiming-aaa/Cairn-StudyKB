@@ -11,7 +11,7 @@ import { usable } from '../utils/components'
 
 const router = useRouter()
 const toast = useToast()
-const { openItemAt, openSettings } = useUi()
+const { openItemAt, openSettings, openPaste } = useUi()
 // T7.3：历史抽屉的开关搬到 useLayout（和左栏/列表同一套记忆），Ctrl+H 在 App.vue 触发
 const { isPanelCollapsed, setPanel } = useLayout()
 
@@ -296,9 +296,21 @@ function openAt(itemId, text, source, chunkId, hint) {
 }
 
 function jump(source) {
-  if (!source) return
+  if (!source) {
+    // 模型偶尔给出超出范围的引用号（比如只有 8 段却写 [9]）。按钮看着可点，
+    // 点了却什么都不发生 —— 说一句，比静默 return 诚实（L 组）
+    toast.info('这条引用在来源里找不到对应原文，可能已被删除')
+    return
+  }
   // chunk_id 一起带过去：PDF 的原文要按它算「这段字在第几页」（T11.2）
   openAt(source.item_id, source.content, source.source, source.chunk_id)
+}
+
+/** 零命中时的两个出口：换问答再问一次 / 把这条内容采进来（L 组） */
+function switchToAsk() {
+  const q = question.value.trim()
+  tab.value = 'ask'
+  if (q) ask()
 }
 
 function switchTab(key) {
@@ -436,9 +448,14 @@ watch(question, () => {
 
         <p v-else-if="hitsError" class="state-error">{{ hitsError }}</p>
 
-        <p v-else-if="hitsQuery && !hits.length" class="state-empty">
-          没有匹配「{{ hitsQuery }}」的原文片段，换个说法再试
-        </p>
+        <div v-else-if="hitsQuery && !hits.length" class="state">
+          <p class="state-title">没有匹配「{{ hitsQuery }}」的原文片段</p>
+          <p>换个说法再试，或者让模型按意思找一遍。</p>
+          <div class="state-actions">
+            <button class="btn btn-sm" type="button" @click="switchToAsk">改成问答</button>
+            <button class="btn btn-ghost btn-sm" type="button" @click="openPaste">采集这条内容</button>
+          </div>
+        </div>
 
         <section v-else-if="hits.length" class="hits">
           <p class="stats">
