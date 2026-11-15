@@ -111,6 +111,12 @@ function clearKeyword() {
       </div>
     </div>
 
+    <!-- 后端单次最多给 50 条，界面却按全量措辞显示总数：不说明的话，用户会以为
+         「第 51 条之后没导进来」或者「丢了」，而这两件事他在界面上都证伪不了 -->
+    <p v-if="total > items.length" class="list-truncated">
+      仅显示前 {{ items.length }} 条，共 {{ total }} 条；用关键词或分类缩小范围
+    </p>
+
     <BulkMoveBar
       v-if="picked.length"
       :count="picked.length"
@@ -215,6 +221,15 @@ function clearKeyword() {
   font-size: var(--fs-xs);
   color: var(--c-text-3);
   min-height: 24px;
+}
+
+.list-truncated {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
 }
 
 .list-body {

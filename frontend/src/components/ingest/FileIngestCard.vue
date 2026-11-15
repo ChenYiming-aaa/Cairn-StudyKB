@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 
-import { api, friendlyMessage } from '../../api/client'
+import { ApiError, api, friendlyMessage } from '../../api/client'
 import { useUi } from '../../composables/useUi'
 import { fileSize } from '../../utils/format'
 import OcrProgress from './OcrProgress.vue'
@@ -240,7 +240,11 @@ async function retry() {
       poll()
       return
     }
-    state.error = friendlyMessage(err)
+    // 只有服务端回的错误码才配翻成人话；JS 异常（接口缺失、渲染报错）原文对用户没意义，
+    // 照原样抛出来会出现「xxx is not a function」这种把用户挡在门外的提示
+    state.error = err instanceof ApiError
+      ? friendlyMessage(err)
+      : '重读没排上。去任务中心看这条的进度，或者稍后再点一次重读'
     setPhase('failed')
   }
 }

@@ -285,6 +285,12 @@ export const api = {
   // category / tag 只让 counts 跟着筛选走（分类树本身仍是全库）
   categories: (params) => get('/api/knowledge/categories', params),
   getItem: (id) => get(`/api/knowledge/${id}`),
+  /**
+   * 重读原件（「重新读一遍」）：PDF/图片重新识别，office/文本重新抽取。
+   * 202 返回 {task_id}，进度靠轮询 item。`pages` 只给 PDF/图片用来点名页号，整份重读就不传。
+   */
+  reocr: (id, pages) =>
+    post(`/api/knowledge/${id}/ocr`, pages && pages.length ? { pages } : undefined),
   createItem: (payload) => post('/api/knowledge', payload),
   patchItem: (id, payload) => patch(`/api/knowledge/${id}`, payload),
   deleteItem: (id) => del(`/api/knowledge/${id}`),
