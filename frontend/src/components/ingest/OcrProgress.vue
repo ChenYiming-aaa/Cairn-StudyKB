@@ -34,10 +34,14 @@ const text = computed(() => (
       <span class="ocr-text">{{ text }}</span>
       <span v-if="total" class="ocr-pct">{{ pct }}%</span>
     </div>
-    <div class="bar" :class="{ waiting: !total }">
-      <i v-if="total" :style="{ width: pct + '%' }" />
-      <i v-else />
-    </div>
+    <!-- 原生 <progress>：知道总量就带 value（读屏能念出百分比），不知道就不带
+         —— 不确定态由浏览器自己跑，不再手写一条来回滑的 keyframes -->
+    <progress
+      class="meter"
+      :value="total ? pct : null"
+      max="100"
+      :aria-label="text"
+    />
   </div>
 </template>
 
@@ -57,35 +61,5 @@ const text = computed(() => (
 .ocr-pct {
   color: var(--c-text-3);
   font-variant-numeric: tabular-nums;
-}
-
-.bar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--c-bg-2);
-  overflow: hidden;
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: var(--c-primary);
-  transition: width 0.3s ease;
-}
-
-/* 页数未知：条形来回滑动，表示"在动但算不出百分比" */
-.bar.waiting i {
-  width: 35%;
-  animation: slide 1.4s ease-in-out infinite;
-}
-
-@keyframes slide {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(320%);
-  }
 }
 </style>

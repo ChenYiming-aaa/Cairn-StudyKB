@@ -278,9 +278,14 @@ onBeforeUnmount(() => {
         :total="state.ocr.total"
         :label="label"
       />
-      <div v-else-if="state.phase === 'uploading'" class="bar">
-        <i :style="{ width: state.pct + '%' }" />
-      </div>
+      <!-- 上传百分比来自 XHR 的 upload.onprogress，是真实值：给 value，别让读屏只听到"进度条" -->
+      <progress
+        v-else-if="state.phase === 'uploading'"
+        class="meter upload-meter"
+        :value="state.pct"
+        max="100"
+        aria-label="上传进度"
+      />
       <p v-if="detail" class="card-detail">{{ detail }}</p>
     </div>
 
@@ -399,19 +404,8 @@ onBeforeUnmount(() => {
   color: var(--c-text-3);
 }
 
-.bar {
-  height: 4px;
+.upload-meter {
   margin-top: var(--space-2);
-  border-radius: 2px;
-  background: var(--c-bg-2);
-  overflow: hidden;
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: var(--c-primary);
-  transition: width 0.2s linear;
 }
 
 .card-acts {

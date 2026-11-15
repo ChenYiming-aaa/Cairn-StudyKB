@@ -249,7 +249,13 @@ onBeforeUnmount(() => {
   color: var(--c-text-3);
 }
 
-/* 左原件、右文字：各自滚动，谁长谁滚（窄屏自动上下紧邻） */
+/* 左原件、右文字：各自滚动，谁长谁滚 */
+.pdf-view {
+  /* 详情区的可用宽度由「左栏 + 列表」两档折叠与拖拽决定，跟视口宽度不是一回事：
+     1280 的窗口拖宽列表后，详情区可能只剩 600。所以这里按自己的宽度判断，不按窗口。 */
+  container-type: inline-size;
+}
+
 .spread {
   flex: 1;
   min-height: 0;
@@ -258,7 +264,8 @@ onBeforeUnmount(() => {
   gap: var(--space-4);
 }
 
-@media (max-width: 1100px) {
+/* 660 = 左右两栏各自的最低可读宽度之和（≈330 + 300 + 24 间距）；比这窄就上下排 */
+@container (max-width: 660px) {
   .spread {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);

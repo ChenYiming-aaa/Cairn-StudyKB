@@ -37,6 +37,7 @@ const { toggle, isPanelCollapsed, setPanel } = useLayout()
 const { activeTasks, refreshTasks } = useTasks()
 
 const backend = ref('checking')
+const toastStack = ref(null)
 // 「列表」折叠按钮只在有条目列表的页面出现（知识库），别的页面按它没意义
 const hasList = computed(() => route.path === '/')
 // 静态演示版（github.io）：数据是抓下来的 fixture，生成类操作会返回 DEMO_OFFLINE。
@@ -116,6 +117,18 @@ onBeforeUnmount(() => {
 // 采集/整理落库、切页之后都可能有新任务进来，这两种时机顺手对齐角标
 watch(refreshTick, refreshTasks)
 watch(() => route.path, refreshTasks)
+
+// 有提示才把通知区放进顶层，最后一条消失就收起来：
+// 常开的 popover 会一直占着顶层，且空容器在顶层没有意义
+watch(
+  () => toasts.value.length,
+  (count) => {
+    const node = toastStack.value
+    if (!node) return
+    if (count && !node.matches(':popover-open')) node.showPopover()
+    else if (!count && node.matches(':popover-open')) node.hidePopover()
+  }
+)
 
 function onCreated(result) {
   closePaste()
@@ -227,7 +240,16 @@ function onOpen(itemId) {
       @open="onOpen"
     />
 
-    <div class="toast-stack">
+    <!-- 通知条：`popover="manual"` 把它放进顶层，否则会掉在模态遮罩下面（层叠上下文里 z-index
+         已经管不了顶层元素了）。manual 而非 auto：点别处不该把还没读到的提示关掉。 -->
+    <div
+      ref="toastStack"
+      class="toast-stack"
+      popover="manual"
+      role="region"
+      aria-label="操作结果"
+      aria-live="polite"
+    >
       <div
         v-for="item in toasts"
         :key="item.id"
@@ -413,13 +435,25 @@ function onOpen(itemId) {
 }
 
 .toast-stack {
+  /* popover 的 UA 默认（居中、边框、底色、内边距）全部要清掉，位置仍贴右下 */
   position: fixed;
-  right: var(--space-6);
-  bottom: var(--space-6);
+  inset: auto var(--space-6) var(--space-6) auto;
+  width: fit-content;
+  max-width: min(380px, 100vw - 2 * var(--space-6));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  z-index: 60;
+}
+
+/* display 只在打开时给：无条件写会盖过 UA 的 `[popover]:not(:popover-open){display:none}`，
+   空的通知区就会一直以 display:flex 占在那儿 */
+.toast-stack:popover-open {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  z-index: 60;
 }
 
 .toast {

@@ -109,6 +109,11 @@ const lowCount = computed(() => lines.value.filter((line) => line.low).length)
   min-height: 0;
 }
 
+/* 详情区宽度由「左栏 + 列表」的折叠与拖拽决定，与视口宽度脱钩：按容器判断 */
+.image-view {
+  container-type: inline-size;
+}
+
 .spread {
   flex: 1;
   min-height: 0;
@@ -117,7 +122,8 @@ const lowCount = computed(() => lines.value.filter((line) => line.low).length)
   gap: var(--space-4);
 }
 
-@media (max-width: 1100px) {
+/* 660 = 左右两栏各自的最低可读宽度之和；比这窄就上下排 */
+@container (max-width: 660px) {
   .spread {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);

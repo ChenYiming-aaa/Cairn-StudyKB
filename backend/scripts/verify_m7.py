@@ -480,10 +480,10 @@ def main() -> int:
             # 只看"有没有字"是过不了这一关的。
             page.goto(base, wait_until="networkidle")
             page.locator(".topbar").get_by_role("button", name="采集内容").click()
-            page.wait_for_selector("[role='dialog']")
+            page.wait_for_selector("dialog[open]")
             page.get_by_role("button", name="文件与链接").click()
             page.wait_for_timeout(300)
-            page.set_input_files(".dialog input[type=file]",
+            page.set_input_files("dialog.ingest input[type=file]",
                                  str(ROOT / "samples" / "cet6" / "course.docx"))
             deadline = time.time() + 90
             while time.time() < deadline:
@@ -724,18 +724,20 @@ def main() -> int:
             page.goto(base, wait_until="networkidle")
             page.locator("aside[aria-label='内容列表'] .row").filter(has_text="六级真题").first.click()
             page.wait_for_timeout(900)
-            labels = [t.strip() for t in page.locator(".tabs .tab").all_inner_texts()]
+            # 详情页签要限定在详情区里：采集面板也是常驻 DOM 的 <dialog>（关着 = display:none），
+            # 它自己也有一排 .tabs .tab，不限定就会一次匹配到两处
+            labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("试卷的页签里没有「整理笔记」", "整理笔记" not in labels, str(labels))
             check("试卷仍保留摘要、原文、导图、学习记录",
                   {"摘要与要点", "原文", "思维导图", "学习记录"} <= set(labels), str(labels))
             check("试卷默认停在摘要页签",
-                  page.locator(".tabs .tab.on").inner_text().strip() == "摘要与要点",
-                  page.locator(".tabs .tab.on").inner_text())
+                  page.locator(".detail .tabs .tab.on").inner_text().strip() == "摘要与要点",
+                  page.locator(".detail .tabs .tab.on").inner_text())
 
             # 普通资料仍要有笔记页签（别把整站都改没了）
             page.locator("aside[aria-label='内容列表'] .row").filter(has_text="费曼").first.click()
-            page.locator(".tabs .tab").first.wait_for(timeout=15000)
-            labels = [t.strip() for t in page.locator(".tabs .tab").all_inner_texts()]
+            page.locator(".detail .tabs .tab").first.wait_for(timeout=15000)
+            labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("普通资料仍有「整理笔记」页签", "整理笔记" in labels, str(labels))
 
             # ── 3 Ctrl+B 折叠 + 刷新保持 ──────────────────────
@@ -808,7 +810,7 @@ def main() -> int:
             # 面板是模态，不在任何路由的 innerText 里；不点开就永远扫不到这半屏文案
             page.goto(base, wait_until="networkidle")
             page.locator(".topbar").get_by_role("button", name="采集内容").click()
-            page.wait_for_selector("[role='dialog']")
+            page.wait_for_selector("dialog[open]")
             page.wait_for_timeout(350)
             hits = scan_text(page, "采集·粘贴文本")
             check("采集面板·粘贴文本 没有禁止词", not hits, " | ".join(hits))
@@ -822,7 +824,7 @@ def main() -> int:
             # 用 txt：走抽取，不依赖识别组件，几毫秒就完，不会拖慢这一组。
             sample = TMP / "采集面板文案样例.txt"
             sample.write_text("这是一段用来检查采集面板卡片文案的样例正文。\n" * 40, encoding="utf-8")
-            page.set_input_files(".dialog input[type=file]", str(sample))
+            page.set_input_files("dialog.ingest input[type=file]", str(sample))
             deadline = time.time() + 60
             while time.time() < deadline:
                 cards = page.inner_text(".list")
@@ -839,7 +841,7 @@ def main() -> int:
             # 8 设置窗口四个 tab
             page.goto(base, wait_until="networkidle")
             page.get_by_role("button", name="设置").click()
-            page.wait_for_selector("[role='dialog']")
+            page.wait_for_selector("dialog[open]")
             for tab in ("模型", "外观", "下载", "关于"):
                 page.get_by_role("tab", name=re.compile(f"^{tab}")).click()
                 page.wait_for_timeout(350)
@@ -853,7 +855,7 @@ def main() -> int:
             # 曾经下载页按 10⁶、更新页按 1024²，同一个安装包两处差 8 MB（174 vs 182）。
             page.get_by_role("tab", name=re.compile("^下载")).click()
             page.wait_for_timeout(400)
-            dialog_text = page.inner_text("[role='dialog']")
+            dialog_text = page.inner_text("dialog[open]")
             sizes = [c["size"] for c in get_json(base, "api/components").get("items", []) if c.get("size")]
             want = [f"{round(s / 1e6)} MB" for s in sizes]
             check("下载页的体积按 10⁶ 算（与 README / Release 页同一口径）",
@@ -982,7 +984,7 @@ def main() -> int:
                 # 深色模式：走真实设置路径（改完即时保存），不是偷偷改 localStorage
                 page.goto(base, wait_until="networkidle")
                 page.get_by_role("button", name="设置").click()
-                page.wait_for_selector("[role='dialog']")
+                page.wait_for_selector("dialog[open]")
                 page.get_by_role("tab", name=re.compile("^外观")).click()
                 page.get_by_role("radio", name="深色").click()
                 page.wait_for_timeout(400)

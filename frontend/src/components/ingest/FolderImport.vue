@@ -39,6 +39,7 @@ const unsupported = computed(() => files.value.filter((f) => !f.supported).lengt
  */
 const BATCH = 5
 const ranCount = ref(0)
+const runTotal = ref(0)
 const stopRequested = ref(false)
 
 async function choose() {
@@ -77,6 +78,7 @@ async function run() {
   result.value = null
 
   const targets = picked.value.map((f) => f.path)
+  runTotal.value = targets.length
   const agg = { total: 0, added: [], skipped: [], failed: [] }
   // 处理过的不再留在清单里（成功、重复、失败都算处理过）：留着会让用户以为还没导，
   // 再点一次也只是又跳一遍重复 —— 失败原因在下面写着，比留在列表里更清楚
@@ -199,6 +201,16 @@ function reset() {
         </li>
       </ul>
     </div>
+
+    <!-- 一批十个以上时，光看按钮上的「3/20」很难判断还剩多久：给一条真实的进度条
+         （value 来自已完成的批次数，不是估算），读屏也能念出百分比 -->
+    <progress
+      v-if="phase === 'running' && runTotal"
+      class="meter run-meter"
+      :value="ranCount"
+      :max="runTotal"
+      aria-label="导入进度"
+    />
 
     <div class="folder-foot">
       <button v-if="files.length || result" class="btn btn-sm btn-ghost" type="button" @click="reset">
@@ -362,6 +374,10 @@ function reset() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+.run-meter {
+  margin: var(--space-1) 0;
 }
 
 .folder-foot .btn:last-child {

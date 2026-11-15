@@ -108,8 +108,10 @@ function clearKeyword() {
           class="btn btn-ghost btn-sm"
           type="button"
           :disabled="organizing"
+          :aria-busy="organizing"
           @click="emit('organize-pending')"
         >
+          <progress v-if="organizing" class="spin" aria-hidden="true" />
           {{ organizing ? '整理中…' : `开始整理 ${pendingCount} 条` }}
         </button>
       </div>

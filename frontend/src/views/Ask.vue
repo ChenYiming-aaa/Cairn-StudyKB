@@ -57,6 +57,8 @@ const currentRecord = ref(null)
 let controller = null
 
 const matchCount = computed(() => sources.value.length)
+// 当前页签上「这一下还没回来」：问答看流式、搜索看那一次请求，互不干扰
+const pending = computed(() => (tab.value === 'ask' ? asking.value : hitsLoading.value))
 const itemCount = computed(() => new Set(sources.value.map((s) => s.item_id)).size)
 
 /**
@@ -263,7 +265,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 async function runSearch() {
   const q = question.value.trim()
-  if (!q) return
+  // 按钮在飞时是禁用的，但回车不走按钮：这里也挡一次，避免两次结果互相覆盖
+  if (!q || hitsLoading.value) return
   hitsQuery.value = q
   hitsLoading.value = true
   hitsError.value = ''
@@ -367,13 +370,18 @@ watch(question, () => {
         />
         <div class="ask-actions">
           <button v-if="asking" class="btn btn-sm" type="button" @click="stop">停止</button>
+          <!-- 在飞的时候禁用：提问走流式、搜索走一次请求，重复点会打两次请求且答案互相覆盖 -->
           <button
             class="btn btn-primary btn-sm"
             type="button"
-            :disabled="!question.trim() || asking"
+            :disabled="!question.trim() || pending"
+            :aria-busy="pending"
             @click="submit"
           >
-            {{ tab === 'ask' ? (asking ? '生成中…' : '提问') : '搜索' }}
+            <progress v-if="pending" class="spin" aria-hidden="true" />
+            {{ pending
+              ? (tab === 'ask' ? '生成中…' : '搜索中…')
+              : (tab === 'ask' ? '提问' : '搜索') }}
           </button>
         </div>
       </div>

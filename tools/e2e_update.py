@@ -239,7 +239,7 @@ def attach(cdp_port: int):
 def open_about(page) -> None:
     page.wait_for_selector('button[aria-label="设置"]', timeout=30000)
     page.click('button[aria-label="设置"]')
-    page.wait_for_selector('[role="dialog"]', timeout=10000)
+    page.wait_for_selector('dialog[open]', timeout=10000)
     page.click('[role="tab"]:has-text("关于")')
     page.wait_for_selector('.update', timeout=10000)
 

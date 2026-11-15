@@ -2,15 +2,14 @@
 /**
  * 设置窗口（M6 T6.5）：模态，宽 880 / 高 620，左侧 4 个 tab。
  *
- * 这个文件只负责「壳」：开合、焦点陷阱、Esc、遮罩点击、tab 记忆。
- * tab 的内容在 `components/settings/*`；「下载」是 M8 T8.4 补上的（组件按需安装）。
+ * 这个文件只负责「壳」：开合、tab 记忆。tab 的内容在 `components/settings/*`；
+ * 「下载」是 M8 T8.4 补上的（组件按需安装）。
  *
- * 三条无障碍底线（模态不做这三件，键盘用户就被困住了）：
- * 1. `role="dialog"` + `aria-modal` + `aria-labelledby`
- * 2. 打开时焦点进窗、Tab 在窗内循环、关闭时焦点回原处
- * 3. Esc 关闭；点遮罩关闭（点面板内部不关）
+ * 模态的三条无障碍底线**不再自己实现**，全部交给原生 `<dialog>` + showModal()：
+ * 焦点圈定、Esc/返回手势、背景 inert、关闭时焦点还给打开它的按钮，浏览器都包了。
+ * 自己要做的只剩两件：给窗口一个可访问名（aria-labelledby），以及关闭时把防抖中的改动推一次。
  */
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
@@ -29,154 +28,99 @@ const TABS = [
 const { settingsOpen, settingsTab, closeSettings, setSettingsTab } = useUi()
 const { flushNow } = useSettings()
 
-const panel = ref(null)
-const heading = ref(null)
-// 打开前的焦点位置：关闭时要还回去，否则用键盘的人会掉到页面开头
-let lastFocused = null
+const dlg = ref(null)
 
 const current = computed(() => TABS.find((t) => t.id === settingsTab.value) || TABS[0])
 
-function focusables() {
-  const nodes = panel.value?.querySelectorAll(
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-  )
-  return Array.from(nodes || []).filter((el) => el.offsetParent !== null)
-}
-
-function onKeydown(event) {
-  if (event.key === 'Escape') {
-    event.stopPropagation()
-    close()
-    return
-  }
-  if (event.key !== 'Tab') return
-  const list = focusables()
-  if (!list.length) return
-  const first = list[0]
-  const last = list[list.length - 1]
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
-/** 点遮罩关闭；用 target 判断，避免面板内部的点击冒泡上来把窗口关掉 */
-function onBackdrop(event) {
-  if (event.target === panel.value) close()
-}
-
-function close() {
-  closeSettings()
-}
-
-watch(settingsOpen, async (open) => {
-  if (open) {
-    lastFocused = document.activeElement
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', onKeydown, true)
-    await nextTick()
-    // 焦点落在「关闭」上：读屏先播报标题，再让用户自己往内容区走
-    ;(panel.value?.querySelector('[data-autofocus]') || panel.value)?.focus()
-    return
-  }
-  // 关窗前把还没发出去的改动推一次：防抖窗口里关窗口不能丢改动
+/** 三种关法（Esc、点遮罩、点「关闭」）最后都走到这里：先落盘再同步状态 */
+function onClose() {
   flushNow()
-  window.removeEventListener('keydown', onKeydown, true)
-  document.body.style.overflow = ''
-  if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus()
-  lastFocused = null
+  if (settingsOpen.value) closeSettings()
+}
+
+watch(settingsOpen, (open) => {
+  const node = dlg.value
+  if (!node) return
+  if (open && !node.open) node.showModal()
+  // 已经关掉时 close() 是空转，不会重入 onClose
+  else if (!open && node.open) node.close()
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown, true)
-  document.body.style.overflow = ''
+  if (dlg.value?.open) dlg.value.close()
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <div v-if="settingsOpen" class="backdrop" @mousedown.self="onBackdrop">
-      <div
-        ref="panel"
-        class="panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="settings-title"
-        tabindex="-1"
-      >
-        <aside class="side">
-          <h2 id="settings-title" ref="heading" class="title">设置</h2>
-          <nav class="tabs" role="tablist" aria-label="设置分类">
-            <button
-              v-for="tab in TABS"
-              :key="tab.id"
-              type="button"
-              class="tab-btn"
-              role="tab"
-              :class="{ on: tab.id === current.id }"
-              :aria-selected="tab.id === current.id"
-              @click="setSettingsTab(tab.id)"
-            >
-              <span class="tab-label">{{ tab.label }}</span>
-              <span class="tab-hint">{{ tab.hint }}</span>
-            </button>
-          </nav>
-          <p class="side-foot">改动即时保存</p>
-        </aside>
+    <!-- closedby="any"：点遮罩也能关（Esc 与返回手势本来就是模态的默认行为） -->
+    <dialog
+      ref="dlg"
+      class="settings"
+      closedby="any"
+      aria-labelledby="settings-title"
+      @close="onClose"
+    >
+      <aside class="side">
+        <h2 id="settings-title" class="title">设置</h2>
+        <nav class="tabs" role="tablist" aria-label="设置分类">
+          <button
+            v-for="tab in TABS"
+            :key="tab.id"
+            type="button"
+            class="tab-btn"
+            role="tab"
+            :class="{ on: tab.id === current.id }"
+            :aria-selected="tab.id === current.id"
+            @click="setSettingsTab(tab.id)"
+          >
+            <span class="tab-label">{{ tab.label }}</span>
+            <span class="tab-hint">{{ tab.hint }}</span>
+          </button>
+        </nav>
+        <p class="side-foot">改动即时保存</p>
+      </aside>
 
-        <section class="body">
-          <header class="body-head">
-            <h3 class="body-title">{{ current.label }}</h3>
-            <button class="btn btn-sm btn-ghost" type="button" data-autofocus @click="close">
-              关闭
-            </button>
-          </header>
+      <section class="body">
+        <header class="body-head">
+          <h3 class="body-title">{{ current.label }}</h3>
+          <!-- autofocus：打开时光标落在这里，读屏先念标题再让人自己往内容区走 -->
+          <button class="btn btn-sm btn-ghost" type="button" autofocus @click="dlg.close()">
+            关闭
+          </button>
+        </header>
 
-          <div class="body-scroll" role="tabpanel" :aria-label="current.label">
-            <ModelTab v-if="current.id === 'model'" />
-            <AppearanceTab v-else-if="current.id === 'appearance'" />
-            <DownloadsTab v-else-if="current.id === 'downloads'" />
-            <AboutTab v-else-if="current.id === 'about'" />
-          </div>
+        <div class="body-scroll" role="tabpanel" :aria-label="current.label">
+          <ModelTab v-if="current.id === 'model'" />
+          <AppearanceTab v-else-if="current.id === 'appearance'" />
+          <DownloadsTab v-else-if="current.id === 'downloads'" />
+          <AboutTab v-else-if="current.id === 'about'" />
+        </div>
 
-          <footer class="body-foot">
-            <span>全部内容存在本机；只有你配置的模型接口会收到内容。</span>
-          </footer>
-        </section>
-      </div>
-    </div>
+        <footer class="body-foot">
+          <span>全部内容存在本机；只有你配置的模型接口会收到内容。</span>
+        </footer>
+      </section>
+    </dialog>
   </Teleport>
 </template>
 
 <style scoped>
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-  background: rgba(20, 18, 14, 0.42);
-  animation: fade 0.14s ease;
-}
-
-.panel {
+/* display 只在打开时给：无条件写会把 dialog 的「关着」状态（display: none）盖掉 */
+.settings[open] {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
-  width: 880px;
-  max-width: 100%;
-  height: 620px;
-  max-height: 100%;
+}
+
+.settings {
+  width: min(880px, 100vw - 2 * var(--space-6));
+  height: min(620px, 100vh - 2 * var(--space-6));
+  margin: auto;
   overflow: hidden;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-md);
   background: var(--c-bg-0);
   box-shadow: var(--shadow-md);
-  outline: none;
 }
 
 .side {
@@ -275,14 +219,5 @@ onBeforeUnmount(() => {
   background: var(--c-bg-1);
   font-size: var(--fs-xs);
   color: var(--c-text-3);
-}
-
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }
 </style>

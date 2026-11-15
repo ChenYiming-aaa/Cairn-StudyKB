@@ -22,6 +22,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* 明暗由 `<html data-mode>` 决定（tokens.css 的变量只覆盖我们自己画的像素）。
+   浏览器自己渲染的那些表面 —— select 展开后的列表、滚动条、勾选框、文本光标 ——
+   只认 color-scheme，不认 --c-*。写到 :root 上，根滚动条与初始画布才跟着变。 */
+html[data-mode="light"] {
+  color-scheme: light;
+}
+
+html[data-mode="dark"] {
+  color-scheme: dark;
+}
+
 h1,
 h2,
 h3,
@@ -308,6 +319,173 @@ body.is-resizing {
 .pane-note {
   display: flex;
   flex-direction: column;
+}
+
+/* ── 原生对话框（top layer）─────────────────────────
+   `<dialog>.showModal()` 自带焦点圈定、Esc/返回手势、背景 inert 与关闭时的焦点归还，
+   这些一律不要再手写（见 Modern Web Guidance · dialog）。
+   这里只补平台不管的两件事：
+   1. 背景页不跟着滚 —— 只能靠 overscroll-behavior，不许给 html/body 上 overflow: hidden
+      （那会抽掉根滚动条，整页横向抖一下）。
+   2. 进出 top layer 的过渡 —— 靠 @starting-style + allow-discrete，不用 keyframes。 */
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog {
+  /* 默认外观交回组件自己：UA 的 padding/border/max-width 会把面板挤歪 */
+  --dialog-backdrop: rgb(20 18 14 / 0.42);
+  padding: 0;
+  border: 0;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  transition-property: opacity, display, overlay;
+  transition-duration: 0.14s;
+  transition-timing-function: ease-out;
+  /* 单独一行：写进 transition 简写会让不认识它的浏览器整条丢弃 */
+  transition-behavior: allow-discrete;
+}
+
+dialog[open] {
+  opacity: 1;
+
+  @starting-style {
+    opacity: 0;
+  }
+}
+
+dialog::backdrop {
+  /* 先变成滚动容器，overscroll-behavior 才会生效（::backdrop 默认 overflow: visible） */
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: transparent;
+  transition-property: background-color, display, overlay;
+  transition-duration: 0.14s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+dialog[open]::backdrop {
+  background-color: var(--dialog-backdrop);
+
+  @starting-style {
+    background-color: transparent;
+  }
+}
+
+/* ── 进度：一律用原生 <progress> ─────────────────────
+   有确定值的给 value/max（读屏能念出百分比），还不知道总量的不给 value（浏览器自己跑不确定态）。 */
+
+.meter {
+  --meter-track: var(--c-bg-2);
+  --meter-fill: var(--c-primary);
+  inline-size: 100%;
+  block-size: 4px;
+  border: 0 solid;
+  border-radius: 2px;
+  overflow: clip;
+  appearance: none;
+  /* 不引 accent-color：它只管颜色，管不了 4px 的高度与圆角 */
+  background: var(--meter-track);
+}
+
+.meter::-webkit-progress-bar {
+  background: transparent;
+}
+
+.meter::-webkit-progress-value {
+  border-radius: 2px;
+  background: var(--meter-fill);
+  transition: inline-size 0.3s ease;
+}
+
+/* 不确定态（还没拿到总量）：UA 自带的来回滑动在 appearance: none 之后就没了，
+   不给它补一条的话，界面上会留下一条永远空着的槽 —— 用户读成「卡住了」。
+   所以这一条不是装饰，是「还在动」这个信号本身。 */
+.meter:indeterminate {
+  background-image: linear-gradient(var(--meter-fill), var(--meter-fill));
+  background-repeat: no-repeat;
+  background-size: 35% 100%;
+  animation: meter-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes meter-indeterminate {
+  from {
+    background-position: -40% 0;
+  }
+
+  to {
+    background-position: 140% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter:indeterminate {
+    animation-duration: 3.2s;
+  }
+}
+
+/* ── 按钮里的「正在做什么」────────────────────────────
+   文字说状态（「整理中…」），环只负责让人看见还在动。
+   读屏不再念一遍进度条：按钮的可访问名已经说过同一句话，重复播报只会把操作念糊。 */
+
+.spin {
+  inline-size: 12px;
+  block-size: 12px;
+  flex: none;
+  appearance: none;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: conic-gradient(from 90deg, currentColor 0 25%, transparent 0);
+  animation: spin 0.9s linear infinite;
+}
+
+@supports (background-clip: border-area) {
+  .spin {
+    border-color: transparent;
+    background-origin: border-box;
+    background-clip: border-area;
+  }
+}
+
+/* 还没支持 border-area 时用遮罩把中间挖空，别为这个去改结构。
+   这里只用到 alpha（`black` = 不透明），所以不是主题色，写关键字而不是色值。 */
+@supports not (background-clip: border-area) {
+  .spin {
+    border: 0;
+    mask-image: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+  }
+}
+
+/* 隐藏 UA 自带的不确定态动画，只留我们自己画的那一环 */
+.spin::-webkit-progress-bar,
+.spin::-webkit-progress-value {
+  display: none;
+  background: none;
+}
+
+@keyframes spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 放慢而不是停：停下来就看不出「还在跑」了 */
+  .spin {
+    animation-duration: 3s;
+  }
+}
+
+@media (forced-colors: active) {
+  /* 强制色模式会丢掉渐变，环就整个消失 */
+  .spin {
+    forced-color-adjust: none;
+  }
 }
 
 /* ── 三态（空 / 加载 / 错误）───────────────────────── */

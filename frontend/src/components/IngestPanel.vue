@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 
 import FileForm from './ingest/FileForm.vue'
 import LinkForm from './ingest/LinkForm.vue'
@@ -15,6 +15,10 @@ import PasteForm from './ingest/PasteForm.vue'
  *
  * 拖放挂在 dialog 上而不是虚线框里：拖到面板任何地方都该算数，
  * 只认虚线框的话，用户差 20 像素就白拖一次。
+ *
+ * 模态行为（焦点进窗/圈定/Esc/点遮罩/关窗还焦点）由原生 `<dialog>` 的 showModal() 提供。
+ * 之前那版是手搓的：遮罩 div + 一个挂在不可聚焦 div 上的 `@keydown.esc`，
+ * 于是 Esc 时灵时不灵，键盘焦点也一直留在被遮住的顶栏上。
  */
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -30,6 +34,7 @@ const mode = ref('paste')
 const dragging = ref(false)
 const uploading = ref(0)
 const fileForm = ref(null)
+const dlg = ref(null)
 
 function onDrop(event) {
   dragging.value = false
@@ -40,27 +45,37 @@ function onDrop(event) {
 }
 
 watch(() => props.open, (open) => {
-  if (!open) return
-  // 每次打开都回到第一页：上一次停在文件页、这次只想贴一段文字，不该多点一下
-  mode.value = 'paste'
-  dragging.value = false
-  uploading.value = 0
+  const node = dlg.value
+  if (!node) return
+  if (open) {
+    // 每次打开都回到第一页：上一次停在文件页、这次只想贴一段文字，不该多点一下
+    mode.value = 'paste'
+    dragging.value = false
+    uploading.value = 0
+    if (!node.open) node.showModal()
+    return
+  }
+  if (node.open) node.close()
+})
+
+onBeforeUnmount(() => {
+  if (dlg.value?.open) dlg.value.close()
 })
 </script>
 
 <template>
-  <div v-if="open" class="mask" @click.self="emit('close')" @keydown.esc="emit('close')">
-    <div
-      class="dialog"
-      role="dialog"
-      aria-modal="true"
+  <Teleport to="body">
+    <dialog
+      ref="dlg"
+      class="ingest"
+      closedby="any"
       aria-label="采集内容"
-      :class="{ drag: dragging }"
+      @close="emit('close')"
       @dragover.prevent="dragging = true"
       @dragleave.self="dragging = false"
       @drop.prevent="onDrop"
     >
-      <header class="dialog-head">
+      <header class="head">
         <h2>采集内容</h2>
         <nav class="tabs" aria-label="采集方式">
           <button
@@ -69,6 +84,7 @@ watch(() => props.open, (open) => {
             class="tab"
             :class="{ on: mode === m.key }"
             type="button"
+            :aria-pressed="mode === m.key"
             :aria-label="m.label"
             @click="mode = m.key"
           >
@@ -76,12 +92,13 @@ watch(() => props.open, (open) => {
           </button>
         </nav>
         <div class="grow" />
-        <button class="btn btn-ghost btn-sm" type="button" aria-label="关闭采集面板" @click="emit('close')">
+        <button class="btn btn-ghost btn-sm" type="button" aria-label="关闭采集面板" @click="dlg.close()">
           关闭
         </button>
       </header>
 
-      <div class="dialog-body">
+      <!-- 面板整体是拖放目标：拖动中给一圈虚线，说明「松手就会加进清单」 -->
+      <div class="body" :class="{ drag: dragging }">
         <PasteForm v-show="mode === 'paste'" @created="emit('created', $event)" />
 
         <template v-if="mode === 'more'">
@@ -102,41 +119,30 @@ watch(() => props.open, (open) => {
           />
         </template>
       </div>
-    </div>
-  </div>
+    </dialog>
+  </Teleport>
 </template>
 
 <style scoped>
-.mask {
-  position: fixed;
-  inset: 0;
-  background: rgba(35, 33, 28, 0.32);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-  z-index: 50;
-}
-
-.dialog {
-  width: min(720px, 100%);
-  max-height: 90vh;
+/* display 只在打开时给：无条件写会盖掉 dialog 关闭时的 display: none */
+.ingest[open] {
   display: flex;
   flex-direction: column;
-  background: var(--c-bg-1);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+}
+
+.ingest {
+  /* 遮罩比设置窗口浅一点：采集是高频动作，不该把整页压黑 */
+  --dialog-backdrop: rgb(35 33 28 / 0.32);
+  width: min(720px, 100vw - 2 * var(--space-6));
+  max-height: min(90vh, 100vh - 2 * var(--space-6));
+  margin: auto;
   overflow: hidden;
-  transition: outline-color 0.15s;
-  outline: 2px dashed transparent;
-  outline-offset: -8px;
+  border-radius: var(--radius-md);
+  background: var(--c-bg-1);
+  box-shadow: var(--shadow-md);
 }
 
-.dialog.drag {
-  outline-color: var(--c-primary);
-}
-
-.dialog-head {
+.head {
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -144,7 +150,7 @@ watch(() => props.open, (open) => {
   border-bottom: 1px solid var(--c-border);
 }
 
-.dialog-head h2 {
+.head h2 {
   font-size: var(--fs-lg);
 }
 
@@ -171,9 +177,16 @@ watch(() => props.open, (open) => {
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.08));
 }
 
-.dialog-body {
+.body {
   padding: var(--space-4) var(--space-6) var(--space-6);
   overflow: auto;
+  transition: outline-color 0.15s;
+  outline: 2px dashed transparent;
+  outline-offset: -8px;
+}
+
+.body.drag {
+  outline-color: var(--c-primary);
 }
 
 .grow {

@@ -63,7 +63,7 @@ def main() -> int:
             page.goto(base, wait_until="networkidle")
             page.wait_for_selector(".today-bar", timeout=20_000)
             page.get_by_role("button", name="设置").click()
-            page.wait_for_selector("[role='dialog']")
+            page.wait_for_selector("dialog[open]")
 
             targets = ["下载"] if only == "downloads" else ["关于"]
             for tab in targets:

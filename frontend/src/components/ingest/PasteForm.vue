@@ -61,7 +61,14 @@ async function submit() {
       <span class="hint">{{ words }} 字</span>
       <span v-if="errorText" class="error">{{ errorText }}</span>
       <div class="grow" />
-      <button class="btn btn-primary" type="button" :disabled="!canSubmit" @click="submit">
+      <button
+        class="btn btn-primary"
+        type="button"
+        :disabled="!canSubmit"
+        :aria-busy="submitting"
+        @click="submit"
+      >
+        <progress v-if="submitting" class="spin" aria-hidden="true" />
         {{ submitting ? '正在保存…' : '加入知识库' }}
       </button>
     </div>

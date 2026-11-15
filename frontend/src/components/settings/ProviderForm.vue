@@ -144,7 +144,15 @@ async function runProbe() {
             :placeholder="conf.has_key ? '已配置，粘贴新 Key 可替换' : '粘贴 Key（sk-…）'"
             @keyup.enter="saveKey"
           />
-          <button class="btn btn-sm btn-primary" type="button" :disabled="saving" @click="saveKey">
+          <!-- 保存中是异步的：按钮禁用挡住重复提交，环让人看见"还在写"，aria-busy 让读屏知道 -->
+          <button
+            class="btn btn-sm btn-primary"
+            type="button"
+            :disabled="saving"
+            :aria-busy="saving"
+            @click="saveKey"
+          >
+            <progress v-if="saving" class="spin" aria-hidden="true" />
             {{ saving ? '保存中…' : '保存 Key' }}
           </button>
         </div>
@@ -156,9 +164,11 @@ async function runProbe() {
           class="btn btn-sm"
           type="button"
           :disabled="probing || !canProbe"
+          :aria-busy="probing"
           :title="canProbe ? '列出对方模型并测一次延迟（只读，不改配置）' : '先填接口地址'"
           @click="runProbe"
         >
+          <progress v-if="probing" class="spin" aria-hidden="true" />
           {{ probing ? '探测中…' : '探测' }}
         </button>
         <span v-if="probe && probe.ok" class="probe-ok">
