@@ -1,9 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
 import { useToast } from '../composables/useToast'
+import { useUi } from '../composables/useUi'
 import { shortTime } from '../utils/format'
 import { TYPE_LABELS } from '../utils/quiz'
 
@@ -18,6 +20,8 @@ import { TYPE_LABELS } from '../utils/quiz'
  * 空队列不是错误：答错的题 due 是明天，今天打开就该是空的（验收场景 B 第一段）。
  */
 const toast = useToast()
+const router = useRouter()
+const { openItemAt } = useUi()
 
 const tab = ref('due')             // due | wrong | pending
 const loading = ref(true)
@@ -106,7 +110,26 @@ async function judge(item, correct) {
     delete next[id]
     judging.value = next
   }
-}async function loadWrong() {
+}
+
+/**
+ * 「看原文」：行上只有标题，想核对内容时不该让用户自己去知识库搜一遍标题（M4）。
+ *
+ * 走的是全站同一条通道（`openItemAt` + 回知识库），所以焦点高亮、页签归位
+ * 都与从检索结果跳过去时一致。
+ */
+function openSource(item) {
+  if (!item?.source_item_id) return
+  openItemAt(item.source_item_id)
+  router.push('/')
+}
+
+/** 队列空了想养题：给一句话一个落点，而不是让用户自己找「练习」在哪 */
+function goPractice() {
+  router.push('/practice')
+}
+
+async function loadWrong() {
   wrongLoading.value = true
   wrongError.value = ''
   try {
@@ -209,12 +232,18 @@ onMounted(loadDue)
       <div v-else-if="!items.length" class="state">
         <p class="state-title">今天没有到期的题</p>
         <p>去练习里答错几道，明天它们就回到这里。</p>
+        <button class="btn btn-sm state-actions" type="button" @click="goPractice">去练习</button>
       </div>
       <ul v-else class="rows">
         <li v-for="item in items" :key="item.question_id" class="row">
           <span class="row-tag">{{ TYPE_LABELS[item.type] || item.type }}</span>
           <span class="row-main">{{ item.question }}</span>
-          <span class="row-sub">{{ item.source_title || '未命名内容' }}</span>
+          <button
+            class="row-sub row-link"
+            type="button"
+            title="回知识库看这道题出自哪份内容"
+            @click="openSource(item)"
+          >{{ item.source_title || '未命名内容' }}</button>
           <span class="row-meta">
             间隔 {{ item.interval_days }} 天
             <template v-if="item.lapses"> · 忘过 {{ item.lapses }} 次</template>
@@ -236,12 +265,18 @@ onMounted(loadDue)
       <div v-else-if="!wrongItems.length" class="state">
         <p class="state-title">错题本是空的</p>
         <p>没有「最近一次答错」的题，或者都已经复习对了。</p>
+        <button class="btn btn-sm state-actions" type="button" @click="goPractice">去练习</button>
       </div>
       <ul v-else class="rows">
         <li v-for="item in wrongItems" :key="item.question_id" class="row">
           <span class="row-tag">{{ TYPE_LABELS[item.type] || item.type }}</span>
           <span class="row-main">{{ item.question }}</span>
-          <span class="row-sub">{{ item.source_title || '未命名内容' }}</span>
+          <button
+            class="row-sub row-link"
+            type="button"
+            title="回知识库看这道题出自哪份内容"
+            @click="openSource(item)"
+          >{{ item.source_title || '未命名内容' }}</button>
           <span class="row-meta">
             错 {{ item.wrong_count }} 次
             <template v-if="item.due_at"> · 下次 {{ shortTime(item.due_at) }}</template>
@@ -271,7 +306,12 @@ onMounted(loadDue)
         <li v-for="item in pendingItems" :key="item.question_id" class="row row-pending">
           <span class="row-tag">{{ TYPE_LABELS[item.type] || item.type }}</span>
           <span class="row-main">{{ item.question }}</span>
-          <span class="row-sub">{{ item.source_title || '未命名内容' }}</span>
+          <button
+            class="row-sub row-link"
+            type="button"
+            title="回知识库看这道题出自哪份内容"
+            @click="openSource(item)"
+          >{{ item.source_title || '未命名内容' }}</button>
           <span class="row-meta">{{ shortTime(item.last_pending_at) }} 判不出来</span>
           <span class="row-actions">
             <button
@@ -450,6 +490,22 @@ onMounted(loadDue)
 
 .row-time {
   text-align: right;
+}
+
+/* 出处做成按钮：颜色与普通副文本一致，hover 才显出可点，避免整行看起来像一堆链接 */
+.row-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-link:hover,
+.row-link:focus-visible {
+  color: var(--c-primary-ink);
+  text-decoration: underline;
 }
 
 /* 待判行多一列按钮：多出来的宽度从题干列挤，别让按钮把标题顶成两行 */

@@ -123,10 +123,19 @@ async function finish() {
   router.push('/')
 }
 
+/**
+ * 「稍后再说」＝ 先不配，但要能自己走回去（M3）。
+ *
+ * 两处以前的毛病：① 提示写「点顶栏的齿轮回到这里」，齿轮打开的是设置窗口，
+ * 里面没有引导页 —— 照着提示找不到；② 这条路顺手调了 `startPicked()`，
+ * 于是"稍后"当场开始下 118 MB，前后两句 toast 还互相打脸。
+ * 现在下载只留给明确勾选后点「去知识库」的人；这里只负责退出。
+ */
 function later() {
+  if (starting.value) return
   dismissSetup()
-  toast.info('随时点顶栏的齿轮回到这里')
-  finish()
+  toast.info('没配好也能先用：顶栏会留一个「还差一步」，随时点它回来')
+  router.push('/')
 }
 
 onMounted(async () => {
@@ -262,7 +271,7 @@ onMounted(async () => {
         {{ checking ? '检查中…' : '重新检查' }}
       </button>
       <div class="grow" />
-      <button class="btn btn-ghost" type="button" @click="later">稍后再说</button>
+      <button class="btn btn-ghost" type="button" :disabled="starting" @click="later">稍后再说</button>
       <button class="btn btn-primary" type="button" :disabled="starting" @click="finish">
         {{ starting ? '开始下载…' : '去知识库' }}
       </button>
