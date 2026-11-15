@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import ROOT, get_settings  # noqa: E402
 from app.db.conn import table_exists  # noqa: E402
+from app.services import llm_route  # noqa: E402
 
 
 def _line(title: str) -> None:
@@ -118,8 +119,12 @@ def _env_section() -> None:
         source = "FFMPEG_DIR" if configured else "PATH"
         print(f"  {name:<15} : {found or '未找到（M2 需要）'}"
               + (f"（来自 {source}）" if found else ""))
-    print(f"  LLM Key         : {'已配置' if cfg.has_llm_key else '未配置'}（值不显示）")
-    print(f"  LLM model       : {cfg.llm_model}")
+    # 与运行期同一条判据：按任务实际路由的 provider 看 Key（`Settings.has_llm_key`
+    # 只认 LLM_API_KEY，切到「OpenAI 兼容」后会把能用的环境报成「未配置」）
+    profile = llm_route.resolve("*")
+    print(f"  LLM Key         : {'已配置（' + profile.label + '）' if profile.has_key else '未配置'}"
+          "（值不显示）")
+    print(f"  LLM model       : {profile.model}")
     print(f"  LLM endpoint    : {cfg.chat_completions_url}")
 
 

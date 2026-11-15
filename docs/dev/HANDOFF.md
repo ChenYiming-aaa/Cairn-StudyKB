@@ -960,7 +960,7 @@ pending_total 3（都是 11-06 的，所以「今日待整理」= 0，口径正�
 **完成**
 
 - 遗留 1 关闭：`verify_m1.py::step_no_key` 里 `check("未留下注定失败的任务", total == 3)` 换成两条语义断言：
-  ① **organize 任务数前后不变**（无 Key 时 `/organize` 在 `_require_llm_key()` 就 400 了，不该派发任务）；
+  ① **organize 任务数前后不变**（无 Key 时 `/organize` 在 `llm_route.require_key("organizer")` 就 400 了，不该派发任务）；
   ② **`agent_task` 里不存在 `error_code='LLM_NO_KEY'` 的行**。
 - 为什么原来会红：写死 3 是 M1 当时的现场（1 单条 + 2 批量 = 3 个 organize 任务）；M3 加了向量索引后，
   整理完成会顺手派发 `index_embed`，全表任务数变成 11 且随后台派发时刻浮动。所以只数 `type='organize'`，

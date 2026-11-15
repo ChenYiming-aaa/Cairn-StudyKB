@@ -301,8 +301,10 @@ def main() -> int:
     print("  Cairn · M1 验收（T1.11）")
     print("=" * 62)
     print(f"临时数据目录：{TMP}")
-    if not config_mod.get_settings().has_llm_key:
-        print("\n未配置 LLM_API_KEY：整理链路无法验证，先补 .env 再重跑。")
+    # 判据跟运行期一致：整理用的是哪个 provider，就看那个 provider 的 Key。
+    # （只看 LLM_API_KEY 会把「任务已切到 OpenAI 兼容」的环境误判成没配）
+    if not llm_route.has_key("organizer"):
+        print("\n整理任务用到的 provider 还没配 Key：整理链路无法验证，先补 Key 再重跑。")
         cleanup(keep)
         return 2
 

@@ -30,6 +30,7 @@ from app.routers import components as components_api
 from app.db.repo import sessions as sessions_repo
 from app.services import browser, components, ingest_file
 from app.services import files as file_store
+from app.services import llm_route
 from app.services.tasks import recover_stale_tasks, shutdown
 from app.services.transcriber import clear_tmp
 
@@ -81,7 +82,10 @@ async def lifespan(_: FastAPI):
     print(f"[Cairn] 数据目录 = {cfg.data_dir}")
     print(f"[Cairn] 数据库   = {cfg.db_path}")
     print(f"[Cairn] 监听端口 = {cfg.port}")
-    print(f"[Cairn] LLM Key  = {'已配置' if cfg.has_llm_key else '未配置'}")
+    # 「配没配 Key」按任务实际路由的 provider 判（llm_route），不看 Settings.has_llm_key ——
+    # 后者只认 LLM_API_KEY，用户切到「OpenAI 兼容」后会误报「未配置」
+    _profile = llm_route.resolve("*")
+    print(f"[Cairn] LLM Key  = {'已配置（' + _profile.label + '）' if _profile.has_key else '未配置'}")
     log.info("Cairn 启动完成，数据目录=%s，端口=%s", cfg.data_dir, cfg.port)
     try:
         yield
