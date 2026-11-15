@@ -44,3 +44,14 @@ export function restoreScroll(key, el) {
 export function forgetScroll(key) {
   store.delete(key)
 }
+
+/**
+ * 按内容 id 清掉所有格式的位置（`pdf:12`、`docx:12`…）。
+ * 删除时只知道 id，不知道它当时是哪种格式，所以只能按后缀扫一遍。
+ */
+export function forgetItemScroll(itemId) {
+  const suffix = `:${itemId}`
+  for (const key of [...store.keys()]) {
+    if (key.endsWith(suffix)) store.delete(key)
+  }
+}

@@ -403,8 +403,10 @@ watch(question, () => {
 
         <article v-if="answer" class="answer" :class="{ dim: noResult }">
           <template v-for="(part, index) in answerParts" :key="index">
+            <!-- 引用号越界（模型写成 [9] 但只有 8 段）：没有对应来源就不渲染成按钮 ——
+                 一个「看着能点、点了没反应」的东西比一个灰色号更让人怀疑整段答案（L 组） -->
             <button
-              v-if="part.cite"
+              v-if="part.cite && sources[part.cite - 1]"
               class="cite"
               type="button"
               :title="sources[part.cite - 1]?.item_title || ''"
@@ -412,6 +414,11 @@ watch(question, () => {
             >
               [{{ part.cite }}]
             </button>
+            <span
+              v-else-if="part.cite"
+              class="cite cite-lost"
+              title="这条引用找不到对应原文，可能来自上一版回答"
+            >[{{ part.cite }}]</span>
             <template v-else>{{ part.text }}</template>
           </template>
         </article>
@@ -678,6 +685,12 @@ watch(question, () => {
 
 .cite:hover {
   text-decoration: underline;
+}
+
+/* 越界的引用号：留着位置（正文里那个 [9] 本来就在），但不像可点 */
+.cite-lost {
+  color: var(--c-text-3);
+  cursor: help;
 }
 
 .section-title {

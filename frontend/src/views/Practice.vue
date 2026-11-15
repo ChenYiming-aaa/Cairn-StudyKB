@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
@@ -26,6 +27,7 @@ const TYPES = ['single', 'multiple', 'boolean', 'short']
 const DIFFICULTIES = ['basic', 'understand', 'apply']
 
 const toast = useToast()
+const router = useRouter()
 // T5.3：练习页也能直接开一轮专注，目标带入当前选中的来源条目
 const { start: startSession } = useTimer()
 // T7.3：配置栏接入 SidePanel；出题开始后自动收成窄条（答题要的是屏占）
@@ -247,9 +249,14 @@ onMounted(loadItems)
             />
             <p v-if="loading" class="cfg-note">加载中…</p>
             <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
-            <p v-else-if="!items.length" class="cfg-note">
-              还没有整理好的内容。到知识库点「开始整理」，整理完就能出题。
-            </p>
+            <!-- 空态：一句现状 + 一个能点的出口（L 组）。只说「到知识库去」而不给按钮，
+                 等于让用户自己找路 —— 与列表空态（已有采集按钮）的句式对齐 -->
+            <div v-else-if="!items.length" class="cfg-empty">
+              <p class="cfg-note">还没有整理好的内容。整理完就能出题。</p>
+              <button class="btn btn-ghost btn-sm" type="button" @click="router.push('/')">
+                去知识库
+              </button>
+            </div>
             <ul v-else class="item-list">
               <li v-for="item in items" :key="item.id">
                 <button
@@ -477,6 +484,13 @@ onMounted(loadItems)
 
 .cfg-note.error {
   color: var(--c-danger-ink);
+}
+
+.cfg-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
 }
 
 .item-list {

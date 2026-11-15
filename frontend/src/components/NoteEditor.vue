@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api, friendlyMessage } from '../api/client'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
+import { clearDraft, readDraft, writeDraft } from '../utils/noteDraft'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -27,44 +28,6 @@ const saving = ref(false)
 const restored = ref(false)
 
 let renderTimer = null
-
-/**
- * 草稿按内容暂存在会话里（H3）。
- *
- * 为什么需要：详情区被骨架屏替换、页面刷新、切到别的内容再回来，都会让本组件卸载，
- * 而卸载 = 编辑器里的字消失。用 sessionStorage 而不是 localStorage：草稿是「这次打开应用
- * 期间的临时状态」，关掉应用还在反而会让人下次打开时对着一份不知道哪来的旧稿。
- */
-const DRAFT_PREFIX = 'cairn.note.draft.'
-
-function draftKey(itemId) {
-  return `${DRAFT_PREFIX}${itemId}`
-}
-
-function readDraft(itemId) {
-  try {
-    return sessionStorage.getItem(draftKey(itemId))
-  } catch {
-    // 存储被禁用（隐私模式、配额满）：草稿保命退化成「只有 dirty 标记」，不影响编辑
-    return null
-  }
-}
-
-function writeDraft(itemId, text) {
-  try {
-    sessionStorage.setItem(draftKey(itemId), text)
-  } catch {
-    /* 同上，存不进去不是错误 */
-  }
-}
-
-function clearDraft(itemId) {
-  try {
-    sessionStorage.removeItem(draftKey(itemId))
-  } catch {
-    /* 同上 */
-  }
-}
 
 const kept = readDraft(props.itemId)
 if (kept !== null && kept !== (props.note || '')) {

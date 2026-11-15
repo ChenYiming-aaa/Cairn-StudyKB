@@ -13,13 +13,21 @@ defineProps({
 
     <template v-else>
       <!-- 整理中显示的是**上一版**摘要：不说一句，页面一边挂着「整理中」徽标、
-           一边展示旧摘要，看起来像这次整理什么都没产出（L 组） -->
+           一边展示旧摘要，看起来像这次整理什么都没产出（L 组）。
+           但「上一版」这句话只有在**确实有上一版**时才成立：第一次整理就是没有旧摘要的，
+           那时候说「下面是上一版」等于指着一片空白说「这就是上一版」。 -->
       <p v-if="item.status === 'organizing'" class="stale">
-        正在重写，下面是上一版；整理完会自己刷新。
+        <template v-if="item.summary">正在重写，下面是上一版；整理完会自己刷新。</template>
+        <template v-else>正在生成摘要…</template>
       </p>
       <div class="block">
         <h2 class="block-title">摘要</h2>
-        <p class="summary">{{ item.summary || '（模型这次没给摘要，可以重新整理试试）' }}</p>
+        <p v-if="item.summary" class="summary">{{ item.summary }}</p>
+        <!-- 整理中且还没产出：下面那句「模型这次没给摘要」会把「正在生成」说成「没给」，
+             所以这里留空，交给上面那行状态话 -->
+        <p v-else-if="item.status !== 'organizing'" class="summary">
+          （模型这次没给摘要，可以重新整理试试）
+        </p>
       </div>
       <div class="block">
         <h2 class="block-title">关键点</h2>

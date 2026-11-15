@@ -10,6 +10,8 @@ import { api, friendlyMessage } from '../api/client'
 import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
+import { clearDraft } from '../utils/noteDraft'
+import { forgetItemScroll } from '../utils/scrollMemory'
 
 const toast = useToast()
 const route = useRoute()
@@ -115,6 +117,17 @@ async function loadList() {
 }
 
 /**
+ * 一条内容不存在了：连同它留下的本地痕迹一起清掉。
+ *
+ * 草稿在 sessionStorage（`utils/noteDraft`），阅读位置在内存（`utils/scrollMemory`）。
+ * 两处都是「按内容 id 认主」的，id 一旦被别的内容复用就会把旧稿/旧位置串过去。
+ */
+function dropLocalTraces(itemId) {
+  clearDraft(itemId)
+  forgetItemScroll(itemId)
+}
+
+/**
  * 拉详情。
  *
  * **同一条内容的后台刷新不许清屏**（H3）：详情区一旦切到骨架屏，整棵子树会被卸载 ——
@@ -142,6 +155,10 @@ async function loadDetail(itemId) {
     if (soft && err?.status !== 404) {
       toast.error(friendlyMessage(err))
     } else {
+      // 一条内容不存在了，它留下的草稿和阅读位置也不会再有主人（H3 的清理时机第三处：前两处是
+      // 保存成功、主动丢弃，都在 NoteEditor 里）。不清就会在会话里攒一堆看不见也删不掉的残稿，
+      // 而且 id 被复用时会串到别的内容上。
+      if (err?.status === 404) dropLocalTraces(itemId)
       detailError.value = friendlyMessage(err)
       detail.value = null
     }
@@ -311,6 +328,7 @@ async function onDetailRefresh(itemId) {  await refreshAll()
 }
 
 function onDeleted(itemId) {
+  dropLocalTraces(itemId)
   if (selectedId.value === itemId) {
     selectedId.value = null
     detail.value = null
