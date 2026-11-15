@@ -28,11 +28,15 @@ class ResultBody(BaseModel):
 
 
 def _question_fields(question: dict) -> dict:
-    """列表里只给作答/展示需要的字段，别把 fingerprint、payload 原文漏出去。"""
+    """列表里只给作答/展示需要的字段，别把 fingerprint、payload 原文漏出去。
+
+    `user_answer` 只有「待人工判断」那条查询会带（见 `repo.review._PENDING_SQL`）：
+    这一页要用户判「算我对 / 算我错」，得让他看见自己当时写了什么。
+    """
     return {
         key: question.get(key)
         for key in ("question_id", "type", "question", "options", "answer", "explanation",
-                    "difficulty", "source_item_id", "source_title")
+                    "difficulty", "source_item_id", "source_title", "user_answer")
     }
 
 

@@ -478,7 +478,11 @@ def step_review(client: TestClient, qids: dict, item_id: int) -> None:
                               answer="对")
     sql("INSERT INTO quiz_attempt (question_id, user_answer, is_correct, feedback,"
         " duration_ms, created_at) VALUES (?, ?, NULL, '超时', 1, ?)",
-        (pending_q, "我的答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
+        (pending_q, "第一版答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
+    # 同一条题答两次、两次都没判出来：列表要端**最近一次**（按 id），不是最早那次
+    sql("INSERT INTO quiz_attempt (question_id, user_answer, is_correct, feedback,"
+        " duration_ms, created_at) VALUES (?, ?, NULL, '超时', 1, ?)",
+        (pending_q, "第二版答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
     sql("INSERT INTO quiz_attempt (question_id, user_answer, is_correct, feedback,"
         " duration_ms, created_at) VALUES (?, ?, NULL, '超时', 1, ?)",
         (pending_q2, "我的答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
@@ -495,6 +499,13 @@ def step_review(client: TestClient, qids: dict, item_id: int) -> None:
     hit = [i for i in payload["items"] if i["question_id"] == pending_q]
     check("待判列表带题干与来源标题",
           bool(hit) and hit[0]["question"] and hit[0]["source_title"], str(hit[:1]))
+    # 「算我对 / 算我错」判的是简答：只给正确答案、看不到自己写了什么，用户只能凭记忆裁决。
+    check("待判列表带「你当时答的」（最近一次作答）",
+          bool(hit) and hit[0].get("user_answer") == "第二版答案",
+          str(hit[0].get("user_answer") if hit else None))
+    check("待判列表也带正确答案（判对错要对照）",
+          bool(hit) and hit[0].get("answer") == "对",
+          str(hit[0].get("answer") if hit else None))
     due_payload = client.get("/api/review/due").json()
     check("/review/due 顺手带上待判数",
           due_payload.get("pending") == payload["total"], str(due_payload.get("pending")))

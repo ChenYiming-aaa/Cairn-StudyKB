@@ -150,7 +150,12 @@ _PENDING_SQL = """
 SELECT q.*, i.title AS source_title,
        r.due_at, r.interval_days, r.lapses,
        (SELECT MAX(a.created_at) FROM quiz_attempt a
-          WHERE a.question_id = q.id AND a.is_correct IS NULL) AS last_pending_at
+          WHERE a.question_id = q.id AND a.is_correct IS NULL) AS last_pending_at,
+       -- 「你当时答的」：这一页的动作是判「算我对 / 算我错」，判的是简答。
+       -- 只给参考答案、看不到自己写了什么，用户只能靠回忆裁决 —— 取**最近一次**作答，
+       -- 与下面 WHERE 里认的是同一条记录，别把更早的旧答案端上来。
+       (SELECT a.user_answer FROM quiz_attempt a
+         WHERE a.question_id = q.id ORDER BY a.id DESC LIMIT 1) AS user_answer
 FROM question q
 LEFT JOIN knowledge_item i ON i.id = q.item_id
 LEFT JOIN review_item r ON r.question_id = q.id
