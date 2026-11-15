@@ -42,6 +42,9 @@ const detailError = ref('')
 const recent = ref([])
 
 const organizingAll = ref(false)
+// 批量移入：勾中的 id 放在页面这一层，失败项要留下、成功项才剔除（H4）
+const picked = ref([])
+const moving = ref(null)
 // T7.1：状态快筛与分类/标签是叠加关系（三个条件一起进 WHERE）
 // T9.9：工作区也是叠加的一维（'' = 全部 | 'none' = 未归类 | number = 某个工作区）
 const filter = reactive({ category: '', tag: '', q: '', status: '', workspace_id: '' })
@@ -256,19 +259,38 @@ async function organizePending() {
   }
 }
 
-/** 批量移入：列表勾选后点「移到」。逐条 PATCH —— 没有批量端点，几十条的规模不值得加一个 */
+/**
+ * 批量移入：列表勾选后点「移到」。逐条 PATCH —— 没有批量端点，几十条的规模不值得加一个。
+ *
+ * H4：三条纪律，缺一条用户就看不出成没成
+ * ① 失败项留在勾选里（成功的剔掉），否则只能整批重来；
+ * ② 完成前按钮保持禁用并显示「移到中 3/20」，否则会重复提交、同一批移两格；
+ * ③ 汇总句必须给出成功数与第一个失败项的标题，别用一句通用 toast 把 19/1 吞掉。
+ */
 async function onMoveItems(payload) {
   const ids = payload.ids || []
   const target = payload.workspaceId === '' ? null : payload.workspaceId
-  if (!ids.length) return
-  try {
-    await Promise.all(ids.map((id) => api.patchItem(id, { workspace_id: target })))
-    toast.ok(target === null ? `已把 ${ids.length} 条移到「未归类」` : `已移入 ${ids.length} 条`)
-    await refreshAll()
-  } catch (err) {
-    toast.error(friendlyMessage(err))
-    await refreshAll()
+  if (!ids.length || moving.value) return
+  moving.value = { done: 0, total: ids.length }
+  const results = await Promise.allSettled(
+    ids.map((id) =>
+      api.patchItem(id, { workspace_id: target }).finally(() => {
+        moving.value.done += 1
+      })
+    )
+  )
+  const failed = ids.filter((_, index) => results[index].status === 'rejected')
+  const okCount = ids.length - failed.length
+  // 标题要在刷新前取：移走之后这一条可能已经不在当前筛选的列表里
+  const hint = failed.length ? items.value.find((item) => item.id === failed[0])?.title || '' : ''
+  picked.value = failed
+  moving.value = null
+  if (failed.length) {
+    toast.error(`成功 ${okCount} 条，${failed.length} 条没移成${hint ? `（${hint}）` : ''}`)
+  } else {
+    toast.ok(target === null ? `已把 ${okCount} 条移到「未归类」` : `已移入 ${okCount} 条`)
   }
+  await refreshAll()
 }
 
 /** 详情里的下拉：只改这一条，不刷新整个列表（列表那条的工区标签要跟着变，所以还是刷） */
@@ -369,6 +391,8 @@ onBeforeUnmount(() => {
         :filtered="isFiltered"
         :recent="recent"
         :workspaces="workspaces"
+        :moving="moving"
+        v-model:picked="picked"
         @select="selectItem"
         @move="onMoveItems"
         @search="onSearch"

@@ -27,13 +27,17 @@ const props = defineProps({
   recent: { type: Array, default: () => [] },
   // [{ id, name, item_count }]，用来显示每条属于哪个工作区、以及批量移入的下拉
   workspaces: { type: Array, default: () => [] },
+  // { done, total }：批量移入进行中。按钮要靠它禁用并显示进度
+  moving: { type: Object, default: null },
 })
 const emit = defineEmits([
   'select', 'search', 'retry', 'organize-pending', 'select-recent', 'create', 'move',
 ])
 
 const keyword = ref(props.q)
-const picked = ref([])          // 勾中的 id
+// 勾选态由父级持有（H4）：移入失败的那几条要留在勾选里，而「清空」必须等结果回来
+// 才做 —— 子组件自己拿着就只能同帧清空，失败项再也找不回来
+const picked = defineModel('picked', { type: Array, default: () => [] })
 let timer = null
 
 /** id → 名字。不做成 Map 是为了让模板里一行就能用（列表最多 50 条，线性找也不慢） */
@@ -48,11 +52,11 @@ function toggle(id) {
     : [...picked.value, id]
 }
 
-/** 批量移入：条自己只管「选哪些」，移到哪里由 BulkMoveBar 决定 */
+/** 批量移入：条自己只管「选哪些」，移到哪里由 BulkMoveBar 决定。
+    清空不在这里做 —— 等父级拿到结果，成功的剔掉、失败的留着，见 Knowledge.onMoveItems */
 function onBulkMove(workspaceId) {
-  if (!picked.value.length) return
+  if (!picked.value.length || props.moving) return
   emit('move', { ids: [...picked.value], workspaceId })
-  picked.value = []
 }
 
 // 筛选换了以后，屏幕上没有的 id 不该还留着选中（会移走用户看不见的内容）
@@ -121,6 +125,8 @@ function clearKeyword() {
       v-if="picked.length"
       :count="picked.length"
       :workspaces="workspaces"
+      :busy="Boolean(moving)"
+      :progress="moving"
       @move="onBulkMove"
       @cancel="picked = []"
     />
