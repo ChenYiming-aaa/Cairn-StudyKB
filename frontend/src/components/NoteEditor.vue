@@ -23,8 +23,56 @@ const draft = ref(props.note || '')
 const html = ref('')
 const dirty = ref(false)
 const saving = ref(false)
+// 从会话存储里捡回来的草稿：要有明显的「这不是我保存的内容」提示，否则用户会以为已经存过了
+const restored = ref(false)
 
 let renderTimer = null
+
+/**
+ * 草稿按内容暂存在会话里（H3）。
+ *
+ * 为什么需要：详情区被骨架屏替换、页面刷新、切到别的内容再回来，都会让本组件卸载，
+ * 而卸载 = 编辑器里的字消失。用 sessionStorage 而不是 localStorage：草稿是「这次打开应用
+ * 期间的临时状态」，关掉应用还在反而会让人下次打开时对着一份不知道哪来的旧稿。
+ */
+const DRAFT_PREFIX = 'cairn.note.draft.'
+
+function draftKey(itemId) {
+  return `${DRAFT_PREFIX}${itemId}`
+}
+
+function readDraft(itemId) {
+  try {
+    return sessionStorage.getItem(draftKey(itemId))
+  } catch {
+    // 存储被禁用（隐私模式、配额满）：草稿保命退化成「只有 dirty 标记」，不影响编辑
+    return null
+  }
+}
+
+function writeDraft(itemId, text) {
+  try {
+    sessionStorage.setItem(draftKey(itemId), text)
+  } catch {
+    /* 同上，存不进去不是错误 */
+  }
+}
+
+function clearDraft(itemId) {
+  try {
+    sessionStorage.removeItem(draftKey(itemId))
+  } catch {
+    /* 同上 */
+  }
+}
+
+const kept = readDraft(props.itemId)
+if (kept !== null && kept !== (props.note || '')) {
+  draft.value = kept
+  dirty.value = true
+  restored.value = true
+  setEditorDirty(true)
+}
 
 const words = computed(() => draft.value.trim().length)
 
@@ -42,6 +90,9 @@ function scheduleRender() {
 watch(draft, () => {
   dirty.value = draft.value !== (props.note || '')
   setEditorDirty(dirty.value)
+  // 每一次改动都落一份：卸载钩子不一定跑得到（关窗、进程被杀），草稿不能只赌那一次
+  if (dirty.value) writeDraft(props.itemId, draft.value)
+  else clearDraft(props.itemId)
   scheduleRender()
 })
 
@@ -63,6 +114,8 @@ function save() {
     .patchItem(props.itemId, { structured_note: draft.value })
     .then((result) => {
       dirty.value = false
+      restored.value = false
+      clearDraft(props.itemId)
       setEditorDirty(false)
       emit('saved', result)
       toast.ok(`笔记已保存，同时更新了 ${result.note_chunk_count} 个笔记片段`)
@@ -71,6 +124,16 @@ function save() {
     .finally(() => {
       saving.value = false
     })
+}
+
+/** 放弃这次改动：回到已保存的那一版（草稿也一起清掉，否则下次打开又「恢复」回来） */
+function discard() {
+  draft.value = props.note || ''
+  clearDraft(props.itemId)
+  restored.value = false
+  dirty.value = false
+  setEditorDirty(false)
+  render()
 }
 
 function onKeydown(event) {
@@ -121,6 +184,10 @@ onBeforeUnmount(() => {
       </div>
 
       <span class="words">{{ words }} 字</span>
+      <span v-if="restored" class="restored">
+        恢复了一份没保存的草稿
+        <button class="btn btn-ghost btn-sm" type="button" @click="discard">放弃改动</button>
+      </span>
       <span v-if="dirty" class="dirty">已修改 •</span>
       <button class="btn btn-sm btn-primary" type="button" :disabled="!dirty || saving" @click="save">
         {{ saving ? '保存中…' : '保存笔记' }}
@@ -174,6 +241,14 @@ onBeforeUnmount(() => {
 }
 
 .dirty {
+  font-size: var(--fs-xs);
+  color: var(--c-warning-ink);
+}
+
+.restored {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--fs-xs);
   color: var(--c-warning-ink);
 }

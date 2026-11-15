@@ -33,6 +33,8 @@ const listError = ref('')
 const selectedId = ref(null)
 const detail = ref(null)
 const detailLoading = ref(false)
+// 同一条内容的后台刷新：内容留着，只在顶部走一条细线（H3）
+const detailRefreshing = ref(false)
 const detailError = ref('')
 
 // T7.2 空状态用：最近采集的 3 条。只在「没加筛选」的那次请求里更新，
@@ -106,20 +108,40 @@ async function loadList() {
   }
 }
 
+/**
+ * 拉详情。
+ *
+ * **同一条内容的后台刷新不许清屏**（H3）：详情区一旦切到骨架屏，整棵子树会被卸载 ——
+ * 笔记编辑器连同未保存草稿一起没了，「已修改」标记也会被 `setEditorDirty(false)` 抹掉，
+ * 之后切内容时那句「当前笔记还没保存」都不会再弹；PDF 还会因为 `:key` 重挂回第 1 页。
+ * 而触发方只是整理轮询（每 2.5 s 一次）、采集新内容、批量移入这些**用户没点**的动作。
+ * 所以：已有同一条 → 软刷新（保留内容 + 顶部细线）；换内容/从无到有 → 骨架屏。
+ */
 async function loadDetail(itemId) {
   if (!itemId) {
     detail.value = null
     return
   }
-  detailLoading.value = true
+  const soft = detail.value?.id === itemId
+  if (soft) detailRefreshing.value = true
+  else detailLoading.value = true
   detailError.value = ''
   try {
-    detail.value = await api.getItem(itemId)
+    const next = await api.getItem(itemId)
+    // 请求飞在路上时用户可能已经切到别的内容：旧请求的结果不许盖上去
+    if (selectedId.value === itemId) detail.value = next
   } catch (err) {
-    detailError.value = friendlyMessage(err)
-    detail.value = null
+    if (selectedId.value !== itemId) return
+    // 内容被删（404）不能软着来：留着旧内容，用户会继续对着一条不存在的东西操作
+    if (soft && err?.status !== 404) {
+      toast.error(friendlyMessage(err))
+    } else {
+      detailError.value = friendlyMessage(err)
+      detail.value = null
+    }
   } finally {
-    detailLoading.value = false
+    if (soft) detailRefreshing.value = false
+    else detailLoading.value = false
   }
 }
 
@@ -157,9 +179,9 @@ async function refreshAll() {
 
 function selectItem(itemId) {
   if (itemId === selectedId.value) return
-  if (editorDirty.value && !window.confirm('当前笔记还没保存，切换后会丢失。确定要切换吗？')) {
-    return
-  }
+  // 笔记改动按内容留成会话草稿（NoteEditor 负责），回来还能接着改 ——
+  // 所以不再用 confirm 拦切换：拦住了也救不回任何东西，只是多一次点击
+  if (editorDirty.value) toast.info('笔记改动留成草稿了，回到这条还能接着改')
   selectedId.value = itemId
   loadDetail(itemId)
   // < 1000px 时列表是浮层，选完就该让出屏占把详情露出来（M7 §3.3 第三档）
@@ -359,6 +381,7 @@ onBeforeUnmount(() => {
       <ItemDetail
         :item="detail"
         :loading="detailLoading"
+        :refreshing="detailRefreshing"
         :error="detailError"
         :has-items="hasAnyItem"
         :workspaces="workspaces"

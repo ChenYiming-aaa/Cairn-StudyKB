@@ -6,7 +6,7 @@
  * 标题 / 要点（带层级）/ 备注。层级信息来自抽取时保留的缩进（`- ` 前的空格），
  * 丢了它就只剩一坨平铺的文字，讲义的骨架就看不出来了。
  */
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { api } from '../../api/client'
 import { useLocate } from '../../composables/useFocus'
@@ -20,7 +20,13 @@ const props = defineProps({
   focus: { type: Object, default: null },
 })
 
-const page = ref(1)
+// 读到第几页按内容记住（H3）：一页一屏，重挂回第 1 页的代价就是「刚才看到哪了？」全丢
+const PAGE_MEMORY = new Map()
+const page = ref(PAGE_MEMORY.get(props.itemId) || 1)
+
+onBeforeUnmount(() => {
+  if (props.itemId) PAGE_MEMORY.set(props.itemId, page.value)
+})
 
 // 换内容时回到第 1 页，再按当前页取数
 const { data, loading, error, load } = usePageData(

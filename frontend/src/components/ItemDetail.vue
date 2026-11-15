@@ -19,6 +19,8 @@ import { fullTime } from '../utils/format'
 const props = defineProps({
   item: { type: Object, default: null },
   loading: { type: Boolean, default: false },
+  // 同上：同一条内容的后台刷新（不是换内容），只走顶部一条细线，不换骨架屏
+  refreshing: { type: Boolean, default: false },
   error: { type: String, default: '' },
   // D-01：空态要分两种——"库里有内容但没选中" vs "库里一条都没有"，
   // 后者说"从左侧选一条"是死路。默认 true，避免首次加载瞬间误报"还没有内容"。
@@ -188,6 +190,7 @@ onBeforeUnmount(stop)
 
 <template>
   <section class="detail">
+    <div v-if="refreshing" class="detail-refreshing" role="status" aria-label="正在更新这条内容" />
     <div v-if="loading" class="detail-loading">
       <div v-for="w in ['45%', '80%', '70%', '60%']" :key="w" class="skeleton" :style="{ width: w }" />
     </div>
@@ -312,6 +315,28 @@ onBeforeUnmount(stop)
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-6) 0;
+}
+
+/* 后台刷新：2px 细线从左往右扫一眼，不动内容。不是进度条（拿不到真实进度），
+   只说「这条正在更新」，所以不给百分比也不给文字 */
+.detail-refreshing {
+  flex: 0 0 auto;
+  height: 2px;
+  margin: 0 0 var(--space-2);
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, var(--c-primary), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: detail-refreshing 1.1s linear infinite;
+}
+
+@keyframes detail-refreshing {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
 }
 
 .detail-head {

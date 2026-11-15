@@ -6,11 +6,12 @@
  * `renderer.sanitize()` 过一遍白名单），前端绝不拼接、绝不 `innerHTML` 拼字符串。
  * 后端没转出版式时退到纯文本，不是空白页 —— 用户要看的是内容，不是版式。
  */
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { api } from '../../api/client'
 import { highlightIn } from '../../composables/useFocus'
 import { usePageData } from '../../composables/usePageData'
+import { restoreScroll, saveScroll, scrollKey } from '../../utils/scrollMemory'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -31,6 +32,19 @@ const html = computed(() => data.value?.html || '')
 const text = computed(() => data.value?.text || '')
 
 const doc = ref(null)
+const root = ref(null)
+// 阅读位置（H3）：后台刷新会让本组件重挂，重挂后从顶上开始 = 把读者挪走
+const memKey = scrollKey('docx', props.itemId)
+
+onMounted(() => restoreScroll(memKey, root.value))
+onBeforeUnmount(() => saveScroll(memKey, root.value))
+
+// 版式是异步来的：挂载时容器还是空的，等内容真的出现再放一次
+watch([html, text], async () => {
+  if (!html.value && !text.value) return
+  await nextTick()
+  restoreScroll(memKey, root.value)
+})
 
 /**
  * 引用定位（T11.2）：版式出来之后在 DOM 里找那段话。
@@ -50,7 +64,7 @@ watch(
 </script>
 
 <template>
-  <div class="docx-view">
+  <div ref="root" class="docx-view">
     <p v-if="error" class="state">{{ error }}</p>
     <p v-else-if="loading" class="state">正在打开这份文件…</p>
     <div v-else-if="html" ref="doc" class="doc" v-html="html" />

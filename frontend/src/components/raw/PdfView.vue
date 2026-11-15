@@ -39,7 +39,15 @@ const scroller = ref(null)
 // 2026-11-13 实测踩到，控制台连一条错都没有。
 const doc = shallowRef(null)
 const sizes = ref([])
-const current = ref(1)
+/**
+ * 读到第几页，按内容记住（H3）。
+ *
+ * 详情区被骨架屏替换 / 刷新页面 / 切走再回来，本组件都会重挂，而 `reset()` 会把 `current`
+ * 打回 1 —— 读者刚看到第 40 页，被挪回第 1 页。这里用模块级 Map 记页码：不落盘，
+ * 因为「这次打开应用读到哪里」就够了；页高随窗口变，只有页码是稳定的锚。
+ */
+const PAGE_MEMORY = new Map()
+const current = ref(PAGE_MEMORY.get(props.itemId) || 1)
 const opening = ref(false)
 const pdfError = ref('')
 // 右侧面板回报的整页数据：顶部那句「这一页可能有错」要靠它算
@@ -78,6 +86,11 @@ function go(pageNo) {
   current.value = pageNo
 }
 
+/** 记住当前页码（卸载前调；`reset()` 会把 current 打回 1，所以必须先记再清） */
+function rememberPage() {
+  if (props.itemId) PAGE_MEMORY.set(props.itemId, current.value)
+}
+
 function reset() {
   // destroy 是异步的，且可能在渲染进行中被调用：吞掉拒绝，别让控制台多一条
   // 「切换内容时的报错」，那对用户没有任何意义
@@ -94,8 +107,10 @@ function reset() {
 
 watch(
   () => props.itemId,
-  () => {
+  (id, prev) => {
+    if (prev) PAGE_MEMORY.set(prev, current.value)
     reset()
+    current.value = PAGE_MEMORY.get(id) || 1
     if (props.active) {
       loaded = true
       open()
@@ -147,7 +162,10 @@ const pageSuspicious = computed(() => {
   return typeof conf === 'number' && conf > 0 && conf < LOW
 })
 
-onBeforeUnmount(reset)
+onBeforeUnmount(() => {
+  rememberPage()
+  reset()
+})
 </script>
 
 <template>

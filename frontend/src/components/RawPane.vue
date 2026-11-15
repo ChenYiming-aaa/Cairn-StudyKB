@@ -55,7 +55,7 @@ const pageCount = computed(() => Number(props.item?.file?.page_count || 0))
     <DocxView v-else-if="kind === 'docx'" :key="`docx-${itemId}`" :item-id="itemId" :focus="focus" :active="active" />
     <PptxView v-else-if="kind === 'pptx'" :key="`pptx-${itemId}`" :item-id="itemId" :page-count="pageCount" :focus="focus" :active="active" />
     <ImageView v-else-if="kind === 'image'" :key="`img-${itemId}`" :item-id="itemId" :focus="focus" :active="active" />
-    <TextRawPane v-else :text="item.raw_content || ''" :focus="focus" />
+    <TextRawPane v-else :item-id="itemId" :text="item.raw_content || ''" :focus="focus" />
   </div>
 </template>
 

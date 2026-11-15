@@ -5,15 +5,35 @@
  * 用在：粘贴来的文字、网页/视频采集的正文、txt/md/xlsx 这类没有版式可渲染的原件。
  * 保留问答定位高亮 —— 这是它相对其它几个视图唯一不可替代的能力。
  */
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+import { restoreScroll, saveScroll, scrollKey } from '../../utils/scrollMemory'
 
 const props = defineProps({
+  // 阅读位置按内容 id 记（H3）；没有原件的那类内容也会走到这里，所以允许为 0（不记）
+  itemId: { type: Number, default: 0 },
   text: { type: String, default: '' },
   // {text, key}：问答来源卡片跳转时要定位的那一段（M3 T3.6），默认无
   focus: { type: Object, default: null },
 })
 
 const hitEl = ref(null)
+const root = ref(null)
+
+const memKey = computed(() => scrollKey('text', props.itemId))
+
+onMounted(() => restoreScroll(memKey.value, root.value))
+onBeforeUnmount(() => saveScroll(memKey.value, root.value))
+
+// 这个组件在换内容时是原地复用（RawPane 没给 key）：旧位置的存档要落在旧 key 上
+watch(
+  () => props.itemId,
+  async (id, prev) => {
+    if (prev) saveScroll(scrollKey('text', prev), root.value)
+    await nextTick()
+    restoreScroll(memKey.value, root.value)
+  }
+)
 
 /**
  * 在原文里找这一段的锚点。
@@ -63,7 +83,7 @@ watch(
 </script>
 
 <template>
-  <div class="pane">
+  <div ref="root" class="pane">
     <pre class="raw"><template v-for="(part, index) in parts" :key="index"><mark v-if="part.hit" :ref="bindHit" class="hit">{{ part.text }}</mark><template v-else>{{ part.text }}</template></template></pre>
   </div>
 </template>

@@ -8,11 +8,12 @@
  * 原图地址走 `fileUrl`（原格式：png/webp 按自己的 mime 返回），
  * 不走 `pageImageUrl`（那条固定 `image/jpeg`，给 PDF 页图用的）。
  */
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { api } from '../../api/client'
 import { useLocate } from '../../composables/useFocus'
 import { usePageData } from '../../composables/usePageData'
+import { restoreScroll, saveScroll, scrollKey } from '../../utils/scrollMemory'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -58,6 +59,15 @@ watch(lines, async () => {
   await nextTick()
   box.value?.querySelector('.line.hit')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 })
+
+// 阅读位置（H3）：后台刷新会让本组件重挂，右边那栏的滚动位置也要跟着回来
+const memKey = scrollKey('image', props.itemId)
+watch(lines, async (list) => {
+  if (!list.length) return
+  await nextTick()
+  restoreScroll(memKey, box.value)
+})
+onBeforeUnmount(() => saveScroll(memKey, box.value))
 
 const lowCount = computed(() => lines.value.filter((line) => line.low).length)
 </script>
