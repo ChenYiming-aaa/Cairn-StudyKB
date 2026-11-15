@@ -24,8 +24,7 @@ import logging
 
 from app.db.conn import get_conn
 from app.errors import ApiError
-from app.paths import app_path
-from app.services import llm
+from app.services import ingest_file, llm, prompts
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ WHY_KINDS = ("错字", "全半角", "题号")
 
 
 def _template() -> str:
-    return (app_path("prompts") / "exam_proof.md").read_text(encoding="utf-8")
+    return prompts.render("exam_proof")
 
 
 def split_blocks(lines: list[str], *, limit: int = MAX_BLOCK_CHARS) -> list[list[tuple[int, str]]]:
@@ -189,8 +188,7 @@ def review_page(page_no: int, text: str, *, use_llm: bool = True) -> dict:
             if not any(line.strip() for _, line in block):
                 continue
             try:
-                raw = llm.chat(messages(block), agent="exam_proof", json_mode=True)
-                data = llm.extract_json(raw)
+                data = llm.json_call(messages(block), agent="exam_proof")
             except llm.LLMError as exc:
                 log.warning("第 %s 页第 %s 行起的块校对放弃（%s）", page_no, block[0][0], exc.code)
                 failed += 1
@@ -320,6 +318,10 @@ def apply(file_id: int, accepted: list[dict]) -> dict:
     finally:
         conn.close()
 
+    # 正文与检索索引跟着校对结果走（P0-2）。只写 `text_reviewed` 的话，用户点完
+    # 「接受」会发现原文页签还是错的字、改对的词照样搜不到、问答仍按旧文本回答。
+    ingest_file.rebuild_item_text(file_id, item_id)
+
     log.info("校对落库：file=%s 接受 %s 处（丢弃 %s 条）", file_id, applied, len(dropped))
     return {
         "item_id": item_id,
@@ -342,6 +344,8 @@ def reset(file_id: int) -> dict:
             )
     finally:
         conn.close()
+    # 退回原文同样要把正文与索引带回去，否则搜得到改过的词、搜不到原词
+    ingest_file.rebuild_item_text(file_id, item_id)
     log.info("校对回退：file=%s 清掉 %s 页的校对结果", file_id, cur.rowcount)
     return {"item_id": item_id, "file_id": file_id, "reverted": int(cur.rowcount or 0),
             "pages": len(pages)}

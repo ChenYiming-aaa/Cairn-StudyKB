@@ -17,6 +17,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
 import { api } from '../../api/client'
+import { useLocate } from '../../composables/useFocus'
 import PdfScroller from './pdf/PdfScroller.vue'
 import PdfTextPanel from './pdf/PdfTextPanel.vue'
 import { fallbackSizes, openPdf } from './pdf/usePdf'
@@ -43,8 +44,10 @@ const opening = ref(false)
 const pdfError = ref('')
 // 右侧面板回报的整页数据：顶部那句「这一页可能有错」要靠它算
 const pageData = ref(null)
-// 引用命中段：{page, from, to}。**带 page** —— 翻到别的页就不能再标
-const marks = ref(null)
+// 引用命中段：{page, from, to, matched}。**带 page** —— 翻到别的页就不能再标。
+// 问后端「这段字在第几页」那段与 Word/PPT/图片共用 `useLocate`，别在这里再写一遍：
+// 各写一份的结果是这里少了 `matched`，以后后端换字段只在三个组件里生效。
+const marks = useLocate(() => props.itemId, () => props.focus)
 let loaded = false
 
 const total = computed(() => doc.value?.numPages || props.pageCount || sizes.value.length || 0)
@@ -111,33 +114,23 @@ watch(
 )
 
 /**
- * 引用跳转（T11.2）：先问后端「这段字在第几页」，再翻过去，命中行交给右侧面板标黄。
+ * 引用跳转（T11.2）：拿到命中页就翻过去。
  *
- * **必须 immediate**：从问答点进来时组件是刚挂载的，`focus` 在挂载前就设好了，
- * 非 immediate 的 watch 根本不会触发（纯文本原文那边同理）。
+ * 同一页时 `PdfScroller` 不会自己滚（它按滚动位置判断，本来就在那一页），
+ * 所以这里显式滚一次；不同页交给 `current` 的变化。
+ * 落不到页不是错误（chunk 被重新整理删了 / 这页还没读出来），停在当前页即可。
  */
+watch(marks, (found) => {
+  if (!found) return
+  if (found.page === current.value) scroller.value?.scrollToPage(found.page, true)
+  else current.value = found.page
+})
+
+/** 没给 chunkId（老接口 / 笔记）：只停在当前页，不做假定位 */
 watch(
   () => props.focus,
-  async (target) => {
-    marks.value = null
-    if (!target) return
-    if (!target.chunkId) {
-      // 没有 chunk id（老接口 / 笔记）就只停在当前页，不做假定位
-      scroller.value?.scrollToPage(current.value, true)
-      return
-    }
-    // 落不到页不是错误（chunk 被重新整理删了 / 这页还没读出来），停在当前页即可
-    // `hint` 是搜索词：chunk 跨页时按它落页才落在用户看的那一句上
-    const hit = await api.locate(props.itemId, target.chunkId, target.hint).catch(() => null)
-    if (!hit?.page_no) return
-    const pageNo = Number(hit.page_no)
-    marks.value = {
-      page: pageNo,
-      from: Number(hit.line_from) || 0,
-      to: Number(hit.line_to) || 0,
-    }
-    if (pageNo !== current.value) current.value = pageNo
-    else scroller.value?.scrollToPage(pageNo, true)
+  (target) => {
+    if (target && !target.chunkId) scroller.value?.scrollToPage(current.value, true)
   },
   { immediate: true }
 )

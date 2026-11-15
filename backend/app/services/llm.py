@@ -349,3 +349,15 @@ def extract_json(text: str) -> dict:
         except ValueError:
             continue
     raise LLMError("LLM_BAD_JSON", "无法从 LLM 响应中解析出 JSON 对象")
+
+
+def json_call(
+    messages: list[dict], *, agent: str = "default", timeout: int | None = None
+) -> dict:
+    """带 `response_format=json_object` 调一次，返回解析好的 dict。
+
+    「解析失败要不要再来一次」**留给调用方**，这里不预设：整理失败等于条目停摆
+    （值得重试），初审与校对是一批里的一条（重试只会让整页更慢），
+    两种代价不同，塞进同一个默认值里必然有一边是错的。
+    """
+    return extract_json(chat(messages, agent=agent, json_mode=True, timeout=timeout))

@@ -12,12 +12,10 @@ import logging
 import re
 from typing import Iterator
 
-from app.paths import app_path
-from app.services import llm
+from app.services import llm, prompts
 
 log = logging.getLogger(__name__)
 
-PROMPT_DIR = app_path("prompts")
 MAX_CONTEXT_CHARS = 9000     # 8 段 ×900 字 ≈ 7200，留一点余量
 
 _CITATION = re.compile(r"\[(\d+)\]")
@@ -58,9 +56,9 @@ def context_block(sources_list: list[dict], items: list[dict]) -> str:
 
 
 def build_messages(question: str, sources_list: list[dict], items: list[dict]) -> list[dict]:
-    body = (PROMPT_DIR / "ask.md").read_text(encoding="utf-8")
-    body = body.replace("{{CONTEXT}}", context_block(sources_list, items))
-    body = body.replace("{{QUESTION}}", question)
+    body = prompts.render(
+        "ask", context=context_block(sources_list, items), question=question
+    )
     return [{"role": "user", "content": body}]
 
 

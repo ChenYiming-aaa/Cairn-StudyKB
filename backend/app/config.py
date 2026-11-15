@@ -107,6 +107,14 @@ class Settings:
 
     @property
     def has_llm_key(self) -> bool:
+        """`.env` 里的 `LLM_API_KEY`（DeepSeek 老口径）有没有值。
+
+        **不要用它判断"现在能不能调模型"** —— 多 provider 之后 Key 按 provider 的
+        `key_env` 取（`custom` 用的是 `ALT_API_KEY`）。那件事只看
+        `llm_route.has_key(agent)` / `require_key(agent)`，否则会出现
+        「问答能用、整理报没配 Key」。这里保留只为两件事：v0.1.0 老用户升级后
+        不用重填（`prefs.has_key` 的兜底），以及启动日志/状态脚本里那句提示。
+        """
         return bool(self.llm_api_key.strip())
 
     @property

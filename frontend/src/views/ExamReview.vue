@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api, friendlyMessage, humanDetail } from '../api/client'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
+import { answerLetters, answerLost, fewOptions, filledOptions, isAnswerEmpty } from '../utils/examRules'
 import { TYPE_LABELS, letterOf } from '../utils/quiz'
 
 /**
@@ -126,12 +127,6 @@ function removeOption(draft, index) {
   setAnswer(draft, picked)
 }
 
-function answerLetters(draft) {
-  if (Array.isArray(draft.answer)) return draft.answer.map((v) => String(v).toUpperCase())
-  const text = String(draft.answer || '').toUpperCase()
-  return [...new Set(text.split('').filter((ch) => /[A-H]/.test(ch)))]
-}
-
 function setAnswer(draft, letters) {
   if (draft.type === 'multiple') draft.answer = letters.length ? letters : null
   else if (draft.type === 'single') draft.answer = letters[0] || null
@@ -155,10 +150,6 @@ function onTypeChange(draft) {
   draft.answer = null
 }
 
-function filledOptions(draft) {
-  return draft.options.filter((o) => String(o || '').trim())
-}
-
 /**
  * 提交前的降级预警，判据与后端 `commit._settle` 同构。
  *
@@ -171,14 +162,6 @@ function willDowngrade(draft) {
   return filledOptions(draft).length < 2
 }
 
-/** 答案指向不存在的选项：后端会把答案清空（不猜），这里先提醒一句 */
-function answerLost(draft) {
-  if (draft.type !== 'single') return false
-  const letters = answerLetters(draft)
-  if (letters.length !== 1) return false
-  return filledOptions(draft).length < letters[0].charCodeAt(0) - 64
-}
-
 /* —— 初审（T10.9）：看这批题能不能用 —— */
 
 const auditing = ref(false)
@@ -186,12 +169,6 @@ const auditData = ref(null)        // {issues: [{index, code, level, message, fi
 const auditError = ref('')
 // 校对改的是页文本，解析读的是它；不重读一次，页面上这些草稿还是改之前的
 const staleAfterProofread = ref(false)
-
-function isAnswerEmpty(draft) {
-  const value = draft.answer
-  if (Array.isArray(value)) return !value.length
-  return value === null || value === undefined || !String(value).trim()
-}
 
 /** 只把草稿里复核要用的字段传过去：初审不看题号，也不该看到草稿上的临时字段 */
 function auditPayload() {
@@ -240,9 +217,9 @@ const auditLine = computed(() => {
 
 /** 这一题要显示的问题。
  *
- * 两条在本地即时核对：「没答案」「选项不够」用户当场就会补上，补完还挂着提示
- * 等于骗人。其余（断句、串行）得重算整道题，留在「检查题目」里刷新 ——
- * 前端不复制后端的判据，否则两边迟早算出两个答案。
+ * 三条在本地即时核对：「没答案」「选项不够」「答案越界」用户当场就会补上，
+ * 补完还挂着提示等于骗人。判据统一在 `utils/examRules.js`（与后端 `faults()` 同构），
+ * 这里只按 code 挑。其余（断句、串行）得重算整道题，留在「检查题目」里刷新。
  */
 function activeIssues(index) {
   const draft = drafts.value[index]
@@ -250,7 +227,7 @@ function activeIssues(index) {
   return (auditData.value?.issues || []).filter((it) => {
     if (it.index !== index) return false
     if (it.code === 'NO_ANSWER' && !isAnswerEmpty(draft)) return false
-    if (it.code === 'FEW_OPTIONS' && filledOptions(draft).length >= 2) return false
+    if (it.code === 'FEW_OPTIONS' && !fewOptions(draft)) return false
     if (it.code === 'ANSWER_OUT_OF_RANGE' && !answerLost(draft)) return false
     return true
   })

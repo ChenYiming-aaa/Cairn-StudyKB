@@ -17,6 +17,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
 import { useToast } from '../../composables/useToast'
+import { badge, installed } from '../../utils/components'
 import { fileSize } from '../../utils/format'
 
 const toast = useToast()
@@ -36,20 +37,6 @@ let timer = null
 let stopped = false
 
 const anyRunning = computed(() => items.value.some((i) => i.state === 'downloading'))
-
-/** 状态徽标：文案要说清"现在到底能不能用"，不是复述枚举 */
-function badge(item) {
-  if (item.state === 'downloading') {
-    const pct = item.install?.pct ?? 0
-    return { tone: 'run', text: `安装中 ${pct}%` }
-  }
-  if (item.state === 'installed') return { tone: 'ok', text: '已安装' }
-  if (item.state === 'broken') return { tone: 'bad', text: '装好了但起不来' }
-  if (item.install?.status === 'failed') return { tone: 'bad', text: '上次没装成' }
-  if (item.install?.status === 'cancelled') return { tone: '', text: '已取消' }
-  // mode=local：源码运行、本机装了库，所以功能其实是可用的 —— 不能写"未安装"骗人
-  return { tone: '', text: item.mode === 'local' ? '用本机已安装的版本' : '未安装' }
-}
 
 function canInstall(item) {
   return item.state !== 'downloading' && !busy.value[item.id]
@@ -162,7 +149,7 @@ onBeforeUnmount(() => {
             {{ item.name }}
             <span class="badge" :class="badge(item).tone">{{ badge(item).text }}</span>
           </h4>
-          <span class="size">{{ item.state === 'installed' ? fileSize(item.bytes, 0) : fileSize(item.size, 0) }}</span>
+          <span class="size">{{ installed(item) ? fileSize(item.bytes, 0) : fileSize(item.size, 0) }}</span>
         </div>
 
         <p class="why">{{ item.why }}</p>
@@ -189,7 +176,7 @@ onBeforeUnmount(() => {
         </p>
 
         <div class="actions">
-          <template v-if="item.state === 'installed'">
+          <template v-if="installed(item)">
             <span class="hint">
               {{ item.mode === 'component' ? '运行中' : item.mode === 'local' ? '用本机已安装的版本' : '已安装' }}
               <template v-if="item.version"> · v{{ item.version }}</template>

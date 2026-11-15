@@ -357,12 +357,7 @@ def _finish(file_id: int, item_id: int, total: int, task_id: str | None,
     if replaced:
         # EMBED_AFTER 刻意不含 ocr_pages（卡里明写不变）：识别是后台长任务，
         # 补向量另起一条，失败也不该把识别结果判成失败
-        try:
-            from app.services import embedder
-
-            embedder.schedule(item_id)
-        except Exception as exc:              # noqa: BLE001
-            log.warning("识别完成但补向量没派出去（%s），条目 %s", type(exc).__name__, item_id)
+        _schedule_embed(item_id)
 
     if task_id:
         task_queue.update_progress(task_id, 100, f"{STAGE} {done}/{total}")
@@ -375,13 +370,56 @@ def _finish(file_id: int, item_id: int, total: int, task_id: str | None,
     }
 
 
-def _join_text(rows: list[sqlite3.Row]) -> str:
+def rebuild_item_text(file_id: int, item_id: int) -> bool:
+    """按页的**当前**文本重拼正文 → 重建 chunk → 排队补向量。
+
+    校对（`exam.proofread.apply` / `reset`）落库之后必须走这一趟。三处读的东西
+    必须同源：`raw_content` 是问答与整理的输入、`chunk` 是检索的输入、
+    `item_page` 是原文页签的输入。只写 `text_reviewed` 的话，用户点完「接受」
+    会看到「原文页签还是错的字、改对的词照样搜不到、问答仍按旧文本回答」。
+
+    与 `_finish` 的差别只在事务边界：那边把「状态 + 正文 + chunk」放进同一个事务
+    （进程崩在中间不会留下"状态 done 而正文还是占位"），这里状态不变，单独一次写。
+    """
+    conn = get_conn()
+    try:
+        rows = page_repo.list_by_file(conn, file_id)
+        text = _join_text(rows, use_reviewed=True)
+        if not text.strip():
+            return False
+        with conn:
+            item_repo.replace_raw_content(conn, item_id, text)
+            item_repo.rebuild_chunks(conn, item_id, text, "raw")
+    finally:
+        conn.close()
+    _schedule_embed(item_id)
+    return True
+
+
+def _schedule_embed(item_id: int) -> None:
+    """补向量另起一条路：失败只记日志，不能把已经落库的正文判成失败。"""
+    try:
+        from app.services import embedder
+
+        embedder.schedule(item_id)
+    except Exception as exc:                  # noqa: BLE001
+        log.warning("正文已更新但补向量没派出去（%s），条目 %s", type(exc).__name__, item_id)
+
+
+def _join_text(rows: list[sqlite3.Row], *, use_reviewed: bool = False) -> str:
     """全文按页顺序拼，空页不占位。
 
     不加「第 N 页」标记：那会把版面噪音写进正文，检索与整理都被带偏。
     页与 chunk 的对应关系在 T11.2 用 `item_page.text` 反查，不靠正文里的标记。
+
+    `use_reviewed=True` 时取校对结果（原文 `text` 永不覆盖，见需求 §8.5）。识别收口
+    刚写完页，`text_reviewed` 一定为空，所以那边用默认值。
     """
-    return "\n".join((r["text"] or "").strip() for r in rows if (r["text"] or "").strip())
+    def body(row: sqlite3.Row) -> str:
+        text = row["text_reviewed"] if use_reviewed else None
+        return (text or row["text"] or "").strip()
+
+    return "\n".join(t for t in (body(r) for r in rows) if t)
 
 
 # ── 启动清理 ────────────────────────────────────────────

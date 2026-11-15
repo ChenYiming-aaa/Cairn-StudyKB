@@ -39,8 +39,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.paths import app_path
-from app.services import llm
+from app.services import llm, prompts
 # 同一把尺子：改动的「差得远不远」两边必须用同一个算法，抄第二份迟早算出两个答案
 from app.services.exam.proofread import _levenshtein
 
@@ -213,7 +212,7 @@ def _render(batch: list[tuple[int, dict]]) -> str:
 
 
 def _template() -> str:
-    return (app_path("prompts") / "exam_audit.md").read_text(encoding="utf-8")
+    return prompts.render("exam_audit")
 
 
 def messages(batch: list[tuple[int, dict]]) -> list[dict]:
@@ -325,8 +324,7 @@ def audit(drafts: list[dict], *, use_llm: bool = True) -> dict:
     model_hits: list[dict] = []
     for group in groups:
         try:
-            raw = llm.chat(messages(group), agent="exam_audit", json_mode=True)
-            data = llm.extract_json(raw)
+            data = llm.json_call(messages(group), agent="exam_audit")
         except llm.LLMError as exc:
             log.warning("初审第 %s 题起的一批放弃（%s）", group[0][0] + 1, exc.code)
             failed += 1

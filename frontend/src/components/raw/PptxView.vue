@@ -8,8 +8,9 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
-import { api, friendlyMessage } from '../../api/client'
+import { api } from '../../api/client'
 import { useLocate } from '../../composables/useFocus'
+import { usePageData } from '../../composables/usePageData'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -20,54 +21,22 @@ const props = defineProps({
 })
 
 const page = ref(1)
-const data = ref(null)
-const loading = ref(false)
-const error = ref('')
-let loaded = false
+
+// 换内容时回到第 1 页，再按当前页取数
+const { data, loading, error, load } = usePageData(
+  () => props.itemId,
+  () => props.active,
+  (id) => api.getPage(id, page.value),
+  { onReset: () => { page.value = 1 } }
+)
 
 const total = computed(() => props.pageCount || data.value?.page_no || 0)
-
-async function load(n) {
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await api.getPage(props.itemId, n)
-  } catch (err) {
-    data.value = null
-    error.value = friendlyMessage(err)
-  } finally {
-    loading.value = false
-  }
-}
 
 function go(n) {
   if (n < 1 || (total.value && n > total.value) || n === page.value) return
   page.value = n
-  load(n)
+  load()
 }
-
-watch(
-  () => props.itemId,
-  () => {
-    page.value = 1
-    data.value = null
-    loaded = false
-    if (props.active) {
-      loaded = true
-      load(1)
-    }
-  }
-)
-
-watch(
-  () => props.active,
-  (on) => {
-    if (!on || loaded) return
-    loaded = true
-    load(page.value)
-  },
-  { immediate: true }
-)
 
 /**
  * 引用定位（T11.2）：先问后端落在第几页，翻过去，再把命中的那一条标出来。

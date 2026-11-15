@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 
 import { api } from '../../api/client'
 import { useUi } from '../../composables/useUi'
+import { usable } from '../../utils/components'
 import FileIngestCard from './FileIngestCard.vue'
 import FolderImport from './FolderImport.vue'
 
@@ -30,12 +31,11 @@ const uploading = computed(() =>
 
 watch(uploading, (n) => emit('busy', n))
 
-/** PDF / 图片要识别组件（ADR-033）；装了、或本机自带，都算能读 */
+/** PDF / 图片要识别组件（ADR-033）；判据在 utils/components.js，别在这里另写一份 */
 async function loadOcr() {
   try {
     const data = await api.components()
-    const ocr = (data.items || []).find((it) => it.id === 'ocr')
-    ocrReady.value = Boolean(ocr && (ocr.state === 'installed' || ocr.mode))
+    ocrReady.value = usable((data.items || []).find((it) => it.id === 'ocr'))
   } catch {
     ocrReady.value = null
   }

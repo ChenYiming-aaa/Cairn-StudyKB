@@ -18,6 +18,7 @@ import httpx
 
 from app.config import config_audit, get_settings
 from app.paths import is_frozen
+from app.services import llm_route
 
 log = logging.getLogger(__name__)
 
@@ -109,10 +110,17 @@ def check_sqlite_vec() -> dict:
 
 
 def check_llm() -> dict:
-    cfg = get_settings()
-    if cfg.has_llm_key:
-        return {"ok": True, "detail": cfg.llm_model}
-    return {"ok": False, "code": "LLM_NO_KEY", "detail": "未配置 LLM_API_KEY",
+    """Key 有没有配。
+
+    判据直接取 `llm_route.resolve("*")` —— 和真正发请求时用的那一处相同。
+    以前这里看 `Settings.has_llm_key`（只认 `LLM_API_KEY`），用户把任务切到
+    「OpenAI 兼容」并填好 `ALT_API_KEY` 后，问答能用、这里却报"未配置"，
+    引导页还会每次启动把人拽回来。
+    """
+    profile = llm_route.resolve("*")
+    if profile.api_key.strip():
+        return {"ok": True, "detail": profile.model}
+    return {"ok": False, "code": "LLM_NO_KEY", "detail": f"{profile.label} 未配置 Key",
             # 引导页就在这个 hint 下面放输入框，所以指路要指到"页面上"，不是"去改文件"。
             # 具体存到哪由页面单独显示（`check_all()` 的 env_file），这里不重复路径。
             "hint": "在下方填入 API Key，保存后立即生效，不用重启"}

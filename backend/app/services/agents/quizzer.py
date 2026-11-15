@@ -16,10 +16,7 @@ import re
 from typing import Any, Iterator
 
 from app.db.repo import questions as qrepo
-from app.paths import app_path
-from app.services import llm
-
-PROMPT_DIR = app_path("prompts")
+from app.services import llm, prompts
 
 MAX_MATERIAL = 6000        # 出题材料预算（M4 §6.1）
 MIN_MATERIAL = 120         # 低于这个长度基本出不了题，直接拒绝，不浪费一次 LLM 调用
@@ -254,15 +251,17 @@ def messages_for(
     *, title: str, material: str, types: list[str], difficulty: str,
     count: int, exclude: list[str],
 ) -> list[dict]:
-    body = (PROMPT_DIR / "quiz.md").read_text(encoding="utf-8")
     note = "已按段落抽样，覆盖全文首尾" if len(material) >= MAX_MATERIAL else f"共 {len(material)} 字"
-    body = body.replace("{{TITLE}}", title)
-    body = body.replace("{{MATERIAL_NOTE}}", note)
-    body = body.replace("{{MATERIAL}}", material)
-    body = body.replace("{{TYPES}}", "、".join(type_desc(types)))
-    body = body.replace("{{DIFFICULTY}}", difficulty)
-    body = body.replace("{{COUNT}}", str(count))
-    body = body.replace("{{EXCLUDE}}", ("\n" + "\n".join(f"- {q}" for q in exclude)) if exclude else "（无）")
+    body = prompts.render(
+        "quiz",
+        title=title,
+        material_note=note,
+        material=material,
+        types="、".join(type_desc(types)),
+        difficulty=difficulty,
+        count=str(count),
+        exclude=("\n" + "\n".join(f"- {q}" for q in exclude)) if exclude else "（无）",
+    )
     return [{"role": "user", "content": body}]
 
 

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.config import env_value, get_settings
+from app.errors import ApiError
 from app.services import prefs
 
 
@@ -75,6 +76,32 @@ def resolve(agent: str = "default") -> Profile:
         base_url=base["base_url"],
         api_key=_key_for(base["provider"], base["key_env"]),
     )
+
+
+def has_key(agent: str = "*") -> bool:
+    """这个任务现在有没有可用的 Key。
+
+    唯一判据就是 `resolve()` —— 它按 provider 的 `key_env` 取 Key。
+    别再用 `Settings.has_llm_key` 判断"现在能不能调模型"：那个只看 `LLM_API_KEY`，
+    用户把任务切到「OpenAI 兼容」（`ALT_API_KEY`）后会出现"问答能用、整理被挡"。
+    """
+    return bool(resolve(agent).api_key.strip())
+
+
+def require_key(agent: str = "*") -> Profile:
+    """没 Key 就立刻失败，别留一个注定失败的调用或任务在队列里（M1 §5 DoD）。
+
+    消息里带上 provider 的显示名：多 provider 之后「还没配 Key」不再自明，
+    用户得知道该去填哪一家。
+    """
+    profile = resolve(agent)
+    if not profile.api_key.strip():
+        raise ApiError(
+            "LLM_NO_KEY",
+            f"「{profile.label}」还没配模型 Key。在「设置 → 模型」里填一下就能用。",
+            status=400,
+        )
+    return profile
 
 
 def payload(

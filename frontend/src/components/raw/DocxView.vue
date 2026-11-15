@@ -8,8 +8,9 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
-import { api, friendlyMessage } from '../../api/client'
+import { api } from '../../api/client'
 import { highlightIn } from '../../composables/useFocus'
+import { usePageData } from '../../composables/usePageData'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -18,44 +19,11 @@ const props = defineProps({
   focus: { type: Object, default: null },
 })
 
-const data = ref(null)
-const loading = ref(false)
-const error = ref('')
-let loaded = false
-
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await api.getPage(props.itemId, 1)
-  } catch (err) {
-    data.value = null
-    error.value = friendlyMessage(err)
-  } finally {
-    loading.value = false
-  }
-}
-
-watch(
+// Word 整份只取第 1 页（版式 HTML 与全文都挂在这一页上）
+const { data, loading, error } = usePageData(
   () => props.itemId,
-  () => {
-    data.value = null
-    loaded = false
-    if (props.active) {
-      loaded = true
-      load()
-    }
-  }
-)
-
-watch(
   () => props.active,
-  (on) => {
-    if (!on || loaded) return
-    loaded = true
-    load()
-  },
-  { immediate: true }
+  (id) => api.getPage(id, 1)
 )
 
 // 后端给的是净化过的 HTML（唯一允许 v-html 的地方）

@@ -10,8 +10,9 @@
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
-import { api, friendlyMessage } from '../../api/client'
+import { api } from '../../api/client'
 import { useLocate } from '../../composables/useFocus'
+import { usePageData } from '../../composables/usePageData'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -21,48 +22,16 @@ const props = defineProps({
 })
 
 const LOW = 0.85
-const data = ref(null)
-const loading = ref(false)
-const error = ref('')
 const imgError = ref(false)
-let loaded = false
 
 const src = computed(() => api.fileUrl(props.itemId))
 
-async function load() {
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await api.getPage(props.itemId, 1)
-  } catch (err) {
-    data.value = null
-    error.value = friendlyMessage(err)
-  } finally {
-    loading.value = false
-  }
-}
-
-watch(
+// 图片只有一页；换内容时顺手把「原图加载失败」的标记清掉
+const { data, loading, error } = usePageData(
   () => props.itemId,
-  () => {
-    data.value = null
-    imgError.value = false
-    loaded = false
-    if (props.active) {
-      loaded = true
-      load()
-    }
-  }
-)
-
-watch(
   () => props.active,
-  (on) => {
-    if (!on || loaded) return
-    loaded = true
-    load()
-  },
-  { immediate: true }
+  (id) => api.getPage(id, 1),
+  { onReset: () => { imgError.value = false } }
 )
 
 /** 置信度缺失（老数据）时 confs 为空，一行都不标黄 */

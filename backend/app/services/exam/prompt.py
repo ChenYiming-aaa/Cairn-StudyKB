@@ -17,8 +17,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.paths import app_path
-from app.services import llm
+from app.services import llm, prompts
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ _LETTER_ONLY = re.compile(r"^[A-H]$")
 
 
 def _template() -> str:
-    return (app_path("prompts") / "exam_parse.md").read_text(encoding="utf-8")
+    return prompts.render("exam_parse")
 
 
 def messages(*, number: str, block: str) -> list[dict]:
@@ -140,9 +139,9 @@ def refine(drafts: list[tuple[dict, str]]) -> int:
     changed = 0
     for draft, block in drafts:
         try:
-            raw = llm.chat(messages(number=draft["number"], block=block),
-                           agent="exam_parse", json_mode=True)
-            draft, taken = merge(draft, llm.extract_json(raw))
+            data = llm.json_call(messages(number=draft["number"], block=block),
+                                 agent="exam_parse")
+            draft, taken = merge(draft, data)
         except llm.LLMError as exc:
             log.warning("第 %s 题补字段放弃（%s）", draft.get("number"), exc.code)
             continue

@@ -7,6 +7,7 @@ import { useToast } from '../composables/useToast'
 import { useSettings } from '../composables/useSettings'
 import { useUi } from '../composables/useUi'
 import ProviderForm from '../components/settings/ProviderForm.vue'
+import { badge, usable } from '../utils/components'
 import { fileSize } from '../utils/format'
 
 /**
@@ -78,16 +79,17 @@ const comps = ref([])
 const picked = ref(['embed'])          // 向量默认勾上（"按意思搜"是最常被感知的一项）
 const starting = ref(false)
 
-function isInstalled(id) {
-  return (comps.value.find((c) => c.id === id) || {}).state === 'installed'
+/** 现在能不能用：组件包已装、或本机自带库，都算 —— 判据只在 utils/components.js 一处 */
+function isUsable(id) {
+  return usable(comps.value.find((c) => c.id === id))
 }
 
 async function loadComponents() {
   try {
     const data = await api.components()
     comps.value = data.items || []
-    // 已经装好的从勾选里摘掉：勾着一个"已安装"会让用户以为还要再选一次
-    picked.value = picked.value.filter((id) => !isInstalled(id))
+    // 已经能用的从勾选里摘掉：勾着一个"已能用"会让用户以为还要再选一次
+    picked.value = picked.value.filter((id) => !isUsable(id))
   } catch {
     // 后端没起来时引导页其余部分照常可用，组件这块空着就行
     comps.value = []
@@ -97,7 +99,7 @@ async function loadComponents() {
 /** 勾了就起下载：失败只提示，不拦着用户进知识库 */
 async function startPicked() {
   const todo = comps.value.filter(
-    (c) => picked.value.includes(c.id) && c.state !== 'installed' && c.state !== 'downloading'
+    (c) => picked.value.includes(c.id) && !usable(c) && c.state !== 'downloading'
   )
   if (!todo.length) return
   starting.value = true
@@ -225,7 +227,7 @@ onMounted(async () => {
                 v-model="picked"
                 type="checkbox"
                 :value="comp.id"
-                :disabled="isInstalled(comp.id) || comp.state === 'downloading'"
+                :disabled="isUsable(comp.id) || comp.state === 'downloading'"
               />
               <span class="pick-name">
                 {{ comp.name }}
@@ -233,7 +235,7 @@ onMounted(async () => {
               </span>
             </label>
             <span class="pick-size">
-              {{ isInstalled(comp.id) ? '已安装' : comp.state === 'downloading' ? '安装中' : fileSize(comp.size, 0) }}
+              {{ isUsable(comp.id) || comp.state === 'downloading' ? badge(comp).text : fileSize(comp.size, 0) }}
             </span>
             <p class="pick-why">{{ comp.why }}</p>
           </li>

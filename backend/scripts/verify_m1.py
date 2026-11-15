@@ -33,7 +33,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 import app.config as config_mod  # noqa: E402
 import app.db.conn as conn_mod  # noqa: E402
 from app.main import app  # noqa: E402
-from app.routers import knowledge as knowledge_router  # noqa: E402
+from app.services import llm_route  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fixtures_m1 import TEXTS  # noqa: E402
@@ -242,8 +242,13 @@ def step_delete(client: TestClient, item_id: int) -> None:
 
 def step_no_key(client: TestClient) -> None:
     step("7/8 未配置 Key → LLM_NO_KEY，服务不崩")
+    # 「现在有没有 Key」由 `llm_route.resolve()` 按 provider 的 key_env 判断，
+    # 它读两处：环境快照（`env_value`）与 Settings 快照（deepseek 的老用户兜底）。
+    # 两处都得按住，只清 Settings 会漏 —— 而且判断已经不在路由层，改 `knowledge.get_settings` 无效。
     real = config_mod.get_settings
-    knowledge_router.get_settings = lambda: replace(real(), llm_api_key="")
+    real_route_get, real_env_value = llm_route.get_settings, llm_route.env_value
+    llm_route.get_settings = lambda: replace(real(), llm_api_key="")
+    llm_route.env_value = lambda name: ""
     try:
         probe = client.post("/api/knowledge", json={
             "title": "无 Key 探针", "raw_content": "这是一条用于验证未配置 Key 时整理行为的探针文本。",
@@ -263,7 +268,7 @@ def step_no_key(client: TestClient) -> None:
         check("没有记着 LLM_NO_KEY 的失败任务", doomed == 0, f"{doomed} 条")
         client.delete(f"/api/knowledge/{probe['id']}")
     finally:
-        knowledge_router.get_settings = real
+        llm_route.get_settings, llm_route.env_value = real_route_get, real_env_value
 
 
 def step_copy_db() -> None:

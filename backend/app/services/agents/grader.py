@@ -12,10 +12,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.paths import app_path
-from app.services import llm
-
-PROMPT_DIR = app_path("prompts")
+from app.services import llm, prompts
 
 MIN_SCORE = 0.6
 GRADER_TIMEOUT = 60          # 排障表：超时太短会全部「待人工判断」
@@ -82,11 +79,13 @@ def grade_objective(question: dict, user_answer) -> bool:
 
 
 def _messages(question: dict, user_answer: str, material: str) -> list[dict]:
-    body = (PROMPT_DIR / "grader.md").read_text(encoding="utf-8")
-    body = body.replace("{{MATERIAL}}", material or "（未提供材料，仅按参考答案判断）")
-    body = body.replace("{{QUESTION}}", _text(question.get("question")))
-    body = body.replace("{{REFERENCE}}", _text(question.get("answer")))
-    body = body.replace("{{USER_ANSWER}}", user_answer)
+    body = prompts.render(
+        "grader",
+        material=material or "（未提供材料，仅按参考答案判断）",
+        question=_text(question.get("question")),
+        reference=_text(question.get("answer")),
+        user_answer=user_answer,
+    )
     return [{"role": "user", "content": body}]
 
 
@@ -99,11 +98,9 @@ def grade_short(
         return 0, "未作答。参考答案：" + _text(question.get("answer"))
 
     try:
-        raw = llm.chat(
-            _messages(question, answer, material),
-            agent="grader", json_mode=True, timeout=GRADER_TIMEOUT,
+        data = llm.json_call(
+            _messages(question, answer, material), agent="grader", timeout=GRADER_TIMEOUT
         )
-        data = llm.extract_json(raw)
         score = float(data.get("score"))
         feedback = _text(data.get("feedback"))
     except (llm.LLMError, TypeError, ValueError) as exc:

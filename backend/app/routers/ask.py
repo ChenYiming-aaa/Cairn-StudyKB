@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 from app.db.conn import get_conn
 from app.db.repo import ask_log as repo
 from app.services import retriever
+from app.services import llm_route
 from app.services.agents import asker
 from app.services.llm import LLMError
 
@@ -89,6 +90,9 @@ def _failure(exc: LLMError) -> dict:
 
 @router.post("/ask")
 async def ask(body: AskBody) -> StreamingResponse:
+    # 与出题/整理同一处判据：没配 Key 就直接 400，不要等检索完、开了一条 SSE
+    # 再回一条 error（用户会以为"是这次问题的错"）
+    llm_route.require_key("asker")
     started = time.monotonic()
     question = body.question.strip()
     if not question:

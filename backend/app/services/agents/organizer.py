@@ -24,13 +24,10 @@ import logging
 
 from app.db.conn import get_conn
 from app.db.repo import items as repo
-from app.paths import app_path
-from app.services import llm
+from app.services import llm, prompts
 from app.services.llm import LLMError
 
 log = logging.getLogger(__name__)
-
-PROMPT_DIR = app_path("prompts")
 
 SAMPLE_LIMIT = 50_000
 HEAD_CHARS = 40_000
@@ -79,14 +76,10 @@ def sample_text(text: str) -> tuple[str, bool]:
     return text[:HEAD_CHARS] + OMIT_MARKER + text[-TAIL_CHARS:], True
 
 
-def _read_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8")
-
-
 def _build_messages(title: str, content: str, truncated: bool,
                     kind: str = "material") -> list[dict]:
     prompt_file = KINDS.get(kind, KINDS["material"])[0]
-    body = _read_prompt(prompt_file).replace("{{TITLE}}", title).replace("{{CONTENT}}", content)
+    body = prompts.render(prompt_file, title=title, content=content)
     if truncated:
         body += "\n\n（注意：正文过长，中间部分已省略。不要据此推测或补写被省略的内容。）"
     return [{"role": "user", "content": body}]
@@ -206,8 +199,8 @@ def _organize_with_retry(messages: list[dict], fallback_title: str,
     last_error: LLMError | None = None
     for attempt in range(2):
         try:
-            raw = llm.chat(messages, agent="organizer", json_mode=True)
-            result = _normalize(llm.extract_json(raw), fallback_title, kind)
+            result = _normalize(llm.json_call(messages, agent="organizer"),
+                                fallback_title, kind)
         except LLMError as exc:
             last_error = exc
             if exc.code in ("LLM_BAD_JSON", "LLM_BAD_RESPONSE") and attempt == 0:

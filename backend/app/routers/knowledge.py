@@ -12,7 +12,6 @@ from fastapi import APIRouter, Query
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from app.config import get_settings
 from app.db.conn import get_conn
 from app.db.repo import files as file_repo
 from app.db.repo import items as repo
@@ -24,6 +23,7 @@ from app.services import embedder
 from app.services import files as file_store
 from app.services import ingest_file, mindmap, ocr, pdf_pages
 from app.services import extractors
+from app.services import llm_route
 from app.services import locate as locate_service
 from app.services import tasks as task_queue
 from app.services.agents import organizer
@@ -168,12 +168,6 @@ def list_categories(
         conn.close()
 
 
-def _require_llm_key() -> None:
-    """未配置 Key 时立刻失败，不留一个注定失败的任务在队列里（M1 §5 DoD）。"""
-    if not get_settings().has_llm_key:
-        raise ApiError("LLM_NO_KEY", "还没配模型 Key。在「设置 → 模型」里填一下就能用。", status=400)
-
-
 # 文件类内容建好时正文是 `[文件] 原名`，识别/抽取跑完才被 replace_raw_content 覆盖。
 # 这段时间里它是 status='pending'，会出现在「待整理」里；点一下就拿着占位正文
 # 写出一篇废话笔记（T9.11 的前置闸，2026-11-12 发现）。
@@ -213,7 +207,7 @@ def organize_pending(
     `category` / `tag` / `workspace_id` 与列表筛选同一口径：左栏筛着某分类或某个
     工作区时，「开始整理 N 条」整理的就是这 N 条，不是全库的待整理。
     """
-    _require_llm_key()
+    llm_route.require_key("organizer")
     conn = get_conn()
     try:
         item_ids = repo.list_ids_by_status(
@@ -241,7 +235,7 @@ def organize_pending(
 @router.post("/{item_id}/organize")
 def organize_item(item_id: int):
     """触发整理，返回 task_id（202）；同一时刻只允许一个整理任务在同一条目上跑。"""
-    _require_llm_key()
+    llm_route.require_key("organizer")
     conn = get_conn()
     try:
         row = repo.get_item(conn, item_id)
@@ -506,7 +500,9 @@ def get_page(item_id: int, n: int):
             )
         return {
             "page_no": n,
-            "text": row["text"] or "",
+            # 校对过的页给别人看的应是校对结果，否则「接受改动」之后原文页签
+            # 还是错的字（`page_text()` 早就是这个口径，这里漏了一处）
+            "text": row["text_reviewed"] or row["text"] or "",
             "source": row["source"],
             "avg_conf": row["avg_conf"],
             # 抽取来的页（docx/pptx/xlsx/txt）没有页图：给 null，别给一个必然 404 的地址

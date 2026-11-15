@@ -32,6 +32,7 @@ from app.db.repo import questions as repo
 from app.db.repo import review as review_repo
 from app.errors import ApiError
 from app.services import llm
+from app.services import llm_route
 from app.services.agents import grader, quizzer
 
 log = logging.getLogger(__name__)
@@ -199,6 +200,9 @@ def _worker(run: _Run, queue: asyncio.Queue, loop) -> None:
 
 @router.post("/quiz/generate")
 async def generate(body: GenerateBody) -> StreamingResponse:
+    # 无 Key 就别开始：不然先查库、切材料、（可能）加载向量，最后在 SSE 里回一条 error。
+    # 整理那边一直是"点一下就告诉你没配 Key"，出题不该是另一种体验（同一件事实两个答案）
+    llm_route.require_key("quizzer")
     types = [t for t in body.types if t in quizzer.TYPES]
     if not types:
         raise ApiError("QUIZ_BAD_TYPES", "题型不合法",
@@ -253,36 +257,66 @@ def _grading_material(conn, item_id: int | None, cache: dict) -> str:
 
 @router.post("/quiz/submit")
 def submit(body: SubmitBody) -> dict:
+    """批量交卷：**先把所有题判完，再一次性落库**。
+
+    原来的写法是边查边判边写：中途遇到一个不存在的 `question_id` 直接 404，
+    而前面几题的 `quiz_attempt` 与 SM-2 间隔已经各自提交 —— 用户一条结果没拿到，
+    错题本与复习计划里却多出他没见过的作答。现在：
+
+    1. 一次取齐所有题（`repo.get_questions`），缺的记进 `missing` 并继续判其余；
+    2. 判分（可能调模型）在事务**之外**：秒级调用不该握着 SQLite 写锁；
+    3. 全部写入放进**一个** `with conn`，要么都进要么都不进。
+
+    只有在"这道题全都找不到"时才回 404 —— 那时确实一条都没写，不会留下半截。
+    """
     results: list[dict] = []
+    missing: list[int] = []
     cache: dict = {}
-    applied: set[int] = set()
+    writes: list[dict] = []
+
     conn = get_conn()
     try:
+        questions = repo.get_questions(conn, [a.question_id for a in body.answers])
         for answer in body.answers:
-            question = repo.get_question(conn, answer.question_id)
+            question = questions.get(answer.question_id)
             if question is None:
-                raise ApiError("QUESTION_NOT_FOUND",
-                               f"题目 {answer.question_id} 不存在", status=404)
+                missing.append(answer.question_id)
+                continue
             material = (_grading_material(conn, question.get("item_id"), cache)
                         if question.get("type") == "short" else "")
             is_correct, feedback = grader.grade(question, answer.user_answer, material)
-            with conn:
-                repo.save_attempt(
-                    conn, question_id=answer.question_id,
-                    user_answer=answer.user_answer, is_correct=is_correct,
-                    feedback=feedback, duration_ms=answer.duration_ms,
-                )
-                # T4.6：同一次提交里同一题只推一次间隔，避免一次交卷把间隔推两格
-                if answer.question_id not in applied:
-                    review_repo.apply(conn, answer.question_id, is_correct)
-                    applied.add(answer.question_id)
             results.append({
                 "question_id": answer.question_id,
+                "status": "ok",
                 "is_correct": None if is_correct is None else bool(is_correct),
                 "correct_answer": question.get("answer"),
                 "explanation": question.get("explanation") or "",
                 "feedback": feedback,
             })
+            writes.append({
+                "question_id": answer.question_id,
+                "user_answer": answer.user_answer,
+                "is_correct": is_correct,
+                "feedback": feedback,
+                "duration_ms": answer.duration_ms,
+            })
+
+        if missing and not results:
+            raise ApiError(
+                "QUESTION_NOT_FOUND",
+                f"这次交的 {len(missing)} 道题都不在库里了（试卷可能被重新导入过），"
+                "一条作答都没有保存",
+                status=404,
+            )
+
+        applied: set[int] = set()
+        with conn:
+            for write in writes:
+                repo.save_attempt(conn, **write)
+                # T4.6：同一次提交里同一题只推一次间隔，避免一次交卷把间隔推两格
+                if write["question_id"] not in applied:
+                    review_repo.apply(conn, write["question_id"], write["is_correct"])
+                    applied.add(write["question_id"])
     finally:
         conn.close()
 
@@ -290,6 +324,7 @@ def submit(body: SubmitBody) -> dict:
     total = len(results)
     return {
         "items": results,
+        "missing": missing,          # 交卷时已经不在库里的题号：界面可以提示"这几题没了"
         "correct_count": correct,
         "total": total,
         "accuracy": round(correct / total, 2) if total else 0.0,

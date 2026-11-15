@@ -193,6 +193,26 @@ def get_question(conn: sqlite3.Connection, question_id: int) -> dict | None:
     return row_to_question(row) if row is not None else None
 
 
+def get_questions(conn: sqlite3.Connection, ids: list[int]) -> dict[int, dict]:
+    """一次取回多条（交卷用）。
+
+    交卷不能边判边查：中途碰到一道被删掉的题就 404，前面几题的作答与 SM-2
+    间隔已经落库 —— 用户一条结果看不到，错题本却多出没见过的记录。
+    上限由请求体保证（一次最多 50 题），IN 的参数个数不用另做分页。
+    """
+    wanted = sorted({int(i) for i in ids})
+    if not wanted:
+        return {}
+    marks = ",".join("?" * len(wanted))
+    rows = conn.execute(
+        f"""SELECT q.*, i.title AS source_title
+            FROM question q LEFT JOIN knowledge_item i ON i.id = q.item_id
+            WHERE q.id IN ({marks})""",
+        wanted,
+    ).fetchall()
+    return {int(r["id"]): row_to_question(r) for r in rows}
+
+
 def list_questions(
     conn: sqlite3.Connection, *, item_id: int | None = None, limit: int = 50, offset: int = 0
 ) -> tuple[list[dict], int]:

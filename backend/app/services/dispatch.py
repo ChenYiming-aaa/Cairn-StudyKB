@@ -12,9 +12,11 @@ from app.db.repo import tasks as repo
 from app.db.repo.items import loads
 from app.services import tasks as task_queue
 from app.services import component_install, embedder, ingest_file, video_ingest, web_ingest
+from app.services.agents import organizer
 
 log = logging.getLogger(__name__)
 
+TASK_ORGANIZE = "organize"
 TASK_FETCH_URL = "fetch_url"
 TASK_TRANSCRIBE_VIDEO = "transcribe_video"
 TASK_INDEX_EMBED = "index_embed"
@@ -24,6 +26,9 @@ TASK_EXTRACT_TEXT = ingest_file.TASK_EXTRACT
 
 # type → (执行函数, 是否需要 task_id)
 RUNNERS = {
+    # 整理：失败率最高的一类（超时 / 额度 / 模型回了不是 JSON），没有它任务中心的
+    # 「重试」对最常见的失败反而是 400（2026-11-15 补）
+    TASK_ORGANIZE: (organizer.run, False),
     TASK_FETCH_URL: (web_ingest.run, True),
     TASK_TRANSCRIBE_VIDEO: (video_ingest.run, True),
     # 补向量（M3 §6.2）：不需要进度回调，run(task_input) 就够
