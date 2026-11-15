@@ -19,13 +19,20 @@ import { TYPE_LABELS } from '../utils/quiz'
  */
 const toast = useToast()
 
-const tab = ref('due')             // due | wrong
+const tab = ref('due')             // due | wrong | pending
 const loading = ref(true)
 const error = ref('')
 const items = ref([])
 const total = ref(0)
 const tracked = ref(0)
 const wrongTotal = ref(0)
+// 待人工判断（H5）：批改失败的简答既不进队列也不进错题本，只能从这里找
+const pending = ref(0)
+const pendingItems = ref([])
+const pendingLoading = ref(false)
+const pendingError = ref('')
+const judging = ref({})            // questionId → 正在上报
+const judgeError = ref({})         // questionId → 失败原因（就地显示，不弹 toast）
 
 const wrongLoading = ref(false)
 const wrongError = ref('')
@@ -46,6 +53,8 @@ async function loadDue() {
     total.value = data.total || 0
     tracked.value = data.tracked || 0
     wrongTotal.value = data.wrong || 0
+    // 顺手拿到的待判数：决定页签要不要出现，省一次请求
+    pending.value = data.pending || 0
   } catch (err) {
     error.value = friendlyMessage(err)
     items.value = []
@@ -54,7 +63,50 @@ async function loadDue() {
   }
 }
 
-async function loadWrong() {
+async function loadPending() {
+  pendingLoading.value = true
+  pendingError.value = ''
+  try {
+    const data = await api.pendingReviews({ limit: 50 })
+    pendingItems.value = data.items || []
+    pending.value = data.total ?? pendingItems.value.length
+  } catch (err) {
+    pendingError.value = friendlyMessage(err)
+    pendingItems.value = []
+  } finally {
+    pendingLoading.value = false
+  }
+}
+
+/**
+ * 人工裁定一道「待判」题（H5）。
+ *
+ * 上报完立刻从列表里移除，并让头部计数跟着减：这道题已经从「不知道」变成明确的
+ * 对/错，再留在待判列表里只会让人以为没生效。答错会进明天的复习队列，答对且
+ * 从没答错过的题不会新建排期（后端回 `scheduled: false`，不是错误）。
+ */
+async function judge(item, correct) {
+  const id = item.question_id
+  if (judging.value[id]) return
+  judging.value = { ...judging.value, [id]: true }
+  judgeError.value = { ...judgeError.value, [id]: '' }
+  try {
+    const res = await api.reportReview(id, { correct })
+    pendingItems.value = pendingItems.value.filter((row) => row.question_id !== id)
+    pending.value = Math.max(0, pending.value - 1)
+    toast.ok(
+      correct
+        ? (res?.scheduled === false ? '已记为答对；这题不用复习' : '已记为答对，下次复习往后推')
+        : '已记为答错，明天回到复习队列'
+    )
+  } catch (err) {
+    judgeError.value = { ...judgeError.value, [id]: friendlyMessage(err) }
+  } finally {
+    const next = { ...judging.value }
+    delete next[id]
+    judging.value = next
+  }
+}async function loadWrong() {
   wrongLoading.value = true
   wrongError.value = ''
   try {
@@ -71,6 +123,7 @@ async function loadWrong() {
 function switchTab(key) {
   tab.value = key
   if (key === 'wrong' && !wrongItems.value.length) loadWrong()
+  if (key === 'pending') loadPending()
 }
 
 function startPractice() {
@@ -107,6 +160,7 @@ onMounted(loadDue)
         </span>
         <span class="stat"><b>{{ tracked }}</b> 队列中</span>
         <span class="stat"><b>{{ wrongTotal }}</b> 错题</span>
+        <span v-if="pending" class="stat"><b>{{ pending }}</b> 待判</span>
       </div>
     </header>
 
@@ -116,6 +170,16 @@ onMounted(loadDue)
       </button>
       <button class="tab" type="button" :class="{ on: tab === 'wrong' }" @click="switchTab('wrong')">
         错题本
+      </button>
+      <!-- 只在真有待判时出现：没有就不给一个永远空着的页签 -->
+      <button
+        v-if="pending"
+        class="tab"
+        type="button"
+        :class="{ on: tab === 'pending' }"
+        @click="switchTab('pending')"
+      >
+        待人工判断 {{ pending }}
       </button>
     </nav>
 
@@ -161,7 +225,7 @@ onMounted(loadDue)
     </section>
 
     <!-- 错题本 -->
-    <section v-else class="panel">
+    <section v-else-if="tab === 'wrong'" class="panel">
       <div class="panel-bar">
         <span class="panel-note">最近一次作答仍答错的题。复习答对后自动移出。</span>
         <button class="btn btn-sm" type="button" @click="loadWrong">刷新</button>
@@ -184,6 +248,46 @@ onMounted(loadDue)
             <template v-else> · 未排期</template>
           </span>
           <span class="row-time">{{ shortTime(item.last_wrong_at) }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 待人工判断（H5）：批改失败的简答，只有这里能裁定 -->
+    <section v-else class="panel">
+      <div class="panel-bar">
+        <span class="panel-note">
+          模型没判出来的简答。你看过之后算它对或错，判完就按正常规则排下一次复习。
+        </span>
+        <button class="btn btn-sm" type="button" @click="loadPending">刷新</button>
+      </div>
+
+      <p v-if="pendingLoading" class="panel-note pad">加载中…</p>
+      <p v-else-if="pendingError" class="panel-note pad error">{{ pendingError }}</p>
+      <div v-else-if="!pendingItems.length" class="state">
+        <p class="state-title">没有待判的题</p>
+        <p>模型没判出来的简答会先留在这里，等你定对错。</p>
+      </div>
+      <ul v-else class="rows">
+        <li v-for="item in pendingItems" :key="item.question_id" class="row row-pending">
+          <span class="row-tag">{{ TYPE_LABELS[item.type] || item.type }}</span>
+          <span class="row-main">{{ item.question }}</span>
+          <span class="row-sub">{{ item.source_title || '未命名内容' }}</span>
+          <span class="row-meta">{{ shortTime(item.last_pending_at) }} 判不出来</span>
+          <span class="row-actions">
+            <button
+              class="btn btn-sm"
+              type="button"
+              :disabled="Boolean(judging[item.question_id])"
+              @click="judge(item, true)"
+            >算我对</button>
+            <button
+              class="btn btn-sm"
+              type="button"
+              :disabled="Boolean(judging[item.question_id])"
+              @click="judge(item, false)"
+            >算我错</button>
+          </span>
+          <span v-if="judgeError[item.question_id]" class="row-error">{{ judgeError[item.question_id] }}</span>
         </li>
       </ul>
     </section>
@@ -346,5 +450,23 @@ onMounted(loadDue)
 
 .row-time {
   text-align: right;
+}
+
+/* 待判行多一列按钮：多出来的宽度从题干列挤，别让按钮把标题顶成两行 */
+.row-pending {
+  grid-template-columns: 44px minmax(0, 1fr) 150px 130px auto;
+  align-items: center;
+}
+
+.row-actions {
+  display: flex;
+  gap: var(--space-1);
+  justify-self: end;
+}
+
+.row-error {
+  grid-column: 2 / -1;
+  font-size: var(--fs-xs);
+  color: var(--c-danger-ink);
 }
 </style>

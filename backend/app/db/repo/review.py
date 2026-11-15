@@ -144,6 +144,22 @@ WHERE (SELECT a.is_correct FROM quiz_attempt a
 """
 
 
+# 「待人工判断」= **最近一次作答**判不出来（`is_correct IS NULL`）。
+# 前面那个 EXISTS 不能省：没有作答记录的题，子查询也是 NULL，会把全库新题都算进来。
+_PENDING_SQL = """
+SELECT q.*, i.title AS source_title,
+       r.due_at, r.interval_days, r.lapses,
+       (SELECT MAX(a.created_at) FROM quiz_attempt a
+          WHERE a.question_id = q.id AND a.is_correct IS NULL) AS last_pending_at
+FROM question q
+LEFT JOIN knowledge_item i ON i.id = q.item_id
+LEFT JOIN review_item r ON r.question_id = q.id
+WHERE EXISTS (SELECT 1 FROM quiz_attempt a WHERE a.question_id = q.id)
+  AND (SELECT a.is_correct FROM quiz_attempt a
+         WHERE a.question_id = q.id ORDER BY a.id DESC LIMIT 1) IS NULL
+"""
+
+
 def wrong(
     conn: sqlite3.Connection, *, limit: int = 20, offset: int = 0
 ) -> tuple[list[dict], int]:
@@ -169,6 +185,34 @@ def wrong(
 
 def wrong_total(conn: sqlite3.Connection) -> int:
     return int(conn.execute(f"SELECT COUNT(*) FROM ({_WRONG_SQL})").fetchone()[0])
+
+
+def pending(
+    conn: sqlite3.Connection, *, limit: int = 20, offset: int = 0
+) -> tuple[list[dict], int]:
+    """待人工判断 = 最近一次作答为 `is_correct IS NULL` 的题。
+
+    简答批改失败时这条既不在 `due`（`apply(None)` 不排期、不建队列行）也不在错题本
+    （错题本只收明确答错的），**只能靠这里捞出来**——不然「待人工判断」就是个
+    看得见、找不到、改不了的状态。
+    """
+    total = conn.execute(f"SELECT COUNT(*) FROM ({_PENDING_SQL})").fetchone()[0]
+    rows = conn.execute(
+        _PENDING_SQL + " ORDER BY last_pending_at DESC, q.id DESC LIMIT ? OFFSET ?",
+        (limit, offset),
+    ).fetchall()
+    items = []
+    for row in rows:
+        question = row_to_question(row)
+        question["question_id"] = question.pop("id")
+        question["source_item_id"] = question.pop("item_id")
+        question["last_pending_at"] = row["last_pending_at"]
+        items.append(question)
+    return items, int(total)
+
+
+def pending_total(conn: sqlite3.Connection) -> int:
+    return int(conn.execute(f"SELECT COUNT(*) FROM ({_PENDING_SQL})").fetchone()[0])
 
 
 def tracked_total(conn: sqlite3.Connection) -> int:

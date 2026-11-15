@@ -1,6 +1,7 @@
 """复习队列端点（T4.6 / T4.7）。
 
 - `GET  /api/review/due`            今日待复习（`due_at <= now`，UTC 存储、Python 侧比较）
+- `GET  /api/review/pending`        待人工判断（最近一次作答 `is_correct IS NULL`）
 - `POST /api/review/{question_id}/result`  单独上报一次复习结果并推进间隔
 
 平时不需要手动调 `/result`：`POST /api/quiz/submit` 判完分就已经写/推进了 review_item。
@@ -52,9 +53,30 @@ def due(limit: int = Query(default=20, ge=1, le=100)) -> dict:
                 "overdue_days": item.get("overdue_days"),
             } for item in items],
             "total": total,
+            # 待人工判断的题数：顺手带上，复习页不用再发一个请求才知道要不要显示入口
+            "pending": repo.pending_total(conn),
             "tracked": repo.tracked_total(conn),
             "wrong": repo.wrong_total(conn),
             "now": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+    finally:
+        conn.close()
+
+
+@router.get("/review/pending")
+def pending(limit: int = Query(default=20, ge=1, le=100),
+            offset: int = Query(default=0, ge=0)) -> dict:
+    """待人工判断的题：批改失败时留在 `quiz_attempt` 里的 `is_correct IS NULL`。
+
+    离开交卷结果页之后，这是唯一能再找到它们的地方（它们既不进复习队列也不进错题本）。
+    """
+    conn = get_conn()
+    try:
+        items, total = repo.pending(conn, limit=limit, offset=offset)
+        return {
+            "items": [{**_question_fields(item), "last_pending_at": item.get("last_pending_at")}
+                      for item in items],
+            "total": total,
         }
     finally:
         conn.close()
@@ -67,6 +89,18 @@ def report(question_id: int, body: ResultBody) -> dict:
         if questions_repo.get_question(conn, question_id) is None:
             raise ApiError("QUESTION_NOT_FOUND", f"题目 {question_id} 不存在", status=404)
         with conn:
+            # 人工裁定也要落到作答记录里。**不能省**：`/review/pending` 认的是
+            # 「最近一次作答是不是 NULL」，只写 review_item 的话那条 NULL 还在，
+            # 判完照样被捞回来（2026-11-15 实测踩到，verify_m4 那条断言就是它抓出来的）。
+            # 沿用上一次的作答内容，不编一个空答案。
+            last = questions_repo.attempts_of(conn, question_id, limit=1)
+            questions_repo.save_attempt(
+                conn,
+                question_id=question_id,
+                user_answer=last[0]["user_answer"] if last else None,
+                is_correct=1 if body.correct else 0,
+                feedback="人工裁定",
+            )
             scheduled = repo.apply(conn, question_id, body.correct)
         if scheduled is None:
             # 答对了、而且这题从没答错过：本来就不需要复习，不建队列行，也不是错误

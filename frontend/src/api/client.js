@@ -384,7 +384,12 @@ export const api = {
   importRun: (payload) => post('/api/import/run', payload),
   /** 今日待复习（T4.6）：拿到的题自带 options/answer/explanation，可直接作答 */
   dueReviews: (params) => get('/api/review/due', params),
-  /** 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题 */
+  /** 待人工判断的题（批改失败的简答）：既不进复习队列也不进错题本，只能从这里找 */
+  pendingReviews: (params) => get('/api/review/pending', params),
+  /**
+   * 单个上报复习结果（T4.7）：只用于人工裁定「待人工判断」的题。
+   * **字段名是 `correct`**（后端 `ResultBody.correct: bool`），不是 `is_correct`。
+   */
   reportReview: (questionId, payload) => post(`/api/review/${questionId}/result`, payload),
   /** 番茄钟（T5.1）：同一时刻只允许一个，409 会带上现有 id */
   sessionStart: (payload) => post('/api/session/start', payload),

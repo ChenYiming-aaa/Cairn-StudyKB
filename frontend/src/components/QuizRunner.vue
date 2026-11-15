@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import { api, friendlyMessage } from '../api/client'
+import { useToast } from '../composables/useToast'
 import {
   answerText,
   difficultyLabel,
@@ -27,6 +28,8 @@ const props = defineProps({
   numbered: { type: Boolean, default: false },
 })
 const emit = defineEmits(['finished', 'restart'])
+
+const toast = useToast()
 
 const phase = ref('answering')        // answering | submitting | result
 const idx = ref(0)
@@ -144,15 +147,53 @@ function lastAnswer(questionId) {
   return hit ? hit.user_answer : null
 }
 
+/**
+ * 正确数按**当前**判定算，而不是照抄交卷时那个数字（H5）。
+ * 人工把「待判」判成对/错之后，如果分数还停在「2 题待人工判断」那一版，
+ * 页面上的 ✓ 和总分就会互相打脸；用户会以为裁定没生效。
+ */
+const correctCount = computed(
+  () => (result.value?.items || []).filter((item) => item.is_correct === true).length
+)
+
 const accuracyText = computed(() => {
-  const value = Number(result.value?.accuracy)
-  return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—'
+  const value = Number(result.value?.total || 0)
+  if (!value) return '—'
+  return `${Math.round((correctCount.value / value) * 100)}%`
 })
 
 /** 错题数：待人工判断的不算错（那是不确定，不是答错，M4 约束 3） */
 const wrongCount = computed(
   () => (result.value?.items || []).filter((item) => item.is_correct === false).length
 )
+
+// 人工裁定（H5）：按 question_id 记「正在提交」与失败原因，逐行就地反馈
+const judging = ref({})
+const judgeError = ref({})
+const judgeNote = ref({})
+
+async function judge(item, correct) {
+  const id = item.question_id
+  if (item.is_correct !== null || judging.value[id]) return
+  judging.value = { ...judging.value, [id]: true }
+  judgeError.value = { ...judgeError.value, [id]: '' }
+  try {
+    const res = await api.reportReview(id, { correct })
+    // 就地改状态：按钮消失、徽标变 ✓/✗、上面的待判计数跟着减（computed 自动）
+    item.is_correct = correct
+    judgeNote.value = {
+      ...judgeNote.value,
+      [id]: res?.scheduled === false ? '已记为答对；这题不用复习' : correct ? '已记为答对' : '已记为答错，明天回到复习队列',
+    }
+    toast.ok(judgeNote.value[id])
+  } catch (err) {
+    judgeError.value = { ...judgeError.value, [id]: friendlyMessage(err) }
+  } finally {
+    const next = { ...judging.value }
+    delete next[id]
+    judging.value = next
+  }
+}
 </script>
 
 <template>
@@ -252,13 +293,13 @@ const wrongCount = computed(
     <div v-else-if="phase === 'result' && result" class="result">
       <div class="score">
         <div class="score-main">
-          <b>{{ result.correct_count }}</b><span>/ {{ result.total }}</span>
+          <b>{{ correctCount }}</b><span>/ {{ result.total }}</span>
         </div>
         <div class="score-side">
           <p class="score-acc">正确率 {{ accuracyText }}</p>
           <p v-if="result.items" class="score-acc">错 {{ wrongCount }} 题</p>
           <p v-if="pendingManual" class="score-hold">
-            {{ pendingManual }} 题待人工判断（不计入正确、也不算错）
+            {{ pendingManual }} 题没判出来（模型超时或没给出结果），往下翻可以自己判
           </p>
           <button class="btn btn-sm" type="button" @click="restart">
             {{ numbered ? '再做一遍' : '再来一组' }}
@@ -286,6 +327,25 @@ const wrongCount = computed(
           </p>
           <p v-if="item.feedback" class="review-feedback">{{ item.feedback }}</p>
           <p v-if="item.explanation" class="review-exp">{{ item.explanation }}</p>
+
+          <!-- 待人工判断（H5）：模型没判出来的，当场让你定；判完就按对错排下一次复习 -->
+          <div v-if="item.is_correct === null" class="review-judge">
+            <span class="judge-hint">对着答案看看，然后定一下：</span>
+            <button
+              class="btn btn-sm"
+              type="button"
+              :disabled="Boolean(judging[item.question_id])"
+              @click="judge(item, true)"
+            >算我对</button>
+            <button
+              class="btn btn-sm"
+              type="button"
+              :disabled="Boolean(judging[item.question_id])"
+              @click="judge(item, false)"
+            >算我错</button>
+            <span v-if="judgeError[item.question_id]" class="judge-error">{{ judgeError[item.question_id] }}</span>
+          </div>
+          <p v-else-if="judgeNote[item.question_id]" class="judge-note">{{ judgeNote[item.question_id] }}</p>
         </li>
       </ul>
     </div>
@@ -576,6 +636,30 @@ const wrongCount = computed(
 }
 
 .review-feedback {
+  color: var(--c-primary-ink);
+}
+
+/* 待判行的裁定区：一行放下「提示 + 两个按钮」，失败原因跟在后面 */
+.review-judge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.judge-hint {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+.judge-error {
+  font-size: var(--fs-xs);
+  color: var(--c-danger-ink);
+}
+
+.judge-note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-xs);
   color: var(--c-primary-ink);
 }
 </style>

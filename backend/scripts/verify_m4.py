@@ -470,7 +470,42 @@ def step_review(client: TestClient, qids: dict, item_id: int) -> None:
           multiple not in [i["question_id"] for i in wrong["items"]],
           str([i["question_id"] for i in wrong["items"]]))
 
-    # 单独上报结果（人工裁定待判题用）
+    # 待人工判断（H5）：批改失败的简答既不进队列也不进错题本，
+    # 只能靠 /review/pending 找回来 —— 找不到它，「待人工判断」就是个死状态。
+    pending_q = add_question(item_id, qtype="short", question="这道简答没判出来？",
+                             answer="对")
+    pending_q2 = add_question(item_id, qtype="short", question="这道也没判出来？",
+                              answer="对")
+    sql("INSERT INTO quiz_attempt (question_id, user_answer, is_correct, feedback,"
+        " duration_ms, created_at) VALUES (?, ?, NULL, '超时', 1, ?)",
+        (pending_q, "我的答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
+    sql("INSERT INTO quiz_attempt (question_id, user_answer, is_correct, feedback,"
+        " duration_ms, created_at) VALUES (?, ?, NULL, '超时', 1, ?)",
+        (pending_q2, "我的答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
+    sql("INSERT INTO quiz_attempt (question_id, user_answer, is_correct, feedback,"
+        " duration_ms, created_at) VALUES (?, ?, 1, '对', 1, ?)",
+        (pending_q2, "我的答案", datetime.now(timezone.utc).isoformat(timespec="seconds")))
+
+    payload = client.get("/api/review/pending").json()
+    ids = [i["question_id"] for i in payload["items"]]
+    check("待判列表收「最近一次没判出来」的题", pending_q in ids, str(ids))
+    check("后来判出对错的题不再算待判", pending_q2 not in ids, str(ids))
+    check("没作答过的新题不算待判",
+          pending_q2 not in ids and all(i["question_id"] != 0 for i in payload["items"]))
+    hit = [i for i in payload["items"] if i["question_id"] == pending_q]
+    check("待判列表带题干与来源标题",
+          bool(hit) and hit[0]["question"] and hit[0]["source_title"], str(hit[:1]))
+    due_payload = client.get("/api/review/due").json()
+    check("/review/due 顺手带上待判数",
+          due_payload.get("pending") == payload["total"], str(due_payload.get("pending")))
+
+    resp = client.post(f"/api/review/{pending_q}/result", json={"correct": False})
+    check("给待判题定「答错」→ 建档并排到明天",
+          resp.status_code == 200 and resp.json()["scheduled"] is True
+          and resp.json()["interval_days"] == 1, resp.text[:120])
+    ids = [i["question_id"] for i in client.get("/api/review/pending").json()["items"]]
+    check("裁定之后从待判列表消失", pending_q not in ids, str(ids))
+
     resp = client.post(f"/api/review/{multiple}/result", json={"correct": True})
     check("POST /review/{id}/result 推进间隔",
           resp.status_code == 200 and resp.json()["scheduled"] is True, resp.text[:120])
