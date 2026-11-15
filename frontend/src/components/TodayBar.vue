@@ -7,6 +7,10 @@
  * 点整条进完整仪表盘（`/dashboard`，路由还在，只是不再出现在导航里）。
  *
  * 数字全部来自 `/api/stats/today`，前端不做二次统计（口径只写在后端一处）。
+ *
+ * **数字要落到能干活的地方**（M1）：以前整条是一个按钮，点「待整理 12」只会进仪表盘，
+ * 再点一次进未筛选的知识库首页 —— 数字是入口的样子，落点却不接住它。
+ * 现在这两格各自是一个按钮，直接把筛选条件带过去；「详情 →」才进仪表盘。
  */
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -27,33 +31,52 @@ onMounted(async () => {
 })
 
 const num = (value) => (value === null || value === undefined ? '—' : value)
+
+function goPending() {
+  router.push({ path: '/', query: { status: 'pending' } })
+}
+
+function goReview() {
+  router.push('/review')
+}
 </script>
 
-<!-- aria-label 故意短：整条内容拼起来会把「待整理 / 待复习」写进可访问名，
-     那样按名字找按钮的工具（读屏、Playwright）会先撞上这一条而不是左栏的状态筛选 -->
+<!-- 可访问名一律短：按名字找按钮的工具（读屏、Playwright）不该撞上「待整理 / 待复习
+     连起来一长串」这种可访问名 —— 左栏的状态筛选也叫「待整理」，两者必须能分开 -->
 <template>
-  <button
-    class="today-bar"
-    type="button"
-    title="打开完整仪表盘：本周专注、正确率、分类分布"
-    aria-label="今日概览，打开完整仪表盘"
-    @click="router.push('/dashboard')"
-  >
+  <div class="today-bar">
     <span class="today-tag">今日</span>
-    <span class="cell">
+    <button
+      class="cell cell-btn"
+      type="button"
+      :aria-label="`待整理 ${num(today?.pending_total)} 条，去筛选`"
+      title="去知识库看这些待整理的内容"
+      @click="goPending"
+    >
       待整理 <b>{{ num(today?.pending_total) }}</b>
-    </span>
-    <span class="cell">
+    </button>
+    <button
+      class="cell cell-btn"
+      type="button"
+      :aria-label="`待复习 ${num(today?.due_reviews)} 题，去复习`"
+      title="打开复习队列"
+      @click="goReview"
+    >
       待复习 <b :class="{ hot: (today?.due_reviews || 0) > 0 }">{{ num(today?.due_reviews) }}</b>
-    </span>
+    </button>
     <span class="cell">
       连续 <b>{{ num(today?.streak_days) }}</b> 天
     </span>
     <span class="cell">
       专注 <b>{{ today ? humanDuration(today.focus_seconds) : '—' }}</b>
     </span>
-    <span class="more">详情 →</span>
-  </button>
+    <button
+      class="more"
+      type="button"
+      title="打开完整仪表盘：本周专注、正确率、分类分布"
+      @click="router.push('/dashboard')"
+    >详情 →</button>
+  </div>
 </template>
 
 <style scoped>
@@ -65,21 +88,11 @@ const num = (value) => (value === null || value === undefined ? '—' : value)
   width: 100%;
   height: 38px;
   padding: 0 var(--space-6);
-  border: 0;
   border-bottom: 1px solid var(--c-border);
   background: var(--c-bg-1);
   font-size: var(--fs-xs);
   color: var(--c-text-3);
   text-align: left;
-}
-
-.today-bar:hover {
-  background: var(--c-bg-2);
-}
-
-.today-bar:focus-visible {
-  outline: 2px solid var(--c-primary);
-  outline-offset: -2px;
 }
 
 .today-tag {
@@ -99,6 +112,29 @@ const num = (value) => (value === null || value === undefined ? '—' : value)
   color: var(--c-text-3);
 }
 
+/* 两格可点：不加下划线，靠 hover 底色与文字变主色提示「这里能点」 */
+.cell-btn {
+  padding: 2px var(--space-2);
+  margin: 0 calc(var(--space-2) * -1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  color: var(--c-text-3);
+  cursor: pointer;
+}
+
+.cell-btn:hover {
+  background: var(--c-bg-2);
+  color: var(--c-primary-ink);
+}
+
+.cell-btn:focus-visible,
+.more:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
+}
+
 .cell b {
   font-size: var(--fs-md);
   font-weight: 600;
@@ -112,10 +148,17 @@ const num = (value) => (value === null || value === undefined ? '—' : value)
 
 .more {
   margin-left: auto;
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
   color: var(--c-text-3);
+  cursor: pointer;
 }
 
-.today-bar:hover .more {
+.more:hover {
+  background: var(--c-bg-2);
   color: var(--c-primary-ink);
 }
 </style>

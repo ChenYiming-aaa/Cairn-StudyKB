@@ -7,6 +7,7 @@ import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 import { shortTime } from '../utils/format'
+import { usable } from '../utils/components'
 
 const router = useRouter()
 const toast = useToast()
@@ -35,6 +36,12 @@ const hitsLoading = ref(false)
 const hitsError = ref('')
 const hitsFallback = ref('none')
 const hitsQuery = ref('')
+/**
+ * 向量检索现在能不能用（M2）。默认 true：探测失败时宁可不说，也不要凭空劝人下 118 MB。
+ * 判据只有 `utils/components.usable`（看后端算好的 `mode`）—— 按 `state` 判会把
+ * 「源码运行 / 本机已装库」这种实际能用的环境报成没装。
+ */
+const embedReady = ref(true)
 
 // 问答历史（T3.12）：抽屉里的列表只用来"找回来"，不参与检索
 // T7.3：开关状态放 useLayout（`panels.chat`），顶栏 Ctrl+H 与这里的按钮共用同一个
@@ -52,14 +59,21 @@ let controller = null
 const matchCount = computed(() => sources.value.length)
 const itemCount = computed(() => new Set(sources.value.map((s) => s.item_id)).size)
 
-/** 当前提示是不是"缺向量组件"—— 只有它才配「去安装」按钮 */
+/**
+ * 当前提示是不是"缺向量组件"—— 只有它才配「去安装」按钮。
+ * 搜索前的那次探测也算：`fallback` 还没回来时（'none'）同样要能看出「现在就缺一块」。
+ */
 const needEmbed = computed(() => {
   const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
-  return value === 'vector_component_missing'
+  if (value === 'vector_component_missing') return true
+  return value === 'none' && !embedReady.value
 })
 
 const fallbackHint = computed(() => {
   const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
+  // 搜索前就先说清楚（M2）：等搜完才补一句「只能按关键词搜」，用户会先把
+  // 第一轮结果质量差归因成「我的库不行」
+  if (value === 'none' && !embedReady.value) return '现在只能按关键词搜。装上「向量检索」就能按意思搜'
   if (value === 'vector_disabled') return '语义检索暂时不可用，已改成按关键词搜，也能找到大部分内容'
   // 文案不再自带"去设置里装"：那一句改成一个按钮（同一行里更明显，也不用记路径）
   if (value === 'vector_component_missing') return '现在只能按关键词搜。装上「向量检索」就能按意思搜'
@@ -124,6 +138,8 @@ async function ask() {
         if (ev.type === 'sources') {
           sources.value = ev.sources || []
           askFallback.value = ev.fallback || 'none'
+          // 这轮真用上了语义检索：把进页面时的预判纠回来
+          if (askFallback.value === 'none') embedReady.value = true
         } else if (ev.type === 'delta') {
           answer.value += ev.text || ''
         } else if (ev.type === 'no_result') {
@@ -226,8 +242,20 @@ async function removeLog(id) {
   }
 }
 
+/** 进页面先问一次组件状态：降级提示要在搜索之前就能看见（M2） */
+async function probeEmbed() {
+  try {
+    const data = await api.components()
+    embedReady.value = usable((data.items || []).find((item) => item.id === 'embed'))
+  } catch {
+    // 演示站 / 组件接口暂时不可用：不提示，搜索响应回来自会带 fallback
+    embedReady.value = true
+  }
+}
+
 onMounted(() => {
   refreshHistoryCount()
+  probeEmbed()
   window.addEventListener('keydown', onKeydown)
 })
 

@@ -70,8 +70,8 @@ onMounted(load)
     <p v-else-if="error" class="note error">{{ error }}</p>
 
     <div v-else-if="today" class="grid">
-      <!-- 1 今日待整理 -->
-      <button class="card link" type="button" @click="router.push('/')">
+      <!-- 1 今日待整理。带筛选过去：落到未筛选的首页等于把用户又支使一遍（M1） -->
+      <button class="card link" type="button" @click="router.push({ path: '/', query: { status: 'pending' } })">
         <span class="card-label">今日待整理</span>
         <span class="card-value">{{ today.pending_items }}</span>
         <span class="card-sub">全库还有 {{ today.pending_total }} 条待整理</span>

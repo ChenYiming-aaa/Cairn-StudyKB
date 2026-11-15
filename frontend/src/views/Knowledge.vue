@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import CategoryTree from '../components/CategoryTree.vue'
 import ItemDetail from '../components/ItemDetail.vue'
@@ -11,6 +12,8 @@ import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 
 const toast = useToast()
+const route = useRoute()
+const router = useRouter()
 const { refreshTick, editorDirty, focusItemId, openPaste } = useUi()
 // T7.2：列表收起后顶栏按钮负责叫回来；窗口 < 1000 时选完条目自动收（浮层会让出屏占）
 const { collapse } = useLayout()
@@ -340,7 +343,48 @@ watch(focusItemId, (itemId) => {
   focusOnItem(itemId)
 })
 
+/**
+ * 进来时接住外面带过来的筛选（M1）：「今日」条的「待整理 12」、仪表盘的「今日待整理」
+ * 都落到 `/?status=pending`，而不是落在一个未筛选的首页上。
+ *
+ * 用完立刻把 query 清掉：否则用户手动清掉筛选后再刷新，旧条件又从地址栏回来，
+ * 看起来像「清不掉」。清的时候不新增历史（replace）。
+ */
+function applyRouteQuery() {
+  const query = route.query || {}
+  let used = false
+  if (typeof query.status === 'string' && ['pending', 'organizing', 'ready', 'failed'].includes(query.status)) {
+    filter.status = query.status
+    used = true
+  }
+  if (typeof query.q === 'string') {
+    filter.q = query.q
+    used = true
+  }
+  if (typeof query.category === 'string') {
+    filter.category = query.category
+    used = true
+  }
+  if (typeof query.workspace === 'string') {
+    filter.workspace_id = query.workspace
+    used = true
+  }
+  if (used) router.replace({ path: route.path, query: {} })
+  return used
+}
+
+// 「今日」条就在本页顶部：从 `/` 点到 `/?status=pending` 是同一个路由，
+// 组件不会重新挂载 → 只靠 onMounted 那次读不到新条件，数字看起来「点了没反应」。
+// 筛选是显式重载的（`queueLoadList`），所以这里必须自己叫一次，不然条件变了列表没变。
+watch(() => route.query, () => {
+  if (applyRouteQuery()) {
+    queueLoadList()
+    loadTree()
+  }
+})
+
 onMounted(async () => {
+  applyRouteQuery()
   await refreshAll()
   // 从「任务」页跳过来时组件刚挂载，watch 注册前值就已写入，这里补一次
   if (focusItemId.value) {
