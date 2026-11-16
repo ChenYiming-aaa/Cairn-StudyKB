@@ -58,7 +58,7 @@ const FRIENDLY = [
   [/^WORKSPACE_/, '工作区没保存成功，改动会丢。再试一次'],
   [/^ITEM_BUSY$/, '这条正在整理中，等它结束再操作'],
   // T9.11 前置闸：正文还是 `[文件] 原名` 就不让整理（拿占位正文写摘要纯属浪费）
-  [/^FILE_NOT_READY$/, '这个文件还在读字，读完再操作。进度在采集面板里能看到'],
+  [/^FILE_NOT_READY$/, '这个文件还没读完，读完才能整理。没在读了就点详情里的「重读」再来一次'],
   // 试卷导入（T10.2/T10.3）：两条都是「没导进去」，但原因不同，不能合成一句
   [/^EXAM_NO_QUESTIONS$/, '这份文件里没找到题目，这次没导入。换一份文件，或者手动录几道'],
   [/^EXAM_COMMIT_EMPTY$/, '一道题都没留，这次没导入。留一道再确认导入'],
@@ -368,6 +368,8 @@ export const api = {
   quizPaper: (itemId) => get(`/api/quiz/paper/${itemId}`),
   /** 试卷草稿（T10.2）：纯计算不落库，返回 {drafts, stats} */
   examParse: (payload) => post('/api/exams/parse', payload),
+  /** 这份原件对应的内容/是否已导入（5-2）：只读不解析，导过的试卷据此读库里那版 */
+  examFile: (fileId) => get(`/api/exams/file/${fileId}`),
   /** 题目初审（T10.9）：只看草稿、不读原件，返回 {issues, stats}，改不改由人定 */
   examAudit: (payload) => post('/api/exams/audit', payload),
   /** 复核后一次写入（T10.3）：返回 {item_id, imported, replaced, downgraded} */

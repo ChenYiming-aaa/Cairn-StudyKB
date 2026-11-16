@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { api, friendlyMessage, humanDetail } from '../api/client'
 import { useToast } from '../composables/useToast'
@@ -33,6 +33,10 @@ const stats = ref(null)
 const item = ref(null)
 const page = ref(1)
 const imgBroken = ref(false)
+/** 这一版草稿是从哪来的：`parse` 新解析的，`library` 库里已导入的那份（5-2） */
+const loadedFrom = ref('parse')
+/** 载入时的草稿快照：判断「改了没导入」，离开时据此确认（5-1） */
+const baseline = ref('')
 
 const pageCount = computed(() => Number(item.value?.file?.page_count || 0))
 const noAnswer = computed(() => drafts.value.filter((d) => d.answer === null || d.answer === '')
@@ -51,28 +55,120 @@ const gapText = computed(() => {
   return `${label}没认出来，多半是那一行没读到`
 })
 
+/** 只去掉前端临时字段：`questionBefore` 是「用这条」的撤回底稿，不算用户的改动 */
+function plainDraft(draft) {
+  const copy = { ...draft }
+  delete copy.questionBefore
+  return copy
+}
+
+function snapshot() {
+  return JSON.stringify(drafts.value.map(plainDraft))
+}
+
+/** 改了几道题：按位置逐条比对载入时的快照（含新增/删除） */
+const changedCount = computed(() => {
+  if (!baseline.value) return 0
+  let before
+  try {
+    before = JSON.parse(baseline.value)
+  } catch {
+    return drafts.value.length
+  }
+  const after = drafts.value.map(plainDraft)
+  const total = Math.max(before.length, after.length)
+  let count = 0
+  for (let i = 0; i < total; i += 1) {
+    if (JSON.stringify(before[i]) !== JSON.stringify(after[i])) count += 1
+  }
+  return count
+})
+
+const dirty = computed(() => changedCount.value > 0)
+
+/** 库里的题 → 复核页草稿（字段名与 `commit` 的入参一致，改完能原样写回去） */
+function toDraft(question) {
+  const payload = question.payload || {}
+  return {
+    number: String(question.number ?? ''),
+    type: question.type,
+    question: question.question || '',
+    options: [...(question.options || [])],
+    answer: question.answer ?? null,
+    explanation: question.explanation || '',
+    score: payload.score ?? null,
+    material: payload.material ?? null,
+    group: payload.group ?? null,
+    page_no: null,
+    options_incomplete: false,
+  }
+}
+
 async function load() {
   phase.value = 'loading'
   error.value = ''
   try {
-    const data = await api.examParse({ file_id: fileId.value, use_llm: true })
-    drafts.value = (data.drafts || []).map((d) => ({ ...d, options: [...(d.options || [])] }))
-    stats.value = data.stats || {}
-    const detail = await api.getItem(data.stats.item_id)
+    // 先问一句这份原件是不是已经导过（5-2）：导过的要读库里那版，
+    // 重跑模型会用它这一轮的新猜测盖掉上次手改对的答案
+    const info = await api.examFile(fileId.value)
+    const detail = await api.getItem(info.item_id)
     item.value = detail
     page.value = 1
+
+    if (info.imported) {
+      const paper = await api.quizPaper(info.item_id)
+      drafts.value = (paper.questions || []).map(toDraft)
+      loadedFrom.value = 'library'
+      stats.value = {
+        item_id: info.item_id,
+        questions: drafts.value.length,
+        with_answer: drafts.value.filter((d) => !isAnswerEmpty(d)).length,
+        gaps: [],
+      }
+    } else {
+      const data = await api.examParse({ file_id: fileId.value, use_llm: true })
+      drafts.value = (data.drafts || []).map((d) => ({ ...d, options: [...(d.options || [])] }))
+      stats.value = data.stats || {}
+      loadedFrom.value = 'parse'
+    }
   } catch (err) {
     error.value = `${friendlyMessage(err)}${humanDetail(err.detail) ? `（${humanDetail(err.detail)}）` : ''}`
     phase.value = 'error'
     return
   }
+  // 快照要在 phase 变 ready 之前取：之后用户每改一个字段都算「脏」
+  baseline.value = snapshot()
   phase.value = 'ready'
   // 初审跟在解析后面自己跑：用户不用先点一下才知道哪几题有问题。
-  // 不 await —— 题目先给出来，提示后到，比转圈等十几秒好
-  runAudit()
+  // 不 await —— 题目先给出来，提示后到，比转圈等十几秒好。
+  // 读库里那版时不自动跑：手改过的题不需要模型再猜一遍，要检查点「检查题目」
+  if (loadedFrom.value === 'parse') runAudit()
 }
 
-onMounted(load)
+/**
+ * 离开复核页的保护（5-1）：草稿只在前端，路由一走就没了。
+ *
+ * 这条是仓库认过的取舍（不引入存储），这里只补一句确认 —— 改了 20 题花 20 分钟，
+ * 一次误点导航就全白做，而界面此前一句话都没有。
+ */
+onBeforeRouteLeave(() => {
+  if (!dirty.value) return true
+  return window.confirm(`这页改了 ${changedCount.value} 道题还没导入，离开就没了。继续离开？`)
+})
+
+/** 关窗 / F5：浏览器只让说一句通用话，进度本身救不回来，至少别让人误点 */
+function onBeforeUnload(event) {
+  if (!dirty.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  load()
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
+
+onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
 // 换一份文件（地址栏改了）就重来，别把上一份的草稿留在屏幕上
 watch(fileId, (next) => {
@@ -356,6 +452,8 @@ async function commit() {
       kept ? `${kept} 题练过，没能删掉（记录留着）` : '',
     ].filter(Boolean).join('；')
     toast.ok(`已导入 ${result.imported} 题${extra ? `，${extra}` : ''}`)
+    // 已经写回库里：走之前把快照对齐，别让「离开确认」拦在自己这一步
+    baseline.value = snapshot()
     router.push('/')
     openItem(result.item_id)
   } catch (err) {
@@ -373,7 +471,8 @@ async function commit() {
         <h2>导入试卷</h2>
         <p v-if="item" class="sub">
           {{ item.title }}
-          <template v-if="stats">· 认出 {{ stats.questions }} 题 · {{ stats.with_answer }} 题有答案</template>
+          <template v-if="loadedFrom === 'library'">· 库里已有 {{ drafts.length }} 题</template>
+          <template v-else-if="stats">· 认出 {{ stats.questions }} 题 · {{ stats.with_answer }} 题有答案</template>
         </p>
       </div>
       <div class="head-actions">
@@ -413,6 +512,11 @@ async function commit() {
     </div>
 
     <template v-else>
+      <!-- 导过的试卷：先说清「这是库里那版」（5-2）。不说的话用户会以为模型又重认了一遍，
+           改完点确认导入却把上次手改的答案盖掉 -->
+      <p v-if="loadedFrom === 'library'" class="notice notice-quiet">
+        这份试卷在库里已经有 {{ drafts.length }} 题，下面是库里那版。改完点「确认导入」才会写回去。
+      </p>
       <p v-if="gapText" class="notice">
         {{ gapText }}
         <button class="btn btn-sm" type="button" @click="addDraft">补一道</button>

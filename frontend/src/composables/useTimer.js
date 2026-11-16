@@ -16,6 +16,10 @@
 import { computed, ref, watch } from 'vue'
 
 import { api, apiBase, friendlyMessage } from '../api/client'
+import { useToday } from './useToday'
+
+// 2-1：结束一轮专注就改了今日数字，必须叫今日条一起刷新
+const { loadToday } = useToday()
 
 const HEARTBEAT_MS = 15000
 export const PRESETS = [15, 25, 50]         // 专注时长预设（分钟）
@@ -168,6 +172,8 @@ async function finish(note = '') {
     noteOpen.value = false
     clear()
     panelOpen.value = true          // 面板留着显示结果卡，用户自己关
+    // 时长已经落库：不刷的话结果卡写「+25 分钟」、同屏顶部还写「专注 0 秒」
+    loadToday()
   }
   return done
 }
@@ -179,6 +185,7 @@ async function abandon() {
     noteOpen.value = false
     clear()
     panelOpen.value = true
+    loadToday()
   }
   return done
 }

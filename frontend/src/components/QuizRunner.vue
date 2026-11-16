@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { api, friendlyMessage } from '../api/client'
 import { useToast } from '../composables/useToast'
@@ -29,6 +29,8 @@ const props = defineProps({
   // 出结果后那个按钮的落点说法由调用方给：练习页回配置再出一组、复习页回队列。
   // 原来两处都写「再来一组」，复习的人点下去不知道会重做同一批还是回列表。
   restartLabel: { type: String, default: '' },
+  // 父组件已经替用户问过「是否继续」时置真：这里静默接上草稿，不再弹第二次
+  autoResume: { type: Boolean, default: false },
 })
 const emit = defineEmits(['finished', 'restart'])
 
@@ -47,6 +49,109 @@ let startedAt = Date.now()
 
 const current = computed(() => props.questions[idx.value] || null)
 const total = computed(() => props.questions.length)
+
+/**
+ * 中途离开的草稿（4-3）。
+ *
+ * 进度只在本组件里，切一下导航就全没了：已答的题连作答记录都没有（`quiz_attempt`
+ * 只在交卷时写）。这里照 `NoteEditor` 那套存 `sessionStorage`，但**不自动续上** ——
+ * 进来先问一句「是否继续上次答题」，避免用户以为这是一轮新的。
+ * 键里带题组签名：换了题组（练习页重新出题）就与草稿无关，直接丢掉。
+ */
+const DRAFT_KEY = 'cairn.quiz.draft'
+const resumed = ref(false)
+let draftReady = false
+
+const draftSign = computed(() => props.questions.map((q) => q.id).join(','))
+
+function hasProgress() {
+  return Boolean(answers.value.length || revealed.value || picked.value.length || typed.value.trim())
+}
+
+function readDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function clearDraft() {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // 存储被禁只影响「下次还能不能接着答」，不该让作答报错
+  }
+}
+
+function saveDraft() {
+  if (!draftReady || phase.value !== 'answering') return
+  // 一道都没答就别存：否则下次进来会为一份空草稿弹确认
+  if (!hasProgress()) {
+    clearDraft()
+    return
+  }
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+      sign: draftSign.value,
+      idx: idx.value,
+      answers: answers.value,
+      picked: picked.value,
+      typed: typed.value,
+      revealed: revealed.value,
+      verdict: verdict.value,
+    }))
+  } catch {
+    // 同上：草稿是补救措施，不能因为它失败把答题卡住
+  }
+}
+
+function restore(draft) {
+  idx.value = Math.min(Math.max(0, Number(draft.idx) || 0), Math.max(0, total.value - 1))
+  answers.value = Array.isArray(draft.answers) ? draft.answers : []
+  picked.value = Array.isArray(draft.picked) ? draft.picked : []
+  typed.value = typeof draft.typed === 'string' ? draft.typed : ''
+  revealed.value = Boolean(draft.revealed)
+  verdict.value = draft.verdict ?? null
+  startedAt = Date.now()
+  resumed.value = true
+}
+
+/** 关窗/刷新时的兜底：浏览器只让说一句通用话，具体进度靠 sessionStorage 带回来 */
+function onBeforeUnload(event) {
+  if (phase.value !== 'answering' || !hasProgress()) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  const draft = readDraft()
+  if (draft && draft.sign === draftSign.value && (draft.answers || []).length) {
+    if (props.autoResume) {
+      // 上层已经问过了（练习页要先恢复题组才有东西可答），这里不再弹第二次
+      restore(draft)
+    } else {
+      const at = Math.min(Math.max(0, Number(draft.idx) || 0), Math.max(0, total.value - 1))
+      const resume = window.confirm(`发现您上次中途退出答题（第 ${at + 1} / ${total.value} 题），是否继续上次答题？`)
+      if (resume) restore(draft)
+      else clearDraft()
+    }
+  } else if (draft) {
+    // 题组已经换了（或草稿是空的）：留着只会在下一次误弹
+    clearDraft()
+  }
+  draftReady = true
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
+
+onBeforeUnmount(() => {
+  saveDraft()
+  window.removeEventListener('beforeunload', onBeforeUnload)
+})
+
+watch([idx, answers, picked, typed, revealed], saveDraft, { deep: true })
+
 const isShort = computed(() => current.value?.type === 'short')
 const canConfirm = computed(() => {
   if (!current.value) return false
@@ -119,6 +224,8 @@ async function submitAll() {
   error.value = ''
   try {
     result.value = await api.quizSubmit({ answers: answers.value })
+    // 已经交卷：这一轮不再有「未完成的进度」，草稿留着只会在下次误弹
+    clearDraft()
     phase.value = 'result'
     emit('finished', result.value)
   } catch (err) {
@@ -138,6 +245,8 @@ function restart() {
   error.value = ''
   phase.value = 'answering'
   startedAt = Date.now()
+  resumed.value = false
+  clearDraft()
   emit('restart')
 }
 
@@ -205,6 +314,7 @@ async function judge(item, correct) {
     <template v-if="phase === 'answering' && current">
       <div class="q-head">
         <span class="q-step">第 {{ idx + 1 }} / {{ total }} 题</span>
+        <span v-if="resumed" class="q-tag ghost">接着上次</span>
         <span v-if="numbered && current.number" class="q-tag ghost">原卷 {{ current.number }} 题</span>
         <span class="q-tag">{{ typeLabel(current.type) }}</span>
         <span v-if="difficultyLabel(current.difficulty)" class="q-tag ghost">
@@ -302,7 +412,7 @@ async function judge(item, correct) {
           <p class="score-acc">正确率 {{ accuracyText }}</p>
           <p v-if="result.items" class="score-acc">错 {{ wrongCount }} 题</p>
           <p v-if="pendingManual" class="score-hold">
-            {{ pendingManual }} 题没判出来（模型超时或没给出结果），往下翻可以自己判
+            待人工判断 {{ pendingManual }} 题（模型超时或没给出结果），往下翻可以自己判
           </p>
           <button class="btn btn-sm" type="button" @click="restart">
             {{ restartLabel || (numbered ? '再做一遍' : '再来一组') }}
@@ -317,7 +427,7 @@ async function judge(item, correct) {
               class="mark"
               :class="item.is_correct === true ? 'ok' : item.is_correct === false ? 'bad' : 'hold'"
             >
-              {{ item.is_correct === true ? '✓' : item.is_correct === false ? '✗' : '待判' }}
+              {{ item.is_correct === true ? '✓' : item.is_correct === false ? '✗' : '待人工判断' }}
             </span>
             <span class="review-index">{{ index + 1 }}.</span>
             <span class="review-q">{{ questionOf(item.question_id).question }}</span>

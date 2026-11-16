@@ -456,8 +456,8 @@ def main() -> int:
                 # 待判列表判完是**整行消失**（不是就地变 ✗ —— 那是交卷结果页的形态）
                 gone = wait(page, lambda: page.locator(".row-pending").count() == 0)
                 check(gone, "判完那一行从待判列表消失")
-                empty_state = page.locator(".state", has_text="没有待判的题")
-                check(empty_state.count() > 0, "判空后给「没有待判的题」的空态")
+                empty_state = page.locator(".state", has_text="没有待人工判断的题")
+                check(empty_state.count() > 0, "判空后给「没有待人工判断的题」的空态")
                 with urllib.request.urlopen(base + "api/review/pending", timeout=5) as resp:
                     total = json.loads(resp.read().decode("utf-8")).get("total")
                 check(total == 0, "判完之后它从待判列表消失（不复活）", f"total={total}")

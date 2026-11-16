@@ -16,11 +16,16 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
+import { useComponentInstall } from '../../composables/useComponentInstall'
 import { useToast } from '../../composables/useToast'
+import { useUi } from '../../composables/useUi'
 import { badge, installed } from '../../utils/components'
 import { fileSize } from '../../utils/format'
 
 const toast = useToast()
+// 6-4：安装开始后由全局看门人接管轮询 —— 设置窗口关掉也照样会通知
+const { watchNow } = useComponentInstall()
+const { requestComponentsRefresh } = useUi()
 
 const items = ref([])
 const loading = ref(true)
@@ -72,7 +77,9 @@ async function install(item) {
   busy.value = { ...busy.value, [item.id]: true }
   try {
     await api.installComponent(item.id)
-    toast.info(`开始下载${item.name}，${fileSize(item.size, 0)}。可以关掉设置窗口，装完会通知`)
+    toast.info(`开始下载${item.name}，${fileSize(item.size, 0)}。可以关掉设置窗口，装完会通知你`)
+    // 全局看门人接手：关窗/切页都还会在装好的那一刻通知（6-4）
+    watchNow()
     await load()
   } catch (err) {
     toast.error(friendlyMessage(err))
@@ -100,6 +107,8 @@ async function uninstall(item) {
   try {
     const res = await api.uninstallComponent(item.id)
     toast.ok(`已卸载${item.name}，释放 ${fileSize(res?.freed || item.bytes, 0)}`)
+    // 卸载也是「组件状态变了」：各页要重新探测，别继续按「能用」渲染
+    requestComponentsRefresh()
     await load()
   } catch (err) {
     toast.error(friendlyMessage(err))

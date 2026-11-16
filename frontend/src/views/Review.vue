@@ -44,9 +44,32 @@ const wrongItems = ref([])
 
 const practicing = ref(false)
 const runKey = ref(0)
+/**
+ * 这一批题的**快照**（4-1 / 4-2）。
+ *
+ * 交卷会把到期题推到明天，若此刻 `loadDue()` 换掉 `items`，作答器的 props 就跟着变：
+ * 到期题全在这批时 `questions` 归零 → 结果页被 `v-if` 整块卸载；
+ * 队列里还有剩时题干全空（结果页按 id 在新 props 里找不到题）。所以这批题单独存一份，
+ * 回列表时才清掉。
+ */
+const runQuestions = ref([])
+const runSource = ref('due')        // due | wrong：决定交卷后回哪张列表
+const restartLabel = computed(() => (runSource.value === 'wrong' ? '回到错题本' : '回到复习列表'))
+/** 还没到期的题数：`tracked` 是全库排期数，减掉今天到期的就是它们（4-5 的第二个数） */
+const notYet = computed(() => Math.max(0, tracked.value - total.value))
 
 /** QuizRunner 按 `id` 索引题目，复习项的主键叫 question_id，进来时统一一下 */
-const questions = computed(() => items.value.map((item) => ({ ...item, id: item.question_id })))
+function asRunnerItems(list) {
+  return list.map((item) => ({ ...item, id: item.question_id }))
+}
+
+/** 头部数字统一从一次 `/review/due` 里取，避免两处各算一套（4-5） */
+function applyCounts(data) {
+  total.value = data.total || 0
+  tracked.value = data.tracked || 0
+  wrongTotal.value = data.wrong || 0
+  pending.value = data.pending || 0
+}
 
 async function loadDue() {
   loading.value = true
@@ -54,11 +77,7 @@ async function loadDue() {
   try {
     const data = await api.dueReviews({ limit: 20 })
     items.value = data.items || []
-    total.value = data.total || 0
-    tracked.value = data.tracked || 0
-    wrongTotal.value = data.wrong || 0
-    // 顺手拿到的待判数：决定页签要不要出现，省一次请求
-    pending.value = data.pending || 0
+    applyCounts(data)
   } catch (err) {
     error.value = friendlyMessage(err)
     items.value = []
@@ -150,20 +169,49 @@ function switchTab(key) {
 }
 
 function startPractice() {
-  if (!questions.value.length) return
+  if (!items.value.length) return
+  runQuestions.value = asRunnerItems(items.value)
+  runSource.value = 'due'
   practicing.value = true
   runKey.value += 1
 }
 
-function onFinished(result) {
+/**
+ * 错题本「练这些错题」（4-4）：直接把这批错题喂给作答器。
+ *
+ * 原来这里的「去练习」跳到练习页，由模型**另出一组新题** —— 那 6 道错题一道都不出现，
+ * 用户做完以为练过了。这条通道不调 `generate`，交卷照样落作答记录、推进排期。
+ */
+function startWrongPractice() {
+  if (!wrongItems.value.length) return
+  runQuestions.value = asRunnerItems(wrongItems.value)
+  runSource.value = 'wrong'
+  practicing.value = true
+  runKey.value += 1
+}
+
+async function onFinished(result) {
   toast.ok(`本轮复习完成：${result.correct_count}/${result.total}`)
-  // 交卷已经把间隔推进了，这里只刷新时间表；错题本可能变短，下次切过去再拉
+  // 交卷已经把间隔推进了；错题本可能变短，下次切过去再拉
   wrongItems.value = []
-  loadDue()
+  // **只更新头部数字，不动这一批题**：一 reload 队列，作答器的 props 就变了，
+  // 到期题全在这批时结果页会被整块卸载（4-1），有剩余时每行题干会变空（4-2）
+  try {
+    const data = await api.dueReviews({ limit: 20 })
+    applyCounts(data)
+  } catch {
+    // 数字没刷上不影响结果页；回列表时还会再拉一次
+  }
 }
 
 function onRestart() {
   practicing.value = false
+  runQuestions.value = []
+  if (runSource.value === 'wrong') {
+    wrongItems.value = []
+    loadWrong()
+    return
+  }
   loadDue()
 }
 
@@ -178,12 +226,13 @@ onMounted(loadDue)
         <p class="page-sub">答错的题按 1 → 2 → 4 → 7 → 15 天的间隔回来，答对一次就延到下一档</p>
       </div>
       <div class="stats">
+        <!-- 一个数只有一个名字（4-5）：今日待复习 / 还没到期 / 错题 / 待人工判断 -->
         <span class="stat" :class="{ hot: total > 0 }">
-          <b>{{ total }}</b> 今日到期
+          <b>{{ total }}</b> 今日待复习
         </span>
-        <span class="stat"><b>{{ tracked }}</b> 队列中</span>
+        <span class="stat"><b>{{ notYet }}</b> 还没到期</span>
         <span class="stat"><b>{{ wrongTotal }}</b> 错题</span>
-        <span v-if="pending" class="stat"><b>{{ pending }}</b> 待判</span>
+        <span v-if="pending" class="stat"><b>{{ pending }}</b> 待人工判断</span>
       </div>
     </header>
 
@@ -206,12 +255,12 @@ onMounted(loadDue)
       </button>
     </nav>
 
-    <!-- 复习模式 -->
-    <section v-if="practicing && questions.length" class="panel">
+    <!-- 复习模式：吃 `runQuestions` 快照，交卷后队列变化不影响这一屏 -->
+    <section v-if="practicing && runQuestions.length" class="panel">
       <QuizRunner
         :key="runKey"
-        :questions="questions"
-        restart-label="回到复习列表"
+        :questions="runQuestions"
+        :restart-label="restartLabel"
         @finished="onFinished"
         @restart="onRestart"
       />
@@ -221,7 +270,7 @@ onMounted(loadDue)
     <section v-else-if="tab === 'due'" class="panel">
       <div class="panel-bar">
         <span class="panel-note">
-          {{ total ? `到期的 ${total} 题，一次最多做 20 题` : '今天没有到期的题' }}
+          {{ total ? `今日待复习 ${total} 题，一次最多做 20 题` : '今天没有待复习的题' }}
         </span>
         <button class="btn btn-primary btn-sm" type="button" :disabled="!items.length" @click="startPractice">
           开始复习{{ items.length ? `（${items.length}）` : '' }}
@@ -231,7 +280,7 @@ onMounted(loadDue)
       <p v-if="loading" class="panel-note pad">加载中…</p>
       <p v-else-if="error" class="panel-note pad error">{{ error }}</p>
       <div v-else-if="!items.length" class="state">
-        <p class="state-title">今天没有到期的题</p>
+        <p class="state-title">今天没有待复习的题</p>
         <p>去练习里答错几道，明天它们就回到这里。</p>
         <button class="btn btn-sm state-actions" type="button" @click="goPractice">去练习</button>
       </div>
@@ -259,9 +308,18 @@ onMounted(loadDue)
       <div class="panel-bar">
         <span class="panel-note">最近一次作答仍答错的题。复习答对后自动移出。</span>
         <!-- 错题本的作用是「再练一遍」，所以有数据时也要给出口：此前只有空态才有「去练习」，
-             翻着一屏错题却没有下一步，用户只能自己回导航找 -->
+             翻着一屏错题却没有下一步，用户只能自己回导航找。
+             两个出口要能分清：左边练**这些**错题（4-4），右边按内容重新出题。 -->
         <span class="panel-actions">
-          <button class="btn btn-sm" type="button" @click="goPractice">去练习</button>
+          <button
+            v-if="wrongItems.length"
+            class="btn btn-sm btn-primary"
+            type="button"
+            @click="startWrongPractice"
+          >练这些错题（{{ wrongItems.length }}）</button>
+          <button class="btn btn-sm" type="button" title="按选中的内容重新出一组题" @click="goPractice">
+            去练习出新题
+          </button>
           <button class="btn btn-sm" type="button" @click="loadWrong">刷新</button>
         </span>
       </div>
@@ -304,7 +362,7 @@ onMounted(loadDue)
       <p v-if="pendingLoading" class="panel-note pad">加载中…</p>
       <p v-else-if="pendingError" class="panel-note pad error">{{ pendingError }}</p>
       <div v-else-if="!pendingItems.length" class="state">
-        <p class="state-title">没有待判的题</p>
+        <p class="state-title">没有待人工判断的题</p>
         <p>模型没判出来的简答会先留在这里，等你定对错。</p>
       </div>
       <ul v-else class="rows">

@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 
 import { ApiError, api, friendlyMessage } from '../../api/client'
 import { useUi } from '../../composables/useUi'
+import { usable } from '../../utils/components'
 import { fileSize } from '../../utils/format'
 import OcrProgress from './OcrProgress.vue'
 
@@ -21,7 +22,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['open', 'gone', 'phase', 'saved'])
 
-const { openSettings } = useUi()
+const { openSettings, componentsTick } = useUi()
 
 // 与后端 `services/files.py` 的白名单同一份；这里拦一次是为了不给后端白传 200 MB
 const ALLOWED = ['docx', 'pdf', 'pptx', 'xlsx', 'txt', 'md', 'png', 'jpg', 'jpeg', 'webp']
@@ -257,6 +258,23 @@ onMounted(() => {
   start()
 })
 
+/**
+ * 组件装好后，这张卡自动接着读（6-1 / 6-2）。
+ *
+ * 先确认「真的能用了」再重试：装失败时也会走到这里，直接 retry 会把卡片从
+ * 「缺组件」翻成「没读成」，反而更像坏了。
+ */
+watch(componentsTick, async () => {
+  if (state.phase !== 'needComponent') return
+  try {
+    const data = await api.components()
+    const ready = usable((data.items || []).find((item) => item.id === 'ocr'))
+    if (ready) retry()
+  } catch {
+    // 探测失败就保持原状：按钮还在，用户可以自己点重读
+  }
+})
+
 onBeforeUnmount(() => {
   clearTimer()
   // 面板关掉 = 这次上传作废：XHR 一断，后端的临时文件会被删掉，不会留半份内容
@@ -298,14 +316,14 @@ onBeforeUnmount(() => {
       >
         取消
       </button>
-      <button
-        v-else-if="state.phase === 'needComponent'"
-        class="btn btn-sm"
-        type="button"
-        @click="openSettings('downloads')"
-      >
-        去设置
-      </button>
+      <!-- 卡片正文写着「装完回来点『重读』」，这里就必须真有那个按钮（6-2）。
+           只给「去设置」时，用户点过去发现组件已经装好了 —— 界面自相矛盾 -->
+      <template v-else-if="state.phase === 'needComponent'">
+        <button class="btn btn-sm" type="button" @click="openSettings('downloads')">
+          去设置
+        </button>
+        <button class="btn btn-sm" type="button" @click="retry">重读</button>
+      </template>
       <template v-else-if="state.phase === 'failed' || state.phase === 'cancelled'">
         <button class="btn btn-sm" type="button" @click="retry">
           {{ hasItem ? '重读' : '重新上传' }}

@@ -14,6 +14,7 @@ import { useTheme } from '../composables/useTheme'
 import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
+import { usable } from '../utils/components'
 import { fullTime } from '../utils/format'
 
 const props = defineProps({
@@ -32,7 +33,7 @@ const emit = defineEmits(['refresh', 'deleted', 'create', 'move'])
 
 const toast = useToast()
 const router = useRouter()
-const { focusChunk } = useUi()
+const { focusChunk, openSettings, componentsTick } = useUi()
 // 导图是后端现场出的 SVG，明暗得前端告诉它（T6.7）；让它自己判断会和界面脱节
 const { theme, resolvedMode } = useTheme()
 
@@ -78,12 +79,103 @@ const busy = computed(() => organizing.value || props.item?.status === 'organizi
  * 先用最稳的两类，别在没验证过的格式上给入口。
  */
 const EXAM_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'webp']
+const isOcrFile = computed(() =>
+  EXAM_EXTS.includes(String(props.item?.file?.ext || '').toLowerCase())
+)
 const canImportExam = computed(() => {
   const file = props.item?.file
   if (!file) return false
   return EXAM_EXTS.includes(String(file.ext || '').toLowerCase())
     && file.ocr_status === 'done' && Number(file.page_count || 0) > 0
 })
+
+/**
+ * 是 PDF/图片但还没读完（5-3）：按钮要**出现但禁用**，旁边说清差在哪 ——
+ * 整个不渲染时，用户只会认为这个版本不支持试卷导入。
+ */
+const examBlockedByRead = computed(() =>
+  isOcrFile.value && Boolean(props.item?.file) && !canImportExam.value
+)
+
+/**
+ * 原件读字状态（6-3）。关掉采集面板后，这份 PDF 在界面上「失踪」过：
+ * 详情只写「待整理」，点整理得到「还在读字」的 409（而实际什么都没在跑），
+ * 采集面板里那张卡早没了，也没有任何「重读」入口。
+ */
+const ocrProgress = ref(null)      // `/knowledge/{id}/ocr` 的最近一次结果
+const ocrReady = ref(null)         // 识别组件能不能用：null 还没查到
+const reocrBusy = ref(false)
+let ocrTimer = null
+
+const fileWord = computed(() => (isOcrFile.value ? '识别' : '读取'))
+const fileState = computed(() => {
+  const file = props.item?.file
+  if (!file) return null
+  const status = String(file.ocr_status || '')
+  const total = Number(file.page_count || 0)
+  const done = Number(ocrProgress.value?.done_pages ?? 0)
+  if (status === 'done') return { text: total ? `已${fileWord.value} ${total} 页` : `已${fileWord.value}`, tone: 'ok' }
+  if (status === 'partial') return { text: `已${fileWord.value} ${done}/${total} 页`, tone: 'warn' }
+  if (status === 'running') return { text: `正在${fileWord.value}${total ? ` ${done}/${total} 页` : ''}`, tone: 'busy' }
+  if (status === 'failed') return { text: `${fileWord.value}没成功`, tone: 'bad' }
+  if (status === 'pending') return { text: ocrReady.value === false ? '缺「本地识别」组件' : '还没开始读字', tone: 'warn' }
+  if (status === 'none') return { text: '这类文件读不出文字', tone: 'bad' }
+  return null
+})
+/** 没读完、但还有救（能重读）；`none` 是格式本身读不出字，给重读也没用 */
+const needsRead = computed(() => {
+  const status = String(props.item?.file?.ocr_status || '')
+  return Boolean(props.item?.file) && status !== 'done' && status !== 'none'
+})
+
+async function probeOcr() {
+  try {
+    const data = await api.components()
+    ocrReady.value = usable((data.items || []).find((item) => item.id === 'ocr'))
+  } catch {
+    ocrReady.value = null
+  }
+}
+
+// 装好/卸载组件后重探（6-1）：详情页那个「去装识别组件 / 重读」按钮要跟着换
+watch(componentsTick, probeOcr)
+
+async function loadOcrProgress() {
+  if (!props.item?.id || !isOcrFile.value) return
+  try {
+    const data = await api.ocrProgress(props.item.id)
+    ocrProgress.value = data
+    if (data.status === 'running') scheduleOcr()
+  } catch {
+    // 进度拿不到就不显示页数，别把「查不到」说成「0 页」
+  }
+}
+
+function scheduleOcr() {
+  if (ocrTimer) return
+  ocrTimer = setTimeout(async () => {
+    ocrTimer = null
+    await loadOcrProgress()
+  }, 2500)
+}
+
+/** 重读：原件已在库，重新排队一次识别（6-3 的出口） */
+async function reocr() {
+  const item = props.item
+  if (!item || reocrBusy.value) return
+  reocrBusy.value = true
+  try {
+    await api.reocr(item.id)
+    toast.info(`已重新排队${fileWord.value}，读完就能整理`)
+    emit('refresh', item.id)
+    await loadOcrProgress()
+    scheduleOcr()
+  } catch (err) {
+    toast.error(friendlyMessage(err))
+  } finally {
+    reocrBusy.value = false
+  }
+}
 
 function openExamReview() {
   const fileId = props.item?.file?.id
@@ -95,7 +187,15 @@ watch(
   () => {
     tab.value = 'summary'
     focus.value = null
-  }
+    ocrProgress.value = null
+    if (ocrTimer) {
+      clearTimeout(ocrTimer)
+      ocrTimer = null
+    }
+    loadOcrProgress()
+    probeOcr()
+  },
+  { immediate: true }
 )
 
 // 试卷的「整理笔记」页签不存在，但 tab 可能还停在那儿（刚从普通资料切过来）
@@ -190,7 +290,11 @@ function practiceThis() {
   router.push({ path: '/practice', query: { item: String(props.item.id) } })
 }
 
-onBeforeUnmount(stop)
+onBeforeUnmount(() => {
+  stop()
+  if (ocrTimer) clearTimeout(ocrTimer)
+  ocrTimer = null
+})
 </script>
 
 <template>
@@ -231,10 +335,31 @@ onBeforeUnmount(stop)
             type="button"
             @click="practiceThis"
           >练这条</button>
+          <!-- 原件没读完时的出口（6-3）：缺组件给「去装」，装了给「重读」。
+               原来这两条都没有，用户只能对着「整理中/待整理」干等一个不存在的进度 -->
+          <button
+            v-if="needsRead && item.status !== 'ready' && ocrReady === false"
+            class="btn btn-sm"
+            type="button"
+            @click="openSettings('downloads')"
+          >去装识别组件</button>
+          <button
+            v-else-if="needsRead && item.status !== 'ready'"
+            class="btn btn-sm"
+            type="button"
+            :disabled="reocrBusy"
+            @click="reocr"
+          >{{ reocrBusy ? '正在排队…' : '重读' }}</button>
           <!-- 试卷入口（T10.3）：原件读完才有；已经是试卷的写「重新导入」，别让人以为没导过 -->
           <button v-if="canImportExam" class="btn btn-sm" type="button" @click="openExamReview">
             {{ item.kind === 'exam' ? '重新导入' : '导入试卷' }}
           </button>
+          <!-- 5-3：是 PDF/图片但没读完时，按钮**出现但禁用**并说明差在哪。
+               整个不渲染时，用户只会认为这个版本不支持试卷导入 -->
+          <template v-else-if="examBlockedByRead">
+            <button class="btn btn-sm" type="button" disabled>导入试卷</button>
+            <span class="head-hint">还没读完，读完才能导入</span>
+          </template>
           <!-- 试卷不整理正文（正文就是原件的占位），改题目走「重新导入」，所以这里不出现 -->
           <button
             v-if="item.kind !== 'exam'"
@@ -254,6 +379,12 @@ onBeforeUnmount(stop)
 
       <div class="meta">
         <StatusBadge :status="item.status" />
+        <!-- 原件读字状态（6-3）：关掉采集面板后，这份 PDF 在界面上曾经「失踪」 -->
+        <span
+          v-if="fileState"
+          class="chip chip-file"
+          :class="`file-${fileState.tone}`"
+        >{{ fileState.text }}</span>
         <span v-if="item.category" class="chip">{{ item.category }}</span>
         <span v-for="tag in item.tags" :key="tag" class="chip chip-tag">#{{ tag }}</span>
         <span v-if="item.note_edited" class="chip chip-edit" title="整理会覆盖手改内容">笔记已手改</span>
@@ -405,6 +536,35 @@ onBeforeUnmount(stop)
 .chip-edit {
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
+}
+
+/* 原件读字状态：与内容状态徽标并排，用颜色区分「还在跑 / 卡住 / 没戏」 */
+.chip-file.file-ok {
+  background: var(--c-success-soft);
+  color: var(--c-success-ink);
+}
+
+.chip-file.file-busy {
+  background: var(--c-primary-soft);
+  color: var(--c-primary-ink);
+}
+
+.chip-file.file-warn {
+  background: var(--c-warning-soft);
+  color: var(--c-warning-ink);
+}
+
+.chip-file.file-bad {
+  background: var(--c-danger-soft);
+  color: var(--c-danger-ink);
+}
+
+/* 「还没读完，读完才能导入」：跟在禁用按钮后面，不抢按钮的宽 */
+.head-hint {
+  align-self: center;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  white-space: nowrap;
 }
 
 /* 下拉前那个「归到」：这排标签里唯一能改的东西，得让人看出来是可编辑的 */

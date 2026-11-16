@@ -11,7 +11,7 @@ import { usable } from '../utils/components'
 
 const router = useRouter()
 const toast = useToast()
-const { openItemAt, openSettings, openPaste } = useUi()
+const { openItemAt, openSettings, openPaste, componentsTick } = useUi()
 // T7.3：历史抽屉的开关搬到 useLayout（和左栏/列表同一套记忆），Ctrl+H 在 App.vue 触发
 const { isPanelCollapsed, setPanel } = useLayout()
 
@@ -53,6 +53,45 @@ const historyTotal = ref(0)
 const currentLogId = ref(null)
 /** 当前展示的是不是从历史里调出来的旧记录（非 null 时答案上方标出时间） */
 const currentRecord = ref(null)
+
+/**
+ * 这一页的状态按会话存一份（3-1）。
+ *
+ * 点一条命中会跳到知识库看原文，路由一离开本组件就卸载：搜索词、结果清单全没了，
+ * 回来还得重打一遍词。问答还能从「历史」抽屉找回，**原文命中没有任何历史**。
+ * 只存这五样（够回到刚才那一屏），不存流式过程中的临时态。
+ */
+const STATE_KEY = 'cairn.ask.state'
+
+function saveState() {
+  try {
+    sessionStorage.setItem(STATE_KEY, JSON.stringify({
+      tab: tab.value,
+      question: question.value,
+      hits: hits.value,
+      hitsQuery: hitsQuery.value,
+      hitsFallback: hitsFallback.value,
+    }))
+  } catch {
+    // 存储被禁只影响「回来还能不能接着看」，不该让检索报错
+  }
+}
+
+function restoreState() {
+  try {
+    const raw = sessionStorage.getItem(STATE_KEY)
+    if (!raw) return
+    const data = JSON.parse(raw)
+    if (!data || typeof data !== 'object') return
+    if (typeof data.question === 'string') question.value = data.question
+    if (data.tab === 'ask' || data.tab === 'search') tab.value = data.tab
+    if (typeof data.hitsQuery === 'string') hitsQuery.value = data.hitsQuery
+    if (Array.isArray(data.hits)) hits.value = data.hits
+    if (typeof data.hitsFallback === 'string') hitsFallback.value = data.hitsFallback
+  } catch {
+    // 坏掉的草稿当没有：宁可回到初始态，也不要半截结果
+  }
+}
 
 let controller = null
 
@@ -258,10 +297,18 @@ async function probeEmbed() {
 }
 
 onMounted(() => {
+  // 先回填上一次的搜索词与结果，再探测组件（3-1）
+  restoreState()
   refreshHistoryCount()
   probeEmbed()
   window.addEventListener('keydown', onKeydown)
 })
+
+// 状态一变就落一次会话：跳去原文再点「检索」回来，还能看到刚才那批结果
+watch([tab, question, hits, hitsQuery, hitsFallback], saveState, { deep: true })
+
+// 组件装好/卸载后重新探测（6-1）：原来只在 onMounted 问一次，装完回来还挂着「去安装」
+watch(componentsTick, probeEmbed)
 
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
@@ -296,6 +343,8 @@ function onEnter(event) {
 }
 
 function openAt(itemId, text, source, chunkId, hint) {
+  // 跳走前先落一次：虽然 watch 已经存过，但这条路径是「离开后一定会回来」的那条
+  saveState()
   openItemAt(itemId, { text, source, chunkId, hint })
   router.push('/')
 }
@@ -321,6 +370,20 @@ function switchToAsk() {
 function switchTab(key) {
   tab.value = key
   if (key === 'search' && question.value.trim() && !hits.value.length) runSearch()
+}
+
+/**
+ * 问答零命中时「改成原文命中」（3-2）：用刚才问的那句去搜一次关键词。
+ *
+ * 不能只 `switchTab('search')` —— 上次可能已经搜过别的词，hits 非空就不重搜，
+ * 用户会看到一批与这个问题无关的旧结果。
+ */
+function searchInstead() {
+  const q = (askedQuestion.value || question.value).trim()
+  if (!q) return
+  question.value = q
+  tab.value = 'search'
+  runSearch()
 }
 
 watch(question, () => {
@@ -432,6 +495,14 @@ watch(question, () => {
             <template v-else>{{ part.text }}</template>
           </template>
         </article>
+
+        <!-- 零命中不是死路（3-2）：同页「原文命中」零命中给了两个出口，这里也要给。
+             此前只剩一句「知识库中没有找到相关内容」，整页没有一个能点的下一步，
+             用户得自己想到去顶栏采集，且那句话带不过去 -->
+        <div v-if="noResult" class="state-actions ask-next">
+          <button class="btn btn-sm" type="button" @click="searchInstead">改成原文命中</button>
+          <button class="btn btn-ghost btn-sm" type="button" @click="openPaste(question)">采集这条内容</button>
+        </div>
 
         <p v-if="askError" class="state-error">{{ askError }}</p>
 
@@ -977,5 +1048,13 @@ watch(question, () => {
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
   flex: none;
+}
+
+/* 零命中后的两个出口：全局 `.state-actions` 只给了 margin-top，
+   这两个按钮不在 `.state` 里，得自己排成一行（3-2） */
+.ask-next {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 </style>

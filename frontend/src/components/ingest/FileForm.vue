@@ -17,7 +17,7 @@ import FolderImport from './FolderImport.vue'
  */
 const emit = defineEmits(['open', 'busy', 'saved'])
 
-const { openSettings } = useUi()
+const { openSettings, componentsTick } = useUi()
 
 const fileInput = ref(null)
 const items = ref([])             // [{id, file}]
@@ -63,6 +63,10 @@ function onPhase(id, phase) {
 }
 
 onMounted(loadOcr)
+
+// 组件装好/卸载后重新探测（6-1）：设置是模态，面板一直挂着 ——
+// 不重探的话装完回来仍挂着「读 PDF 与图片要先装本地识别」
+watch(componentsTick, loadOcr)
 
 defineExpose({ addFiles })
 </script>

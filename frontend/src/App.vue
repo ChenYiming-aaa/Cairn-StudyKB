@@ -8,6 +8,7 @@ import Pomodoro from './components/Pomodoro.vue'
 import RailToggle from './components/RailToggle.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { installResponsiveLayout, useLayout } from './composables/useLayout'
+import { useComponentInstall } from './composables/useComponentInstall'
 import { useSettings } from './composables/useSettings'
 import { useTasks } from './composables/useTasks'
 import { useTheme } from './composables/useTheme'
@@ -35,6 +36,8 @@ const { adopt: adoptAppearance } = useTheme()
 const { toggle, isPanelCollapsed, setPanel } = useLayout()
 // T7.4：任务挪到右侧图标组，角标是「未完成」（排队 + 进行中）
 const { activeTasks, refreshTasks } = useTasks()
+// 6-4：组件装完的全局通知（只在下载中有轮询）
+const { watchNow } = useComponentInstall()
 
 const backend = ref('checking')
 const toastStack = ref(null)
@@ -95,6 +98,10 @@ onMounted(async () => {
 
   // T7.4：任务角标先对齐一次，之后靠 refreshTick / 切页 / 有未完成时的轮询更新
   refreshTasks()
+
+  // 6-4：如果上一轮有组件没下完（或重启前正在装），从这里接管轮询；
+  // 没在装就只问一次，不常驻
+  watchNow()
 
   // 从后台切回来时用服务端状态对齐一次（系统休眠、长时间挂起会让本地时钟松）
   onVisible = () => {

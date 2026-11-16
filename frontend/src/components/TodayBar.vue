@@ -12,23 +12,17 @@
  * 再点一次进未筛选的知识库首页 —— 数字是入口的样子，落点却不接住它。
  * 现在这两格各自是一个按钮，直接把筛选条件带过去；「详情 →」才进仪表盘。
  */
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { api } from '../api/client'
+import { useToday } from '../composables/useToday'
 import { humanDuration } from '../utils/format'
 
 const router = useRouter()
-const today = ref(null)
+// 数字是模块级单例（2-1）：采集、整理、结束专注都会叫它刷新，这里只负责渲染
+const { today, loadToday } = useToday()
 
-onMounted(async () => {
-  try {
-    today.value = await api.statsToday()
-  } catch {
-    // 拿不到就不显示数字：顶栏已有「未连接」，这里不再叠一条错误
-    today.value = null
-  }
-})
+onMounted(loadToday)
 
 const num = (value) => (value === null || value === undefined ? '—' : value)
 
@@ -53,8 +47,8 @@ function goReview() {
       title="全库口径：还没整理的都在这里。点一下打开筛选"
       @click="goPending"
     >
-      <!-- 这个数是**全库**，仪表盘那张卡是**今日新增**：两处同名不同数，标签得说出范围，
-           不然用户会以为仪表盘算错了（M12 审计 §3.1） -->
+      <!-- 这个数是**全库**。仪表盘那张卡原先写的是「今天新增」，点进去落全库列表，
+           两个同名不同数；2026-11-16 起两边统一为「待整理·全库」，标签里仍写明范围 -->
       待整理·全库 <b>{{ num(today?.pending_total) }}</b>
     </button>
     <button

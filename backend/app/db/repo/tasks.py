@@ -86,12 +86,28 @@ def update_progress(
 
 
 def mark_stale_running_failed(conn: sqlite3.Connection) -> int:
-    """启动时把上次进程残留的 queued/running 标为 failed，避免永久卡住。"""
+    """启动时把上次进程残留的 queued/running 标为 failed，避免永久卡住。
+
+    **同时把卡在 `organizing` 的内容放回 `pending`**（跨界面审计 1-1）：
+    进程死掉时整理任务里的 `_mark_failed()` 不会执行，只标任务不回收内容，
+    那条内容就永远显示「整理中」、`POST /{id}/organize` 一律 409 ITEM_BUSY，
+    用户只剩「删了重传」一条路（还要重跑一遍读字）。
+
+    这里用全量回收而不是按失败任务的 `input_json.item_id` 精确回收：这个函数
+    只在启动时调一次，而任务队列是进程内的 ThreadPoolExecutor —— 新进程启动时
+    不可能有整理在跑，任何 `organizing` 都是残留。精确回收会漏掉「置了状态、
+    任务行还没写就崩了」那个窗口。
+    """
     cur = conn.execute(
         """UPDATE agent_task
            SET status='failed', error_code='TASK_INTERRUPTED',
                error_msg='服务重启，任务中断', updated_at=?
            WHERE status IN ('queued','running')""",
+        (now_iso(),),
+    )
+    conn.execute(
+        """UPDATE knowledge_item SET status='pending', updated_at=?
+           WHERE status='organizing'""",
         (now_iso(),),
     )
     return cur.rowcount

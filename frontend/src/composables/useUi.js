@@ -14,6 +14,9 @@ const pasteOpen = ref(false)
 const pasteSeed = ref('')
 const refreshTick = ref(0)
 const editorDirty = ref(false)
+// 组件装完/卸载后 +1：检索页、采集面板、引导页、详情页据此重新探测（6-1）
+// 只有 `useComponentInstall` 会在安装结束时加它；页面不要自己加
+const componentsTick = ref(0)
 const focusItemId = ref(null)
 // 问答来源卡片跳转：除了条目 id 还要知道落在哪一段（M3 T3.6）
 const focusChunk = ref(null)
@@ -63,6 +66,7 @@ export function useUi() {
     pasteOpen,
     pasteSeed,
     refreshTick,
+    componentsTick,
     editorDirty,
     focusItemId,
     focusChunk,
@@ -77,6 +81,10 @@ export function useUi() {
     },
     requestRefresh: () => {
       refreshTick.value += 1
+    },
+    /** 组件状态变了（装好/卸载）：让各页重新问一次「现在能不能用」 */
+    requestComponentsRefresh: () => {
+      componentsTick.value += 1
     },
     setEditorDirty: (value) => {
       editorDirty.value = Boolean(value)

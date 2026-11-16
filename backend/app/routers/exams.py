@@ -22,6 +22,10 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from app.db.conn import get_conn
+from app.db.repo import files as file_repo
+from app.db.repo import items as item_repo
+from app.errors import ApiError
 from app.services.exam import audit as exam_audit
 from app.services.exam import commit as exam_commit
 from app.services.exam import parse as exam_parse
@@ -36,6 +40,37 @@ class ParseBody(BaseModel):
     # 默认开：规则切不出的字段（没答案、选项被吃掉）可以让模型补一次；
     # 没有 Key 或模型超时只是「没补上」，规则结果照常返回（parse.py 里已降级）
     use_llm: bool = True
+
+
+@router.get("/file/{file_id}")
+def exam_file(file_id: int) -> dict:
+    """这份原件对应的内容、以及是不是已经导入过（跨界面审计 5-2）。
+
+    复核页进来先问一句：**已经导入过的试卷要读库里那一版**，而不是重跑模型 ——
+    重跑会用这一轮的新猜测盖掉上次手改对的答案，再点「确认导入」就把错答案写回去。
+    这里只读不解析，模型一次都不调。
+    """
+    conn = get_conn()
+    try:
+        file = file_repo.get(conn, file_id)
+        if file is None:
+            raise ApiError("FILE_NOT_FOUND", "这份原件不在库里了，重新上传一次", status=404)
+        item = item_repo.get_item(conn, int(file["item_id"]))
+    finally:
+        conn.close()
+    if item is None:
+        raise ApiError("FILE_NOT_FOUND", "这条内容不存在了，重新上传一次", status=404)
+    return {
+        "file_id": file_id,
+        "item_id": int(item["id"]),
+        "title": item["title"],
+        "kind": item["kind"],
+        "status": item["status"],
+        "page_count": int(file["page_count"] or 0),
+        "ocr_status": file["ocr_status"],
+        # 判据与 `commit()` 一致：`kind='exam'` 就是「导过一次了」
+        "imported": item["kind"] == "exam",
+    }
 
 
 @router.post("/parse")

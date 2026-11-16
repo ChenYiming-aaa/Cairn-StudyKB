@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from '../api/client'
@@ -24,7 +24,7 @@ import { fileSize } from '../utils/format'
  */
 const router = useRouter()
 const toast = useToast()
-const { envState, envLoaded, loadEnv, dismissSetup, openSettings } = useUi()
+const { envState, envLoaded, loadEnv, dismissSetup, openSettings, componentsTick } = useUi()
 const { settings, load: loadSettings, update, replace } = useSettings()
 
 const checking = ref(false)
@@ -143,6 +143,9 @@ onMounted(async () => {
   await loadSettings()
   await loadComponents()
 })
+
+// 装完组件回到引导页，清单要跟着变（6-1）：原来只在 onMounted 取一次
+watch(componentsTick, loadComponents)
 </script>
 
 <template>

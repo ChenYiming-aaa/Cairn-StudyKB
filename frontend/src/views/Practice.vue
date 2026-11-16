@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
@@ -68,6 +68,91 @@ const genError = ref('')
 const runKey = ref(0)
 let controller = null
 
+/**
+ * 中途离开的续跑记录（4-3）。
+ *
+ * 复习页重进时题组还在队列里，作答器自己就能接上草稿；练习页不同 —— 题是现出的，
+ * 重进页面只剩配置栏，作答器那份草稿找不到它的题组。所以这里连题组一起存一份。
+ * 作答进度本身仍由 `QuizRunner` 存（`cairn.quiz.draft`），两边靠题组签名对齐。
+ */
+const RUN_KEY = 'cairn.practice.run'
+const QUIZ_DRAFT_KEY = 'cairn.quiz.draft'
+// 已经替用户问过「是否继续」：作答器静默接上，不再弹第二次
+const resumeQuiet = ref(false)
+
+function readJson(key) {
+  try {
+    return JSON.parse(sessionStorage.getItem(key) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function clearRun() {
+  try {
+    sessionStorage.removeItem(RUN_KEY)
+  } catch {
+    // 存储被禁只影响「能不能续跑」
+  }
+}
+
+function saveRun() {
+  if (phase.value !== 'answering' || !questions.value.length) return
+  try {
+    sessionStorage.setItem(RUN_KEY, JSON.stringify({
+      questions: questions.value,
+      itemId: itemId.value,
+      types: types.value,
+      difficulty: difficulty.value,
+      count: count.value,
+      paper: paperRun.value,
+    }))
+  } catch {
+    // 同上
+  }
+}
+
+watch([phase, questions], saveRun)
+
+/**
+ * 回来时先问一句「是否继续上次答题」：题组、配置、作答进度一起搬回来。
+ * 只有**确实答过几道**才问 —— 刚出完题没答就丢了，再出一组就行，不值得拦一下。
+ */
+function resumeRun() {
+  const run = readJson(RUN_KEY)
+  if (!run || !Array.isArray(run.questions) || !run.questions.length) {
+    clearRun()
+    return
+  }
+  const draft = readJson(QUIZ_DRAFT_KEY)
+  const same = draft
+    && draft.sign === run.questions.map((q) => q.id).join(',')
+    && (draft.answers || []).length
+  if (!same) {
+    clearRun()
+    return
+  }
+  const at = Math.min(Math.max(0, Number(draft.idx) || 0), run.questions.length - 1)
+  if (!window.confirm(`发现您上次中途退出答题（第 ${at + 1} / ${run.questions.length} 题），是否继续上次答题？`)) {
+    clearRun()
+    try {
+      sessionStorage.removeItem(QUIZ_DRAFT_KEY)
+    } catch {
+      // 清不掉也不影响下一次（签名对不上会自己失效）
+    }
+    return
+  }
+  questions.value = run.questions
+  if (run.itemId !== undefined) itemId.value = run.itemId
+  if (Array.isArray(run.types) && run.types.length) types.value = run.types
+  if (run.difficulty) difficulty.value = run.difficulty
+  if (run.count) count.value = run.count
+  paperRun.value = Boolean(run.paper)
+  resumeQuiet.value = true
+  phase.value = 'answering'
+  runKey.value += 1
+}
+
 const pickedTitle = computed(() => items.value.find((it) => it.id === itemId.value)?.title || '')
 const canGenerate = computed(() => itemId.value !== null && types.value.length > 0)
 const estimate = computed(() => (count.value > 10 ? '约需 30–60 秒' : '约 10–20 秒'))
@@ -128,6 +213,8 @@ function isLastType(type) {
 async function generate() {
   if (!canGenerate.value || phase.value === 'generating') return
   paperRun.value = false
+  // 新出一组就是新的一轮：上一轮的续跑记录（如果还有）到此作废
+  clearRun()
   phase.value = 'generating'
   questions.value = []
   skips.value = 0
@@ -217,12 +304,16 @@ function backToIdle() {
   questions.value = []
   genError.value = ''
   skips.value = 0
+  resumeQuiet.value = false
+  // 这一轮结束了：别再让下次进来问「是否继续」
+  clearRun()
   // 「再来一组」要重新选题型/题数，本页自动收的那次顺手还回去
   restoreConfig()
 }
 
 /** 交卷后自动回到 idle 之外的「再来一组」由 QuizRunner 抛 restart，这里只提示一下 */
 function onFinished(result) {
+  clearRun()
   if (result?.total) {
     toast.ok(`${paperRun.value ? '本卷' : '本组'}完成：${result.correct_count}/${result.total}`)
   }
@@ -232,7 +323,11 @@ function onRestart() {
   backToIdle()
 }
 
-onMounted(loadItems)
+onMounted(async () => {
+  await loadItems()
+  // 上次做到一半的那组：进来先问一句「是否继续上次答题」（4-3）
+  resumeRun()
+})
 </script>
 
 <template>
@@ -417,6 +512,7 @@ onMounted(loadItems)
           :questions="questions"
           :numbered="paperRun"
           :restart-label="paperRun ? '再做一遍' : '回配置再出一组'"
+          :auto-resume="resumeQuiet"
           @finished="onFinished"
           @restart="onRestart"
         />

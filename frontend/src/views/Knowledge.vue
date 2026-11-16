@@ -9,6 +9,7 @@ import TodayBar from '../components/TodayBar.vue'
 import { api, friendlyMessage } from '../api/client'
 import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
+import { useToday } from '../composables/useToday'
 import { useUi } from '../composables/useUi'
 import { clearDraft } from '../utils/noteDraft'
 import { forgetItemScroll } from '../utils/scrollMemory'
@@ -17,6 +18,8 @@ const toast = useToast()
 const route = useRoute()
 const router = useRouter()
 const { refreshTick, editorDirty, focusItemId, openPaste } = useUi()
+// 2-1：今日条的数字与本页同源，一起刷；否则采集/整理完顶部还停在旧数字
+const { loadToday } = useToday()
 // T7.2：列表收起后顶栏按钮负责叫回来；窗口 < 1000 时选完条目自动收（浮层会让出屏占）
 const { collapse } = useLayout()
 
@@ -195,7 +198,7 @@ async function loadWorkspaces() {
 }
 
 async function refreshAll() {
-  await Promise.all([loadTree(), loadList(), loadWorkspaces()])
+  await Promise.all([loadTree(), loadList(), loadWorkspaces(), loadToday()])
   if (selectedId.value) await loadDetail(selectedId.value)
   scheduleIfBusy()
 }

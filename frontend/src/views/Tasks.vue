@@ -32,6 +32,8 @@ const TYPE_TEXT = {
   transcribe_video: '视频转录',
   organize: '整理',
   index_embed: '建立搜索索引',
+  // 6-4：组件安装也走任务队列，没有这一项时任务中心直接露出 `component_install`
+  component_install: '安装组件',
 }
 
 const STAGE_TEXT = {
