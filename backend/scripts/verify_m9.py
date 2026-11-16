@@ -1252,6 +1252,19 @@ def group_ocr() -> None:
             check("组件可用时重读不再 409（202 + task_id）",
                   allowed.status_code == 202 and allowed.json()["task_id"], allowed.text[:120])
 
+            # ②′ 界面上的「重读」**不带请求体**（`api.reocr(id)` 传的是 undefined）。
+            # 签名写了 `OcrBody | None = None`，可实现里直接 `body.pages` —— 点一次 500。
+            # 只验 `json={}` 永远是绿的，所以这条必须按真实调用方式打一遍。
+            from app.db.conn import get_conn
+
+            with get_conn() as conn:
+                conn.execute("update item_file set ocr_status='pending' where id=?",
+                             (int(body["file_id"]),))
+            no_body = c.post(f"/api/knowledge/{body['item_id']}/ocr")
+            check("「重读」不带请求体也给 202（不是 500）",
+                  no_body.status_code == 202 and no_body.json().get("task_id"),
+                  no_body.text[:120])
+
             # ③ 文字内容没有原件：这条路的 404 要说人话
             text_item = c.post("/api/knowledge", json={"raw_content": "粘贴来的文字"}).json()["id"]
             no_file = c.get(f"/api/knowledge/{text_item}/ocr")

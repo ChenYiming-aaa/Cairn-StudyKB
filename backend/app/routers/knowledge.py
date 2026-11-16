@@ -429,7 +429,10 @@ def start_ocr(item_id: int, body: OcrBody | None = None):
                 content=error_payload("OCR_RUNNING", "这份文件正在读，等它跑完再试"),
             )
 
-        pages = [n for n in (body.pages or []) if n >= 1] if is_ocr else []
+        # body 可能是 None：「整份重读一次」的调用方（界面上的「重读」）没有请求体可发。
+        # 签名早就写了 `OcrBody | None = None`，这里必须真的容忍 None ——
+        # 之前直接 body.pages，点一次「重读」就是 500（2026-11-16 实机踩到）。
+        pages = [n for n in ((body.pages if body else None) or []) if n >= 1] if is_ocr else []
         total = int(file["page_count"] or 0)
         if pages and total and max(pages) > total:
             raise ApiError("OCR_PAGE_OUT_OF_RANGE",

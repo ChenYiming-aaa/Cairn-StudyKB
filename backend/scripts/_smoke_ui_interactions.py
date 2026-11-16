@@ -206,6 +206,16 @@ def main() -> int:
     seed()
     port = free_port()
     server, base = start_server(port)
+    # 1-1 之后「启动时把残留的 organizing 一律放回 pending」：种子里那条「整理中戊」
+    # 会在服务起来那一刻被回收，于是 L4 拿到的是「还没整理」、待整理列表还多一条。
+    # 这行为是对的（重启后不可能有任务在跑），所以素材要等服务起来之后再摆。
+    conn = get_conn()
+    try:
+        with conn:
+            conn.execute("update knowledge_item set status='organizing' where id=?",
+                         (SEED["organizing"],))
+    finally:
+        conn.close()
     install_calls: list[str] = []
 
     try:
