@@ -124,6 +124,8 @@ function openArtifact(entry) {
 }
 
 async function removeArtifact(entry) {
+  // 抽屉里一行一个「×」，一点就没了 —— 与问答历史那边一致：先问一句
+  if (!window.confirm(`删掉「${entry.title}」这份学习页？删了就找不回来了。`)) return
   try {
     await api.deleteHtml(entry.id)
     historyItems.value = historyItems.value.filter((h) => h.id !== entry.id)

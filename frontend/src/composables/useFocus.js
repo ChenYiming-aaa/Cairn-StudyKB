@@ -61,16 +61,25 @@ function squash(text) {
  * 问后端「这段字在第几页第几行」。`{page, from, to, matched}`，落不到页时 value 为 null。
  *
  * 两个参数都传 getter：调用方多是 props，取值时机在异步回来之后，直接传值会拿到旧值。
+ *
+ * `missed` 与 `marks === null` 不是一回事：前者是「问过了，没找到」，后者是「还没问」。
+ * 少了这个区分，界面上「点了引用却没动」和「压根没点」长得一模一样 —— PDF 那边
+ * 现在会用它说一句「没定位到这一段，停在当前页」。
  */
 export function useLocate(itemId, focus) {
   const marks = ref(null)
+  const missed = ref(false)
   watch(
     focus,
     async (target) => {
       marks.value = null
+      missed.value = false
       if (!target?.chunkId) return
       const hit = await api.locate(itemId(), target.chunkId, target.hint).catch(() => null)
-      if (!hit?.page_no) return
+      if (!hit?.page_no) {
+        missed.value = true
+        return
+      }
       marks.value = {
         page: Number(hit.page_no),
         from: Number(hit.line_from) || 0,
@@ -80,5 +89,5 @@ export function useLocate(itemId, focus) {
     },
     { immediate: true }
   )
-  return marks
+  return { marks, missed }
 }

@@ -120,6 +120,11 @@ function toggleType(type) {
   }
 }
 
+/** 只剩一种题型时，那个 chip 点了没反应 —— 置灰并说明，别让用户以为自己点漏了 */
+function isLastType(type) {
+  return types.value.length === 1 && types.value.includes(type)
+}
+
 async function generate() {
   if (!canGenerate.value || phase.value === 'generating') return
   paperRun.value = false
@@ -237,7 +242,8 @@ onMounted(loadItems)
         <h1 class="page-title">练习</h1>
         <p class="page-sub">拿自己的材料出题考自己，答错的题目明天会自动回来找你</p>
       </div>
-      <button class="btn btn-sm" type="button" :disabled="itemId === null" @click="startFocus">
+      <!-- 本页的主任务是出题；「开始专注」是顺手能做的另一件事，别用和主操作同级的按钮抢走第一眼 -->
+      <button class="btn btn-sm btn-ghost" type="button" :disabled="itemId === null" @click="startFocus">
         开始专注{{ pickedTitle ? `：${pickedTitle}` : '' }}
       </button>
     </header>
@@ -252,6 +258,8 @@ onMounted(loadItems)
 
           <section class="cfg-block">
             <h2 class="cfg-title">从哪条材料出题</h2>
+            <!-- 列表一长就滚出视野、收起后更是看不见；这一行随时回答「现在拿的是哪条」 -->
+            <p v-if="pickedTitle" class="cfg-current" :title="pickedTitle">当前材料：{{ pickedTitle }}</p>
             <input
               v-model="keyword"
               class="input"
@@ -299,7 +307,8 @@ onMounted(loadItems)
                   class="chip"
                   type="button"
                   :class="{ on: types.includes(type) }"
-                  :disabled="phase === 'generating'"
+                  :disabled="phase === 'generating' || isLastType(type)"
+                  :title="isLastType(type) ? '至少留一种题型' : ''"
                   @click="toggleType(type)"
                 >
                   {{ TYPE_LABELS[type] }}
@@ -487,6 +496,15 @@ onMounted(loadItems)
   font-weight: 600;
   color: var(--c-text-3);
   letter-spacing: 0.04em;
+}
+
+.cfg-current {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--c-text-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cfg-note {

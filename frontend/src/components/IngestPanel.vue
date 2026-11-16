@@ -101,6 +101,11 @@ onBeforeUnmount(() => {
 
       <!-- 面板整体是拖放目标：拖动中给一圈虚线，说明「松手就会加进清单」 -->
       <div class="body" :class="{ drag: dragging }">
+        <!-- 关掉面板会怎样，两种说法原来分处两地、结论相反。合并成面板顶部这一句，
+             用户按「关闭」之前就能知道代价 -->
+        <p class="close-note">
+          关掉面板：正在上传的文件会中断，链接与视频会继续跑。
+        </p>
         <!-- 检索零命中点过来时，把「你在找什么」接上：不预填字段，只说明来意 -->
         <p v-if="seed && mode === 'paste'" class="seed-hint">
           接着刚才的检索：找到「{{ seed }}」相关的内容，贴进来就存成一条。
@@ -231,5 +236,13 @@ onBeforeUnmount(() => {
   font-size: var(--fs-xs);
   line-height: 1.5;
   color: var(--c-text-2);
+}
+
+/* 一句底色话，不是警告：说的是「关掉之后会发生什么」，不拦人 */
+.close-note {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--c-text-3);
 }
 </style>

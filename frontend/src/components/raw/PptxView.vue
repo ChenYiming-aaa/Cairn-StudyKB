@@ -50,7 +50,7 @@ function go(n) {
  * 一页幻灯片一屏，所以**不能只在当前页里找字** —— 目标常常在别的页上。
  * 页号由 `knowledge/{id}/locate` 给（它比对的是 `item_page.text`，与这里的大纲同源）。
  */
-const marks = useLocate(() => props.itemId, () => props.focus)
+const { marks, missed } = useLocate(() => props.itemId, () => props.focus)
 const box = ref(null)
 
 watch(
@@ -119,6 +119,7 @@ watch(outline, async () => {
         :disabled="!total || page >= total"
         @click="go(page + 1)"
       >下一页</button>
+      <span v-if="missed" class="hint">没定位到这一段，停在当前页</span>
     </div>
 
     <p v-if="error" class="state">{{ error }}</p>
@@ -237,5 +238,10 @@ watch(outline, async () => {
   margin: var(--space-3) 0;
   font-size: var(--fs-sm);
   color: var(--c-text-3);
+}
+
+.hint {
+  color: var(--c-text-3);
+  font-size: var(--fs-xs);
 }
 </style>

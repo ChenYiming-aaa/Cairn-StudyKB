@@ -478,6 +478,9 @@ async function commit() {
                 :aria-label="`看第 ${draft.page_no} 页的原件`"
                 @click="jumpTo(draft)"
               >第 {{ draft.page_no }} 页</button>
+              <!-- 「讲解与分值」默认收起，卡片上原本没有任何痕迹：不展开就不知道这题带没带 -->
+              <span v-if="String(draft.explanation || '').trim()" class="card-flag" title="这题带讲解（在下面「讲解与分值」里）">有讲解</span>
+              <span v-if="draft.score" class="card-flag" title="这题带分值">有分值</span>
               <span class="spacer" />
               <button
                 class="btn btn-sm btn-ghost"
@@ -807,6 +810,17 @@ async function commit() {
 .num {
   width: 64px;
   text-align: center;
+}
+
+/* 卡片头部的「有讲解 / 有分值」：只提示存在，不抢按钮的位置 */
+.card-flag {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  color: var(--c-text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .type {

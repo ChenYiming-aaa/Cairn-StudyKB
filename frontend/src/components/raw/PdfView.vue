@@ -55,7 +55,7 @@ const pageData = ref(null)
 // 引用命中段：{page, from, to, matched}。**带 page** —— 翻到别的页就不能再标。
 // 问后端「这段字在第几页」那段与 Word/PPT/图片共用 `useLocate`，别在这里再写一遍：
 // 各写一份的结果是这里少了 `matched`，以后后端换字段只在三个组件里生效。
-const marks = useLocate(() => props.itemId, () => props.focus)
+const { marks, missed } = useLocate(() => props.itemId, () => props.focus)
 let loaded = false
 
 const total = computed(() => doc.value?.numPages || props.pageCount || sizes.value.length || 0)
@@ -177,6 +177,8 @@ onBeforeUnmount(() => {
         下一页
       </button>
       <span class="hint">整份在左边滚动，右边跟着当前页</span>
+      <!-- 点了引用却没翻页，原来一声不响：用户会以为「引用是假的」。说一句，位置也别放大 -->
+      <span v-if="missed" class="miss">没定位到这一段，停在当前页</span>
       <span v-if="lowCount || pageSuspicious" class="warn">
         这一页可能有错<template v-if="lowCount">（{{ lowCount }} 行认不准，已标黄）</template>，对照页图看看
       </span>
@@ -238,6 +240,12 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-sm);
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
+  font-size: var(--fs-xs);
+}
+
+/* 落不到页是一句说明、不是一个警告：低对比的正文色，别和「这页可能有错」抢注意力 */
+.miss {
+  color: var(--c-text-3);
   font-size: var(--fs-xs);
 }
 

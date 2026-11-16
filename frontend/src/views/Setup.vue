@@ -271,11 +271,17 @@ onMounted(async () => {
         {{ checking ? '检查中…' : '重新检查' }}
       </button>
       <div class="grow" />
-      <button class="btn btn-ghost" type="button" :disabled="starting" @click="later">稍后再说</button>
+      <!-- 两个按钮都回知识库，但一个会开始下勾选的组件、一个不会 —— 差别写在按钮上，不让人猜 -->
+      <button class="btn btn-ghost" type="button" :disabled="starting" @click="later">
+        {{ picked.length ? '先不下载，稍后再说' : '稍后再说' }}
+      </button>
       <button class="btn btn-primary" type="button" :disabled="starting" @click="finish">
-        {{ starting ? '开始下载…' : '去知识库' }}
+        {{ starting ? '开始下载…' : (picked.length ? `下载 ${picked.length} 项并进入` : '去知识库') }}
       </button>
     </footer>
+    <p v-if="picked.length" class="foot-note">
+      两条都能进去用。走左边：顶栏会留一个「还差一步」，随时点它回来再下。
+    </p>
   </div>
 </template>
 
@@ -547,6 +553,13 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-6);
+}
+
+.foot-note {
+  margin: var(--space-2) 0 0;
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
 }
 
 .src-warn {

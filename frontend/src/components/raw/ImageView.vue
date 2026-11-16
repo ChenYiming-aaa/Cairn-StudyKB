@@ -24,8 +24,19 @@ const props = defineProps({
 
 const LOW = 0.85
 const imgError = ref(false)
+// 加载失败多半是偶发（后端刚起 / 读盘被打断），给用户一个真能点的重试：
+// 只翻 `imgError` 不会重新请求，浏览器认的还是失败过的那次
+const retryTick = ref(0)
 
-const src = computed(() => api.fileUrl(props.itemId))
+const src = computed(() => {
+  const base = api.fileUrl(props.itemId)
+  return retryTick.value ? `${base}${base.includes('?') ? '&' : '?'}r=${retryTick.value}` : base
+})
+
+function retryImage() {
+  imgError.value = false
+  retryTick.value += 1
+}
 
 // 图片只有一页；换内容时顺手把「原图加载失败」的标记清掉
 const { data, loading, error } = usePageData(
@@ -37,7 +48,7 @@ const { data, loading, error } = usePageData(
 
 /** 置信度缺失（老数据）时 confs 为空，一行都不标黄 */
 // 引用命中段（T11.2）：图片就一页，行号直接对上文字列表
-const marks = useLocate(() => props.itemId, () => props.focus)
+const { marks, missed } = useLocate(() => props.itemId, () => props.focus)
 const box = ref(null)
 
 const lines = computed(() => {
@@ -79,11 +90,16 @@ const lowCount = computed(() => lines.value.filter((line) => line.low).length)
     <div class="spread">
       <figure class="shot">
         <img v-if="!imgError" :src="src" alt="这张图片的原图" @error="imgError = true" />
-        <figcaption v-else class="shot-missing">原图没显示出来。</figcaption>
+        <figcaption v-else class="shot-missing">
+          原图没显示出来。
+          <button class="btn btn-sm btn-ghost" type="button" @click="retryImage">再试一次</button>
+        </figcaption>
       </figure>
 
       <div ref="box" class="text">
         <p v-if="lowCount" class="warn">有 {{ lowCount }} 行认不准，已标黄，对照左边的原图看看</p>
+        <!-- 点了引用、行也没标出来：说清楚是「没找到」而不是「引用不准」 -->
+        <p v-if="missed" class="state">这次没定位到引用那一段，可能这段字没被认出来。</p>
         <p v-if="error" class="state">{{ error }}</p>
         <p v-else-if="loading" class="state">正在取识别结果…</p>
         <template v-else-if="lines.length">
