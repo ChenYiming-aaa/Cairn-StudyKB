@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
@@ -28,6 +28,10 @@ const DIFFICULTIES = ['basic', 'understand', 'apply']
 
 const toast = useToast()
 const router = useRouter()
+const route = useRoute()
+// 详情页「练这条」带过来的材料 id。**只消费一次**：之后用户自己搜索、自己点选，
+// 不该被这个参数反复拽回去（否则列表一刷新就被打回原来那条）。
+const preselect = ref(Number(route.query.item) || null)
 // T5.3：练习页也能直接开一轮专注，目标带入当前选中的来源条目
 const { start: startSession } = useTimer()
 // T7.3：配置栏接入 SidePanel；出题开始后自动收成窄条（答题要的是屏占）
@@ -88,7 +92,15 @@ async function loadItems() {
     const data = await api.listItems({ status: 'ready', page_size: PAGE_SIZE, q: keyword.value || undefined })
     items.value = data.items || []
     total.value = data.total || 0
-    if (!items.value.some((it) => it.id === itemId.value)) itemId.value = items.value[0]?.id ?? null
+    const wanted = preselect.value
+    preselect.value = null
+    if (wanted && items.value.some((it) => it.id === wanted)) {
+      itemId.value = wanted
+    } else if (!items.value.some((it) => it.id === itemId.value)) {
+      // 带过来的那条不在列表里（还没整理好，或排在前 100 条之外）：说一句，别默默换成第一条
+      if (wanted) toast.info('这条还没整理好，出不了题。先从下面选一条。')
+      itemId.value = items.value[0]?.id ?? null
+    }
   } catch (err) {
     listError.value = friendlyMessage(err)
     items.value = []
@@ -395,6 +407,7 @@ onMounted(loadItems)
           :key="runKey"
           :questions="questions"
           :numbered="paperRun"
+          :restart-label="paperRun ? '再做一遍' : '回配置再出一组'"
           @finished="onFinished"
           @restart="onRestart"
         />

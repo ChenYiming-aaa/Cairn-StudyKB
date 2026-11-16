@@ -22,7 +22,8 @@ const TABS = [
   { id: 'model', label: '模型', hint: '服务、Key、每个任务用谁' },
   { id: 'appearance', label: '外观', hint: '配色、明暗、字号' },
   { id: 'downloads', label: '下载', hint: '可选组件' },
-  { id: 'about', label: '关于', hint: '版本与链接' },
+  // 「检查更新」只在这个页签里，叫「关于」没人会想到更新在这（M12 审计 §2 第 26 条）
+  { id: 'about', label: '关于与更新', hint: '版本、检查更新与链接' },
 ]
 
 const { settingsOpen, settingsTab, closeSettings, setSettingsTab } = useUi()

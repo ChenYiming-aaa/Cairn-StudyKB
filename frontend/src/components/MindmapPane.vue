@@ -20,9 +20,23 @@ const props = defineProps({
 })
 
 const state = ref('loading') // loading | ok | error
+// 失败时给一个能直接点的「开始整理」：那句话原来只提按钮名，按钮却在别的页签
+const emit = defineEmits(['organize'])
+// 「再试一次」靠换一下缓存戳让浏览器重新取图（后端不认这个参数，只当版本号）
+const nonce = ref(0)
 const src = computed(() =>
-  api.mindmapUrl(props.itemId, props.theme, props.mode, props.updatedAt)
+  api.mindmapUrl(
+    props.itemId,
+    props.theme,
+    props.mode,
+    `${props.updatedAt || ''}${nonce.value ? `-r${nonce.value}` : ''}`
+  )
 )
+
+function retry() {
+  nonce.value += 1
+  state.value = 'loading'
+}
 
 watch(src, () => {
   state.value = 'loading'
@@ -40,7 +54,11 @@ watch(src, () => {
         @load="state = 'ok'"
         @error="state = 'error'"
       />
-      <p v-if="state === 'error'" class="mindmap-error">导图没生成出来。如果这条还没整理，先点「开始整理」；整理过就切回这个页签再试一次。</p>
+      <div v-if="state === 'error'" class="mindmap-error">
+        <p>导图没生成出来。多半是这条还没整理（导图按笔记的标题层级画）。</p>
+        <button class="btn btn-sm" type="button" @click="emit('organize')">开始整理</button>
+        <button class="btn btn-sm btn-ghost" type="button" @click="retry">再试一次</button>
+      </div>
     </div>
   </div>
 </template>
@@ -84,6 +102,14 @@ watch(src, () => {
   margin: 0;
   font-size: var(--fs-sm);
   color: var(--c-danger-ink);
+}
+
+.mindmap-error p {
+  margin-bottom: var(--space-2);
+}
+
+.mindmap-error .btn {
+  margin-right: var(--space-2);
 }
 
 @keyframes shimmer {

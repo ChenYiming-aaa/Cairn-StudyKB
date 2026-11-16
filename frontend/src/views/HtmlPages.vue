@@ -5,6 +5,7 @@ import { api, friendlyMessage } from '../api/client'
 import RailToggle from '../components/RailToggle.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useToast } from '../composables/useToast'
+import { useUi } from '../composables/useUi'
 import { fileSize, shortTime } from '../utils/format'
 
 /**
@@ -17,6 +18,7 @@ import { fileSize, shortTime } from '../utils/format'
  */
 const PAGE_SIZE = 100
 const toast = useToast()
+const { openPaste } = useUi()
 
 const items = ref([])
 const total = ref(0)
@@ -194,7 +196,9 @@ onMounted(() => {
           <ul v-if="!listError" class="picker-list">
             <li v-if="loading" class="picker-empty">加载中…</li>
             <li v-else-if="!items.length" class="picker-empty">
-              还没有内容。先去知识库采集一条。
+              <span>还没有内容。先采一条，这里就能选了。</span>
+              <!-- 空态只说"先去采集"却不给按钮，用户得自己回顶栏找 —— 采集面板本来就是全局的 -->
+              <button class="btn btn-sm" type="button" @click="openPaste()">＋ 采集内容</button>
             </li>
             <template v-else>
               <li v-for="item in items" :key="item.id">
@@ -478,6 +482,12 @@ onMounted(() => {
   color: var(--c-text-3);
 }
 
+/* 空态里的「＋ 采集内容」：跟说明句分两行，别挤成一句话 */
+.picker-empty .btn {
+  display: block;
+  margin-top: var(--space-2);
+}
+
 .picker-more {
   border-top: 1px solid var(--c-border);
 }
@@ -580,7 +590,8 @@ onMounted(() => {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 340px;
+  /* 窗口窄的时候别把左边的选择器盖死：Ask 那边早已是 min()，这里原来写死 340px */
+  width: min(340px, 92vw);
   display: flex;
   flex-direction: column;
   background: var(--c-bg-1);

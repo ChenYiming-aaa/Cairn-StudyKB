@@ -9,6 +9,9 @@ import { computed, ref } from 'vue'
 import { api } from '../api/client'
 
 const pasteOpen = ref(false)
+// 打开采集面板时想接着上文的那句话（检索零命中点「采集这条内容」用）。
+// 只当提示，不预填任何字段 —— 采集要的是用户真贴进来的正文。
+const pasteSeed = ref('')
 const refreshTick = ref(0)
 const editorDirty = ref(false)
 const focusItemId = ref(null)
@@ -58,15 +61,19 @@ async function loadEnv() {
 export function useUi() {
   return {
     pasteOpen,
+    pasteSeed,
     refreshTick,
     editorDirty,
     focusItemId,
     focusChunk,
-    openPaste: () => {
+    /** 打开采集面板。`seed` 是「你刚才在找什么」——检索零命中时带过去，面板上会提一句 */
+    openPaste: (seed = '') => {
+      pasteSeed.value = typeof seed === 'string' ? seed.trim() : ''
       pasteOpen.value = true
     },
     closePaste: () => {
       pasteOpen.value = false
+      pasteSeed.value = ''
     },
     requestRefresh: () => {
       refreshTick.value += 1

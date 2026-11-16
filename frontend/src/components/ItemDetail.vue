@@ -185,6 +185,11 @@ function onNoteSaved() {
   emit('refresh', props.item.id)
 }
 
+/** 「练这条」：只接一根线 —— 练习页本来就有「从哪条材料出题」，缺的只是把当前这条带过去 */
+function practiceThis() {
+  router.push({ path: '/practice', query: { item: String(props.item.id) } })
+}
+
 onBeforeUnmount(stop)
 </script>
 
@@ -218,6 +223,14 @@ onBeforeUnmount(stop)
         <TitleEditor :item-id="item.id" :title="item.title" :disabled="busy" @saved="emit('refresh', item.id)" />
         <div class="head-actions">
           <button class="btn btn-sm" type="button" @click="startFocus">开始专注</button>
+          <!-- 详情页五个页签里没有「题目」：想知道这条练过什么，此前只能自己记住标题去练习页翻。
+               这根线把当前这条直接带过去，到了练习页就是它已选中。 -->
+          <button
+            v-if="item.status === 'ready'"
+            class="btn btn-sm"
+            type="button"
+            @click="practiceThis"
+          >练这条</button>
           <!-- 试卷入口（T10.3）：原件读完才有；已经是试卷的写「重新导入」，别让人以为没导过 -->
           <button v-if="canImportExam" class="btn btn-sm" type="button" @click="openExamReview">
             {{ item.kind === 'exam' ? '重新导入' : '导入试卷' }}
@@ -234,7 +247,8 @@ onBeforeUnmount(stop)
             <progress v-if="busy" class="spin" aria-hidden="true" />
             {{ busy ? '整理中…' : isPending ? '开始整理' : '重新整理' }}
           </button>
-          <button class="btn btn-sm btn-danger" type="button" @click="remove">删除</button>
+          <!-- 删除降成幽灵按钮并隔开：原来与「整理」同权重紧挨着，点整理时手一抖就点了它 -->
+          <button class="btn btn-sm btn-ghost btn-danger head-del" type="button" @click="remove">删除</button>
         </div>
       </header>
 
@@ -243,15 +257,20 @@ onBeforeUnmount(stop)
         <span v-if="item.category" class="chip">{{ item.category }}</span>
         <span v-for="tag in item.tags" :key="tag" class="chip chip-tag">#{{ tag }}</span>
         <span v-if="item.note_edited" class="chip chip-edit" title="整理会覆盖手改内容">笔记已手改</span>
-        <select
-          class="ws-pick"
-          aria-label="移到哪个工作区"
-          :value="item.workspace_id ? String(item.workspace_id) : ''"
-          @change="onWorkspaceChange"
-        >
-          <option value="">未归类</option>
-          <option v-for="ws in workspaces" :key="ws.id" :value="String(ws.id)">{{ ws.name }}</option>
-        </select>
+        <!-- 这一排都是只读标签，中间夹一个能改归属的下拉，用户会当成又一个标签。
+             加一个字把它和标签区分开：「归到 未归类」读出来就知道这里能改。 -->
+        <label class="ws-pick-wrap">
+          <span class="ws-pick-label">归到</span>
+          <select
+            class="ws-pick"
+            aria-label="把这条移到哪个工作区"
+            :value="item.workspace_id ? String(item.workspace_id) : ''"
+            @change="onWorkspaceChange"
+          >
+            <option value="">未归类</option>
+            <option v-for="ws in workspaces" :key="ws.id" :value="String(ws.id)">{{ ws.name }}</option>
+          </select>
+        </label>
         <span class="time">{{ fullTime(item.created_at) }}</span>
       </div>
 
@@ -287,6 +306,7 @@ onBeforeUnmount(stop)
           :updated-at="item.updated_at || ''"
           :theme="theme"
           :mode="resolvedMode"
+          @organize="organize"
         />
 
         <!-- v-if 而非 v-show：每次切进来都重新拉一次，刚结束的一轮立刻能看到 -->
@@ -387,6 +407,15 @@ onBeforeUnmount(stop)
   color: var(--c-warning-ink);
 }
 
+/* 下拉前那个「归到」：这排标签里唯一能改的东西，得让人看出来是可编辑的 */
+.ws-pick-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
 .ws-pick {
   max-width: 140px;
   padding: 1px var(--space-1);
@@ -395,6 +424,16 @@ onBeforeUnmount(stop)
   background: var(--c-bg-1);
   color: var(--c-text-2);
   font-size: var(--fs-xs);
+}
+
+/* 删除：平时只是个淡淡的红字，与「整理」拉开一点距离，避免点整理点成删除 */
+.head-del.btn-ghost {
+  margin-left: var(--space-2);
+  color: var(--c-danger-ink);
+}
+
+.head-del.btn-ghost:hover:not(:disabled) {
+  background: var(--c-danger-soft);
 }
 
 .time {

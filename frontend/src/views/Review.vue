@@ -7,7 +7,7 @@ import QuizRunner from '../components/QuizRunner.vue'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 import { shortTime } from '../utils/format'
-import { TYPE_LABELS } from '../utils/quiz'
+import { TYPE_LABELS, answerText } from '../utils/quiz'
 
 /**
  * 复习队列页（T4.7）：到期就回来找你。
@@ -211,6 +211,7 @@ onMounted(loadDue)
       <QuizRunner
         :key="runKey"
         :questions="questions"
+        restart-label="回到复习列表"
         @finished="onFinished"
         @restart="onRestart"
       />
@@ -257,9 +258,13 @@ onMounted(loadDue)
     <section v-else-if="tab === 'wrong'" class="panel">
       <div class="panel-bar">
         <span class="panel-note">最近一次作答仍答错的题。复习答对后自动移出。</span>
-        <button class="btn btn-sm" type="button" @click="loadWrong">刷新</button>
+        <!-- 错题本的作用是「再练一遍」，所以有数据时也要给出口：此前只有空态才有「去练习」，
+             翻着一屏错题却没有下一步，用户只能自己回导航找 -->
+        <span class="panel-actions">
+          <button class="btn btn-sm" type="button" @click="goPractice">去练习</button>
+          <button class="btn btn-sm" type="button" @click="loadWrong">刷新</button>
+        </span>
       </div>
-
       <p v-if="wrongLoading" class="panel-note pad">加载中…</p>
       <p v-else-if="wrongError" class="panel-note pad error">{{ wrongError }}</p>
       <div v-else-if="!wrongItems.length" class="state">
@@ -328,6 +333,15 @@ onMounted(loadDue)
             >算我错</button>
           </span>
           <span v-if="judgeError[item.question_id]" class="row-error">{{ judgeError[item.question_id] }}</span>
+          <!-- 判「算我对 / 算我错」时得看见自己写了什么：只看题干和出处，用户只能靠回忆裁决。
+               正确答案一直跟着接口回来（`answer`），此前只是没渲染；`user_answer` 由 M12 补进
+               `_PENDING_SQL`。措辞与作答结果页统一（你的答案 / 正确答案）。 -->
+          <span class="row-answer">
+            <span class="ans"><b>你的答案</b>{{ answerText(item, item.user_answer) }}</span>
+            <span class="ans">
+              <b>正确答案</b>{{ item.answer ? answerText(item, item.answer) : '这题没存答案' }}
+            </span>
+          </span>
         </li>
       </ul>
     </section>
@@ -433,6 +447,13 @@ onMounted(loadDue)
   color: var(--c-text-3);
 }
 
+/* 面板条右侧两个按钮要成组：`space-between` 会把它们各自撑到中间和右边 */
+.panel-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
 .panel-note.pad {
   padding: var(--space-4);
 }
@@ -524,5 +545,24 @@ onMounted(loadDue)
   grid-column: 2 / -1;
   font-size: var(--fs-xs);
   color: var(--c-danger-ink);
+}
+
+/* 待判行的「你的答案 / 正确答案」：单独占一行，左缘与题干列对齐。
+   简答可能是好几行，允许换行；别用 nowrap，否则第二次裁定时只看得见前半句。 */
+.row-answer {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  padding-left: calc(44px + var(--space-2));
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.row-answer b {
+  margin-right: var(--space-1);
+  font-weight: 500;
+  color: var(--c-text-3);
 }
 </style>

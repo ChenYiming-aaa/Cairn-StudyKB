@@ -20,7 +20,7 @@ const router = useRouter()
 const route = useRoute()
 const { toasts, error: toastError, ok: toastOk, info: toastInfo, dismiss } = useToast()
 const {
-  pasteOpen, openPaste, closePaste, requestRefresh, openItem, refreshTick,
+  pasteOpen, pasteSeed, openPaste, closePaste, requestRefresh, openItem, refreshTick,
   // T5.7：环境自检结果在顶栏与引导页之间共用一份
   envBlocking, setupDismissed, loadEnv,
   // T6.5：设置窗口（模态）由顶栏齿轮打开，状态在 useUi 里共享
@@ -134,6 +134,11 @@ function onCreated(result) {
   closePaste()
   requestRefresh()
   toastOk(result.duplicated ? `这条已经在知识库里了，已帮你定位到「${result.title}」` : `「${result.title}」已存进知识库`)
+  // 存完直接把用户送到那一条：以前只弹一句就关面板，用户还得自己回列表里翻。
+  // 文件与链接两条路都有「去看看」，只有粘贴这条路没有 —— 现在三处一致。
+  if (!result || !result.id) return
+  router.push('/')
+  openItem(result.id)
 }
 
 /** 链接已在库里：**不关面板**，面板会切成完成态让用户自己点「去看看」 */
@@ -232,6 +237,7 @@ function onOpen(itemId) {
 
     <IngestPanel
       :open="pasteOpen"
+      :seed="pasteSeed"
       @close="closePaste()"
       @created="onCreated"
       @existing="onExisting"

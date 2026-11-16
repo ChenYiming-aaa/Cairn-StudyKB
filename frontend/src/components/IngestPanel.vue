@@ -22,6 +22,8 @@ import PasteForm from './ingest/PasteForm.vue'
  */
 const props = defineProps({
   open: { type: Boolean, default: false },
+  // 「你刚才在找什么」：检索零命中时由 `useUi.openPaste(seed)` 带进来，这里只做提示
+  seed: { type: String, default: '' },
 })
 const emit = defineEmits(['close', 'created', 'existing', 'ingested', 'open', 'uploaded'])
 
@@ -99,6 +101,10 @@ onBeforeUnmount(() => {
 
       <!-- 面板整体是拖放目标：拖动中给一圈虚线，说明「松手就会加进清单」 -->
       <div class="body" :class="{ drag: dragging }">
+        <!-- 检索零命中点过来时，把「你在找什么」接上：不预填字段，只说明来意 -->
+        <p v-if="seed && mode === 'paste'" class="seed-hint">
+          接着刚才的检索：找到「{{ seed }}」相关的内容，贴进来就存成一条。
+        </p>
         <PasteForm v-show="mode === 'paste'" @created="emit('created', $event)" />
 
         <template v-if="mode === 'more'">
@@ -214,5 +220,16 @@ onBeforeUnmount(() => {
   margin: var(--space-2) 0 0;
   font-size: var(--fs-xs);
   color: var(--c-warning-ink);
+}
+
+/* 「接着刚才的检索」：一行淡提示，别抢粘贴框的注意力 */
+.seed-hint {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--c-text-2);
 }
 </style>

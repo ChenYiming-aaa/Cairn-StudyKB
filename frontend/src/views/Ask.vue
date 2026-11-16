@@ -233,6 +233,8 @@ async function openLog(id) {
 }
 
 async function removeLog(id) {
+  // 一行一个「×」，一点就没了且没有撤销 —— 先问一句（同页其它删除也都确认过）
+  if (!window.confirm('删掉这条问答记录？删了就找不回来了。')) return
   try {
     await api.deleteAskHistory(id)
     historyItems.value = historyItems.value.filter((h) => h.id !== id)
@@ -468,7 +470,7 @@ watch(question, () => {
           <p>换个说法再试，或者让模型按意思找一遍。</p>
           <div class="state-actions">
             <button class="btn btn-sm" type="button" @click="switchToAsk">改成问答</button>
-            <button class="btn btn-ghost btn-sm" type="button" @click="openPaste">采集这条内容</button>
+            <button class="btn btn-ghost btn-sm" type="button" @click="openPaste(hitsQuery)">采集这条内容</button>
           </div>
         </div>
 

@@ -37,6 +37,19 @@ const categoryMax = computed(() =>
   Math.max(1, ...(today.value?.categories || []).map((c) => c.count))
 )
 
+/** 连续天数下面那句：今天动过没有，决定说不说「还没学」 */
+const streakNote = computed(() => {
+  const data = today.value
+  if (!data) return ''
+  const active = (data.focus_seconds || 0) > 0 || (data.attempts_today || 0) > 0
+  if (active) return '今天已经学过了，明天接着来'
+  return (data.streak_days || 0) > 0 ? '今天还没学，学一次就不断' : '从今天开始，学一次就记 1 天'
+})
+
+function openCategory(name) {
+  router.push({ path: '/', query: { category: name } })
+}
+
 const barHeight = (seconds) => `${Math.round((seconds / weekMax.value) * 100)}%`
 
 async function load() {
@@ -88,7 +101,9 @@ onMounted(load)
       <div class="card">
         <span class="card-label">连续学习</span>
         <span class="card-value">{{ today.streak_days }}<small> 天</small></span>
-        <span class="card-sub">今天还没学，不算中断</span>
+        <!-- 原来这句写死「今天还没学，不算中断」：今天已经学过也照说，用户会以为数据不对。
+             按今天有没有专注/作答分两句 -->
+        <span class="card-sub">{{ streakNote }}</span>
       </div>
 
       <!-- 4 正确率 -->
@@ -130,12 +145,21 @@ onMounted(load)
       <section class="card cat-card">
         <span class="card-label">分类分布</span>
         <ul v-if="today.categories.length" class="cats">
-          <li v-for="cat in today.categories" :key="cat.name" class="cat">
-            <span class="cat-name" :title="cat.name">{{ cat.name }}</span>
-            <span class="cat-track">
-              <i :style="{ width: `${Math.round((cat.count / categoryMax) * 100)}%` }" />
-            </span>
-            <span class="cat-count">{{ cat.count }}</span>
+          <li v-for="cat in today.categories" :key="cat.name">
+            <!-- 看过分布自然会问「是哪几条」：做成按钮直接带 category 回知识库筛（沿用 M1 的老问题） -->
+            <button
+              class="cat"
+              type="button"
+              :title="`去知识库看「${cat.name}」`"
+              :aria-label="`去知识库看分类 ${cat.name}，${cat.count} 条`"
+              @click="openCategory(cat.name)"
+            >
+              <span class="cat-name">{{ cat.name }}</span>
+              <span class="cat-track">
+                <i :style="{ width: `${Math.round((cat.count / categoryMax) * 100)}%` }" />
+              </span>
+              <span class="cat-count">{{ cat.count }}</span>
+            </button>
           </li>
         </ul>
         <p v-else class="note">还没有分类过的内容</p>
@@ -336,7 +360,25 @@ onMounted(load)
   grid-template-columns: 120px minmax(0, 1fr) 36px;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
   font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cat:hover,
+.cat:focus-visible {
+  background: var(--c-bg-2);
+}
+
+.cat:hover .cat-name {
+  color: var(--c-primary-ink);
+  text-decoration: underline;
 }
 
 .cat-name {

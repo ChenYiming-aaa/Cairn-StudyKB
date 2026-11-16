@@ -37,7 +37,9 @@ const busy = ref(false)
 const newRef = ref(null)
 
 const rows = computed(() => [
-  { key: '', name: '全部', count: props.total },
+  // 「全部工作区」不是啰嗦：状态段第一行也叫「全部内容」，两者都在左栏、都叫「全部」，
+  // 但一个只清工作区一维、一个清全部四维（M12 审计 §2 第 4 条）。名字得说清范围。
+  { key: '', name: '全部工作区', count: props.total },
   ...props.workspaces.map((ws) => ({ key: ws.id, name: ws.name, count: ws.item_count, ws })),
   { key: 'none', name: '未归类', count: props.noneCount },
 ])

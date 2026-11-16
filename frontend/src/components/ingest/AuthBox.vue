@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive } from 'vue'
+import { computed, onBeforeUnmount, reactive, watch } from 'vue'
 
 import { api, friendlyMessage } from '../../api/client'
 
@@ -66,6 +66,17 @@ function toggle() {
   auth.open = !auth.open
   if (auth.open) refresh()
 }
+
+// `hint` 只在展开后的 body 里渲染：任务明明是因为「要登录」失败的，登录区却还折着，
+// 用户读完上方的报错要自己去找折叠头 —— 所以有 hint 就自动展开（只展开，不收起）。
+watch(
+  () => props.hint,
+  (text) => {
+    if (!text || auth.open) return
+    auth.open = true
+    refresh()
+  }
+)
 
 async function startLogin(site) {
   auth.message = ''

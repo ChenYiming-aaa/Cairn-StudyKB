@@ -66,7 +66,8 @@ function changeProvider(agent, pid) {
       <span class="c-task">任务</span>
       <span class="c-prov">服务</span>
       <span class="c-model">模型</span>
-      <span class="c-eff">思考强度</span>
+      <!-- 「思考强度」不是通用词：加一句解释在这儿，比改长表头更省地方（M12 审计 §2 第 26 条） -->
+      <span class="c-eff" title="让模型先推理再回答：越强越慢，也越贵；不确定就留「关」">思考强度</span>
     </div>
 
     <div v-for="agent in AGENTS" :key="agent.id" class="mrow">
@@ -120,7 +121,8 @@ function changeProvider(agent, pid) {
     </div>
 
     <p class="foot">
-      换服务或换模型后，下一次调用就生效。「思考强度」只发给声明支持的服务。
+      换服务或换模型后，下一次调用就生效。「思考强度」只发给声明支持的服务；
+      它的意思是<b>先推理再回答</b> —— 越强越慢也越贵，拿不准就留「关」。
     </p>
   </div>
 </template>

@@ -30,11 +30,13 @@ defineProps({
         </p>
       </div>
       <div class="block">
-        <h2 class="block-title">关键点</h2>
+        <!-- 页签名是「摘要与要点」，这里原来叫「关键点」：同一个东西两个词。
+             「要点」是文案规范术语表里的既有词（整理 = 分类/摘要/要点/笔记），以它为准 -->
+        <h2 class="block-title">要点</h2>
         <ol v-if="item.key_points?.length" class="points">
           <li v-for="(point, index) in item.key_points" :key="index">{{ point }}</li>
         </ol>
-        <p v-else class="muted">（模型这次没给关键点）</p>
+        <p v-else class="muted">（模型这次没给要点）</p>
       </div>
     </template>
   </div>

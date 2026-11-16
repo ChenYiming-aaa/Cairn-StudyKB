@@ -26,6 +26,9 @@ const props = defineProps({
   label: { type: String, default: '练习' },
   // 按卷练（T10.5）：题干上方显示原卷题号。材料出题的题没有 number，所以默认关
   numbered: { type: Boolean, default: false },
+  // 出结果后那个按钮的落点说法由调用方给：练习页回配置再出一组、复习页回队列。
+  // 原来两处都写「再来一组」，复习的人点下去不知道会重做同一批还是回列表。
+  restartLabel: { type: String, default: '' },
 })
 const emit = defineEmits(['finished', 'restart'])
 
@@ -302,7 +305,7 @@ async function judge(item, correct) {
             {{ pendingManual }} 题没判出来（模型超时或没给出结果），往下翻可以自己判
           </p>
           <button class="btn btn-sm" type="button" @click="restart">
-            {{ numbered ? '再做一遍' : '再来一组' }}
+            {{ restartLabel || (numbered ? '再做一遍' : '再来一组') }}
           </button>
         </div>
       </div>

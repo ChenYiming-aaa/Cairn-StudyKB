@@ -313,6 +313,11 @@ def main() -> int:
             page.wait_for_selector(".today-bar")
             page.wait_for_timeout(400)
 
+            # 今日条那个「待整理」是**全库**，仪表盘那张卡是**今日**：两处同名不同数，
+            # 标签必须说出范围，否则用户会以为其中一处算错了（M12 审计 §3.1）
+            bar_text = page.inner_text(".today-bar")
+            check("今日条的待整理写明「全库」口径", "待整理·全库" in bar_text, bar_text.splitlines()[0][:80])
+
             # ── 1 / 2 左栏标签云 ─────────────────────────────
             chips = page.locator("aside[aria-label='知识库导航'] .chips .chip")
             count = chips.count()
@@ -411,6 +416,10 @@ def main() -> int:
             check("左栏行数 = 全部 + 2 个工作区 + 未归类",
                   page.locator(f"{side} .ws-row").count() == 4,
                   str(page.locator(f"{side} .ws-row").count()))
+            # 左栏有两个「全部」：状态段那个清四维、工作区这个只清一维。名字必须说清范围
+            first_ws = page.locator(f"{side} .ws-row").first.inner_text()
+            check("工作区段第一行叫「全部工作区」",
+                  first_ws.startswith("全部工作区"), first_ws.splitlines()[0][:40])
 
             put_three("数据结构", 0)
             put_three("英语二", 3)
@@ -462,7 +471,9 @@ def main() -> int:
             page.wait_for_timeout(600)
             page.locator(".list-body .row").first.click()
             page.wait_for_timeout(600)
-            page.locator(".detail select[aria-label='移到哪个工作区']").select_option(label="未归类")
+            # 详情那两个下拉的可访问名不同：一个是「把这条移到哪个工作区」（带「归到」标签），
+            # 一个是列表批量条的「移到哪个工作区」。用前缀匹配，免得改文案又断一次
+            page.locator(".detail select[aria-label^='把这条移到哪个工作区']").select_option(label="未归类")
             page.wait_for_timeout(700)
             api_ws = get_json(base, "api/workspaces")
             left = {w["name"]: w["item_count"] for w in api_ws["items"]}
@@ -739,6 +750,12 @@ def main() -> int:
             page.locator(".detail .tabs .tab").first.wait_for(timeout=15000)
             labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("普通资料仍有「整理笔记」页签", "整理笔记" in labels, str(labels))
+
+            # 页签名是「摘要与要点」、正文标题原来叫「关键点」：同一个东西两个词，2026-11-15 统一。
+            # 这条断言同时挡住回退（改回关键点会红）。
+            titles = [t.strip() for t in page.locator(".detail .block-title").all_inner_texts()]
+            check("摘要页签的正文标题叫「要点」而不是「关键点」",
+                  "要点" in titles and "关键点" not in titles, str(titles))
 
             # ── 3 Ctrl+B 折叠 + 刷新保持 ──────────────────────
             page.keyboard.press("Control+b")

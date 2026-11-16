@@ -502,6 +502,13 @@ async function commit() {
                 class="issue"
                 :class="issue.level"
               >
+                <span
+                  class="issue-src"
+                  :class="issue.source === 'model' ? 'model' : 'rule'"
+                  :title="issue.source === 'model'
+                    ? '这条是模型看出来的，仅供参考 —— 规则查不出来的问题才交给它'
+                    : '这条是按固定条件查出来的，改了就能确定'"
+                >{{ issue.source === 'model' ? '模型' : '规则' }}</span>
                 <span class="issue-text">{{ issue.message }}</span>
                 <span v-if="issue.fix && !issue.applied" class="issue-fix">{{ issue.fix }}</span>
                 <button
@@ -597,7 +604,9 @@ async function commit() {
           <h3>文字校对</h3>
           <p class="sheet-sub">
             识别 {{ proof.total_lines }} 行，模型改了 {{ proof.changed }} 处。
-            只改错字、标点、题号，不改写内容；原文一直留着，随时能退回去
+            只改错字、标点、题号，不改写内容；原文一直留着，随时能退回去。
+            <!-- 默认是全选的，但说明句里没写 —— 用户看到一屏勾会以为「已经改完了」 -->
+            <br />默认全部勾选，不要的把勾去掉。
           </p>
         </div>
         <div class="sheet-actions">
@@ -912,6 +921,23 @@ async function commit() {
 
 .issue-text {
   order: 1;
+}
+
+/* 来源 chip：用户要决定「这条信几分、先核哪儿」。
+   「规则」是按固定条件查出来的（改了就能确定），「模型」是看出来的（仅供参考），
+   虚线框让两者不用颜色也能分开。字段来自后端 `audit._issue(source=...)`，前端别再自己推。 */
+.issue-src {
+  order: 0;
+  padding: 0 var(--space-1);
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  opacity: 0.75;
+}
+
+.issue-src.model {
+  border-style: dashed;
 }
 
 .issue > .btn {

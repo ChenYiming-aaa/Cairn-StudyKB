@@ -22,10 +22,15 @@ const emit = defineEmits(['move', 'cancel'])
 const target = ref('')      // '' = 未归类 | 工作区 id（select 的值是字符串）
 
 const label = computed(() => {
-  if (!props.busy) return '移到'
-  const done = props.progress?.done
-  const total = props.progress?.total
-  return done === undefined || !total ? '移到中…' : `移到中 ${done}/${total}`
+  if (props.busy) {
+    const done = props.progress?.done
+    const total = props.progress?.total
+    return done === undefined || !total ? '移到中…' : `移到中 ${done}/${total}`
+  }
+  // 按钮上带上目标名：默认值是「未归类」，光写「移到」的话，勾了 5 条想移进某个工作区
+  // 却忘了改下拉，就会把这 5 条**移出**原工作区（方向正好相反，M12 审计 §2 第 5 条）
+  const name = props.workspaces.find((ws) => String(ws.id) === target.value)?.name
+  return name ? `移到 ${name}` : '移到 未归类'
 })
 
 function submit() {

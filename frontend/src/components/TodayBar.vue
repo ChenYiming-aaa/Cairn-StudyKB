@@ -49,11 +49,13 @@ function goReview() {
     <button
       class="cell cell-btn"
       type="button"
-      :aria-label="`待整理 ${num(today?.pending_total)} 条，去筛选`"
-      title="去知识库看这些待整理的内容"
+      :aria-label="`待整理 ${num(today?.pending_total)} 条，全库，去筛选`"
+      title="全库口径：还没整理的都在这里。点一下打开筛选"
       @click="goPending"
     >
-      待整理 <b>{{ num(today?.pending_total) }}</b>
+      <!-- 这个数是**全库**，仪表盘那张卡是**今日新增**：两处同名不同数，标签得说出范围，
+           不然用户会以为仪表盘算错了（M12 审计 §3.1） -->
+      待整理·全库 <b>{{ num(today?.pending_total) }}</b>
     </button>
     <button
       class="cell cell-btn"
