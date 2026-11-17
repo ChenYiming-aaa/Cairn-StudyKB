@@ -393,16 +393,8 @@ export const api = {
    * **字段名是 `correct`**（后端 `ResultBody.correct: bool`），不是 `is_correct`。
    */
   reportReview: (questionId, payload) => post(`/api/review/${questionId}/result`, payload),
-  /** 番茄钟（T5.1）：同一时刻只允许一个，409 会带上现有 id */
-  sessionStart: (payload) => post('/api/session/start', payload),
-  sessionCurrent: () => get('/api/session/current'),
-  /** action ∈ pause/resume/finish/abandon；finish 可带 {note} */
-  sessionAction: (id, action, payload) => post(`/api/session/${id}/${action}`, payload),
-  sessionHeartbeat: (id) => post(`/api/session/${id}/heartbeat`),
-  /** 学习记录（按 target 过滤，只列 done/abandoned） */
-  sessionHistory: (params) => get('/api/session', params),
+  /** 统计（T5.4）：只读，仪表盘与「今日」条共用一份口径 */
   statsToday: () => get('/api/stats/today'),
-  statsWeek: () => get('/api/stats/week'),
 }
 
 const POLL_START = 1500

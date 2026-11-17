@@ -867,7 +867,9 @@ def group_kind() -> None:
     sent: list[str] = []
     box: dict = {"payload": {}}
 
-    def fake_chat(messages, agent=None, json_mode=False):  # noqa: ANN001, ARG001
+    # 形参必须和 llm.chat 对齐：json_call 会带 timeout 关键字过来，
+    # 少一个就 TypeError，整组检查一声不响地不执行（2026-11-17 才发现）。
+    def fake_chat(messages, agent=None, json_mode=False, timeout=None):  # noqa: ANN001, ARG001
         sent.append(messages[0]["content"])
         return json.dumps(box["payload"], ensure_ascii=False)
 

@@ -7,11 +7,9 @@ import StatusBadge from './StatusBadge.vue'
 import MindmapPane from './MindmapPane.vue'
 import NoteEditor from './NoteEditor.vue'
 import RawPane from './RawPane.vue'
-import SessionLog from './SessionLog.vue'
 import SummaryPane from './SummaryPane.vue'
 import TitleEditor from './TitleEditor.vue'
 import { useTheme } from '../composables/useTheme'
-import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
 import { usable } from '../utils/components'
@@ -60,7 +58,6 @@ const TABS_ALL = [
   { key: 'summary', label: '摘要与要点' },
   { key: 'note', label: '整理笔记' },
   { key: 'raw', label: '原文' },
-  { key: 'sessions', label: '学习记录' },
 ]
 const MINDMAP_TAB = { key: 'mindmap', label: '思维导图' }
 const tabs = computed(() => {
@@ -72,19 +69,6 @@ const tabs = computed(() => {
     return [entry]
   })
 })
-
-// T5.3：从条目点「开始专注」，把这条件为目标带进计时（target_type=item）
-const { start: startSession } = useTimer()
-
-async function startFocus() {
-  if (!props.item) return
-  const created = await startSession({
-    target_type: 'item',
-    target_id: props.item.id,
-    planned_seconds: 1500,
-  })
-  if (created) toast.info(`开始专注：${props.item.title}`)
-}
 
 const isPending = computed(() => props.item?.status !== 'ready')
 const busy = computed(() => organizing.value || props.item?.status === 'organizing')
@@ -287,7 +271,7 @@ function onWorkspaceChange(event) {
 function remove() {
   const item = props.item
   if (!item) return
-  if (!window.confirm(`删除「${item.title}」？它的笔记片段、题目、作答记录和专注记录会一起删掉，不能恢复。`)) return
+  if (!window.confirm(`删除「${item.title}」？它的笔记片段、题目和作答记录会一起删掉，不能恢复。`)) return
   api
     .deleteItem(item.id)
     .then(() => {
@@ -342,8 +326,7 @@ onBeforeUnmount(() => {
       <header class="detail-head">
         <TitleEditor :item-id="item.id" :title="item.title" :disabled="busy" @saved="emit('refresh', item.id)" />
         <div class="head-actions">
-          <button class="btn btn-sm" type="button" @click="startFocus">开始专注</button>
-          <!-- 详情页五个页签里没有「题目」：想知道这条练过什么，此前只能自己记住标题去练习页翻。
+          <!-- 详情页页签里没有「题目」：想知道这条练过什么，此前只能自己记住标题去练习页翻。
                这根线把当前这条直接带过去，到了练习页就是它已选中。 -->
           <button
             v-if="item.status === 'ready'"
@@ -471,8 +454,6 @@ onBeforeUnmount(() => {
           @organize="organize"
         />
 
-        <!-- v-if 而非 v-show：每次切进来都重新拉一次，刚结束的一轮立刻能看到 -->
-        <SessionLog v-if="tab === 'sessions'" :item-id="item.id" />
       </div>
     </template>
   </section>

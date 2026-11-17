@@ -23,11 +23,10 @@ from app.errors import ApiError, api_error_handler
 from app.paths import install_root, is_frozen
 from app.routers import (
     ask, auth, env, exams, files, health, html, imports, ingest, knowledge, quiz, review,
-    search, session, settings, stats, tasks, workspaces,
+    search, settings, stats, tasks, workspaces,
 )
 # 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
 from app.routers import components as components_api
-from app.db.repo import sessions as sessions_repo
 from app.services import browser, components, ingest_file
 from app.services import files as file_store
 from app.services import llm_route
@@ -43,22 +42,6 @@ mimetypes.add_type("text/javascript", ".mjs")
 mimetypes.add_type("application/octet-stream", ".bcmap")
 
 
-def _close_stale_sessions() -> None:
-    """启动清理：把放了太久还 active 的计时收掉。失败不影响启动。"""
-    from app.db.conn import get_conn
-
-    conn = get_conn()
-    try:
-        with conn:
-            closed = sessions_repo.abandon_stale(conn)
-        if closed:
-            log.info("已关闭 %s 个超时计时（>%s 小时）", closed, sessions_repo.STALE_HOURS)
-    except Exception as exc:              # noqa: BLE001 - 启动清理不该拖垮服务
-        log.warning("清理超时计时失败：%s", exc)
-    finally:
-        conn.close()
-
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     cfg = get_settings()
@@ -70,8 +53,6 @@ async def lifespan(_: FastAPI):
     # T9.6：识别是线程任务，被 kill 时来不及写状态。启动时看到 running 一定是上次没跑完，
     # 不拨回 pending 的话界面永远转圈、重识别还会被判「正在跑」
     ingest_file.reset_stale()
-    # M5 §6.2：忘了关的番茄钟不许一直 running（>4 小时按计划时长封顶后标 abandoned）
-    _close_stale_sessions()
     # M2 §7：上次转录中断留下的临时音频不许攒着，启动即清
     if (cleared := clear_tmp()):
         log.info("已清理 %s 个残留临时目录", cleared)
@@ -125,7 +106,6 @@ app.include_router(exams.router)
 app.include_router(imports.router)
 app.include_router(quiz.router)
 app.include_router(review.router)
-app.include_router(session.router)
 app.include_router(stats.router)
 app.include_router(tasks.router)
 app.include_router(components_api.router)

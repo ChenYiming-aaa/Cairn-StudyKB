@@ -3,7 +3,8 @@
  * 知识库页顶部的「今日」条（T7.4）。
  *
  * 原来「仪表盘」占一个导航位，1280 宽下七项挤得很紧。收成 5 项后，
- * 这里用一行四格把最常看的数字留在首屏：待整理 / 待复习 / 连续天数 / 今日专注。
+ * 这里用一行三格把最常看的数字留在首屏：待整理 / 待复习 / 连续天数。
+ * （第四格「今日专注」随番茄钟在 2026-11-17 移除。）
  * 点整条进完整仪表盘（`/dashboard`，路由还在，只是不再出现在导航里）。
  *
  * 数字全部来自 `/api/stats/today`，前端不做二次统计（口径只写在后端一处）。
@@ -16,10 +17,9 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useToday } from '../composables/useToday'
-import { humanDuration } from '../utils/format'
 
 const router = useRouter()
-// 数字是模块级单例（2-1）：采集、整理、结束专注都会叫它刷新，这里只负责渲染
+// 数字是模块级单例（2-1）：采集、整理、交卷之后都会叫它刷新，这里只负责渲染
 const { today, loadToday } = useToday()
 
 onMounted(loadToday)
@@ -63,13 +63,10 @@ function goReview() {
     <span class="cell">
       连续 <b>{{ num(today?.streak_days) }}</b> 天
     </span>
-    <span class="cell">
-      专注 <b>{{ today ? humanDuration(today.focus_seconds) : '—' }}</b>
-    </span>
     <button
       class="more"
       type="button"
-      title="打开完整仪表盘：本周专注、正确率、分类分布"
+      title="打开完整仪表盘：正确率、分类分布"
       @click="router.push('/dashboard')"
     >详情 →</button>
   </div>

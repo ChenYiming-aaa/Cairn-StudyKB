@@ -125,7 +125,7 @@ TOTAL_ITEMS = sum(len(titles) for _, _, titles in PLAN)
 
 
 def seed() -> None:
-    """13 分类 / 59 个不同标签 / 34 条条目 + 复习队列 + 今日专注。"""
+    """13 分类 / 59 个不同标签 / 34 条条目 + 复习队列 + 作答记录。"""
     init_db()
     now = datetime.now().astimezone().replace(microsecond=0)
     statuses = STATUS_CYCLE
@@ -200,7 +200,8 @@ def seed() -> None:
                  (now - timedelta(days=2)).isoformat(timespec="seconds")),
             )
 
-        # 今日 + 本周专注，让仪表盘的条形图不是空的
+        # 老库里可能还留着 study_session 行（番茄钟 2026-11-17 下线，界面已不再读它）：
+        # 种几条进去，确认历史数据既不会让哪一页报错，也不会再冒出「专注」字样
         for days_ago, seconds in ((0, 1500), (0, 900), (1, 1500), (3, 1500)):
             start = now - timedelta(days=days_ago, minutes=30)
             conn.execute(
@@ -745,8 +746,10 @@ def main() -> int:
             # 它自己也有一排 .tabs .tab，不限定就会一次匹配到两处
             labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("试卷的页签里没有「整理笔记」", "整理笔记" not in labels, str(labels))
-            check("试卷仍保留摘要、原文、导图、学习记录",
-                  {"摘要与要点", "原文", "思维导图", "学习记录"} <= set(labels), str(labels))
+            # 2026-11-17：番茄钟下线，「学习记录」页签随 study_session 一起移除
+            check("试卷仍保留摘要、原文、导图",
+                  {"摘要与要点", "原文", "思维导图"} <= set(labels), str(labels))
+            check("「学习记录」页签已随番茄钟下线", "学习记录" not in labels, str(labels))
             check("试卷默认停在摘要页签",
                   page.locator(".detail .tabs .tab.on").inner_text().strip() == "摘要与要点",
                   page.locator(".detail .tabs .tab.on").inner_text())

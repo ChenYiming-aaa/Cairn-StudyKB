@@ -1,16 +1,19 @@
-"""T5.4 收尾的 M5 验收脚本：计时生命周期 + 统计口径。
+"""M5 验收脚本（统计口径 + 首次引导保存 Key）。
 
 用法：cd backend && uv run python scripts/verify_m5.py [--keep]
 退出码：0 全绿 / 1 有用例失败
 
-覆盖：
-  1. 生命周期  start → 并发 409 → current → heartbeat → pause / resume → finish（含幂等）
-  2. 终止态    abandon 不计入专注统计；跨终态 409；不存在的 id 404
-  3. 清理      启动时把 >4 小时仍 running 的标 abandoned，时长按计划封顶（模拟重启）
-  4. 学习记录  按条目过滤、只列 done/abandoned
-  5. 今日统计  6 个数字逐项与**独立写的 SQL 聚合**对账（不调被验的 repo）
-  6. 本周统计  7 天、周一为起点、各日合计 = 周合计
-  7. 口径边界  「今天之前的 pending 不算今日待整理」、NULL 不计入正确率分母、分类只取前 8、连续天数今天没学不算断
+**2026-11-17 番茄钟下线**（见 `docs/dev/功能价值审计-2026-11-17.md` §九）：
+计时生命周期、放弃/清理、学习记录、本周条形图这几组连同 `/api/session/*` 与
+`/api/stats/week` 一起移除；「连续学习天数」换了口径（作答或整理好内容都算学过一天）。
+所以本脚本现在覆盖：
+
+  1. 今日统计  `pending_items / pending_total / due_reviews / accuracy / categories`
+     逐项与**独立写的 SQL 聚合**对账（不调被验的 repo）
+  2. 连续天数  作答与「整理成 ready」都算学过；今天没学不算断；没有动作的日期会断
+  3. 口径边界  「今天之前的 pending 不算今日待整理」、NULL 不计入正确率分母、分类只取前 8
+  4. 已下线    `/api/session/*` 与 `/api/stats/week` 必须 404（防止有人顺手加回来）
+  5. 首次引导  保存 Key 到 .env（T5.7）
 
 全程临时 DATA_DIR，不碰 data/data.db；不调模型、不联网。
 M5 §6.6 的口径是**文档契约**，所以这里的期望值必须用另写一遍的 SQL 算，不能调 `repo.stats`——
@@ -21,7 +24,6 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
-import time
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -70,7 +72,7 @@ def iso(day, hour: int = 10) -> str:
 
 
 def seed() -> int:
-    """种一条 ready 条目（给「学习记录」当 target）——不用真实库，也不调模型。"""
+    """种一条 ready 条目（给题目当 item_id）——不用真实库，也不调模型。"""
     conn = get_conn()
     try:
         with conn:
@@ -79,8 +81,8 @@ def seed() -> int:
                        (title, source_type, raw_content, content_hash, category, status,
                         created_at, updated_at)
                    VALUES (?, 'text', ?, ?, '学习方法', 'ready', ?, ?)""",
-                ("番茄钟", "番茄工作法的核心是铃响就停。" * 3, "verify-m5-seed", iso(TODAY),
-                 iso(TODAY)),
+                ("间隔重复", "间隔重复的核心是让检索发生在快要忘记的时候。" * 3,
+                 "verify-m5-seed", iso(TODAY), iso(TODAY)),
             )
             return int(cur.lastrowid)
     finally:
@@ -93,159 +95,10 @@ def main() -> int:
     conn = get_conn()
     try:
         with TestClient(app) as client:
-            # ── 1. 生命周期 ────────────────────────────────────────
-            step("1. 计时生命周期")
+            # ── 1. 今日统计对账 ────────────────────────────────────
+            step("1. 今日统计：与独立 SQL 对账")
 
-            r = client.get("/api/session/current")
-            check("current 无计时返回 session:null", r.status_code == 200 and r.json()["session"] is None)
-
-            r = client.post("/api/session/start", json={
-                "target_type": "item", "target_id": item_id, "planned_seconds": 1500,
-            })
-            body = r.json()
-            sid = body.get("id")
-            check("start 返回 201 + running", r.status_code == 201 and body.get("status") == "running",
-                  f"id={sid}")
-            check("start 带上了目标条目标题", body.get("target_title") == "番茄钟",
-                  str(body.get("target_title")))
-            check("新 session 初始时长 0", body.get("duration_seconds") == 0 and body.get("elapsed_seconds") == 0)
-
-            r2 = client.post("/api/session/start", json={"target_type": "free"})
-            err = r2.json().get("error", {})
-            check("并发第二次 start → 409 SESSION_ALREADY_RUNNING",
-                  r2.status_code == 409 and err.get("code") == "SESSION_ALREADY_RUNNING")
-            check("409 的 detail 里带现有 id", f"id={sid}" in (err.get("detail") or ""),
-                  str(err.get("detail")))
-
-            r3 = client.post("/api/session/start",
-                             json={"target_type": "item", "target_id": 999999})
-            check("target_id 不存在 → 404 ITEM_NOT_FOUND",
-                  r3.status_code == 404 and r3.json()["error"]["code"] == "ITEM_NOT_FOUND")
-
-            r4 = client.post("/api/session/start",
-                             json={"target_type": "bogus", "planned_seconds": 1500})
-            check("非法 target_type → 422 SESSION_BAD_TARGET",
-                  r4.status_code == 422 and r4.json()["error"]["code"] == "SESSION_BAD_TARGET")
-
-            time.sleep(1.2)
-            cur = client.get("/api/session/current").json()["session"]
-            check("current 能取回 running 且时长在走", cur["id"] == sid and cur["elapsed_seconds"] >= 1,
-                  f"elapsed={cur['elapsed_seconds']}")
-
-            hb = client.post(f"/api/session/{sid}/heartbeat").json()
-            anchor_before = cur["start_time"]
-            check("heartbeat 把已过时间卷进 duration_seconds",
-                  hb["duration_seconds"] >= 1 and hb["status"] == "running",
-                  f"duration={hb['duration_seconds']} status={hb['status']}")
-            check("heartbeat 把锚点挪到当下", hb["start_time"] > anchor_before,
-                  f"{anchor_before} → {hb['start_time']}")
-
-            paused = client.post(f"/api/session/{sid}/pause").json()
-            frozen = paused["duration_seconds"]
-            check("pause → status=paused", paused["status"] == "paused")
-            time.sleep(1.2)
-            after = client.get("/api/session/current").json()["session"]
-            check("暂停期间时长不再增长",
-                  after["status"] == "paused" and after["elapsed_seconds"] == frozen,
-                  f"{frozen}s → {after['elapsed_seconds']}s")
-
-            r = client.post("/api/session/start", json={"target_type": "free"})
-            check("paused 也算占用：再开一轮仍 409", r.status_code == 409)
-
-            resumed = client.post(f"/api/session/{sid}/resume").json()
-            check("resume → running 且已结算时长保留",
-                  resumed["status"] == "running" and resumed["duration_seconds"] == frozen,
-                  f"duration={resumed['duration_seconds']}")
-            time.sleep(1.2)
-
-            done = client.post(f"/api/session/{sid}/finish", json={"note": "铃响就停"}).json()
-            check("finish → done + 落笔记",
-                  done["status"] == "done" and done["note"] == "铃响就停", str(done.get("note")))
-            check("finish 记的是真实有效时长（暂停那段不计）",
-                  frozen + 1 <= done["duration_seconds"] <= frozen + 3,
-                  f"duration={done['duration_seconds']} 冻结时={frozen}")
-            check("finish 写入 end_time", bool(done["end_time"]))
-
-            again = client.post(f"/api/session/{sid}/finish").json()
-            check("重复 finish 幂等（时长/end_time/note 不变）",
-                  again["duration_seconds"] == done["duration_seconds"]
-                  and again["end_time"] == done["end_time"] and again["note"] == done["note"],
-                  f"{again['duration_seconds']}s / {again['end_time']}")
-
-            check("finish 后 current 为 null", client.get("/api/session/current").json()["session"] is None)
-
-            # ── 2. 终止态 ──────────────────────────────────────────
-            step("2. 放弃与错误码")
-
-            r = client.post("/api/session/start", json={"target_type": "free", "planned_seconds": 1500})
-            sid2 = r.json()["id"]
-            time.sleep(1.1)
-            ab = client.post(f"/api/session/{sid2}/abandon").json()
-            check("abandon → abandoned + end_time", ab["status"] == "abandoned" and bool(ab["end_time"]))
-            abandoned_seconds = ab["duration_seconds"]
-
-            r = client.post(f"/api/session/{sid2}/resume")
-            check("终态再 resume → 409 SESSION_STATE",
-                  r.status_code == 409 and r.json()["error"]["code"] == "SESSION_STATE")
-            r = client.post(f"/api/session/{sid2}/finish")
-            check("abandoned 再 finish → 409（跨终态不是幂等）", r.status_code == 409)
-            r = client.post("/api/session/999999/pause")
-            check("不存在的 id → 404 SESSION_NOT_FOUND",
-                  r.status_code == 404 and r.json()["error"]["code"] == "SESSION_NOT_FOUND")
-            r = client.post(f"/api/session/{sid2}/dance")
-            check("非法 action → 404 SESSION_BAD_ACTION",
-                  r.status_code == 404 and r.json()["error"]["code"] == "SESSION_BAD_ACTION")
-            r = client.post(f"/api/session/{sid2}/heartbeat")
-            check("心跳打到终态会话不报错（闭窗竞态）",
-                  r.status_code == 200 and r.json()["status"] == "abandoned")
-
-            # ── 3. 启动清理 ─────────────────────────────────────────
-            step("3. 启动清理：>4 小时的 active session")
-
-            with conn:
-                conn.execute(
-                    """INSERT INTO study_session
-                           (target_type, start_time, duration_seconds, planned_seconds, status, created_at)
-                       VALUES ('free', ?, 0, 1500, 'running', ?)""",
-                    (iso(TODAY), iso(TODAY)),
-                )
-                stale_id = int(sql(conn, "SELECT MAX(id) FROM study_session")[0][0])
-                # 会话开始 5 小时前，且锚点也在 5 小时前（心跳没来过）
-                old = (NOW - timedelta(hours=5)).isoformat(timespec="seconds")
-                conn.execute(
-                    "UPDATE study_session SET start_time=?, created_at=? WHERE id=?",
-                    (old, old, stale_id),
-                )
-            check("种下的 stale 会话确实是 running",
-                  sql(conn, "SELECT status FROM study_session WHERE id=?", (stale_id,))[0][0] == "running")
-
-            # 再进一次 lifespan = 模拟重启
-            with TestClient(app):
-                pass
-            row = sql(conn, "SELECT status, duration_seconds FROM study_session WHERE id=?",
-                      (stale_id,))[0]
-            check("重启后 >4h 的 running 被标 abandoned", row[0] == "abandoned", str(row[0]))
-            check("清理时按 planned_seconds 封顶（不然会记成 5 小时）",
-                  int(row[1]) == 1500, f"duration={row[1]}")
-
-            # ── 4. 学习记录 ─────────────────────────────────────────
-            step("4. 学习记录（按条目）")
-
-            data = client.get("/api/session", params={
-                "target_type": "item", "target_id": item_id,
-            }).json()
-            check("按条目过滤只返回这条的计时",
-                  data["total"] == 1 and data["items"][0]["id"] == sid, f"total={data['total']}")
-            check("学习记录带标题与笔记",
-                  data["items"][0]["target_title"] == "番茄钟"
-                  and data["items"][0]["note"] == "铃响就停")
-            check("只列终态（running/paused 不混进来）",
-                  all(i["status"] in ("done", "abandoned") for i in data["items"]))
-
-            # ── 5. 今日统计对账 ─────────────────────────────────────
-            step("5. 今日统计：与独立 SQL 对账")
-
-            # 种数据：今天 2 条 pending、昨天 1 条 pending、3 类分类各若干
+            # 种数据：今天 2 条 pending、昨天 3 条 pending、3 类分类各若干
             with conn:
                 for title, day, category in [
                     ("今天甲", TODAY, "写作方法"),
@@ -307,21 +160,6 @@ def main() -> int:
             check("今日待复习 = due_at 已过的条数", stats["due_reviews"] == exp_due == 1,
                   f"接口={stats['due_reviews']} SQL={exp_due}")
 
-            exp_focus = sql(conn, """SELECT COALESCE(SUM(duration_seconds),0) FROM study_session
-                                       WHERE status='done'
-                                         AND date(start_time,'localtime')=?""",
-                            (TODAY.isoformat(),))[0][0]
-            check("今日专注只算 done", stats["focus_seconds"] == exp_focus == done["duration_seconds"],
-                  f"接口={stats['focus_seconds']} SQL={exp_focus}")
-
-            exp_sessions = sql(conn, """SELECT COUNT(*) FROM study_session
-                                          WHERE status='done' AND date(start_time,'localtime')=?""",
-                               (TODAY.isoformat(),))[0][0]
-            check("今日 session 数只算 done（放弃那轮不计）",
-                  stats["sessions"] == exp_sessions == 1,
-                  f"接口={stats['sessions']} SQL={exp_sessions}")
-            check("放弃的时长没有混进专注统计", abandoned_seconds > 0 and stats["focus_seconds"] == exp_focus)
-
             check("正确率 = 对/有判定（NULL 不进分母）",
                   stats["accuracy_today"] == round(2 / 3, 4) and stats["attempts_today"] == 3,
                   f"{stats['accuracy_today']} / {stats['attempts_today']} 次")
@@ -337,47 +175,38 @@ def main() -> int:
             check("分类按数量倒序", [c["count"] for c in cats] == sorted(
                 [c["count"] for c in cats], reverse=True))
 
-            # ── 6. 本周统计 ─────────────────────────────────────────
-            step("6. 本周统计")
+            # ── 2. 连续学习天数（作答 + 整理，替代已下线的计时）────────
+            step("2. 连续学习天数")
 
-            # 补两天历史：昨天与前天的 done 会话（连续天数与周合计都要用）
+            check("今天有作答 → 连续 1 天", stats["streak_days"] == 1, f"streak={stats['streak_days']}")
+            check("今天有作答 → studied_today=true（界面那句提示只看这个字段）",
+                  stats["studied_today"] is True, str(stats["studied_today"]))
+
+            # 把今天的作答整体挪到昨天，把那条 ready 内容的 updated_at 挪到前天：
+            # 今天一次动作都没有，连续天数应该从昨天起算 = 2，而不是归零
             with conn:
-                for offset, seconds in ((1, 600), (2, 900)):
-                    day = TODAY - timedelta(days=offset)
-                    conn.execute(
-                        """INSERT INTO study_session
-                               (target_type, start_time, end_time, duration_seconds,
-                                planned_seconds, status, created_at)
-                           VALUES ('free', ?, ?, ?, 1500, 'done', ?)""",
-                        (iso(day, 9), iso(day, 9), seconds, iso(day, 9)),
-                    )
+                conn.execute("UPDATE quiz_attempt SET created_at=? WHERE date(created_at,'localtime')=?",
+                             (iso(YESTERDAY), TODAY.isoformat()))
+                conn.execute("UPDATE knowledge_item SET updated_at=? WHERE id=?",
+                             (iso(TODAY - timedelta(days=2)), item_id))
+            s2 = client.get("/api/stats/today").json()
+            check("今天没学不算断：从昨天起算 = 2（昨天作答 + 前天整理）",
+                  s2["streak_days"] == 2, f"streak={s2['streak_days']}")
+            # 今天一次动作都没有 → studied_today 必须是 false，否则界面会说「今天已经学过了」
+            check("今天没动作 → studied_today=false", s2["studied_today"] is False,
+                  str(s2["studied_today"]))
 
-            week = client.get("/api/stats/week").json()
-            monday = TODAY - timedelta(days=TODAY.weekday())
-            check("本周 7 天，从周一开始",
-                  len(week["days"]) == 7 and week["days"][0]["date"] == monday.isoformat()
-                  and week["days"][0]["label"] == "周一",
-                  f"{week['start']} → {week['end']}")
-            check("is_today 只标今天一天",
-                  [d["date"] for d in week["days"] if d["is_today"]] == [TODAY.isoformat()])
+            # 中间空一天就要断：把昨天的作答挪到 5 天前 → 昨天没人学，
+            # 前天那次整理接不上（连续要求从昨天往前不断），streak 归 0
+            with conn:
+                conn.execute("UPDATE quiz_attempt SET created_at=? WHERE date(created_at,'localtime')=?",
+                             (iso(TODAY - timedelta(days=5)), YESTERDAY.isoformat()))
+            s3 = client.get("/api/stats/today").json()
+            check("昨天断档 → 连续归 0（前天那次接不上）",
+                  s3["streak_days"] == 0, f"streak={s3['streak_days']}")
 
-            exp_week = sql(conn, """SELECT COALESCE(SUM(duration_seconds),0) FROM study_session
-                                     WHERE status='done'
-                                       AND date(start_time,'localtime') BETWEEN ? AND ?""",
-                           (monday.isoformat(), TODAY.isoformat()))[0][0]
-            check("周合计 = 本周各日之和 = SQL",
-                  week["focus_seconds"] == sum(d["focus_seconds"] for d in week["days"])
-                  and week["focus_seconds"] == exp_week,
-                  f"接口={week['focus_seconds']} SQL={exp_week}")
-            check("今日那根柱子与 /stats/today 同一口径",
-                  week["days"][TODAY.weekday()]["focus_seconds"] == stats["focus_seconds"])
-
-            stats2 = client.get("/api/stats/today").json()
-            check("连续学习天数 = 今天 + 昨天 + 前天",
-                  stats2["streak_days"] == 3, f"streak={stats2['streak_days']}")
-
-            # ── 7. 口径边界 ─────────────────────────────────────────
-            step("7. 口径边界")
+            # ── 3. 口径边界 ─────────────────────────────────────────
+            step("3. 口径边界")
 
             with conn:
                 conn.execute("""INSERT INTO knowledge_item
@@ -386,10 +215,10 @@ def main() -> int:
                                 VALUES ('一周前', 'text', 'x', 'verify-m5-old', '写作方法',
                                         'pending', ?, ?)""",
                              (iso(TODAY - timedelta(days=7)), iso(TODAY - timedelta(days=7))))
-            s3 = client.get("/api/stats/today").json()
+            s4 = client.get("/api/stats/today").json()
             check("更早的 pending 不会算成「今日待整理」",
-                  s3["pending_items"] == 2 and s3["pending_total"] == 6,
-                  f"今日={s3['pending_items']} 全库={s3['pending_total']}")
+                  s4["pending_items"] == 2 and s4["pending_total"] == 6,
+                  f"今日={s4['pending_items']} 全库={s4['pending_total']}")
 
             with conn:
                 for name in ("类A", "类B", "类C", "类D", "类E", "类F"):
@@ -398,25 +227,28 @@ def main() -> int:
                                          status, created_at, updated_at)
                                     VALUES (?, 'text', ?, ?, ?, 'ready', ?, ?)""",
                                  (name, name, f"verify-m5-{name}", name, iso(TODAY), iso(TODAY)))
-            s4 = client.get("/api/stats/today").json()
-            check("分类最多 8 条", len(s4["categories"]) == 8, f"{len(s4['categories'])} 条")
-
-            # 今天没有任何 done session → 连续天数从昨天起算，不从 0 开始
-            with conn:
-                conn.execute("""UPDATE study_session SET status='abandoned'
-                                 WHERE status='done' AND date(start_time,'localtime')=?""",
-                             (TODAY.isoformat(),))
             s5 = client.get("/api/stats/today").json()
-            check("今天没学不算断：连续天数从昨天起算",
-                  s5["streak_days"] == 2 and s5["focus_seconds"] == 0,
-                  f"streak={s5['streak_days']} 今日专注={s5['focus_seconds']}")
-            check("today 的 9 个统计字段齐全",
-                  set(("pending_items", "pending_total", "due_reviews", "focus_seconds",
-                       "sessions", "accuracy_today", "categories", "streak_days",
-                       "week_focus_seconds")) <= set(s5.keys()), str(sorted(s5.keys())))
+            check("分类最多 8 条", len(s5["categories"]) == 8, f"{len(s5['categories'])} 条")
 
-            # ── 8. 首次引导：保存 Key（T5.7）────────────────────────
-            step("8. 首次引导：保存 Key 到 .env")
+            check("today 的字段就是这 12 个（计时相关字段已随番茄钟下线）",
+                  set(s5) == {
+                      "date", "pending_items", "pending_total", "due_reviews", "wrong_questions",
+                      "accuracy_today", "attempts_today", "accuracy_all", "attempts_all",
+                      "streak_days", "studied_today", "categories",
+                  },
+                  str(sorted(s5)))
+
+            # ── 4. 已下线的端点 ─────────────────────────────────────
+            step("4. 番茄钟下线后的端点")
+
+            for path in ("/api/session", "/api/session/current", "/api/stats/week"):
+                r = client.get(path)
+                check(f"GET {path} 已下线 → 404", r.status_code == 404, str(r.status_code))
+            r = client.post("/api/session/start", json={})
+            check("POST /api/session/start 已下线 → 404", r.status_code == 404, str(r.status_code))
+
+            # ── 5. 首次引导：保存 Key（T5.7）────────────────────────
+            step("5. 首次引导：保存 Key 到 .env")
 
             r = client.post("/api/env/key", json={})
             check("空请求 → 400 ENV_NOTHING_TO_SAVE",
@@ -468,6 +300,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception:                                  # noqa: BLE001 - 验收脚本要给出完整栈
+    except Exception:                      # noqa: BLE001 - 脚本顶层要把栈打全
         traceback.print_exc()
-        sys.exit(1)
+        sys.exit(2)

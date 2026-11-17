@@ -389,19 +389,7 @@ const ROUTES = [
       return { items: data.wrong.items.slice(0, limit), total: data.wrong.total }
     },
   ],
-  [/^\/api\/session\/current$/, () => data.session_current],
-  [
-    /^\/api\/session$/,
-    (_m, { params }) => {
-      const targetId = params.get('target_id')
-      const items = data.session_history.items.filter(
-        (s) => !targetId || String(s.target_id) === String(targetId)
-      )
-      return { items, total: items.length }
-    },
-  ],
   [/^\/api\/stats\/today$/, () => data.stats_today],
-  [/^\/api\/stats\/week$/, () => data.stats_week],
 ]
 
 const POST_ROUTES = [

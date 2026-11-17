@@ -1695,107 +1695,12 @@
     ],
     "total": 2
   },
-  "session_current": {
-    "session": null
-  },
-  "session_history": {
-    "items": [
-      {
-        "id": 6,
-        "target_type": "item",
-        "target_id": 1,
-        "target_title": "间隔重复为何有效：检索加固记忆",
-        "start_time": "2026-11-08T09:10:00+08:00",
-        "end_time": "2026-11-08T09:35:00+08:00",
-        "duration_seconds": 1500,
-        "elapsed_seconds": 1500,
-        "planned_seconds": 1500,
-        "status": "done",
-        "note": "读了一节，顺手写了一张卡片",
-        "created_at": "2026-11-08T09:10:00+08:00"
-      },
-      {
-        "id": 5,
-        "target_type": "item",
-        "target_id": 1,
-        "target_title": "间隔重复为何有效：检索加固记忆",
-        "start_time": "2026-11-07T09:10:00+08:00",
-        "end_time": "2026-11-07T10:00:00+08:00",
-        "duration_seconds": 3000,
-        "elapsed_seconds": 3000,
-        "planned_seconds": 3000,
-        "status": "done",
-        "note": "读了一节，顺手写了一张卡片",
-        "created_at": "2026-11-07T09:10:00+08:00"
-      },
-      {
-        "id": 4,
-        "target_type": "item",
-        "target_id": 1,
-        "target_title": "间隔重复为何有效：检索加固记忆",
-        "start_time": "2026-11-05T09:10:00+08:00",
-        "end_time": "2026-11-05T10:25:00+08:00",
-        "duration_seconds": 4500,
-        "elapsed_seconds": 4500,
-        "planned_seconds": 4500,
-        "status": "done",
-        "note": "读了一节，顺手写了一张卡片",
-        "created_at": "2026-11-05T09:10:00+08:00"
-      },
-      {
-        "id": 3,
-        "target_type": "item",
-        "target_id": 1,
-        "target_title": "间隔重复为何有效：检索加固记忆",
-        "start_time": "2026-11-04T09:10:00+08:00",
-        "end_time": "2026-11-04T09:35:00+08:00",
-        "duration_seconds": 1500,
-        "elapsed_seconds": 1500,
-        "planned_seconds": 1500,
-        "status": "done",
-        "note": "读了一节，顺手写了一张卡片",
-        "created_at": "2026-11-04T09:10:00+08:00"
-      },
-      {
-        "id": 2,
-        "target_type": "item",
-        "target_id": 1,
-        "target_title": "间隔重复为何有效：检索加固记忆",
-        "start_time": "2026-11-03T09:10:00+08:00",
-        "end_time": "2026-11-03T10:00:00+08:00",
-        "duration_seconds": 3000,
-        "elapsed_seconds": 3000,
-        "planned_seconds": 3000,
-        "status": "done",
-        "note": "读了一节，顺手写了一张卡片",
-        "created_at": "2026-11-03T09:10:00+08:00"
-      },
-      {
-        "id": 1,
-        "target_type": "item",
-        "target_id": 1,
-        "target_title": "间隔重复为何有效：检索加固记忆",
-        "start_time": "2026-11-02T09:10:00+08:00",
-        "end_time": "2026-11-02T09:35:00+08:00",
-        "duration_seconds": 1500,
-        "elapsed_seconds": 1500,
-        "planned_seconds": 1500,
-        "status": "done",
-        "note": "读了一节，顺手写了一张卡片",
-        "created_at": "2026-11-02T09:10:00+08:00"
-      }
-    ],
-    "total": 6
-  },
   "stats_today": {
     "date": "2026-11-08",
     "pending_items": 0,
     "pending_total": 0,
     "due_reviews": 2,
     "wrong_questions": 2,
-    "focus_seconds": 1500,
-    "sessions": 1,
-    "week_focus_seconds": 15000,
     "accuracy_today": 0.3333,
     "attempts_today": 3,
     "accuracy_all": 0.3333,
@@ -1815,79 +1720,6 @@
         "count": 1
       }
     ]
-  },
-  "stats_week": {
-    "start": "2026-11-02",
-    "end": "2026-11-08",
-    "today": "2026-11-08",
-    "days": [
-      {
-        "date": "2026-11-02",
-        "weekday": 1,
-        "label": "周一",
-        "sessions": 1,
-        "focus_seconds": 1500,
-        "is_today": false,
-        "is_future": false
-      },
-      {
-        "date": "2026-11-03",
-        "weekday": 2,
-        "label": "周二",
-        "sessions": 1,
-        "focus_seconds": 3000,
-        "is_today": false,
-        "is_future": false
-      },
-      {
-        "date": "2026-11-04",
-        "weekday": 3,
-        "label": "周三",
-        "sessions": 1,
-        "focus_seconds": 1500,
-        "is_today": false,
-        "is_future": false
-      },
-      {
-        "date": "2026-11-05",
-        "weekday": 4,
-        "label": "周四",
-        "sessions": 1,
-        "focus_seconds": 4500,
-        "is_today": false,
-        "is_future": false
-      },
-      {
-        "date": "2026-11-06",
-        "weekday": 5,
-        "label": "周五",
-        "sessions": 0,
-        "focus_seconds": 0,
-        "is_today": false,
-        "is_future": false
-      },
-      {
-        "date": "2026-11-07",
-        "weekday": 6,
-        "label": "周六",
-        "sessions": 1,
-        "focus_seconds": 3000,
-        "is_today": false,
-        "is_future": false
-      },
-      {
-        "date": "2026-11-08",
-        "weekday": 7,
-        "label": "周日",
-        "sessions": 1,
-        "focus_seconds": 1500,
-        "is_today": true,
-        "is_future": false
-      }
-    ],
-    "focus_seconds": 15000,
-    "sessions": 6,
-    "streak_days": 2
   },
   "search_samples": {
     "间隔重复": {

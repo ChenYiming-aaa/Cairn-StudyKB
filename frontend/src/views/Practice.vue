@@ -8,7 +8,6 @@ import RailToggle from '../components/RailToggle.vue'
 import SearchScopeHint from '../components/SearchScopeHint.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useLayout } from '../composables/useLayout'
-import { useTimer } from '../composables/useTimer'
 import { useToast } from '../composables/useToast'
 import { DIFFICULTY_LABELS, TYPE_LABELS } from '../utils/quiz'
 
@@ -36,22 +35,10 @@ const preselect = ref(Number(route.query.item) || null)
 // 试卷复核页「导入完直接做」带过来的标记（2026-11-17）：材料已选好就不该再让用户
 // 点一次「按卷练」。同样只消费一次，且只在选中的确实是试卷时才动手。
 const openPaper = ref(route.query.paper === '1')
-// T5.3：练习页也能直接开一轮专注，目标带入当前选中的来源条目
-const { start: startSession } = useTimer()
 // T7.3：配置栏接入 SidePanel；出题开始后自动收成窄条（答题要的是屏占）
 const { collapse, expand, isCollapsed } = useLayout()
 // 只有「本页自动收的」才自动展开回来，用户自己收起的不抢方向盘
 let autoCollapsedConfig = false
-
-async function startFocus() {
-  if (itemId.value === null) return
-  const created = await startSession({
-    target_type: 'item',
-    target_id: itemId.value,
-    planned_seconds: 1500,
-  })
-  if (created) toast.info(`开始专注：${pickedTitle.value}`)
-}
 
 const phase = ref('idle')          // idle | generating | answering
 const items = ref([])
@@ -349,10 +336,6 @@ onMounted(async () => {
         <h1 class="page-title">练习</h1>
         <p class="page-sub">拿自己的材料出题考自己，答错的题目明天会自动回来找你</p>
       </div>
-      <!-- 本页的主任务是出题；「开始专注」是顺手能做的另一件事，别用和主操作同级的按钮抢走第一眼 -->
-      <button class="btn btn-sm btn-ghost" type="button" :disabled="itemId === null" @click="startFocus">
-        开始专注{{ pickedTitle ? `：${pickedTitle}` : '' }}
-      </button>
     </header>
 
     <div class="body">

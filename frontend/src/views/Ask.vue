@@ -944,7 +944,7 @@ watch(question, () => {
   background: var(--c-bg-1);
   border-left: 1px solid var(--c-border);
   box-shadow: var(--shadow-md);
-  /* 非模态，所以不加遮罩；但出场要和设置弹窗/专注面板同一个节奏（140ms 淡入），
+  /* 非模态，所以不加遮罩；但出场要和设置弹窗同一个节奏（140ms 淡入），
      否则"打开一块面板"在这个应用里有三种不同的出场手感 */
   opacity: 1;
   transition: opacity var(--dur-overlay) var(--ease-out);

@@ -3,24 +3,19 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from '../api/client'
-import { humanDuration } from '../utils/format'
 
 /**
- * 仪表盘（T5.4）。6 个区块，数字全部来自 `/api/stats/today` 与 `/api/stats/week`，
+ * 仪表盘（T5.4）。5 个区块，数字全部来自 `/api/stats/today`，
  * **前端不做任何二次统计**——口径只写在后端一处（M5 §6.6），否则页面与 SQL 迟早对不上。
  *
- * 本周专注用原生 CSS 条形图（总纲 §2 红线 5：不引图表库）。
+ * 2026-11-17：番茄钟下线，原「本周专注」条形图与服务它的 `/api/stats/week` 一并移除
+ * （见 docs/dev/功能价值审计-2026-11-17.md）。剩下的每一块都还能落到能干活的地方。
  */
 const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
 const today = ref(null)
-const week = ref(null)
-
-const weekMax = computed(() =>
-  Math.max(60, ...(week.value?.days || []).map((d) => d.focus_seconds))
-)
 
 const accuracyText = computed(() => {
   const value = today.value?.accuracy_today
@@ -37,28 +32,26 @@ const categoryMax = computed(() =>
   Math.max(1, ...(today.value?.categories || []).map((c) => c.count))
 )
 
-/** 连续天数下面那句：今天动过没有，决定说不说「还没学」 */
+/** 连续天数下面那句：靠后端的 `studied_today`，不拿 `attempts_today` 猜
+ *  —— 今天只整理没答题时，连续天数已把今天算进去，猜法会说「今天还没学」，两个数字当场打脸 */
 const streakNote = computed(() => {
   const data = today.value
   if (!data) return ''
-  const active = (data.focus_seconds || 0) > 0 || (data.attempts_today || 0) > 0
-  if (active) return '今天已经学过了，明天接着来'
-  return (data.streak_days || 0) > 0 ? '今天还没学，学一次就不断' : '从今天开始，学一次就记 1 天'
+  if (data.studied_today) return '今天已经学过了，明天接着来'
+  return (data.streak_days || 0) > 0
+    ? '今天还没动，整理一篇或答几道都算'
+    : '从今天开始，整理一篇或答几道就记 1 天'
 })
 
 function openCategory(name) {
   router.push({ path: '/', query: { category: name } })
 }
 
-const barHeight = (seconds) => `${Math.round((seconds / weekMax.value) * 100)}%`
-
 async function load() {
   loading.value = true
   error.value = ''
   try {
-    const [t, w] = await Promise.all([api.statsToday(), api.statsWeek()])
-    today.value = t
-    week.value = w
+    today.value = await api.statsToday()
   } catch (err) {
     error.value = friendlyMessage(err)
   } finally {
@@ -74,7 +67,7 @@ onMounted(load)
     <header class="head">
       <div>
         <h1 class="page-title">仪表盘</h1>
-        <p class="page-sub">今天学了多久、还剩多少没整理，一屏看完</p>
+        <p class="page-sub">还剩多少没整理、今天练得怎么样，一屏看完</p>
       </div>
       <button class="btn btn-sm" type="button" :disabled="loading" @click="load">刷新</button>
     </header>
@@ -104,7 +97,7 @@ onMounted(load)
         <span class="card-label">连续学习</span>
         <span class="card-value">{{ today.streak_days }}<small> 天</small></span>
         <!-- 原来这句写死「今天还没学，不算中断」：今天已经学过也照说，用户会以为数据不对。
-             按今天有没有专注/作答分两句 -->
+             按今天有没有作答分两句 -->
         <span class="card-sub">{{ streakNote }}</span>
       </div>
 
@@ -117,33 +110,7 @@ onMounted(load)
         </span>
       </div>
 
-      <!-- 5 本周专注（条形图，跨两列） -->
-      <section class="card chart-card">
-        <div class="chart-head">
-          <div>
-            <span class="card-label">本周专注</span>
-            <span class="card-value">{{ humanDuration(today.week_focus_seconds) }}</span>
-          </div>
-          <p class="chart-meta">
-            今日 {{ humanDuration(today.focus_seconds) }} · {{ today.sessions }} 轮
-            <br />
-            {{ week?.start }} → {{ week?.end }}
-          </p>
-        </div>
-
-        <div v-if="week" class="chart">
-          <div v-for="day in week.days" :key="day.date" class="col" :class="{ today: day.is_today }">
-            <span class="col-val">{{ day.focus_seconds ? Math.round(day.focus_seconds / 60) : '' }}</span>
-            <div class="col-track">
-              <i :style="{ height: barHeight(day.focus_seconds) }" />
-            </div>
-            <span class="col-label">{{ day.label }}</span>
-          </div>
-        </div>
-        <p v-if="week && !week.sessions" class="note pad">这周还没有完成的专注，开一轮试试</p>
-      </section>
-
-      <!-- 6 分类分布 -->
+      <!-- 5 分类分布 -->
       <section class="card cat-card">
         <span class="card-label">分类分布</span>
         <ul v-if="today.categories.length" class="cats">
@@ -267,83 +234,6 @@ onMounted(load)
   color: var(--c-text-3);
 }
 
-.chart-card {
-  grid-column: span 3;
-}
-
-.chart-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.chart-head > div {
-  display: flex;
-  flex-direction: column;
-}
-
-.chart-meta {
-  margin: 0;
-  text-align: right;
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  line-height: 1.5;
-}
-
-.chart {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-3);
-  height: 132px;
-  padding-top: var(--space-3);
-}
-
-.col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  height: 100%;
-}
-
-.col-val {
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.col-track {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-  border-radius: var(--radius-sm);
-  background: var(--c-bg-2);
-}
-
-.col-track i {
-  display: block;
-  width: 100%;
-  min-height: 2px;
-  border-radius: var(--radius-sm);
-  background: var(--c-primary-soft);
-}
-
-.col.today .col-track i {
-  background: var(--c-primary);
-}
-
-.col.today .col-label {
-  color: var(--c-primary-ink);
-}
-
-.col-label {
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-}
-
 .cat-card {
   grid-column: span 4;
 }
@@ -416,7 +306,6 @@ onMounted(load)
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .chart-card,
   .cat-card {
     grid-column: span 2;
   }

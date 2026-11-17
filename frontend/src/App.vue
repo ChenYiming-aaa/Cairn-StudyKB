@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
-import Pomodoro from './components/Pomodoro.vue'
 import RailToggle from './components/RailToggle.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import { installResponsiveLayout, useLayout } from './composables/useLayout'
@@ -12,10 +11,8 @@ import { useComponentInstall } from './composables/useComponentInstall'
 import { useSettings } from './composables/useSettings'
 import { useTasks } from './composables/useTasks'
 import { useTheme } from './composables/useTheme'
-import { useTimer } from './composables/useTimer'
 import { useToast } from './composables/useToast'
 import { useUi } from './composables/useUi'
-import { clock } from './utils/format'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,8 +24,6 @@ const {
   // T6.5：设置窗口（模态）由顶栏齿轮打开，状态在 useUi 里共享
   openSettings,
 } = useUi()
-// 顶栏迷你计时器（T5.3）：状态在 useTimer 单例里，和番茄钟面板共用同一个计时
-const { isActive, isRunning, remainingSeconds, openPanel, restore, beacon } = useTimer()
 // 主题（T6.7）：localStorage 已经在 theme-boot.js 里上过一次，这里用后端的真源对齐
 const { load: loadSettings } = useSettings()
 const { adopt: adoptAppearance } = useTheme()
@@ -46,8 +41,6 @@ const hasList = computed(() => route.path === '/')
 // 静态演示版（github.io）：数据是抓下来的 fixture，生成类操作会返回 DEMO_OFFLINE。
 // 正式构建里 VITE_DEMO 未设，这个常量恒为 false，整块提示被摇掉。
 const isDemo = import.meta.env.VITE_DEMO === '1'
-// 恢复入口：`visibilitychange` 会临时挂监听，保存引用以便卸载时摘掉
-let onVisible = null
 let uninstallResponsive = null
 
 /** 输入框里按 Ctrl+B 是「加粗」之类的编辑器语义，不该折叠侧栏 */
@@ -93,9 +86,6 @@ onMounted(async () => {
     router.push('/setup')
   }
 
-  // T5.2：刷新/重启后把进行中的那一轮接回来
-  await restore()
-
   // T7.4：任务角标先对齐一次，之后靠 refreshTick / 切页 / 有未完成时的轮询更新
   refreshTasks()
 
@@ -103,20 +93,12 @@ onMounted(async () => {
   // 没在装就只问一次，不常驻
   watchNow()
 
-  // 从后台切回来时用服务端状态对齐一次（系统休眠、长时间挂起会让本地时钟松）
-  onVisible = () => {
-    if (document.visibilityState === 'visible') restore()
-  }
-  document.addEventListener('visibilitychange', onVisible)
-  window.addEventListener('beforeunload', beacon)
   window.addEventListener('keydown', onKeydown)
   // 窗口 < 1200 自动收左栏（用户自己动过就不再抢方向盘）
   uninstallResponsive = installResponsiveLayout()
 })
 
 onBeforeUnmount(() => {
-  if (onVisible) document.removeEventListener('visibilitychange', onVisible)
-  window.removeEventListener('beforeunload', beacon)
   window.removeEventListener('keydown', onKeydown)
   if (uninstallResponsive) uninstallResponsive()
 })
@@ -206,7 +188,8 @@ function onOpen(itemId) {
         <i class="dot" />
         还差一步
       </button>
-      <!-- 右侧顺序固定（T7.4）：连接状态 · 任务 · 专注 · 采集 · 齿轮 -->
+      <!-- 右侧顺序固定（T7.4）：连接状态 · 任务 · 采集 · 齿轮
+           （「专注」计时器 2026-11-17 移除，见 docs/dev/功能价值审计-2026-11-17.md） -->
       <span class="conn" :class="backend" :title="backend === 'ok' ? '服务已连接' : '服务未连接'">
         <i class="dot" />
         <span class="conn-text">{{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}</span>
@@ -221,12 +204,6 @@ function onOpen(itemId) {
         任务
         <span v-if="activeTasks" class="task-count">{{ activeTasks }}</span>
       </button>
-      <!-- 迷你计时器（T5.3）：任何页面都能看到剩余时间，点一下打开番茄钟面板 -->
-      <button v-if="isActive" class="mini-timer" type="button" @click="openPanel()">
-        <i class="mini-dot" :class="{ paused: !isRunning }" />
-        <span class="mini-clock">{{ clock(remainingSeconds) }}</span>
-      </button>
-      <button v-else class="btn btn-sm btn-ghost" type="button" @click="openPanel()">专注</button>
       <button class="btn btn-primary" type="button" @click="openPaste()">＋ 采集内容</button>
       <!-- 设置入口（T6.5）：模态窗口，不新增路由；齿轮固定放最后 -->
       <button
@@ -242,7 +219,6 @@ function onOpen(itemId) {
 
     <router-view />
 
-    <Pomodoro />
     <SettingsDialog />
 
     <IngestPanel
@@ -408,56 +384,6 @@ function onOpen(itemId) {
   font-size: var(--fs-lg);
   line-height: 1;
   color: var(--c-text-2);
-}
-
-.mini-timer {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-right: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--c-primary);
-  border-radius: var(--radius-sm);
-  background: var(--c-primary-soft);
-  cursor: pointer;
-}
-
-.mini-clock {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
-  color: var(--c-primary-ink);
-}
-
-.mini-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--c-primary);
-  animation: breathe 1.6s ease-in-out infinite;
-}
-
-.mini-dot.paused {
-  background: var(--c-text-3);
-  animation: none;
-}
-
-@keyframes breathe {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.25;
-  }
-}
-
-/* 减少动效时停掉：暂停态的灰点（`.paused` 的 background）与运行态的色点靠颜色已经分得开，
-   不必再靠呼吸来区分。`:not(.paused)` 只是把"暂停本来就不动"这条语义留在原处，别被这里抹平 */
-@media (prefers-reduced-motion: reduce) {
-  .mini-dot:not(.paused) {
-    animation: none;
-  }
 }
 
 .toast-stack {
