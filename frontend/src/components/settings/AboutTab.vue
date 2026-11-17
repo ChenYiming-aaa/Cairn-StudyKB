@@ -172,7 +172,7 @@ const hint = computed(() => {
           aria-valuemin="0"
           aria-valuemax="100"
         >
-          <span class="bar-fill" :style="{ width: (progress.pct || 0) + '%' }"></span>
+          <span class="bar-fill" :style="{ '--p': (progress.pct || 0) / 100 }"></span>
         </div>
 
         <!-- 更新说明只给前 20 行，多的自己滚动：设置窗口只有 620px 高 -->
@@ -338,7 +338,11 @@ const hint = computed(() => {
   display: block;
   height: 100%;
   background: var(--c-primary);
-  transition: width 0.2s linear;
+  /* 同其余四处进度条：width 换 scaleX，原点在左端。role="progressbar" 上的 aria-valuenow
+     不变，读屏念的仍是百分比（那是 DOM 属性，与视觉实现无关） */
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.2s ease-out;
 }
 
 /* 更新说明可能很长：限高 + 自己滚，别把窗口撑出滚动条 */

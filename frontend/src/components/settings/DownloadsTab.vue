@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
 
         <!-- 下载中：进度 + 取消。百分比与字节都来自后端，前端不自己插值 -->
         <div v-if="item.state === 'downloading'" class="progress">
-          <div class="bar"><i :style="{ width: (item.install?.pct || 0) + '%' }" /></div>
+          <div class="bar"><i :style="{ '--p': (item.install?.pct || 0) / 100 }" /></div>
           <div class="progress-meta">
             <span class="phase">{{ item.install?.phase === 'verify' ? '校验文件…' : item.install?.phase === 'extract' ? '解压中…' : `${fileSize(item.install?.got, 0)} / ${fileSize(item.install?.total, 0)}` }}</span>
             <button
@@ -377,7 +377,11 @@ onBeforeUnmount(() => {
   display: block;
   height: 100%;
   background: var(--c-primary);
-  transition: width 0.3s ease;
+  /* 同 LinkForm：进度走 scaleX，别用 width。这里是组件包下载（实测 118 MB / 两分钟），
+     进度回调最密，width 过渡会连续重排两分钟 */
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.2s ease-out;
 }
 
 .progress-meta {

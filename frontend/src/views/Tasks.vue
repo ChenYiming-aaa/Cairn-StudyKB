@@ -203,7 +203,7 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="task.status === 'running' || task.status === 'queued'" class="bar">
-          <i :style="{ width: task.progress + '%' }" />
+          <i :style="{ '--p': task.progress / 100 }" />
         </div>
 
         <div v-if="task.error_msg" class="row-error">
@@ -330,7 +330,11 @@ onBeforeUnmount(() => {
   display: block;
   height: 100%;
   background: var(--c-primary);
-  transition: width 0.3s ease;
+  /* 批量整理时这一页会同时有 N 行在走，每行一次 width 过渡 = 一次布局；改用 scaleX 后全在合成器。
+     200ms 而不是 300ms：进度本身按秒更新，过渡越短越不会拖在数值后面 */
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.2s ease-out;
 }
 
 .row-error {

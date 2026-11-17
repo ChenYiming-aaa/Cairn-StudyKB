@@ -409,7 +409,9 @@ dialog[open]::backdrop {
 .meter::-webkit-progress-value {
   border-radius: 2px;
   background: var(--meter-fill);
-  transition: inline-size 0.3s ease;
+  /* 200ms（原 300ms）：进度值本身是离散跳变，过渡太长会让填充明显落后于读数，
+     逐页识别的 OcrProgress 上尤其看得出来 */
+  transition: inline-size 0.2s ease;
 }
 
 /* 不确定态（还没拿到总量）：UA 自带的来回滑动在 appearance: none 之后就没了，
@@ -528,27 +530,41 @@ dialog[open]::backdrop {
   margin-top: var(--space-3);
 }
 
+/* 骨架屏：底块是纯色，扫光放在伪元素上只做 `transform`。
+   原先直接动 `background-position`，是绘制属性，一屏十几块同时跑就在反复重绘；
+   改成 translateX 后每块只剩一条合成器动画。
+   代价：视觉上从"持续滑动的渐变"变成"一道光扫过"，因为 transform 没法复现
+   背景图在元素内部的连续位移。这里的对比度很低（--c-skeleton 与 --c-bg-2 只差一点点），
+   肉眼看不出区别。 */
 .skeleton {
+  position: relative;
+  overflow: hidden;
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--c-bg-2) 25%, var(--c-skeleton) 37%, var(--c-bg-2) 63%);
-  background-size: 400% 100%;
+  background: var(--c-bg-2);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--c-bg-2) 25%, var(--c-skeleton) 50%, var(--c-bg-2) 75%);
+  transform: translateX(-100%);
   animation: shimmer 1.4s ease infinite;
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0 50%;
+  to {
+    transform: translateX(100%);
   }
 }
 
 /* 骨架屏停住不掉语义：静态灰块本身就在说"内容还没来"。
-   这里该停不该放慢 —— 缓速扫过的整块渐变恰恰是前庭敏感最不想要的那种大面积持续运动。 */
+   这里该停不该放慢 —— 缓速扫过的整块渐变恰恰是前庭敏感最不想要的那种大面积持续运动。
+   注意规则要打在伪元素上：动效已经不在 `.skeleton` 自身了。停掉后伪元素留在
+   `translateX(-100%)`，整块退化成一条干净的灰条。 */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton {
+  .skeleton::after {
     animation: none;
   }
 }

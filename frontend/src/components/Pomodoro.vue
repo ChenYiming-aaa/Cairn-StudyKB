@@ -165,7 +165,7 @@ onBeforeUnmount(stopBreak)
         <p class="target" :title="targetLabel">{{ targetLabel }}</p>
         <p class="countdown" :class="{ paused: isPaused }">{{ fmtClock(remainingSeconds) }}</p>
         <div class="bar">
-          <i :style="{ width: `${Math.round(progress * 100)}%` }" />
+          <i :style="{ '--p': progress }" />
         </div>
         <p class="hint">
           计划 {{ plannedLabel }} · 已用 {{ humanDuration(elapsedSeconds) }}
@@ -303,8 +303,12 @@ onBeforeUnmount(stopBreak)
   background: var(--c-primary);
   /* 350ms：倒计时数字 1s 才跳一次（`useTimer` 的 setInterval），填充要在这 1s 里追上去。
      原先的 0.9s 几乎占满整个更新间隔，条永远比数字慢半拍，读起来像在缓冲。
-     `linear` 保留 —— 计时进度本身就是匀速的，缓动反而会让它看起来忽快忽慢。 */
-  transition: width 0.35s linear;
+     `linear` 保留 —— 计时进度本身就是匀速的，缓动反而会让它看起来忽快忽慢。
+     scaleX 而不是 width：不做布局。直接吃 `progress`（0–1，已 clamp），
+     顺带不再经过百分数取整，走起来没有一格一格的台阶 */
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.35s linear;
 }
 
 .hint {

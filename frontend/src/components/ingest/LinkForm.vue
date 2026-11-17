@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
         </span>
         <span class="progress-pct">{{ progress }}%</span>
       </div>
-      <div class="bar"><i :style="{ width: progress + '%' }" /></div>
+      <div class="bar"><i :style="{ '--p': progress / 100 }" /></div>
       <p v-if="failed" class="fail-msg">
         {{ cleanError(task.error_msg) }}
         <span v-if="task.error_code" class="code">{{ task.error_code }}</span>
@@ -352,7 +352,12 @@ onBeforeUnmount(() => {
   display: block;
   height: 100%;
   background: var(--c-primary);
-  transition: width 0.3s ease;
+  /* 用 scaleX 而不是 width：宽高过渡每帧都要重排（`.bar` 的 overflow 裁剪也跟着重算），
+     transform 留在合成器上。元素始终占满整条，进度只改变它的横向缩放，原点钉在左端。
+     200ms：上传进度一秒内会变好几次，过渡再长就会一直"追不上"当前值 */
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform 0.2s ease-out;
 }
 
 .progress-box.failed .bar i {
