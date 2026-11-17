@@ -13,6 +13,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { api } from '../../api/client'
 import { useLocate } from '../../composables/useFocus'
 import { usePageData } from '../../composables/usePageData'
+import { scrollBehavior } from '../../utils/motion'
 import { restoreScroll, saveScroll, scrollKey } from '../../utils/scrollMemory'
 
 const props = defineProps({
@@ -68,7 +69,7 @@ const lines = computed(() => {
 watch(lines, async () => {
   if (!marks.value) return
   await nextTick()
-  box.value?.querySelector('.line.hit')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  box.value?.querySelector('.line.hit')?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })
 })
 
 // 阅读位置（H3）：后台刷新会让本组件重挂，右边那栏的滚动位置也要跟着回来

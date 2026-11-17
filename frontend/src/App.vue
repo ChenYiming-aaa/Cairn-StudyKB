@@ -447,6 +447,14 @@ function onOpen(itemId) {
   }
 }
 
+/* 减少动效时停掉：暂停态的灰点（`.paused` 的 background）与运行态的色点靠颜色已经分得开，
+   不必再靠呼吸来区分。`:not(.paused)` 只是把"暂停本来就不动"这条语义留在原处，别被这里抹平 */
+@media (prefers-reduced-motion: reduce) {
+  .mini-dot:not(.paused) {
+    animation: none;
+  }
+}
+
 .toast-stack {
   /* popover 的 UA 默认（居中、边框、底色、内边距）全部要清掉，位置仍贴右下 */
   position: fixed;

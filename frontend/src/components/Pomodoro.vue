@@ -301,7 +301,10 @@ onBeforeUnmount(stopBreak)
   display: block;
   height: 100%;
   background: var(--c-primary);
-  transition: width 0.9s linear;
+  /* 350ms：倒计时数字 1s 才跳一次（`useTimer` 的 setInterval），填充要在这 1s 里追上去。
+     原先的 0.9s 几乎占满整个更新间隔，条永远比数字慢半拍，读起来像在缓冲。
+     `linear` 保留 —— 计时进度本身就是匀速的，缓动反而会让它看起来忽快忽慢。 */
+  transition: width 0.35s linear;
 }
 
 .hint {

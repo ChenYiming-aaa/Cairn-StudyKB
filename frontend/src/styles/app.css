@@ -308,6 +308,15 @@ body.is-resizing {
   }
 }
 
+/* 减少动效时停掉而不是放慢：徽标上的「整理中」「计时中」文字已经把状态说全了，
+   呼吸点只是"还在跑"的第二个信号，停掉不丢信息。
+   （按钮里的 `.spin` 不一样 —— 那里没有百分比可念，动本身是唯一信号，所以只放慢，见下） */
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
 /* ── 详情页面板 ───────────────────────────────────── */
 
 .pane {
@@ -533,5 +542,13 @@ dialog[open]::backdrop {
   }
   100% {
     background-position: 0 50%;
+  }
+}
+
+/* 骨架屏停住不掉语义：静态灰块本身就在说"内容还没来"。
+   这里该停不该放慢 —— 缓速扫过的整块渐变恰恰是前庭敏感最不想要的那种大面积持续运动。 */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
   }
 }

@@ -120,4 +120,12 @@ watch(src, () => {
     background-position: -200% 0;
   }
 }
+
+/* 与 app.css 的 .skeleton 同理：整块渐变扫过 160px 宽的占位区，是最该抑制的持续运动；
+   停住之后静态灰块本身仍在说"图还在来" */
+@media (prefers-reduced-motion: reduce) {
+  .mindmap-box.loading {
+    animation: none;
+  }
+}
 </style>

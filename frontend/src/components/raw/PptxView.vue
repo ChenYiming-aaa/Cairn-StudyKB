@@ -11,6 +11,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { api } from '../../api/client'
 import { useLocate } from '../../composables/useFocus'
 import { usePageData } from '../../composables/usePageData'
+import { scrollBehavior } from '../../utils/motion'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -104,7 +105,7 @@ const outline = computed(() => {
 watch(outline, async () => {
   if (!marks.value) return
   await nextTick()
-  box.value?.querySelector('.hit')?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  box.value?.querySelector('.hit')?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })
 })
 </script>
 

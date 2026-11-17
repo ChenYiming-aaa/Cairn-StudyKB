@@ -13,6 +13,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { api } from '../../../api/client'
+import { scrollBehavior } from '../../../utils/motion'
 import PdfPage from './PdfPage.vue'
 
 const props = defineProps({
@@ -104,7 +105,11 @@ function scrollToPage(pageNo, smooth = false) {
   const el = box.value
   if (!el || !offsets.value.length) return
   const index = Math.min(Math.max(1, pageNo), offsets.value.length) - 1
-  el.scrollTo({ top: Math.max(0, offsets.value[index] - 4), behavior: smooth ? 'smooth' : 'auto' })
+  // 平滑只在调用方要平滑、且用户没要求减少动效时才给；收在这里，调用方不用各自判断
+  el.scrollTo({
+    top: Math.max(0, offsets.value[index] - 4),
+    behavior: smooth ? scrollBehavior() : 'auto',
+  })
 }
 
 defineExpose({ scrollToPage })

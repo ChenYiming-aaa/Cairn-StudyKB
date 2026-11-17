@@ -485,7 +485,6 @@ onMounted(async () => {
         <!-- 出题中：题面逐题浮现 -->
         <div v-if="phase === 'generating'" class="gen">
           <div class="gen-bar">
-            <span class="pulse" />
             <span class="gen-text">
               正在出题，已收到 {{ questions.length }} / {{ count }} 题
             </span>
@@ -799,6 +798,14 @@ onMounted(async () => {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* 一屏可能连着出十来题，每条都往上游 6px，叠起来就是"整页在往上涌" —— 该抑制的是这种空间位移，
+   不是淡入。停掉动画后卡片直接落在最终位置，序号与「已收到 n / m 题」仍说明顺序，不丢信息 */
+@media (prefers-reduced-motion: reduce) {
+  .gen-card {
+    animation: none;
   }
 }
 </style>

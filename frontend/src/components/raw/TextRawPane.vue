@@ -7,6 +7,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { scrollBehavior } from '../../utils/motion'
 import { restoreScroll, saveScroll, scrollKey } from '../../utils/scrollMemory'
 
 const props = defineProps({
@@ -76,7 +77,7 @@ watch(
   async () => {
     if (!props.focus) return
     await nextTick()
-    hitEl.value?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    hitEl.value?.scrollIntoView({ block: 'center', behavior: scrollBehavior() })
   },
   { immediate: true }
 )

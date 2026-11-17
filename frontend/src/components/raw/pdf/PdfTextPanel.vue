@@ -11,6 +11,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { api, friendlyMessage } from '../../../api/client'
+import { scrollBehavior } from '../../../utils/motion'
 
 const props = defineProps({
   itemId: { type: Number, required: true },
@@ -74,7 +75,7 @@ const lines = computed(() => {
 async function scrollToHit() {
   await nextTick()
   const el = box.value?.querySelector('.line.hit')
-  if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  if (el) el.scrollIntoView({ block: 'center', behavior: scrollBehavior() })
 }
 
 // 文字是异步来的：等命中行渲染出来再滚，否则滚到的是上一页的位置

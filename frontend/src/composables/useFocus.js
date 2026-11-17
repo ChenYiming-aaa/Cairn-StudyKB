@@ -9,6 +9,7 @@
 import { ref, watch } from 'vue'
 
 import { api } from '../api/client'
+import { scrollBehavior } from '../utils/motion'
 
 // 只在这些块级元素里找：命中要标在「一句/一段」上，标在整个容器上等于没标
 const BLOCKS = 'p, li, h1, h2, h3, h4, h5, h6, td, th, pre'
@@ -45,7 +46,7 @@ export function highlightIn(root, chunk, hint) {
       node.style.borderRadius = '3px'
       // 留个标记：行内样式既是高亮也是线索，`data-hit` 让"到底标中了哪一块"可被检查
       node.dataset.hit = '1'
-      node.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      node.scrollIntoView({ block: 'center', behavior: scrollBehavior() })
       return node
     }
   }

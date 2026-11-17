@@ -498,6 +498,17 @@ onBeforeUnmount(() => {
   }
 }
 
+/* 减少动效时停扫，但不能让它变成一道卡在左边的脏边：
+   扫光靠的是 40% 宽的渐变色块在动，停住后只会在左端留一小截。
+   改成铺满整行后它是一条两端渐隐的细线，仍然读作「这里在更新」。
+   非视觉用户由模板上的 role="status" 兜着，不依赖这条线。 */
+@media (prefers-reduced-motion: reduce) {
+  .detail-refreshing {
+    animation: none;
+    background-size: 100% 100%;
+  }
+}
+
 .detail-head {
   display: flex;
   align-items: flex-start;

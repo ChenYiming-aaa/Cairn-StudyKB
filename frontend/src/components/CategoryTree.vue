@@ -22,6 +22,7 @@ import WorkspaceBar from './filters/WorkspaceBar.vue'
 import RailToggle from './RailToggle.vue'
 import SidePanel from './SidePanel.vue'
 import { useLayout } from '../composables/useLayout'
+import { scrollBehavior } from '../utils/motion'
 
 const props = defineProps({
   // [{ name, count, tags: [{ name, count }] }]
@@ -114,7 +115,7 @@ function focusSection(which) {
   expand('sidebar')
   nextTick(() => {
     const el = which === 'tag' ? tagRef.value : catRef.value
-    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    el?.scrollIntoView({ block: 'start', behavior: scrollBehavior() })
   })
 }
 </script>
