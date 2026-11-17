@@ -142,7 +142,7 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
   border-radius: var(--radius-md);
   background: var(--c-bg-1);
   text-align: left;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
 }
 
 .theme-card:hover {

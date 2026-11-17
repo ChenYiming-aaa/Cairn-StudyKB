@@ -343,7 +343,7 @@ async function connect() {
 
 .chev {
   color: var(--c-text-3);
-  transition: transform 0.15s;
+  transition: transform var(--dur-fast);
 }
 
 .chev.open {

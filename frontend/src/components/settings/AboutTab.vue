@@ -166,7 +166,7 @@ const hint = computed(() => {
 
         <div
           v-if="state === 'downloading'"
-          class="bar"
+          class="progress-bar"
           role="progressbar"
           :aria-valuenow="progress.pct || 0"
           aria-valuemin="0"
@@ -327,23 +327,8 @@ const hint = computed(() => {
   gap: var(--space-2);
 }
 
-.bar {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--c-bg-2);
-  overflow: hidden;
-}
-
-.bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--c-primary);
-  /* 同其余四处进度条：width 换 scaleX，原点在左端。role="progressbar" 上的 aria-valuenow
-     不变，读屏念的仍是百分比（那是 DOM 属性，与视觉实现无关） */
-  transform-origin: left center;
-  transform: scaleX(var(--p, 0));
-  transition: transform 0.2s ease-out;
-}
+/* 进度条走 app.css 的 .progress-bar；`role="progressbar"` 与 aria-valuenow 留在模板上，
+   读屏念的百分比是 DOM 属性，与视觉用什么属性画无关 */
 
 /* 更新说明可能很长：限高 + 自己滚，别把窗口撑出滚动条 */
 .notes {
@@ -378,7 +363,6 @@ const hint = computed(() => {
 }
 
 .src {
-  font-family: var(--font-body, inherit);
   font-size: var(--fs-xs);
   color: var(--c-text-1);
 }
@@ -423,7 +407,7 @@ const hint = computed(() => {
   color: var(--c-text-1);
   font-size: var(--fs-sm);
   text-decoration: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
 }
 
 .link:hover {

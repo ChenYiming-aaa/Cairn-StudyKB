@@ -755,7 +755,10 @@ onMounted(async () => {
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   background: var(--c-bg-0);
-  animation: pop-in 0.22s ease;
+  /* 只淡入，不做位移：一屏可能连着出十来题，每条各往上游 6px，叠起来是"整页往上涌"
+     —— 那是整页尺度的空间运动，前庭负担最大的一类，而它传达的信息（"这张卡是新的"）
+     淡入已经说全了。同理不再需要 reduce 覆盖：淡入不属于空间运动。 */
+  animation: fade-in var(--dur-enter) ease;
 }
 
 .gen-index {
@@ -790,22 +793,12 @@ onMounted(async () => {
   color: var(--c-text-3);
 }
 
-@keyframes pop-in {
+@keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
-  }
-}
-
-/* 一屏可能连着出十来题，每条都往上游 6px，叠起来就是"整页在往上涌" —— 该抑制的是这种空间位移，
-   不是淡入。停掉动画后卡片直接落在最终位置，序号与「已收到 n / m 题」仍说明顺序，不丢信息 */
-@media (prefers-reduced-motion: reduce) {
-  .gen-card {
-    animation: none;
   }
 }
 </style>

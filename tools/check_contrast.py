@@ -451,12 +451,13 @@ HEADER = '''/* Cairn design tokens。
 12 组色板（6 套 × 明暗）手算必错，Part 1 就是这么翻的车（text-3 实际只有 2.19:1）。
 
 结构：
-  :root                     间距 / 字号 / 圆角 / 字体 / 版面尺寸 / 阴影
+  :root                     间距 / 字号 / 圆角 / 字体 / 版面尺寸 / 阴影 / 动效 / 遮罩
   [data-theme="x"]          浅色配色（6 套）
   [data-theme="x"][data-mode="dark"]  深色配色
   html[data-fs="sm|lg"]     字号三档（默认 md）
 
-任何组件都不许写死颜色，一律引用这里的变量。
+任何组件都不许写死颜色，一律引用这里的变量。动效同理：时长与缓动只走 --dur-* / --ease-*，
+不要在组件里写字面 `0.15s`。
 */
 
 '''
@@ -493,10 +494,37 @@ ROOT_BLOCK = ''':root {
   --w-config: 300px;
   --w-rail: 44px;
   --h-topbar: 52px;
+  /* 跳转定位的落点留白（问答命中/翻页定位用 scroll-margin 让开顶栏） */
+  --scroll-offset: 120px;
 
   /* 阴影（极轻，避免卡片堆叠感） */
   --shadow-sm: 0 1px 2px rgba(35, 33, 28, 0.06);
   --shadow-md: 0 8px 24px rgba(35, 33, 28, 0.12);
+
+  /* 动效（时长 / 缓动）。取值是现有用法收敛的结果，不是新定的规范：
+     --dur-fast     150ms  悬停/聚焦/按下的反馈
+     --dur-overlay  140ms  浮层进出（桌面基线偏快）
+     --dur-enter    180ms  内容出现与栏宽收拢
+     --dur-progress 200ms  进度填充
+     --dur-slow     350ms  仅专注计时一处（1s 更新间隔的 1/3）
+     循环动画（0.9s / 1.1s / 1.2s / 1.4s / 1.6s）各有语义、不成序列，不在此列。
+     缓动只收「非循环动效里真有引用」的两个；ease-in-out 仍被 4 处循环动画使用，
+     不为它建 token，避免留一个只定义不消费的悬空项。 */
+  --dur-fast: 150ms;
+  --dur-overlay: 140ms;
+  --dur-enter: 180ms;
+  --dur-progress: 200ms;
+  --dur-slow: 350ms;
+  --ease-out: ease-out;
+  --ease-linear: linear;
+
+  /* 遮罩浓度两档。深色不另给值——rgb(20 18 14) 本身就接近黑，
+     压在任何一套深色底上都读得出"层浮起来了"。
+     为什么是两档而不是一档：采集面板原先手写过 0.32 并注明理由（"采集是高频动作，
+     不该把整页压黑"），这个理由对所有高频开合的面板都成立，所以把它收成 soft 档，
+     而不是把采集也压到 0.42。 */
+  --overlay-scrim: rgb(20 18 14 / 0.42);
+  --overlay-scrim-soft: rgb(20 18 14 / 0.32);
 
   /* 字体 */
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",

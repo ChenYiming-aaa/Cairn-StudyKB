@@ -33,6 +33,19 @@ html[data-mode="dark"] {
   color-scheme: dark;
 }
 
+/* 主题切换的抑制帧（`useTheme.apply()` 在改 dataset 的那一帧挂上）：
+   换主题时所有 `--c-*` 在同一帧全部重算，页面底色/文字/面板瞬时翻转。
+   但声明了颜色过渡的元素（.btn / .input / .theme-card）会按 150ms 缓过去 ——
+   于是深色↔浅色切换时，它们会比整页慢一拍地变暗，读起来像"按钮没跟上"。
+   这里在那一帧把过渡整体关掉，让所有像素同帧到位。
+   作用域写 `*` 而不是列举几个类名：将来新增的带颜色过渡的组件不必回来补名单。
+   只在切换那一两帧生效，不影响任何交互过渡。 */
+html.theming *,
+html.theming *::before,
+html.theming *::after {
+  transition: none !important;
+}
+
 h1,
 h2,
 h3,
@@ -104,7 +117,7 @@ textarea {
   display: grid;
   grid-template-columns: var(--w-sidebar) var(--w-list) minmax(0, 1fr);
   /* T7.0：折叠/展开的宽度变化由 useLayout 改 CSS 变量，这里负责把它演成动画 */
-  transition: grid-template-columns 0.18s ease;
+  transition: grid-template-columns var(--dur-enter) ease;
 }
 
 /* 拖动中禁用过渡：否则指针和边界之间有 180ms 延迟，手感像在拉橡皮筋 */
@@ -173,7 +186,7 @@ body.is-resizing {
   background: var(--c-bg-1);
   color: var(--c-text-1);
   font-size: var(--fs-sm);
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+  transition: background var(--dur-fast), border-color var(--dur-fast), opacity var(--dur-fast);
   white-space: nowrap;
 }
 
@@ -230,7 +243,7 @@ body.is-resizing {
   border-radius: var(--radius-sm);
   background: var(--c-bg-1);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-fast);
 }
 
 .input:focus,
@@ -344,7 +357,6 @@ dialog:modal {
 
 dialog {
   /* 默认外观交回组件自己：UA 的 padding/border/max-width 会把面板挤歪 */
-  --dialog-backdrop: rgb(20 18 14 / 0.42);
   padding: 0;
   border: 0;
   max-width: none;
@@ -353,7 +365,7 @@ dialog {
   color: inherit;
   opacity: 0;
   transition-property: opacity, display, overlay;
-  transition-duration: 0.14s;
+  transition-duration: var(--dur-overlay);
   transition-timing-function: ease-out;
   /* 单独一行：写进 transition 简写会让不认识它的浏览器整条丢弃 */
   transition-behavior: allow-discrete;
@@ -373,13 +385,13 @@ dialog::backdrop {
   overscroll-behavior: contain;
   background-color: transparent;
   transition-property: background-color, display, overlay;
-  transition-duration: 0.14s;
+  transition-duration: var(--dur-overlay);
   transition-timing-function: ease-out;
   transition-behavior: allow-discrete;
 }
 
 dialog[open]::backdrop {
-  background-color: var(--dialog-backdrop);
+  background-color: var(--overlay-scrim);
 
   @starting-style {
     background-color: transparent;
@@ -410,8 +422,10 @@ dialog[open]::backdrop {
   border-radius: 2px;
   background: var(--meter-fill);
   /* 200ms（原 300ms）：进度值本身是离散跳变，过渡太长会让填充明显落后于读数，
-     逐页识别的 OcrProgress 上尤其看得出来 */
-  transition: inline-size 0.2s ease;
+     逐页识别的 OcrProgress 上尤其看得出来。
+     缓动用 ease-out 而非默认 ease：ease 起步慢（前 30% 时间只走约 12% 距离），
+     在进度条上就是"条比读数慢半拍"，与其余四处进度条也不一致。 */
+  transition: inline-size var(--dur-progress) var(--ease-out);
 }
 
 /* 不确定态（还没拿到总量）：UA 自带的来回滑动在 appearance: none 之后就没了，
@@ -438,6 +452,30 @@ dialog[open]::backdrop {
   .meter:indeterminate {
     animation-duration: 3.2s;
   }
+}
+
+/* ── 自绘进度条（任务进度：上传 / 组件下载 / 批量整理 / 更新）──
+   这四处原本各写一遍，随后各自漂移成两种高度、三种圆角、三种缓动。收到这里一处。
+   填充走 `scaleX` 而不是 `width`：宽高是布局属性，父级 `overflow` 裁剪区每帧都要重算；
+   transform 留在合成器上。
+   **类名不要叫 `.bar`**：PdfView / PptxView 的翻页工具栏也叫 `.bar`，四条 scoped 规则
+   今天互不干扰，但一旦出现全局 `.bar { height: 4px }`，工具栏会被压成一条灰线。
+   专注计时那条不在此列 —— 它量的是"时间流逝"（350ms linear），不是任务进度。 */
+.progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--c-bg-2);
+  overflow: hidden;
+}
+
+/* 填充元素只可能有一个（`<i>` 或 `<span class="bar-fill">`），用 `> *` 免去统一标签 */
+.progress-bar > * {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform var(--dur-progress) var(--ease-out);
 }
 
 /* ── 按钮里的「正在做什么」────────────────────────────

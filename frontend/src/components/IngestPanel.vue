@@ -142,8 +142,10 @@ onBeforeUnmount(() => {
 }
 
 .ingest {
-  /* 遮罩比设置窗口浅一点：采集是高频动作，不该把整页压黑 */
-  --dialog-backdrop: rgb(35 33 28 / 0.32);
+  /* 遮罩比设置窗口浅一点：采集是高频动作，不该把整页压黑。
+     原来这行是本地定义 `--dialog-backdrop`（那个变量只活在 dialog 选择器里、别处拿不到），
+     现在是全局 soft 档，语义没变，但不再是一个只有本文件知道的名字。 */
+  --overlay-scrim: var(--overlay-scrim-soft);
   width: min(720px, 100vw - 2 * var(--space-6));
   max-height: min(90vh, 100vh - 2 * var(--space-6));
   margin: auto;
@@ -191,7 +193,7 @@ onBeforeUnmount(() => {
 .body {
   padding: var(--space-4) var(--space-6) var(--space-6);
   overflow: auto;
-  transition: outline-color 0.15s;
+  transition: outline-color var(--dur-fast);
   outline: 2px dashed transparent;
   outline-offset: -8px;
 }

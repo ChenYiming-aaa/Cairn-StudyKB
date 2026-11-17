@@ -104,6 +104,6 @@ watch(
 .hit {
   background: var(--c-mark);
   color: var(--c-text-1);
-  scroll-margin: 120px;
+  scroll-margin: var(--scroll-offset);
 }
 </style>

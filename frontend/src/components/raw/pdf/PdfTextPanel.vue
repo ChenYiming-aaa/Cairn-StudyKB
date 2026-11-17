@@ -128,7 +128,7 @@ watch(lines, () => {
   background: var(--c-mark);
   color: var(--c-text-1);
   border-radius: 3px;
-  scroll-margin: 120px;
+  scroll-margin: var(--scroll-offset);
 }
 
 .state {

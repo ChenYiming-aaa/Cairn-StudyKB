@@ -73,12 +73,19 @@ const resolvedMode = computed(() =>
 /** 把当前状态写到 `<html>`，并让 `theme-color` 跟着底色走（S-10）。 */
 function apply() {
   const root = document.documentElement
+  /* 切换那一帧禁掉颜色过渡（见 app.css 的 `html.theming`）。
+     不这么做的话，声明了颜色 transition 的元素（.btn / .input / .theme-card）会按 150ms
+     缓到新色，而页面底色、文字、面板都是瞬时翻转 —— 深色↔浅色切换时读起来像"按钮慢了一拍"。 */
+  root.classList.add('theming')
   root.dataset.theme = theme.value
   root.dataset.mode = resolvedMode.value
   root.dataset.fs = fontSize.value
-  // 从计算样式读，避免在这份 JS 里再抄一遍十六进制色表
+  // 从计算样式读，避免在这份 JS 里再抄一遍十六进制色表。
+  // 这一步同时是样式结算点：读计算值会把上面三行属性变更 flush 掉，
+  // 于是"新配色 + transition:none"在同一帧生效，不会有一条过渡被启动。
   const bg = getComputedStyle(root).getPropertyValue('--c-bg-0').trim()
   if (bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg)
+  root.classList.remove('theming')
 }
 
 let started = false

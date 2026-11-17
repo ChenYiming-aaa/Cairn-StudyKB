@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   background: var(--c-bg-1);
-  box-shadow: var(--shadow-1, 0 1px 2px rgb(0 0 0 / 6%));
+  box-shadow: var(--shadow-sm);
 }
 
 .shot,
@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
 
 .canvas {
   opacity: 0;
-  transition: opacity 160ms ease-out;
+  transition: opacity var(--dur-enter) var(--ease-out);
 }
 
 .canvas.in {

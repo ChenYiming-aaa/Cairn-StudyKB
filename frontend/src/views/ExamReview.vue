@@ -1114,6 +1114,14 @@ async function commit() {
   padding: var(--space-4) var(--space-6);
   background: var(--c-bg-0);
   overflow: hidden;
+  /* 它声明了 role="dialog"，但既不压暗也不做焦点圈定 —— 出场至少要和真弹窗同一个节奏，
+     否则同一句"打开一块面板"有三种手感。不淡入的话整块 bg-0 会硬切，像页面重绘了一下 */
+  opacity: 1;
+  transition: opacity var(--dur-overlay) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
 }
 
 .sheet-head {

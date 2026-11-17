@@ -398,7 +398,7 @@ onMounted(() => {
   margin-top: var(--space-2);
   min-width: 20px;
   padding: 0 4px;
-  border-radius: 10px;
+  border-radius: 999px;
   background: var(--c-primary-soft);
   color: var(--c-primary-ink);
   font-size: 11px;

@@ -202,7 +202,7 @@ onBeforeUnmount(() => {
           <span class="time">{{ shortTime(task.created_at) }}</span>
         </div>
 
-        <div v-if="task.status === 'running' || task.status === 'queued'" class="bar">
+        <div v-if="task.status === 'running' || task.status === 'queued'" class="progress-bar">
           <i :style="{ '--p': task.progress / 100 }" />
         </div>
 
@@ -318,23 +318,10 @@ onBeforeUnmount(() => {
   font-size: var(--fs-xs);
 }
 
-.bar {
-  height: 4px;
+/* 进度条走 app.css 的 .progress-bar；这里只补本页的行间距。
+   批量整理时一屏会有 N 行同时走，所以填充在那边刻意用 transform 而不是 width */
+.progress-bar {
   margin-top: var(--space-2);
-  border-radius: 2px;
-  background: var(--c-bg-2);
-  overflow: hidden;
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: var(--c-primary);
-  /* 批量整理时这一页会同时有 N 行在走，每行一次 width 过渡 = 一次布局；改用 scaleX 后全在合成器。
-     200ms 而不是 300ms：进度本身按秒更新，过渡越短越不会拖在数值后面 */
-  transform-origin: left center;
-  transform: scaleX(var(--p, 0));
-  transition: transform 0.2s ease-out;
 }
 
 .row-error {

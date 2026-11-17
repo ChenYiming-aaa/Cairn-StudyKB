@@ -107,7 +107,7 @@ function onKeydown(event) {
   width: 2px;
   height: 100%;
   background: transparent;
-  transition: background 0.15s;
+  transition: background var(--dur-fast);
 }
 
 .split-handle:hover .grip,

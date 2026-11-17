@@ -237,7 +237,17 @@ onBeforeUnmount(stopBreak)
   align-items: flex-start;
   justify-content: flex-end;
   padding: calc(var(--h-topbar) + var(--space-2)) var(--space-6) 0 0;
-  background: rgba(35, 33, 28, 0.12);
+  /* 用 soft 档而不是弹窗的 0.42：这个面板在一次专注里会被开合好几次，
+     和采集面板同理（不该把整页压黑）。原先这里是手写的 rgba(...0.12)，
+     淡到几乎看不出有层浮起来，才是真正的问题 —— 浓度本身不是。 */
+  background: var(--overlay-scrim-soft);
+  /* 出场与弹窗对齐（140ms 淡入）。原先硬切，和设置弹窗并排看是两种东西。 */
+  opacity: 1;
+  transition: opacity var(--dur-overlay) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+  }
 }
 
 .card {
@@ -308,7 +318,7 @@ onBeforeUnmount(stopBreak)
      顺带不再经过百分数取整，走起来没有一格一格的台阶 */
   transform-origin: left center;
   transform: scaleX(var(--p, 0));
-  transition: transform 0.35s linear;
+  transition: transform var(--dur-slow) var(--ease-linear);
 }
 
 .hint {

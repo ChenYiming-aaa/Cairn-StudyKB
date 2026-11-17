@@ -340,7 +340,9 @@ function onOpen(itemId) {
 .task-count {
   min-width: 16px;
   padding: 0 4px;
-  border-radius: 8px;
+  /* 999px 而不是 8px：8px 只在两位数时"看起来像胶囊"（高度 16px 的一半），
+     一旦计数变成三位数、元素被拉宽，8px 就露出上下平边；999px 在任何宽度都是胶囊 */
+  border-radius: 999px;
   background: var(--c-primary);
   color: var(--c-on-primary);
   font-size: 10px;
@@ -487,7 +489,7 @@ function onOpen(itemId) {
   box-shadow: var(--shadow-md);
   font-size: var(--fs-sm);
   cursor: pointer;
-  animation: slide-in 0.18s ease;
+  animation: slide-in var(--dur-enter) ease;
 }
 
 .toast.ok {

@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
 
         <!-- 下载中：进度 + 取消。百分比与字节都来自后端，前端不自己插值 -->
         <div v-if="item.state === 'downloading'" class="progress">
-          <div class="bar"><i :style="{ '--p': (item.install?.pct || 0) / 100 }" /></div>
+          <div class="progress-bar"><i :style="{ '--p': (item.install?.pct || 0) / 100 }" /></div>
           <div class="progress-meta">
             <span class="phase">{{ item.install?.phase === 'verify' ? '校验文件…' : item.install?.phase === 'extract' ? '解压中…' : `${fileSize(item.install?.got, 0)} / ${fileSize(item.install?.total, 0)}` }}</span>
             <button
@@ -366,23 +366,8 @@ onBeforeUnmount(() => {
   margin-top: var(--space-2);
 }
 
-.bar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--c-bg-2);
-  overflow: hidden;
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: var(--c-primary);
-  /* 同 LinkForm：进度走 scaleX，别用 width。这里是组件包下载（实测 118 MB / 两分钟），
-     进度回调最密，width 过渡会连续重排两分钟 */
-  transform-origin: left center;
-  transform: scaleX(var(--p, 0));
-  transition: transform 0.2s ease-out;
-}
+/* 进度条走 app.css 的 .progress-bar。组件包下载实测 118 MB / 两分钟，
+   进度回调最密，所以那里的填充刻意用 transform 而不是 width */
 
 .progress-meta {
   display: flex;

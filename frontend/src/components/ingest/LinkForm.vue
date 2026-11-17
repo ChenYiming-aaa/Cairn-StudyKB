@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
         </span>
         <span class="progress-pct">{{ progress }}%</span>
       </div>
-      <div class="bar"><i :style="{ '--p': progress / 100 }" /></div>
+      <div class="progress-bar"><i :style="{ '--p': progress / 100 }" /></div>
       <p v-if="failed" class="fail-msg">
         {{ cleanError(task.error_msg) }}
         <span v-if="task.error_code" class="code">{{ task.error_code }}</span>
@@ -341,26 +341,8 @@ onBeforeUnmount(() => {
   color: var(--c-text-2);
 }
 
-.bar {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--c-bg-2);
-  overflow: hidden;
-}
-
-.bar i {
-  display: block;
-  height: 100%;
-  background: var(--c-primary);
-  /* 用 scaleX 而不是 width：宽高过渡每帧都要重排（`.bar` 的 overflow 裁剪也跟着重算），
-     transform 留在合成器上。元素始终占满整条，进度只改变它的横向缩放，原点钉在左端。
-     200ms：上传进度一秒内会变好几次，过渡再长就会一直"追不上"当前值 */
-  transform-origin: left center;
-  transform: scaleX(var(--p, 0));
-  transition: transform 0.2s ease-out;
-}
-
-.progress-box.failed .bar i {
+/* 进度条走 app.css 的 .progress-bar（高度/圆角/缓动统一）。这里只留上传失败时的换色 */
+.progress-box.failed .progress-bar > * {
   background: var(--c-danger);
 }
 
