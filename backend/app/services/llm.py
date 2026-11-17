@@ -63,7 +63,7 @@ def error_from(exc: Exception) -> LLMError:
     if status in QUOTA_STATUS:
         return LLMError("LLM_QUOTA", "模型额度不足或触发限流，请检查账户余额后重试",
                         f"HTTP {status}")
-    return LLMError("LLM_HTTP_ERROR", "LLM 调用失败", _safe_detail(exc))
+    return LLMError("LLM_HTTP_ERROR", "模型调用失败", _safe_detail(exc))
 
 
 def no_key_error(profile: Profile) -> LLMError:
@@ -225,7 +225,7 @@ def chat(
                error_msg=last.code if last else "LLM_HTTP_ERROR",
                **_effort_log_fields(profile, body))
     # from None：切断原始 httpx 异常上下文，避免请求头（含 Key）进入异常栈
-    raise (last or LLMError("LLM_HTTP_ERROR", "LLM 调用失败")) from None
+    raise (last or LLMError("LLM_HTTP_ERROR", "模型调用失败")) from None
 
 
 def chat_stream(

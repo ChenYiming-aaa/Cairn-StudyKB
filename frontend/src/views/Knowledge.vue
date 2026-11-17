@@ -465,6 +465,7 @@ onBeforeUnmount(() => {
         @organize-pending="organizePending"
         @select-recent="focusOnItem"
         @create="openPaste"
+        @open-search="router.push('/ask')"
       />
 
       <ItemDetail

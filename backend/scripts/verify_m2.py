@@ -178,7 +178,10 @@ def step_web_ok(client: TestClient) -> int:
     check("落库为 web 且标题/URL 正确",
           rows and rows[0][0] == "web" and rows[0][1] == "https://example.com/a"
           and rows[0][2] == "假网页标题", str(rows))
-    check("状态 pending（等整理）", rows and rows[0][3] == "pending")
+    # 2026-11-17 起单条采集读完会自动排整理：配了 Key 的机器上这里已经是 organizing。
+    # 两种都算对——「还没整理」这件事两种状态都表达了；不带 Key 时仍是 pending。
+    check("状态 pending / organizing（还没整理完）",
+          rows and rows[0][3] in ("pending", "organizing"), str(rows))
     check("chunk 已切（source='raw'）",
           sql("SELECT COUNT(*) FROM chunk WHERE item_id=? AND source='raw'", (item_id,))[0][0] > 0)
     check("FTS 能搜到正文", sql(

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
 import RailToggle from '../components/RailToggle.vue'
+import SearchScopeHint from '../components/SearchScopeHint.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useLayout } from '../composables/useLayout'
 import { useTimer } from '../composables/useTimer'
@@ -32,6 +33,9 @@ const route = useRoute()
 // 详情页「练这条」带过来的材料 id。**只消费一次**：之后用户自己搜索、自己点选，
 // 不该被这个参数反复拽回去（否则列表一刷新就被打回原来那条）。
 const preselect = ref(Number(route.query.item) || null)
+// 试卷复核页「导入完直接做」带过来的标记（2026-11-17）：材料已选好就不该再让用户
+// 点一次「按卷练」。同样只消费一次，且只在选中的确实是试卷时才动手。
+const openPaper = ref(route.query.paper === '1')
 // T5.3：练习页也能直接开一轮专注，目标带入当前选中的来源条目
 const { start: startSession } = useTimer()
 // T7.3：配置栏接入 SidePanel；出题开始后自动收成窄条（答题要的是屏占）
@@ -325,6 +329,14 @@ function onRestart() {
 
 onMounted(async () => {
   await loadItems()
+  // 从试卷复核页进来的：材料已选好、题已在库里，直接开卷
+  if (openPaper.value) {
+    openPaper.value = false
+    if (isExam.value) {
+      await startPaper()
+      return
+    }
+  }
   // 上次做到一半的那组：进来先问一句「是否继续上次答题」（4-3）
   resumeRun()
 })
@@ -362,12 +374,18 @@ onMounted(async () => {
               placeholder="搜标题…"
               @keydown.enter="loadItems"
             />
+            <SearchScopeHint
+              :show="Boolean(keyword) && !loading && !items.length"
+              @open-search="router.push('/ask')"
+            />
             <p v-if="loading" class="cfg-note">加载中…</p>
             <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
             <!-- 空态：一句现状 + 一个能点的出口（L 组）。只说「到知识库去」而不给按钮，
                  等于让用户自己找路 —— 与列表空态（已有采集按钮）的句式对齐 -->
             <div v-else-if="!items.length" class="cfg-empty">
-              <p class="cfg-note">还没有整理好的内容。整理完就能出题。</p>
+              <p class="cfg-note">
+                {{ keyword ? `标题里没有「${keyword}」。` : '还没有整理好的内容。整理完就能出题。' }}
+              </p>
               <button class="btn btn-ghost btn-sm" type="button" @click="router.push('/')">
                 去知识库
               </button>

@@ -106,8 +106,9 @@ def report(question_id: int, body: ResultBody) -> dict:
                 feedback="人工裁定",
             )
             scheduled = repo.apply(conn, question_id, body.correct)
+        # `apply` 对 True/False 一定给出排期（2026-11-17 起首次答对也排 2 天后），
+        # 只有 `correct is None` 才返回 None，而这个端点不收 None（body.correct 是 bool）
         if scheduled is None:
-            # 答对了、而且这题从没答错过：本来就不需要复习，不建队列行，也不是错误
             return {"question_id": question_id, "scheduled": False,
                     "due_at": None, "reason": "not_tracked"}
         return {"scheduled": True, **scheduled}

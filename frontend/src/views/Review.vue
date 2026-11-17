@@ -105,8 +105,8 @@ async function loadPending() {
  * 人工裁定一道「待判」题（H5）。
  *
  * 上报完立刻从列表里移除，并让头部计数跟着减：这道题已经从「不知道」变成明确的
- * 对/错，再留在待判列表里只会让人以为没生效。答错会进明天的复习队列，答对且
- * 从没答错过的题不会新建排期（后端回 `scheduled: false`，不是错误）。
+ * 对/错，再留在待判列表里只会让人以为没生效。答错进明天的队列；答对则往后推
+ * （2026-11-17 起首次答对也排期——2 天后回来，不再是「不进队列」）。
  */
 async function judge(item, correct) {
   const id = item.question_id
@@ -114,14 +114,10 @@ async function judge(item, correct) {
   judging.value = { ...judging.value, [id]: true }
   judgeError.value = { ...judgeError.value, [id]: '' }
   try {
-    const res = await api.reportReview(id, { correct })
+    await api.reportReview(id, { correct })
     pendingItems.value = pendingItems.value.filter((row) => row.question_id !== id)
     pending.value = Math.max(0, pending.value - 1)
-    toast.ok(
-      correct
-        ? (res?.scheduled === false ? '已记为答对；这题不用复习' : '已记为答对，下次复习往后推')
-        : '已记为答错，明天回到复习队列'
-    )
+    toast.ok(correct ? '已记为答对，下次复习往后推' : '已记为答错，明天回到复习队列')
   } catch (err) {
     judgeError.value = { ...judgeError.value, [id]: friendlyMessage(err) }
   } finally {
@@ -223,7 +219,7 @@ onMounted(loadDue)
     <header class="head">
       <div>
         <h1 class="page-title">复习</h1>
-        <p class="page-sub">答错的题按 1 → 2 → 4 → 7 → 15 天的间隔回来，答对一次就延到下一档</p>
+        <p class="page-sub">答错的题明天回来；答对一次就往后推，2 → 4 → 7 → 15 天</p>
       </div>
       <div class="stats">
         <!-- 一个数只有一个名字（4-5）：今日待复习 / 还没到期 / 错题 / 待人工判断 -->
@@ -281,7 +277,7 @@ onMounted(loadDue)
       <p v-else-if="error" class="panel-note pad error">{{ error }}</p>
       <div v-else-if="!items.length" class="state">
         <p class="state-title">今天没有待复习的题</p>
-        <p>去练习里答错几道，明天它们就回到这里。</p>
+        <p>去练习做几道，答过的题会按间隔回到这里。</p>
         <button class="btn btn-sm state-actions" type="button" @click="goPractice">去练习</button>
       </div>
       <ul v-else class="rows">

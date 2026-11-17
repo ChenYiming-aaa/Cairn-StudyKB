@@ -80,20 +80,35 @@ def sample_material(chunks: list[str], limit: int = MAX_MATERIAL) -> str:
     return "\n\n".join(out)
 
 
+def _chunk_texts(conn, item_id: int, source: str) -> list[str]:
+    rows = conn.execute(
+        "SELECT content FROM chunk WHERE item_id=? AND source=? ORDER BY position",
+        (item_id, source),
+    ).fetchall()
+    return [r["content"] for r in rows]
+
+
 def material_for_item(conn, item_id: int, limit: int = MAX_MATERIAL) -> tuple[str, str]:
-    """返回 (标题, 材料)。条目不存在抛 ITEM_NOT_FOUND，材料过短抛 QUIZ_MATERIAL_TOO_SHORT。"""
+    """返回 (标题, 材料)。条目不存在抛 ITEM_NOT_FOUND，材料过短抛 QUIZ_MATERIAL_TOO_SHORT。
+
+    **优先用整理后的笔记（`source='note'`）**，原文兜底（2026-11-17）。
+    在此之前只读 `source='raw'`，等于让模型把原文重新理解一遍——
+    用户刚花一次调用拿到的结构化笔记对出题零贡献，而且两边可能给出互相矛盾的要点。
+    笔记是模型压缩过的结构，同样的题数更省 token、也更贴要点。
+
+    笔记太短时**必须退回原文**：模型偶尔只写两行笔记，此时拿它出题会撞
+    「材料过短」，把一件本来能做的事报成做不了。
+    """
     row = conn.execute(
         "SELECT id, title, raw_content FROM knowledge_item WHERE id=?", (item_id,)
     ).fetchone()
     if row is None:
         raise QuizError("ITEM_NOT_FOUND", f"内容 {item_id} 不存在", status=404)
 
-    rows = conn.execute(
-        "SELECT content FROM chunk WHERE item_id=? AND source='raw' ORDER BY position",
-        (item_id,),
-    ).fetchall()
-    chunks = [r["content"] for r in rows] or [row["raw_content"] or ""]
-    material = sample_material(chunks, limit)
+    material = sample_material(_chunk_texts(conn, item_id, "note"), limit)
+    if len(material) < MIN_MATERIAL:
+        chunks = _chunk_texts(conn, item_id, "raw") or [row["raw_content"] or ""]
+        material = sample_material(chunks, limit)
     if len(material) < MIN_MATERIAL:
         raise QuizError(
             "QUIZ_MATERIAL_TOO_SHORT",

@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from '../api/client'
 import RailToggle from '../components/RailToggle.vue'
+import SearchScopeHint from '../components/SearchScopeHint.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
@@ -18,6 +20,7 @@ import { fileSize, shortTime } from '../utils/format'
  */
 const PAGE_SIZE = 100
 const toast = useToast()
+const router = useRouter()
 const { openPaste } = useUi()
 
 const items = ref([])
@@ -187,6 +190,10 @@ onMounted(() => {
               placeholder="搜标题…"
               @keydown.enter="onSearch"
             />
+            <SearchScopeHint
+              :show="Boolean(keyword) && !loading && !items.length"
+              @open-search="router.push('/ask')"
+            />
             <div class="picker-meta">
               <span>已选 {{ pickedCount }} 条</span>
               <button v-if="pickedCount" class="link-btn" type="button" @click="clearPicked">
@@ -198,9 +205,12 @@ onMounted(() => {
           <ul v-if="!listError" class="picker-list">
             <li v-if="loading" class="picker-empty">加载中…</li>
             <li v-else-if="!items.length" class="picker-empty">
-              <span>还没有内容。先采一条，这里就能选了。</span>
+              <!-- 搜了词却没结果时不能说「还没有内容」：库里可能有一堆，
+                   只是标题里没这个词（这个框只搜标题） -->
+              <span v-if="keyword">标题里没有「{{ keyword }}」。</span>
+              <span v-else>还没有内容。先采一条，这里就能选了。</span>
               <!-- 空态只说"先去采集"却不给按钮，用户得自己回顶栏找 —— 采集面板本来就是全局的 -->
-              <button class="btn btn-sm" type="button" @click="openPaste()">＋ 采集内容</button>
+              <button v-if="!keyword" class="btn btn-sm" type="button" @click="openPaste()">＋ 采集内容</button>
             </li>
             <template v-else>
               <li v-for="item in items" :key="item.id">

@@ -30,6 +30,7 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-m3-"))
 os.environ["DATA_DIR"] = str(TMP)  # 必须早于 import app：get_settings() 首次调用即缓存
+os.environ["CAIRN_NO_AUTO_ORGANIZE"] = "1"   # 2026-11-17：本脚本验具体机制，自动整理会改动中间态（m1 末尾单独验它）
 os.environ["VECTOR_ENABLED"] = "0"
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 

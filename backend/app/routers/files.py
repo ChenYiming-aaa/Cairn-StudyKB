@@ -51,7 +51,7 @@ def upload_file(
     )
 
 
-def _queue_read(saved: file_service.Saved) -> str:
+def _queue_read(saved: file_service.Saved, *, auto_organize: bool = True) -> str:
     """落盘后直接排队读字，返回 task_id。
 
     **一条格式一个队列，不能混**：PDF / 图片要先装识别组件（没装就留在 `pending`，
@@ -61,6 +61,10 @@ def _queue_read(saved: file_service.Saved) -> str:
     **不在这里 409 掉上传**：原件必须留住，「读不出字」是后续状态而不是上传失败
     （T9.8 的界面就是按「已存好 + 需要装识别组件」两段来提示的）。
     先写 running 再派任务：中间的毫秒级窗口里第二个请求不该又派一份。
+
+    `auto_organize=False` 只给**文件夹批量导入**用（`routers/imports.py`）：
+    单文件上传读完直接整理是「一条刚丢进来的东西自己变好」，批量导入则是一次几十条，
+    自动整理等于一次几十个模型调用，得让用户在清单页上自己决定导哪几条、什么时候整理。
     """
     if saved.ocr_status != "pending":
         return ""
@@ -78,4 +82,5 @@ def _queue_read(saved: file_service.Saved) -> str:
     finally:
         conn.close()
     saved.ocr_status = "running"
-    return dispatch.submit(task_type, {"file_id": saved.file_id})
+    return dispatch.submit(task_type, {"file_id": saved.file_id},
+                           auto_organize=auto_organize)

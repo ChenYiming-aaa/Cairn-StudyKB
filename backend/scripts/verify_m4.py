@@ -9,7 +9,7 @@
   2b. 选项文本（缺陷回归）：options 只存裸文本，A./B、/(C)/D） 前缀在生成侧与读侧都剥掉
   3. 判分（T4.4）：多选乱序、少选、字符串形状、单选大小写、判断布尔、空答案、简答反馈、
      批改失败落 NULL（不是 0）、错误码归一（超时 / 额度 / 其他 HTTP 分开）
-  4. 复习（T4.6）：答错明天回来、时间旅行、1→2→4→7→15、答错重置、NULL 不排期、错题本
+  4. 复习（T4.6）：答错明天回来、时间旅行、2→4→7→15、答错重置、首次答对也排期、NULL 不排期、错题本
   5. 参数校验与错误码
 
 全程临时 DATA_DIR，不碰 data/data.db。**不真调模型**：出题把 `quizzer.stream` 换成脚本化假流，
@@ -428,7 +428,7 @@ def step_review(client: TestClient, qids: dict, item_id: int) -> None:
     check("待复习的题自带 options/answer 可直接作答",
           hit and hit[0]["options"] and hit[0]["answer"], str(hit[:1]))
 
-    # 间隔推进：1→2→4→7→15（直接打仓库，端点不暴露时间旅行）
+    # 间隔推进：答错后连续答对 → 2→4→7→15（直接打仓库，端点不暴露时间旅行）
     conn = get_conn()
     try:
         moment = datetime.now(timezone.utc)
@@ -444,15 +444,19 @@ def step_review(client: TestClient, qids: dict, item_id: int) -> None:
         check("待人工判断不排期（None 原样返回）", rrepo.apply(conn, multiple, None) is None)
         conn.commit()
 
-        # 从没答错过的题：答对不新建、待判也不新建
+        # 一次就答对的题：2026-11-17 起也排期（2 天后第一次回来）。
+        # 改这里之前先读 repo/review.py 文件头——「答对不进队列」是有意的历史决定，
+        # 现在的决定是「也要回来」，别再当 bug 改回去。
         fresh = add_question(item_id, qtype="single", question="从没答错过的题？",
                             options=["A. 甲", "B. 乙"], answer="A")
         rows_before = sql("SELECT COUNT(*) FROM review_item")[0][0]
-        check("答对但从未答错 → 不进队列", rrepo.apply(conn, fresh, True) is None)
-        check("待人工判断也不建队列行", rrepo.apply(conn, fresh, None) is None)
+        first = rrepo.apply(conn, fresh, True, now=moment)
+        check("首次答对 → 也进队列，interval=2",
+              bool(first) and first["interval_days"] == 2, str(first))
+        check("待人工判断仍不排期（None 原样返回）", rrepo.apply(conn, fresh, None) is None)
         conn.commit()
-        check("两次都没有新增队列行",
-              sql("SELECT COUNT(*) FROM review_item")[0][0] == rows_before)
+        check("只新增了一条队列行（待判那次没建）",
+              sql("SELECT COUNT(*) FROM review_item")[0][0] == rows_before + 1)
     finally:
         conn.close()
 
@@ -520,9 +524,13 @@ def step_review(client: TestClient, qids: dict, item_id: int) -> None:
     resp = client.post(f"/api/review/{multiple}/result", json={"correct": True})
     check("POST /review/{id}/result 推进间隔",
           resp.status_code == 200 and resp.json()["scheduled"] is True, resp.text[:120])
-    resp = client.post(f"/api/review/{fresh}/result", json={"correct": True})
-    check("未在队列里的题报「答对」→ scheduled=false（不算错误）",
-          resp.status_code == 200 and resp.json()["scheduled"] is False, resp.text[:120])
+    # 端点上的同一件事，用一道**全新**的题验：`fresh` 上面已经排过期了
+    fresh2 = add_question(item_id, qtype="single", question="端点报「答对」的未排期题？",
+                         options=["A. 甲", "B. 乙"], answer="A")
+    resp = client.post(f"/api/review/{fresh2}/result", json={"correct": True})
+    check("未排期过的题报「答对」→ 也建档，interval=2",
+          resp.status_code == 200 and resp.json()["scheduled"] is True
+          and resp.json()["interval_days"] == 2, resp.text[:120])
     resp = client.post("/api/review/99999/result", json={"correct": True})
     check("上报不存在的题 → 404 QUESTION_NOT_FOUND",
           resp.status_code == 404 and resp.json()["error"]["code"] == "QUESTION_NOT_FOUND")

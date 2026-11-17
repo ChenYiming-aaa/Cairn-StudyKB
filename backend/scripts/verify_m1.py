@@ -27,6 +27,10 @@ sys.path.insert(0, str(BACKEND))
 TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-"))
 os.environ["DATA_DIR"] = str(TMP)  # 必须早于 import app：get_settings() 首次调用即缓存
 os.environ.setdefault("LOG_LEVEL", "WARNING")
+# 本脚本验的是**手工整理**这条老流程（创建 → 点整理 → organize-pending 批量）：
+# 自动整理一开，「创建完还是 pending」这个中间态就不存在了，第 2/3 步全部走不通。
+# 单独用 `step_auto_organize` 在末尾把开关打开验一次（2026-11-17）。
+os.environ["CAIRN_NO_AUTO_ORGANIZE"] = "1"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -240,6 +244,42 @@ def step_delete(client: TestClient, item_id: int) -> None:
           f"chunk={total_chunk} fts={total_fts}")
 
 
+def step_auto_organize(client: TestClient) -> None:
+    """粘贴进来就直接排整理（2026-11-17）。
+
+    这条链路是「用户少点一下」的全部价值所在，所以判据只有两条：
+    创建响应里带着 organize 任务、且它真的跑完了。中间态（status=organizing）
+    是用户会看到的东西，也一并验，免得界面上「已存入」和「整理中」对不上。
+    """
+    step("7/9 粘贴后自动整理（CAIRN_NO_AUTO_ORGANIZE 关掉后）")
+    os.environ.pop("CAIRN_NO_AUTO_ORGANIZE", None)
+    try:
+        resp = client.post("/api/knowledge", json={
+            "title": "自动整理探针",
+            "raw_content": (
+                "间隔重复的核心是把复习安排在即将遗忘的时刻。"
+                "间隔太短浪费时间，太长等于重学一遍。"
+                "常见做法是每次答对之后把间隔拉长，答错就回到起点。"
+            ),
+        })
+        item = resp.json()
+        check("创建即排整理（201 + organizing + task_id）",
+              resp.status_code == 201 and item.get("status") == "organizing"
+              and bool(item.get("organize_task_id")),
+              f"status={item.get('status')} task={item.get('organize_task_id')}")
+        task = wait_task(client, item.get("organize_task_id") or "")
+        check("自动排的整理任务 done", task.get("status") == "done",
+              task.get("error_code") or "")
+        detail = client.get(f"/api/knowledge/{item['id']}").json()
+        check("整理完状态变已整理且有了摘要",
+              detail.get("status") == "ready" and bool(detail.get("summary")),
+              f"status={detail.get('status')} summary={bool(detail.get('summary'))}")
+        client.delete(f"/api/knowledge/{item['id']}")
+    finally:
+        # 后面的用例（以及将来新增的）默认还按手工流程走
+        os.environ["CAIRN_NO_AUTO_ORGANIZE"] = "1"
+
+
 def step_no_key(client: TestClient) -> None:
     step("7/8 未配置 Key → LLM_NO_KEY，服务不崩")
     # 「现在有没有 Key」由 `llm_route.resolve()` 按 provider 的 key_env 判断，
@@ -316,6 +356,7 @@ def main() -> int:
             step_edit_note(client, created[0]["id"])
             step_filters(client, created[0]["id"])
             step_delete(client, created[0]["id"])
+            step_auto_organize(client)
             step_no_key(client)
             step_copy_db()
     except Exception as exc:  # 任何未捕获异常都算验收失败，不能静默

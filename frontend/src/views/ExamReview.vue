@@ -451,11 +451,18 @@ async function commit() {
       downgraded ? `${downgraded} 题选项没认全，存成了简答` : '',
       kept ? `${kept} 题练过，没能删掉（记录留着）` : '',
     ].filter(Boolean).join('；')
-    toast.ok(`已导入 ${result.imported} 题${extra ? `，${extra}` : ''}`)
     // 已经写回库里：走之前把快照对齐，别让「离开确认」拦在自己这一步
     baseline.value = snapshot()
-    router.push('/')
-    openItem(result.item_id)
+    if (result.imported > 0 && result.item_id) {
+      // 校对完 24 道题、注意力最好的那一刻，不该让用户再回练习页找这份卷子（2026-11-17）。
+      // `paper=1` 让练习页自己开卷，省掉「选材料 → 点出题」两步。
+      toast.ok(`已导入 ${result.imported} 题${extra ? `，${extra}` : ''}，直接开始做`)
+      router.push({ path: '/practice', query: { item: String(result.item_id), paper: '1' } })
+    } else {
+      toast.ok(`已导入 ${result.imported} 题${extra ? `，${extra}` : ''}`)
+      router.push('/')
+      openItem(result.item_id)
+    }
   } catch (err) {
     toast.error(friendlyMessage(err))
   } finally {

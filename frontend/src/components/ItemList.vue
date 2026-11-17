@@ -11,6 +11,7 @@ import { ref, watch } from 'vue'
 import SidePanel from './SidePanel.vue'
 import BulkMoveBar from './list/BulkMoveBar.vue'
 import ItemRow from './list/ItemRow.vue'
+import SearchScopeHint from './SearchScopeHint.vue'
 import { shortTime } from '../utils/format'
 
 const props = defineProps({
@@ -32,6 +33,8 @@ const props = defineProps({
 })
 const emit = defineEmits([
   'select', 'search', 'retry', 'organize-pending', 'select-recent', 'create', 'move',
+  // 「只搜标题」提示里的出路（2026-11-17）：本组件不碰路由，交给 Knowledge 跳检索页
+  'open-search',
 ])
 
 const keyword = ref(props.q)
@@ -153,6 +156,8 @@ function clearKeyword() {
       <div v-else-if="!items.length" class="state">
         <p class="state-title">{{ filtered ? '没有匹配的内容' : '这里放你的内容' }}</p>
         <p>{{ filtered ? '换个关键词，或点左栏「全部内容」。' : '还没有采集过内容。' }}</p>
+        <!-- 搜了词却没结果：这个框只搜标题，别让人以为库里真没有（2026-11-17） -->
+        <SearchScopeHint :show="Boolean(keyword)" @open-search="emit('open-search')" />
 
         <ul v-if="recent.length" class="recent">
           <li class="recent-label">最近采集的</li>

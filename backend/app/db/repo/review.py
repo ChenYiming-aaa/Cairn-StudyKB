@@ -3,8 +3,13 @@
 间隔规则刻意简单（M4 §6.5 / 数据契约 §4，不做 SM-2 / FSRS）：
 
     答错：interval = 1，lapses += 1
-    答对且 interval < 7：interval = min(interval * 2, 7)   即 1→2→4→7
+    答对且没有排期记录：interval = FIRST_CORRECT（2 天）
+    答对且 interval < 7：interval = min(interval * 2, 7)   即 2→4→7
     答对且 interval >= 7：interval = 15
+
+「答对且没有排期记录」这一档是 2026-11-17 补的。此前它返回 None（不进队列），
+于是**一次就答对的题永远不回来**——「今日待复习」实际只剩错题，而一次答对的题
+恰恰是最该在遗忘点再确认的那批。现在它也进队列，2 天后第一次回来。
 
 `due_at` **存 UTC**（用户 2026-11-07 裁决），比较只在 Python 侧做：
 本地时间带 `+08:00`、UTC 带 `+00:00`，混着进 SQL 比字典序必错（数据契约 §3）。
@@ -25,6 +30,7 @@ from app.db.repo.questions import row_to_question
 UTC = timezone.utc
 MAX_INTERVAL = 15
 CAP_INTERVAL = 7           # interval < 7 时翻倍，到 7 之后直接跳 15
+FIRST_CORRECT = 2          # 首次就答对：2 天后第一次回来（见文件头）
 
 
 def _now(now: datetime | None = None) -> datetime:
@@ -63,17 +69,18 @@ def apply(
     """按一次作答结果写/推进复习项，返回新的排期；None 表示这次不需要排期。
 
     - `correct is None`：批改失败/待人工判断 → 不排期（绝不因为没批出来就把题塞进队列）
-    - `correct is True` 且队列里没有这题：从没答错过，答对了没必要复习 → 不新建
+    - `correct is True` 且队列里没有这题：**从 2 天后开始排**（2026-11-17 起；
+      此前是「不进队列」，导致一次答对的题永远不回来）
     - `correct is False`：新建或重置为明天
     """
     if correct is None:
         return None
 
     current = get(conn, question_id)
-    if current is None and correct:
-        return None
-
-    interval = 1 if current is None else next_interval(int(current["interval_days"]), correct)
+    if current is None:
+        interval = FIRST_CORRECT if correct else 1
+    else:
+        interval = next_interval(int(current["interval_days"]), correct)
     lapses = (int(current["lapses"]) if current else 0) + (0 if correct else 1)
     due_at = to_utc_iso(_now(now) + timedelta(days=interval))
     result = 1 if correct else 0

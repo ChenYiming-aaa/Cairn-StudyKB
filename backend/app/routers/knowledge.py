@@ -115,6 +115,14 @@ def create_item(body: CreateBody) -> JSONResponse:
         conn.close()
     # 提交之后再派任务：补向量要读到已落库的 chunk（M3 §6.2）
     embedder.schedule(row["id"])
+    # 粘贴进来就整理（2026-11-17）：单条来源自动整理，省掉「再去列表点一下开始整理」。
+    # 重复粘贴（duplicated）不排：那条内容多半已经整理过，`organize_if_pending`
+    # 也会按状态挡掉，但少发一次请求总是好的。
+    if not duplicated:
+        task_id = dispatch.organize_if_pending(int(row["id"]))
+        if task_id:
+            payload["status"] = "organizing"
+            payload["organize_task_id"] = task_id
     return JSONResponse(status_code=201, content=payload)
 
 

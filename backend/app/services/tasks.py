@@ -49,12 +49,18 @@ def submit(
     input: dict | None = None,
     *,
     pass_task_id: bool = False,
+    on_done: Callable[[dict | None], None] | None = None,
 ) -> str:
     """登记任务并立即返回 uuid；fn 抛出的异常捕获后写入 error_code/error_msg。
 
     `pass_task_id=True` 时以 `fn(input, task_id)` 调用 —— 需要回报进度的长任务
     （抓取 10/50/90、转录按音频时长）必须拿到自己的 id，见 M2 §6.4。
+
+    `on_done` 是**成功之后**的串接钩子（2026-11-17 加）：采集读完就整理要靠它。
+    刻意不做成「fn 里再调一次 submit」——那会把模型调用塞进抓取/识别的 try 块，
+    模型失败会让采集任务本身变成 failed，而事实是内容已经进库了。
     """
+
     conn = get_conn()
     try:
         with conn:
@@ -79,6 +85,7 @@ def submit(
             finally:
                 conn.close()
             _schedule_embed(type, output)
+            _run_on_done(on_done, output)
         except Exception as exc:
             # 红线 8：任何异步失败都必须落到 agent_task，不许静默死亡
             # 红线 7：只记类型 + 摘要，不打印原始异常栈（httpx 异常可能带请求头）
@@ -104,6 +111,21 @@ def submit(
 
     _get_executor().submit(_run)
     return task_id
+
+
+def _run_on_done(hook: Callable[[dict | None], None] | None,
+                 output: dict | None) -> None:
+    """执行串接钩子。**钩子失败不许影响任务本身的成功状态**（任务确实成功了）。
+
+    与 `_schedule_embed` 是同一套逻辑：内容已经进库、任务已经 done，
+    后续那一步（排整理）失败只该记日志，不该把「已采集」改判成「失败」。
+    """
+    if hook is None:
+        return
+    try:
+        hook(output)
+    except Exception as exc:
+        log.warning("任务完成后的串接步骤失败（%s）：%s", type(exc).__name__, str(exc)[:200])
 
 
 def _schedule_embed(task_type: str, output: dict | None) -> None:

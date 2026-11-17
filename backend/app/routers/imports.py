@@ -131,8 +131,9 @@ def _import_one(raw: str) -> dict:
         raise ApiError("IMPORT_NOT_FOUND", "这个文件不在了", detail=raw, status=404)
     with path.open("rb") as handle:
         saved = file_service.save(handle, filename=path.name)
-    # 排队读字与上传走同一条路：组件没装就留在 pending，装完点重读即可
-    task_id = _queue_read(saved)
+    # 排队读字与上传走同一条路：组件没装就留在 pending，装完点重读即可。
+    # 但**不自动整理**：这是批量导入，一次几十个文件就是几十次模型调用（2026-11-17）
+    task_id = _queue_read(saved, auto_organize=False)
     return {
         "path": str(path),
         "name": path.name,

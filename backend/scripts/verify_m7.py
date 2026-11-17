@@ -264,8 +264,14 @@ def width_of(page, selector: str) -> int:
 
 
 def scan_text(page, where: str) -> list[str]:
+    """页面上出现的禁止词。命中时把上下文打出来 —— 只报一个词，改起来全靠猜
+    （2026-11-17：「任务中心 [LLM]」查了半天才定位到是错误码被渲染）。"""
     text = page.inner_text("body")
-    return [word for word in FORBIDDEN if word in text]
+    hits = [word for word in FORBIDDEN if word in text]
+    for word in hits:
+        at = text.find(word)
+        print(f"      · 命中「{word}」上下文：…{text[max(0, at - 30):at + 30]}…".replace("\n", " "))
+    return hits
 
 
 def main() -> int:
@@ -750,6 +756,11 @@ def main() -> int:
             page.locator(".detail .tabs .tab").first.wait_for(timeout=15000)
             labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("普通资料仍有「整理笔记」页签", "整理笔记" in labels, str(labels))
+            # 2026-11-17：导图与笔记同源，从一级页签降为笔记页里的折叠块。
+            # 断言两条一起看：页签里没有它，折叠块在（只删不加 = 导图没了）。
+            check("普通资料的一级页签里没有「思维导图」", "思维导图" not in labels, str(labels))
+            check("导图折叠块在「整理笔记」页签里",
+                  page.locator(".pane-note .mindmap-fold > summary").count() == 1)
 
             # 页签名是「摘要与要点」、正文标题原来叫「关键点」：同一个东西两个词，2026-11-15 统一。
             # 这条断言同时挡住回退（改回关键点会红）。
@@ -896,7 +907,9 @@ def main() -> int:
             page.wait_for_selector(".list-body .row")
             page.locator(".list-body").get_by_text("费曼技巧：用输出倒逼输入").click()
             page.wait_for_timeout(500)
-            page.get_by_role("button", name="思维导图").click()
+            # 2026-11-17：导图从一级页签降成「整理笔记」里的折叠块，先进笔记页签再展开
+            page.get_by_role("button", name="整理笔记").click()
+            page.locator(".mindmap-fold > summary").click()
             page.wait_for_timeout(700)
             mm_src = page.locator(".mindmap-img").get_attribute("src") or ""
             check("导图请求带上主题 id 与明暗",
@@ -969,7 +982,8 @@ def main() -> int:
                 page.wait_for_timeout(600)
                 page.screenshot(path=str(shots / "02-item-detail.png"))
 
-                page.get_by_role("button", name="思维导图").click()
+                page.get_by_role("button", name="整理笔记").click()
+                page.locator(".mindmap-fold > summary").click()
                 page.wait_for_timeout(900)
                 page.screenshot(path=str(shots / "03-mindmap.png"))
 

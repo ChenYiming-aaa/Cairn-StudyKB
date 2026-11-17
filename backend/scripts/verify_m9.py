@@ -68,6 +68,7 @@ ROOT = BACKEND.parent
 TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-m9-"))
 (TMP / ".env").write_text("LLM_API_KEY=sk-verify-m9-not-a-real-key\n", encoding="utf-8")
 os.environ["DATA_DIR"] = str(TMP)            # 必须早于 import app
+os.environ["CAIRN_NO_AUTO_ORGANIZE"] = "1"   # 2026-11-17：本脚本验具体机制，自动整理会改动中间态（m1 末尾单独验它）
 os.environ["VECTOR_ENABLED"] = "0"           # 这里验识别，不验向量；补向量单独打桩计数
 os.environ["CAIRN_ENV_STRICT"] = "1"
 os.environ["CAIRN_COMPONENT_MODE"] = "process"   # 走真子进程，跟线上一致

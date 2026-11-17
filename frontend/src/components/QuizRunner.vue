@@ -290,12 +290,13 @@ async function judge(item, correct) {
   judging.value = { ...judging.value, [id]: true }
   judgeError.value = { ...judgeError.value, [id]: '' }
   try {
-    const res = await api.reportReview(id, { correct })
+    await api.reportReview(id, { correct })
     // 就地改状态：按钮消失、徽标变 ✓/✗、上面的待判计数跟着减（computed 自动）
     item.is_correct = correct
     judgeNote.value = {
       ...judgeNote.value,
-      [id]: res?.scheduled === false ? '已记为答对；这题不用复习' : correct ? '已记为答对' : '已记为答错，明天回到复习队列',
+      // 2026-11-17 起答对也会排期（首次答对 2 天后回来），不再有「这题不用复习」
+      [id]: correct ? '已记为答对，下次复习往后推' : '已记为答错，明天回到复习队列',
     }
     toast.ok(judgeNote.value[id])
   } catch (err) {

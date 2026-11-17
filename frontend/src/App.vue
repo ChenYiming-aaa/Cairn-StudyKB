@@ -185,7 +185,10 @@ function onOpen(itemId) {
       <nav class="nav">
         <router-link to="/" class="nav-item" exact-active-class="on">知识库</router-link>
         <router-link to="/ask" class="nav-item" active-class="on">检索</router-link>
-        <router-link to="/pages" class="nav-item" active-class="on">学习</router-link>
+        <!-- 「导出」而不是「学习」：这一页做的是把几条内容装订成一份离线文件，
+             不是「在这里学」——叫「学习」会让用户点进来找一个不存在的学习流程。
+             页面标题仍是「学习页」，那是产物名（文案规范 §1 术语表） -->
+        <router-link to="/pages" class="nav-item" active-class="on">导出</router-link>
         <router-link to="/practice" class="nav-item" active-class="on">练习</router-link>
         <router-link to="/review" class="nav-item" active-class="on">复习</router-link>
         <!-- 试用（只在演示站注册）：用自己的 Key 真跑一遍整理 / 追问 / 出题 -->

@@ -39,6 +39,11 @@ const { theme, resolvedMode } = useTheme()
 
 const tab = ref('summary')
 const organizing = ref(false)
+// 笔记页签里的导图折叠块是否展开（2026-11-17 从一级页签降下来）
+const mindmapOpen = ref(false)
+function onMindmapToggle(event) {
+  mindmapOpen.value = Boolean(event?.target?.open)
+}
 // 问答点 [n] 跳过来时定位的那一段：{text, key}。key 每次跳转都变，
 // 目的是让 RawPane 即使跳的是同一段也能重新滚动一次。
 const focus = ref(null)
@@ -46,16 +51,27 @@ let stopPolling = null
 
 // T9.11：试卷不出笔记（整理只出卷面概览），所以「整理笔记」页签对它不给
 // —— 留着一个空编辑器，等于暗示「这里本该有笔记」
+//
+// 2026-11-17：导图从一级页签降为「整理笔记」里的折叠块。理由是同源——
+// 导图按 `structured_note` 的标题层级画，和笔记是**同一份内容的两种排版**，
+// 不产生新信息；给它一个和「原文」并列的页签，等于把「换一种画法」说成「另一种内容」。
+// 例外是试卷：试卷没有笔记页签，导图是它唯一的结构视图，留在页签上（见 `tabs`）。
 const TABS_ALL = [
   { key: 'summary', label: '摘要与要点' },
   { key: 'note', label: '整理笔记' },
   { key: 'raw', label: '原文' },
-  { key: 'mindmap', label: '思维导图' },
   { key: 'sessions', label: '学习记录' },
 ]
-const tabs = computed(() =>
-  props.item?.kind === 'exam' ? TABS_ALL.filter((entry) => entry.key !== 'note') : TABS_ALL
-)
+const MINDMAP_TAB = { key: 'mindmap', label: '思维导图' }
+const tabs = computed(() => {
+  if (props.item?.kind !== 'exam') return TABS_ALL
+  // 试卷：去掉 note，把 mindmap 放在「原文」后面（与改动前的顺序一致）
+  return TABS_ALL.flatMap((entry) => {
+    if (entry.key === 'note') return []
+    if (entry.key === 'raw') return [entry, MINDMAP_TAB]
+    return [entry]
+  })
+})
 
 // T5.3：从条目点「开始专注」，把这条件为目标带进计时（target_type=item）
 const { start: startSession } = useTimer()
@@ -425,6 +441,21 @@ onBeforeUnmount(() => {
 
         <div v-show="tab === 'note'" class="pane pane-note">
           <NoteEditor :key="item.id" :item-id="item.id" :note="item.structured_note || ''" @saved="onNoteSaved" />
+          <!-- 导图按笔记的标题层级画，是同一份内容的另一种排版。
+               折叠起来但留在同一屏：想「看结构」时不用换页签，找笔记时也不会被它抢走版面。
+               v-if 挂在 details 的开关上：没展开就不发导图请求（它是现场生成的 SVG）。 -->
+          <details class="mindmap-fold" @toggle="onMindmapToggle">
+            <summary class="mindmap-summary">看结构（思维导图）</summary>
+            <div v-if="mindmapOpen" class="mindmap-fold-body">
+              <MindmapPane
+                :item-id="item.id"
+                :updated-at="item.updated_at || ''"
+                :theme="theme"
+                :mode="resolvedMode"
+                @organize="organize"
+              />
+            </div>
+          </details>
         </div>
 
         <!-- T9.10：原文按原件格式分派（PDF 页图、Word 版式、PPT 大纲、图片对照）；
@@ -651,6 +682,47 @@ onBeforeUnmount(() => {
 .pane-note {
   display: flex;
   flex-direction: column;
+  /* 笔记编辑器自己滚，导图折叠块跟在它下面；整页不滚 */
+  overflow: hidden;
+}
+
+/* 导图折叠块：标题行常驻，展开后在自己的框里滚，不把笔记挤出屏幕 */
+.mindmap-fold {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--c-border);
+  max-height: 60%;
+  overflow: auto;
+}
+
+.mindmap-summary {
+  padding: var(--space-2) 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-2);
+  cursor: pointer;
+  list-style: none;
+}
+
+.mindmap-summary::-webkit-details-marker {
+  display: none;
+}
+
+.mindmap-summary::before {
+  content: '▸';
+  margin-right: var(--space-1);
+  color: var(--c-text-3);
+}
+
+.mindmap-fold[open] .mindmap-summary::before {
+  content: '▾';
+}
+
+.mindmap-summary:hover {
+  color: var(--c-text-1);
+}
+
+/* MindmapPane 根节点是 height:100%，在 details 里没有确定高度会塌成 0 —— 给它一个底 */
+.mindmap-fold-body {
+  min-height: 240px;
 }
 
 .detail-body {
