@@ -73,6 +73,12 @@ desktop.ini
 # ── 工具运行时数据（私有工作笔记，不入库）──
 .workbuddy/
 
+# ── AOCI 认知层 ────────────────────────
+# .aoci/ 内部哪些文件入库由它自带的 .aoci/.gitignore 白名单决定：
+# 只放行 .gitignore / baseline.json / database-baseline.json / config.json / curation.json，
+# 其余（ledger、transactions、drafts、verify_history、fingerprints、governance）
+# 按工具定义都是本机运行时产物，不要在这里重复声明、更不要 -f 强加。
+
 # ── 本地验收样本（执行计划 §2.1：样本不提交）──
 # 16 份 docx/pdf、网络配图与自检报告不入库；生成脚本与 samples/README.md 保留以便复现
 samples/*/
