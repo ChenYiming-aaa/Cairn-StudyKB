@@ -156,6 +156,9 @@ function hiddenTags(cat) {
   padding: var(--space-2) 0;
 }
 
+/* 分组标题对齐 WorkspaceBar 的 .ws-title（12 / 600 / text-2 / 0.06em）——
+   这一档在「工作区」已经存在，只是「分类」「常用标签」还写着 400 + text-3，
+   于是同一列里三个分组的标题深浅不一，而它们都比自己的条目淡。 */
 .section-head {
   display: flex;
   align-items: center;
@@ -164,14 +167,15 @@ function hiddenTags(cat) {
   padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;
-  color: var(--c-text-3);
+  color: var(--c-text-2);
   font-size: var(--fs-xs);
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-align: left;
 }
 
 .section-head:hover {
-  color: var(--c-text-2);
+  color: var(--c-text-1);
 }
 
 .caret {

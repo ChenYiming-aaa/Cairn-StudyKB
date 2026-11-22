@@ -45,7 +45,7 @@ watch(src, () => {
 
 <template>
   <div class="mindmap-pane">
-    <p class="mindmap-hint">按笔记里的标题层级生成。改完笔记保存，导图会跟着更新。</p>
+    <p class="mindmap-hint">按笔记的标题层级画，改完笔记保存就更新</p>
     <div class="mindmap-box" :class="{ loading: state === 'loading' }">
       <img
         :src="src"
@@ -55,7 +55,7 @@ watch(src, () => {
         @error="state = 'error'"
       />
       <div v-if="state === 'error'" class="mindmap-error">
-        <p>导图没生成出来。多半是这条还没整理（导图按笔记的标题层级画）。</p>
+        <p>导图没出来，多半是还没整理</p>
         <button class="btn btn-sm" type="button" @click="emit('organize')">开始整理</button>
         <button class="btn btn-sm btn-ghost" type="button" @click="retry">再试一次</button>
       </div>

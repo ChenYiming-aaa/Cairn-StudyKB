@@ -13,6 +13,7 @@ import re
 import sqlite3
 
 from app.config import get_settings
+from app.db.repo.items import like_pattern
 from app.services import embedder
 
 log = logging.getLogger(__name__)
@@ -66,18 +67,22 @@ def fts_expression(query: str, operator: str = "AND") -> str:
 
 
 def _like(conn: sqlite3.Connection, query: str, limit: int) -> list[dict]:
+    # 短块优先：两字词命中几十个块时，先给"更像定义"的那几段，同长度再让新内容靠前。
+    # 原来 ORDER BY c.id（升序）会让结果永远是库里最早的 20 块，新入库的永远露不出来。
     rows = conn.execute(
-        _CHUNK_SQL + "WHERE c.content LIKE ? ORDER BY c.id LIMIT ?",
-        (f"%{query}%", limit),
+        _CHUNK_SQL + "WHERE c.content LIKE ? ESCAPE '\\'"
+        " ORDER BY length(c.content), c.id DESC LIMIT ?",
+        (like_pattern(query), limit),
     ).fetchall()
     return [dict(r) for r in rows]
 
 
 def _like_any(conn: sqlite3.Connection, terms: list[str], limit: int) -> list[dict]:
-    clause = " OR ".join("c.content LIKE ?" for _ in terms)
+    clause = " OR ".join("c.content LIKE ? ESCAPE '\\'" for _ in terms)
     rows = conn.execute(
-        _CHUNK_SQL + f"WHERE {clause} ORDER BY c.id LIMIT ?",
-        [f"%{t}%" for t in terms] + [limit],
+        _CHUNK_SQL + f"WHERE {clause}"
+        " ORDER BY length(c.content), c.id DESC LIMIT ?",
+        [like_pattern(t) for t in terms] + [limit],
     ).fetchall()
     return [dict(r) for r in rows]
 

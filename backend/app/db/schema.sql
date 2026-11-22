@@ -29,7 +29,9 @@ CREATE TABLE knowledge_item (
   file_id         INTEGER REFERENCES item_file(id)
 );
 CREATE UNIQUE INDEX idx_item_url  ON knowledge_item(source_url) WHERE source_url IS NOT NULL;
-CREATE INDEX        idx_item_hash ON knowledge_item(content_hash);
+-- v6：哈希去重靠数据库兜住并发（先查后插之间的窗口会让两条都进库）。
+-- 老库升级走 migrations/v6_dedupe_hash.sql，两处 DDL 必须一致。
+CREATE UNIQUE INDEX idx_item_hash ON knowledge_item(content_hash);
 CREATE INDEX        idx_item_cat  ON knowledge_item(category, status);
 
 -- ── 分块 ────────────────────────────────────────────────

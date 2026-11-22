@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
 
     <div v-if="auth.open" class="auth-body">
       <p class="auth-tip">
-        B 站字幕、知乎受限页这类要登录的站点，在这里登一次就行。点「登录」会开一个独立窗口，登完自动保存，不影响你日常用的浏览器。
+        B 站字幕、知乎受限页这类站点在这里登一次。点「登录」开一个独立窗口，不动你日常用的浏览器。
       </p>
       <p v-if="!auth.browserAvailable" class="auth-warn">
         站点登录暂时用不了：还没装浏览器组件。去「设置 → 下载」装上「网页渲染」就能用。

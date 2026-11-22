@@ -14,12 +14,12 @@ import { computed, ref } from 'vue'
 import { useSettings } from './useSettings'
 
 export const THEMES = [
-  { id: 'paper', name: '纸石绿', hint: '默认 · 阅读不刺眼' },
-  { id: 'notes', name: '暖墨', hint: '灰褐配琥珀' },
-  { id: 'chestnut', name: '栗墨', hint: '深栗棕配靛紫' },
-  { id: 'docs', name: '石板蓝', hint: '石板灰配蓝' },
-  { id: 'study', name: '学习紫', hint: '紫配绿 · 卡片感' },
-  { id: 'teal', name: '效率青', hint: '青配橙 · 利落' },
+  { id: 'paper', name: '纸石绿' },
+  { id: 'notes', name: '暖墨' },
+  { id: 'chestnut', name: '栗墨' },
+  { id: 'docs', name: '石板蓝' },
+  { id: 'study', name: '学习紫' },
+  { id: 'teal', name: '效率青' },
 ]
 
 export const MODES = [

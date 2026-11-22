@@ -37,13 +37,13 @@ async function submit() {
 <template>
   <div>
     <label class="field">
-      <span class="field-label">标题（可留空，整理后由模型生成）</span>
+      <span class="field-label">标题</span>
       <input
         v-model="paste.title"
         class="input"
         type="text"
         maxlength="40"
-        placeholder="可留空，整理时会自动生成标题"
+        placeholder="可留空，整理时自动生成"
       />
     </label>
     <label class="field">

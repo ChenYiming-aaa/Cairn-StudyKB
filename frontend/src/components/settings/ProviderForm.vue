@@ -156,7 +156,7 @@ async function runProbe() {
             {{ saving ? '保存中…' : '保存 Key' }}
           </button>
         </div>
-        <p class="hint">Key 只写进本机 <code>.env</code>，不显示、不上传、不进日志。</p>
+        <p class="hint">只写进本机 <code>.env</code></p>
       </div>
 
       <div class="probe-row">
@@ -191,7 +191,6 @@ async function runProbe() {
           记住这 {{ probe.models.length }} 个模型
         </button>
       </div>
-      <p class="hint">探测不会改动你的地址和 Key。</p>
     </div>
   </section>
 </template>

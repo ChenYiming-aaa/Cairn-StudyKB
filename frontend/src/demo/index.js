@@ -256,25 +256,25 @@ const DEMO_SETTINGS = () => ({
 const DEMO_COMPONENTS = () => ({
   items: [
     {
-      id: 'embed', name: '向量检索', why: '让问答能按意思找，而不只是按字面。不装也能用，搜得糙一点。',
+      id: 'embed', name: '向量检索', why: '让问答按意思找，不装只能按字面搜',
       size: 261959001, version: '', min_app_version: '0.2.0', state: 'missing',
       mode: null, bytes: 0,
       install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
     },
     {
-      id: 'asr', name: '视频转录', why: '没有字幕的视频也能转成文字。不装的话，只支持本来就带字幕的视频。',
+      id: 'asr', name: '视频转录', why: '没有字幕的视频也能转成文字',
       size: 99980567, version: '', min_app_version: '0.2.0', state: 'missing',
       mode: null, bytes: 0,
       install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
     },
     {
-      id: 'browser', name: '网页渲染', why: '知乎这类必须跑脚本才出正文的站点要用。不装也能采大部分网页。',
+      id: 'browser', name: '网页渲染', why: '知乎这类要跑脚本才出正文的站点要用',
       size: 48922004, version: '', min_app_version: '0.2.0', state: 'missing',
       mode: null, bytes: 0,
       install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },
     },
     {
-      id: 'ocr', name: '本地识别', why: '读 PDF 和图片要用。不装的话，这两类内容读不出字。',
+      id: 'ocr', name: '本地识别', why: '读 PDF 和图片要用，否则读不出字',
       size: 118277769, version: '', min_app_version: '0.2.0', state: 'missing',
       mode: null, bytes: 0,
       install: { status: '', phase: '', got: 0, total: 0, pct: 0, error_code: '', error_msg: '', task_id: '' },

@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 SCHEMA_FILE = Path(__file__).with_name("schema.sql")
 VEC_FILE = Path(__file__).with_name("schema_vec.sql")
 MIGRATIONS_DIR = Path(__file__).with_name("migrations")
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # 老库升级：{起始版本: 脚本}。只允许"追加"性质的变化，
 # 改既有列必须新开一版并写清回填方式（数据契约 §1）。
@@ -22,6 +22,7 @@ UPGRADES = {
     2: "v3_llm_effort.sql",    # S-2 记实际发出的思考强度
     3: "v4_files_workspace.sql",  # T9.2 本地文件 / 工作区 / 逐页文本
     4: "v5_page_line_conf.sql",   # T9.10 逐页行置信度（原文页签标黄）
+    5: "v6_dedupe_hash.sql",      # content_hash 唯一索引（并发导入去重）
 }
 
 

@@ -79,9 +79,6 @@ onMounted(() => load())
           @models="(list) => onModels(pid, list)"
           @saved="onSaved"
         />
-        <p class="tip">
-          两套服务：DeepSeek 开箱可用；「OpenAI 兼容」能接任何兼容接口。地址和 Key 填在这里，改完就生效。
-        </p>
       </div>
 
       <h4 class="section">每类任务用哪个模型</h4>
@@ -135,13 +132,6 @@ onMounted(() => load())
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-
-.tip {
-  margin: 0;
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  line-height: var(--lh-body);
 }
 
 .section {

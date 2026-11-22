@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from '../api/client'
 import RailToggle from '../components/RailToggle.vue'
-import SearchScopeHint from '../components/SearchScopeHint.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
@@ -47,10 +46,7 @@ const previewSrc = computed(() =>
   current.value ? `${api.htmlUrl(current.value.id)}?v=${previewKey.value}` : ''
 )
 
-/** 选中顺序决定章节顺序，所以这里按 picked 的顺序还原条目 */
-const pickedItems = computed(() =>
-  picked.value.map((id) => items.value.find((it) => it.id === id)).filter(Boolean)
-)
+/** 选中顺序决定章节顺序（序号直接标在左侧每一行上，见模板 .pick-no） */
 
 async function loadItems() {
   loading.value = true
@@ -160,7 +156,7 @@ onMounted(() => {
     <header class="html-head">
       <div>
         <h1 class="page-title">学习页</h1>
-        <p class="page-sub">挑几条内容生成一份学习页：单个文件，断网也能打开，可以拿去分享或存档</p>
+        <p class="page-sub">挑几条内容，生成一份能离线打开的单文件页面</p>
       </div>
       <div class="head-right">
         <button
@@ -190,10 +186,6 @@ onMounted(() => {
               placeholder="搜标题…"
               @keydown.enter="onSearch"
             />
-            <SearchScopeHint
-              :show="Boolean(keyword) && !loading && !items.length"
-              @open-search="router.push('/ask')"
-            />
             <div class="picker-meta">
               <span>已选 {{ pickedCount }} 条</span>
               <button v-if="pickedCount" class="link-btn" type="button" @click="clearPicked">
@@ -207,19 +199,25 @@ onMounted(() => {
             <li v-else-if="!items.length" class="picker-empty">
               <!-- 搜了词却没结果时不能说「还没有内容」：库里可能有一堆，
                    只是标题里没这个词（这个框只搜标题） -->
-              <span v-if="keyword">标题里没有「{{ keyword }}」。</span>
+              <span v-if="keyword">标题里没有「{{ keyword }}」。换个词，或者<button class="link-btn" type="button" @click="router.push('/ask')">去检索正文</button></span>
               <span v-else>还没有内容。先采一条，这里就能选了。</span>
               <!-- 空态只说"先去采集"却不给按钮，用户得自己回顶栏找 —— 采集面板本来就是全局的 -->
               <button v-if="!keyword" class="btn btn-sm" type="button" @click="openPaste()">＋ 采集内容</button>
             </li>
             <template v-else>
               <li v-for="item in items" :key="item.id">
+                <!-- 勾选顺序就是成页顺序：序号直接长在勾选框里（勾上 = 变成第几个），
+                     比在预览上方再列一串标题省两行，也不用「将按此顺序成页」那句话 -->
                 <label class="pick-row" :class="{ on: picked.includes(item.id) }">
                   <input
+                    class="pick-native"
                     type="checkbox"
                     :checked="picked.includes(item.id)"
                     @change="toggle(item.id)"
                   />
+                  <span class="pick-box" aria-hidden="true">
+                    {{ picked.includes(item.id) ? picked.indexOf(item.id) + 1 : '' }}
+                  </span>
                   <span class="pick-title">{{ item.title }}</span>
                   <span class="pick-tag">{{ item.category || '未分类' }}</span>
                 </label>
@@ -248,7 +246,7 @@ onMounted(() => {
             class="input stage-title"
             type="text"
             maxlength="40"
-            placeholder="学习页标题（留空则用第一条的标题）"
+            placeholder="标题（留空用第一条的标题）"
           />
           <div class="stage-actions">
             <button
@@ -270,15 +268,11 @@ onMounted(() => {
           </div>
         </div>
 
-        <p v-if="pickedItems.length" class="picked-line">
-          将按此顺序成页：{{ pickedItems.map((i) => i.title).join(' · ') }}
-        </p>
-
         <div v-if="current" class="stage-frame-wrap">
           <div class="frame-head">
             <span class="frame-title">{{ current.title }}</span>
             <span class="frame-meta">
-              {{ fileSize(current.size_bytes) }} · 单文件离线 · 浅色排版（便于打印）
+              {{ fileSize(current.size_bytes) }} · 单文件 · 可打印
             </span>
           </div>
           <div class="stage-frame-clip">
@@ -293,7 +287,7 @@ onMounted(() => {
         </div>
         <div v-else class="stage-empty state">
           <p class="state-title">还没有生成</p>
-          <p>在左侧勾选至少 1 条内容，填个标题，再点「生成学习页」。</p>
+          <p>在左侧勾选内容，再点「生成学习页」</p>
         </div>
       </section>
     </div>
@@ -346,18 +340,6 @@ onMounted(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-}
-
-.page-title {
-  margin: 0;
-  font-size: var(--fs-xl);
-  color: var(--c-text-1);
-}
-
-.page-sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
 }
 
 .head-right {
@@ -435,15 +417,6 @@ onMounted(() => {
   color: var(--c-text-3);
 }
 
-.link-btn {
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--c-primary-ink);
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-
 .picker-list {
   flex: 1;
   min-height: 0;
@@ -454,6 +427,7 @@ onMounted(() => {
 }
 
 .pick-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -516,8 +490,12 @@ onMounted(() => {
   gap: var(--space-2);
 }
 
+/* 输入框只到 520px：它原本 flex:1 撑满整行，成为这一页最宽、最亮的东西 ——
+   而它只是「填个标题（可留空）」的次要字段，真正的主按钮被推到 770px 之外。
+   收紧之后按钮紧跟着它作用的对象，视线不必横穿整屏去配对。 */
 .stage-title {
   flex: 1;
+  max-width: 520px;
 }
 
 .stage-actions {
@@ -526,13 +504,40 @@ onMounted(() => {
   flex: none;
 }
 
-.picked-line {
-  margin: var(--space-2) 0 0;
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* 勾选框自己就是序号：勾上之后框里显示这是第几条 */
+.pick-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pick-box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--c-border);
+  border-radius: 3px;
+  background: var(--c-bg-1);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-on-primary);
+  line-height: 1;
+}
+
+/* 选中态要一眼看出来：浅底 + 细字在 16px 的框里读不出「已勾上」 */
+.pick-row.on .pick-box {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+}
+
+.pick-native:focus-visible + .pick-box {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 1px;
 }
 
 .stage-frame-wrap {

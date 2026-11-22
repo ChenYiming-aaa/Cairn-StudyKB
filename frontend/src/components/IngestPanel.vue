@@ -103,9 +103,7 @@ onBeforeUnmount(() => {
       <div class="body" :class="{ drag: dragging }">
         <!-- 关掉面板会怎样，两种说法原来分处两地、结论相反。合并成面板顶部这一句，
              用户按「关闭」之前就能知道代价 -->
-        <p class="close-note">
-          关掉面板：正在上传的文件会中断，链接与视频会继续跑。
-        </p>
+        <p class="close-note">关掉面板：上传会中断，链接与视频继续跑</p>
         <!-- 检索零命中点过来时，把「你在找什么」接上：不预填字段，只说明来意 -->
         <p v-if="seed && mode === 'paste'" class="seed-hint">
           接着刚才的检索：找到「{{ seed }}」相关的内容，贴进来就存成一条。

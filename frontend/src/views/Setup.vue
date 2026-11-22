@@ -431,19 +431,7 @@ watch(componentsTick, loadComponents)
   word-break: break-all;
 }
 
-.link-btn {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--c-primary-ink);
-  font-size: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.link-btn:hover {
-  color: var(--c-primary-hover);
-}
+/* .link-btn 在 styles/app.css：全站只有一处定义 */
 
 .step-foot {
   margin: var(--space-2) 0 0;

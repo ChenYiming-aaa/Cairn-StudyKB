@@ -140,13 +140,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="dl">
-    <p class="intro">
-      这些组件用到才装：装了对应功能才完整，不装不影响别的地方。读 PDF 和图片要先装「本地识别」。
-    </p>
+    <p class="intro">用到才装，不装不影响别处</p>
 
-    <p v-if="isDemo" class="demo-note">
-      演示版不能安装组件。装桌面版后可以安装和卸载。
-    </p>
+    <p v-if="isDemo" class="demo-note">演示版不能装组件，桌面版可以</p>
 
     <p v-if="loading" class="state">正在读组件状态…</p>
     <p v-else-if="loadError" class="state bad">{{ loadError }}</p>
@@ -205,7 +201,7 @@ onBeforeUnmount(() => {
           </template>
 
           <template v-else>
-            <span class="hint">{{ isDemo ? '演示版不能装' : item.state === 'broken' ? '重装一次通常能修' : `下载 ${fileSize(item.size, 0)}` }}</span>
+            <span v-if="!isDemo" class="hint">{{ item.state === 'broken' ? '重装一次通常能修' : `下载 ${fileSize(item.size, 0)}` }}</span>
             <button
               class="btn btn-sm btn-primary"
               type="button"

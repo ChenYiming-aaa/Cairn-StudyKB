@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
     <p class="note">
       {{ link.kind === 'video'
         ? '先下音频再转录，耗时约等于视频长度。首次使用要下载识别模型（约 500MB）。'
-        : '只保留正文，导航和版权声明会被去掉。需要登录、要滚动才出内容的页面可能抓不到，改用粘贴更稳。' }}
+        : '只保留正文；要登录、要滚动才出内容的页面抓不到，改用粘贴。' }}
     </p>
 
     <section v-if="task" class="progress-box" :class="task.status">

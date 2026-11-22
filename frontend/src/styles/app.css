@@ -169,8 +169,37 @@ body.is-resizing {
   margin-bottom: var(--space-2);
 }
 
+/* 面板名（「出题配置」「内容选择」）：这一列里最响的一行。
+   2026-11-22 之前它是 fs-xs + text-3，与列内的字段标签（cfg-title）、
+   提示文字同色同号 —— 整列没有任何一层是「标题」。 */
 .panel-name {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-1);
+}
+
+/* ── 页面标题 / 副题 ────────────────────────────────
+   这是全站唯一一处「一级标题」的定义。2026-11-22 之前它被复制在 6 个视图的
+   scoped 里（Ask / Dashboard / HtmlPages / Practice / Review 各一份），
+   已经漂移出一处差异（Ask 的副题 fs-xs，其余 fs-sm），另有两页（Tasks / Setup）
+   各写了一套。收进这里，视图只写类名。
+
+   font-weight 必须显式写 600：不写时 20px 的粗细来自 UA 对 h1 的 `bold`，
+   那不是决定，是默认值 —— Setup 与 TitleEditor 手工写的都是 600，
+   显式写下来之后「标题有多重」才算被定过。Microsoft YaHei 只有 Regular/Bold
+   两档，600 与 700 在 Windows 上落到同一个字形，所以这一条不改变任何像素，
+   只是把偶然变成约定。 */
+.page-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: var(--lh-title);
+  color: var(--c-text-1);
+}
+
+.page-sub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--fs-sm);
   color: var(--c-text-3);
 }
 
@@ -233,6 +262,25 @@ body.is-resizing {
   font-size: var(--fs-xs);
 }
 
+/* 句子里的动作。一行讲完「现状 + 出路」时用它，别为半句话再摆一个按钮。
+   2026-11-22 前 HtmlPages 与 Setup 各写了一份（字号一个写死 12px、一个 inherit），
+   空态里再抄第三份之前先看这里。 */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--c-primary-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--c-primary-hover);
+  text-decoration: none;
+}
+
 /* ── 表单 ─────────────────────────────────────────── */
 
 .input,
@@ -282,10 +330,16 @@ body.is-resizing {
   border-color: var(--c-warning-border);
 }
 
+/* 「已整理」走中性，不上绿。
+   2026-11-22 之前它在全绿的库列表里是一排同样饱和的绿胶囊（9/9 行都是它），
+   颜色不再区分任何东西，只把每行的标题压下去一档；任务中心更极端，12 个「完成」
+   连成一面绿墙。规则改成：**颜色只标例外** —— 排队（中性）/ 整理中（琥珀）/
+   失败（红），常态默认色。
+   侧栏过滤与详情页标题旁仍是同一条徽标，所以这里改的是全局语义，不是某一页。 */
 .badge-ready {
-  color: var(--c-success-ink);
-  background: var(--c-success-soft);
-  border-color: var(--c-success-border);
+  color: var(--c-text-2);
+  background: var(--c-bg-2);
+  border-color: var(--c-border);
 }
 
 .badge-failed {
@@ -558,9 +612,13 @@ dialog[open]::backdrop {
   color: var(--c-danger-ink);
 }
 
+/* 空态标题：一整屏空白里唯一的一句话，14px/400 读起来像「这块被禁用了」。
+   升到 fs-lg/600 —— 空态是「这里现在没有东西，但你可以做点什么」，
+   它需要一个标题的重心，而不是一条注释。 */
 .state-title {
   color: var(--c-text-1);
-  font-size: var(--fs-md);
+  font-size: var(--fs-lg);
+  font-weight: 600;
   margin-bottom: var(--space-2);
 }
 

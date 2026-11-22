@@ -219,7 +219,7 @@ onMounted(loadDue)
     <header class="head">
       <div>
         <h1 class="page-title">复习</h1>
-        <p class="page-sub">答错的题明天回来；答对一次就往后推，2 → 4 → 7 → 15 天</p>
+        <p class="page-sub">答错的明天回来，答对的往后推</p>
       </div>
       <div class="stats">
         <!-- 一个数只有一个名字（4-5）：今日待复习 / 还没到期 / 错题 / 待人工判断 -->
@@ -266,7 +266,7 @@ onMounted(loadDue)
     <section v-else-if="tab === 'due'" class="panel">
       <div class="panel-bar">
         <span class="panel-note">
-          {{ total ? `今日待复习 ${total} 题，一次最多做 20 题` : '今天没有待复习的题' }}
+          {{ total ? '一次最多 20 题' : '今天没有待复习的题' }}
         </span>
         <button class="btn btn-primary btn-sm" type="button" :disabled="!items.length" @click="startPractice">
           开始复习{{ items.length ? `（${items.length}）` : '' }}
@@ -302,7 +302,7 @@ onMounted(loadDue)
     <!-- 错题本 -->
     <section v-else-if="tab === 'wrong'" class="panel">
       <div class="panel-bar">
-        <span class="panel-note">最近一次作答仍答错的题。复习答对后自动移出。</span>
+        <span class="panel-note">只算最近一次答错的题</span>
         <!-- 错题本的作用是「再练一遍」，所以有数据时也要给出口：此前只有空态才有「去练习」，
              翻着一屏错题却没有下一步，用户只能自己回导航找。
              两个出口要能分清：左边练**这些**错题（4-4），右边按内容重新出题。 -->
@@ -417,18 +417,6 @@ onMounted(loadDue)
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-}
-
-.page-title {
-  margin: 0;
-  font-size: var(--fs-xl);
-  color: var(--c-text-1);
-}
-
-.page-sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
 }
 
 .stats {

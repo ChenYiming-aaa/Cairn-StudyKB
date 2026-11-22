@@ -11,7 +11,7 @@
       "sha256": "7c24134e70d39c59b65c5c28ff39f08b2f6c91288c8378aefb167776a9a4680b",
       "asset": "cairn-embed-0.2.0.zip",
       "unpack_dir": "embed",
-      "why": "让问答能按意思找，而不只是按字面。不装也能用，搜得糙一点。"
+      "why": "让问答按意思找，不装只能按字面搜"
     },
     {
       "id": "asr",
@@ -20,7 +20,7 @@
       "sha256": "571b39991667de7badd13660407634ba4ba88c8abd3605cb7b23d72fd1bd3ddf",
       "asset": "cairn-asr-0.2.0.zip",
       "unpack_dir": "asr",
-      "why": "没有字幕的视频也能转成文字。不装的话，只支持本来就带字幕的视频。"
+      "why": "没有字幕的视频也能转成文字"
     },
     {
       "id": "browser",
@@ -29,7 +29,7 @@
       "sha256": "45ab79be6678e5bc1015880ccedf8bc3bd89409f197657d0426cc1b64423abc1",
       "asset": "cairn-browser-0.2.0.zip",
       "unpack_dir": "browser",
-      "why": "知乎这类必须跑脚本才出正文的站点要用。不装也能采大部分网页。"
+      "why": "知乎这类要跑脚本才出正文的站点要用"
     },
     {
       "id": "ocr",
@@ -38,7 +38,7 @@
       "sha256": "ff488bda5a6ed8582fc6757f55dc828adbcbec93604ab90ab2538f74207750fe",
       "asset": "cairn-ocr-0.2.0.zip",
       "unpack_dir": "ocr",
-      "why": "读 PDF 和图片要用。不装的话，这两类内容读不出字。"
+      "why": "读 PDF 和图片要用，否则读不出字"
     }
   ]
 }

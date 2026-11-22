@@ -37,6 +37,18 @@ def content_hash(raw_content: str) -> str:
     return hashlib.sha256(raw_content.encode("utf-8")).hexdigest()
 
 
+def like_pattern(value: str) -> str:
+    """把用户输入包成 LIKE 模式串，转义 `%` `_` `\\`。
+
+    调用处的 SQL **必须**写 `LIKE ? ESCAPE '\\'`，否则这里的转义只是普通字符：
+    少了它，搜「50%」会命中全库、搜「a_b」会匹配「axb」（工具链里的对账脚本同理）。
+    """
+    escaped = (
+        value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    )
+    return f"%{escaped}%"
+
+
 def row_to_item(row: sqlite3.Row) -> dict:
     item = dict(row)
     item["key_points"] = loads(item.get("key_points")) or []
@@ -73,20 +85,31 @@ def create_item(
     workspace_id: int | None = None,
     file_id: int | None = None,
 ) -> tuple[sqlite3.Row, bool]:
-    """返回 (条目行, 是否撞哈希)。撞哈希时不新建，返回已有条目。"""
+    """返回 (条目行, 是否撞哈希)。撞哈希时不新建，返回已有条目。
+
+    先查后插之间有一个窗口：两个请求同时导同一份内容时都会看到"没有"。
+    v6 起 `idx_item_hash` 是唯一索引，后到的那条会撞 `IntegrityError` ——
+    捕获后回查一次，把它当成正常的"已存在"，而不是把 500 抛给用户。
+    """
     digest = content_hash(raw_content)
     existing = find_by_hash(conn, digest)
     if existing is not None:
         return existing, True
     stamp = now_iso()
-    cur = conn.execute(
-        """INSERT INTO knowledge_item
-           (title, source_type, source_url, raw_content, content_hash, status,
-            kind, workspace_id, file_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)""",
-        (title, source_type, source_url, raw_content, digest,
-         kind, workspace_id, file_id, stamp, stamp),
-    )
+    try:
+        cur = conn.execute(
+            """INSERT INTO knowledge_item
+               (title, source_type, source_url, raw_content, content_hash, status,
+                kind, workspace_id, file_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)""",
+            (title, source_type, source_url, raw_content, digest,
+             kind, workspace_id, file_id, stamp, stamp),
+        )
+    except sqlite3.IntegrityError:
+        existing = find_by_hash(conn, digest)
+        if existing is None:        # 不是哈希冲突（例如 source_url 撞了），原样上抛
+            raise
+        return existing, True
     return conn.execute("SELECT * FROM knowledge_item WHERE id=?", (cur.lastrowid,)).fetchone(), False
 
 
@@ -99,11 +122,12 @@ def rebuild_chunks(
     """
     conn.execute("DELETE FROM chunk WHERE item_id=? AND source=?", (item_id, source))
     pieces = split_chunks(text)
-    for position, piece in enumerate(pieces):
-        conn.execute(
-            "INSERT INTO chunk (item_id, position, content, source) VALUES (?, ?, ?, ?)",
-            (item_id, position, piece, source),
-        )
+    # executemany 一条语句写完：逐条 execute 时每行都要单独过一次 chunk_fts 触发器，
+    # 4000 块的长文档就是 4000 次往返（M9 实测的真样本就在这个量级）。
+    conn.executemany(
+        "INSERT INTO chunk (item_id, position, content, source) VALUES (?, ?, ?, ?)",
+        [(item_id, position, piece, source) for position, piece in enumerate(pieces)],
+    )
     return len(pieces)
 
 
@@ -154,8 +178,8 @@ def list_items(
             where.append(f"{column}=?")
             args.append(value)
     if q:
-        where.append("title LIKE ?")
-        args.append(f"%{q}%")
+        where.append("title LIKE ? ESCAPE '\\'")
+        args.append(like_pattern(q))
     if tag:
         # tags 是 JSON 数组字符串（数据契约 §3）；非法 JSON 时退化空数组，不让整条查询报错
         where.append(
@@ -327,6 +351,36 @@ def set_status(conn: sqlite3.Connection, item_id: int, status: str) -> None:
     )
 
 
+def claim_organize(
+    conn: sqlite3.Connection, item_id: int, *, only_pending: bool = False
+) -> bool:
+    """把条目推进到 `organizing`，**抢到才返回 True**。
+
+    整理任务的派发必须走这里，不要再写「先读 status 判断，再 set_status」：
+    那是 check-then-act，两个请求（或批量整理点两次）都读到 pending 时会各派一条任务，
+    同一条内容跑两遍模型，费用翻倍、笔记互覆盖。
+
+    条件 UPDATE 是原子的，所以只有一个调用方 rowcount=1。
+
+    - `only_pending=True`：批量整理用。只推 `pending`，已 ready 的不会被它顺手重跑。
+    - `only_pending=False`：单条「整理 / 重新整理」用。除正在整理外都放行 ——
+      ready 的条目点重新整理要能跑起来。
+    """
+    if only_pending:
+        cur = conn.execute(
+            "UPDATE knowledge_item SET status='organizing', updated_at=?"
+            " WHERE id=? AND status='pending'",
+            (now_iso(), item_id),
+        )
+    else:
+        cur = conn.execute(
+            "UPDATE knowledge_item SET status='organizing', updated_at=?"
+            " WHERE id=? AND status<>'organizing'",
+            (now_iso(), item_id),
+        )
+    return cur.rowcount == 1
+
+
 def set_kind(conn: sqlite3.Connection, item_id: int, kind: str) -> None:
     """把内容定性成试卷/图片/资料。
 
@@ -373,11 +427,14 @@ def save_organize_result(
     structured_note: str | None = None,
     truncated: bool,
     title: str | None = None,
+    reset_note_edited: bool = False,
 ) -> None:
     """落整理结果并置 status='ready'。
 
     刻意不走 update_item：那里会因 structured_note 把 note_edited 置 1，
     但整理是机器行为，不能冒充「用户手改过」（数据契约 §3）。
+    反过来，**用户点过确认框的「重新整理」**（`reset_note_edited=True`）要把标记清成 0，
+    否则这条内容会永久退出自动整理；自动与批量整理不传它，保护不被静默解除。
 
     title 由整理 Agent 生成（≤20 字）；传 None 或空串时保留原标题（COALESCE），
     避免模型没给标题时把已有标题清空。
@@ -400,6 +457,12 @@ def save_organize_result(
         # NULLIF：空串落成 NULL，和"从没写过笔记"是同一个状态（前端按 falsy 判断）
         sets.append("structured_note=NULLIF(?, '')")
         args.append(structured_note)
+        if reset_note_edited:
+            # 只有**用户点过确认框的「重新整理」**才走这里：那一刻他同意了覆盖手改内容，
+            # 手改的那份笔记随即不存在，标记要跟着归零。
+            # 自动整理与批量整理都不能传 True —— 它们没有确认框，
+            # 归零会让"用户手改过"这条保护在下一轮采集时凭空失效。
+            sets.append("note_edited=0")
     args.append(item_id)
     conn.execute(
         f"UPDATE knowledge_item SET {', '.join(sets)} WHERE id=?", args

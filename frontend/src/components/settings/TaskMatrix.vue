@@ -120,10 +120,7 @@ function changeProvider(agent, pid) {
       </div>
     </div>
 
-    <p class="foot">
-      换服务或换模型后，下一次调用就生效。「思考强度」只发给声明支持的服务；
-      它的意思是<b>先推理再回答</b> —— 越强越慢也越贵，拿不准就留「关」。
-    </p>
+    <p class="foot">改完下一次调用就生效</p>
   </div>
 </template>
 

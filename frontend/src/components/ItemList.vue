@@ -11,7 +11,6 @@ import { ref, watch } from 'vue'
 import SidePanel from './SidePanel.vue'
 import BulkMoveBar from './list/BulkMoveBar.vue'
 import ItemRow from './list/ItemRow.vue'
-import SearchScopeHint from './SearchScopeHint.vue'
 import { shortTime } from '../utils/format'
 
 const props = defineProps({
@@ -123,7 +122,7 @@ function clearKeyword() {
     <!-- 后端单次最多给 50 条，界面却按全量措辞显示总数：不说明的话，用户会以为
          「第 51 条之后没导进来」或者「丢了」，而这两件事他在界面上都证伪不了 -->
     <p v-if="total > items.length" class="list-truncated">
-      仅显示前 {{ items.length }} 条，共 {{ total }} 条；用关键词或分类缩小范围
+      显示前 {{ items.length }} 条 / 共 {{ total }} 条
     </p>
 
     <BulkMoveBar
@@ -154,10 +153,12 @@ function clearKeyword() {
       </div>
 
       <div v-else-if="!items.length" class="state">
-        <p class="state-title">{{ filtered ? '没有匹配的内容' : '这里放你的内容' }}</p>
-        <p>{{ filtered ? '换个关键词，或点左栏「全部内容」。' : '还没有采集过内容。' }}</p>
-        <!-- 搜了词却没结果：这个框只搜标题，别让人以为库里真没有（2026-11-17） -->
-        <SearchScopeHint :show="Boolean(keyword)" @open-search="emit('open-search')" />
+        <!-- 搜了词却没结果：标题说的是「标题里」，出路就在下一行，不再另起一段解释
+             「这个框只搜标题」——2026-11-22 把那一整段（SearchScopeHint）并进这里。 -->
+        <p class="state-title">{{ filtered ? `标题里没有「${keyword}」` : '这里放你的内容' }}</p>
+        <!-- 按钮与前面的字写在一行：跨行会在「或者」和链接之间留一个空格，中文里不该有 -->
+        <p v-if="filtered">换个词，或者<button class="link-btn" type="button" @click="emit('open-search')">去检索正文</button></p>
+        <p v-else>还没有采集过内容。</p>
 
         <ul v-if="recent.length" class="recent">
           <li class="recent-label">最近采集的</li>

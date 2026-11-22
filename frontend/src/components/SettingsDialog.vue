@@ -18,12 +18,14 @@ import AppearanceTab from './settings/AppearanceTab.vue'
 import DownloadsTab from './settings/DownloadsTab.vue'
 import ModelTab from './settings/ModelTab.vue'
 
+// 2026-11-22：四个 tab 原来各带一行 11px 副标题（「服务、Key、每个任务用谁」之类）。
+// 页签名本身已经说清去哪儿，副标题只是把同一件事再讲一遍 —— 删掉，竖排导航只剩四个词。
 const TABS = [
-  { id: 'model', label: '模型', hint: '服务、Key、每个任务用谁' },
-  { id: 'appearance', label: '外观', hint: '配色、明暗、字号' },
-  { id: 'downloads', label: '下载', hint: '可选组件' },
+  { id: 'model', label: '模型' },
+  { id: 'appearance', label: '外观' },
+  { id: 'downloads', label: '下载' },
   // 「检查更新」只在这个页签里，叫「关于」没人会想到更新在这（M12 审计 §2 第 26 条）
-  { id: 'about', label: '关于与更新', hint: '版本、检查更新与链接' },
+  { id: 'about', label: '关于与更新' },
 ]
 
 const { settingsOpen, settingsTab, closeSettings, setSettingsTab } = useUi()
@@ -76,7 +78,6 @@ onBeforeUnmount(() => {
             @click="setSettingsTab(tab.id)"
           >
             <span class="tab-label">{{ tab.label }}</span>
-            <span class="tab-hint">{{ tab.hint }}</span>
           </button>
         </nav>
         <p class="side-foot">改动即时保存</p>
@@ -99,7 +100,7 @@ onBeforeUnmount(() => {
         </div>
 
         <footer class="body-foot">
-          <span>全部内容存在本机；只有你配置的模型接口会收到内容。</span>
+          <span>内容只存在本机；只会发给你配置的模型接口。</span>
         </footer>
       </section>
     </dialog>
@@ -171,11 +172,6 @@ onBeforeUnmount(() => {
 .tab-btn.on .tab-label {
   color: var(--c-primary-ink);
   font-weight: 600;
-}
-
-.tab-hint {
-  font-size: 11px;
-  color: var(--c-text-3);
 }
 
 .side-foot {

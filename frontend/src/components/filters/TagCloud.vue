@@ -79,6 +79,7 @@ function pick(name) {
   margin-top: var(--space-2);
 }
 
+/* 与 WorkspaceBar 的 .ws-title 同一档：12 / 600 / text-2 / 0.06em */
 .section-head {
   display: flex;
   align-items: center;
@@ -87,14 +88,15 @@ function pick(name) {
   padding: var(--space-1) var(--space-2);
   border: none;
   background: transparent;
-  color: var(--c-text-3);
+  color: var(--c-text-2);
   font-size: var(--fs-xs);
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-align: left;
 }
 
 .section-head:hover {
-  color: var(--c-text-2);
+  color: var(--c-text-1);
 }
 
 .caret {

@@ -82,12 +82,8 @@ const INTENT_OF = {
   component_install: 'install',
 }
 const INTENT_TEXT = { collect: '收内容', organize: '整理内容', install: '安装组件', other: '其他' }
-const INTENT_HINT = {
-  collect: '抓正文 / 读字 / 查有没有重复',
-  organize: '让模型写标题、摘要和笔记',
-  install: '下载组件并校验',
-  other: '',
-}
+// 曾经每种任务还带一句解释（「让模型写标题、摘要和笔记」），单条一组时贴在行下面：
+// 一屏七行「整理内容」就有七句同样的解释，而做的事点「N 步」就能展开看。2026-11-22 删。
 const STATUS_RANK = { failed: 3, running: 2, queued: 1, done: 0 }
 
 /** 一行代表的一件事：状态取最「卡住」的那个，进度取正在跑的那个 */
@@ -102,7 +98,6 @@ function foldGroup(intent, itemId, list) {
     key: `${intent}:${itemId ?? list[0].id}`,
     intent,
     label: INTENT_TEXT[intent] || INTENT_TEXT.other,
-    hint: INTENT_HINT[intent] || '',
     itemId,
     status,
     progress: status === 'done' ? 100 : (active?.progress ?? 0),
@@ -151,23 +146,23 @@ function cleanError(msg) {
 const FAILURE_FIX = {
   FETCH_LOGIN_REQUIRED: {
     label: '去登录', go: 'login',
-    hint: '这条要站点登录才读得到。到采集面板的「文件与链接」里登录，回来再重试。',
+    hint: '这条要站点登录才读得到',
   },
   FETCH_BLOCKED: {
     label: '去登录', go: 'login',
-    hint: '站点把这次请求拦下了，多半还是要登录；不登录直接重试，结果不会变。',
+    hint: '站点拦下了，多半要登录',
   },
   COMPONENT_MISSING: {
     label: '去装组件', go: 'downloads',
-    hint: '缺识别组件。先去设置里装「文字识别」，装完回到这里重试。',
+    hint: '缺「文字识别」组件',
   },
   OCR_MISSING: {
     label: '去装组件', go: 'downloads',
-    hint: '缺识别组件。先去设置里装「文字识别」，装完回到这里重试。',
+    hint: '缺「文字识别」组件',
   },
   LLM_NO_KEY: {
     label: '去配模型', go: 'model',
-    hint: '还没配模型 Key。先去设置 → 模型里填上，再重试。',
+    hint: '还没配模型 Key',
   },
 }
 
@@ -247,8 +242,10 @@ onBeforeUnmount(() => {
 <template>
   <div class="tasks">
     <header class="tasks-head">
-      <h2>任务中心</h2>
-      <span class="sub">按事归组 · 最近 50 条 · 共 {{ total }}</span>
+      <div class="head-text">
+        <h1 class="page-title">任务中心</h1>
+        <p class="page-sub">按事归组 · 最近 50 条 · 共 {{ total }}</p>
+      </div>
       <div class="grow" />
       <button class="btn btn-sm" type="button" :disabled="loading" @click="load">
         {{ loading ? '刷新中…' : '刷新' }}
@@ -319,8 +316,7 @@ onBeforeUnmount(() => {
         </div>
         <p v-if="group.failed && fixOf(group.failed)" class="row-hint">{{ fixOf(group.failed).hint }}</p>
 
-        <!-- 内部阶段：需要排查时才展开。常态下这句话不占屏 -->
-        <p v-if="group.count === 1 && !opened[group.key]" class="row-hint">{{ group.hint }}</p>
+        <!-- 内部阶段：点「N 步」才展开。常态下这一行不占屏 -->
         <ul v-if="opened[group.key]" class="sub-rows">
           <li v-for="task in group.tasks" :key="task.id" class="sub-row">
             <span class="badge badge-soft">{{ statusView(task.status)[0] }}</span>
@@ -348,23 +344,23 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--space-6);
+  /* 与其余几页同一套页面内边距：标题落在 y=68（原本 24px 全向 → 68+8），
+     换页时标题会跳 8px */
+  padding: var(--space-4) var(--space-6) var(--space-8);
 }
 
+/* 标题与副题竖排、与其余七页同一套（page-title / page-sub 在 app.css）。
+   原先这里是把 h2（fs-lg）+ 一行小字按 baseline 横排在同一行 ——
+   同是「页面第一眼」，别的页是 20px 标题压 13px 副题，这里读起来像一条列表的工具条。 */
 .tasks-head {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  align-items: flex-start;
+  gap: var(--space-4);
   margin-bottom: var(--space-4);
 }
 
-.tasks-head h2 {
-  font-size: var(--fs-lg);
-}
-
-.sub {
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
+.head-text {
+  min-width: 0;
 }
 
 .grow {

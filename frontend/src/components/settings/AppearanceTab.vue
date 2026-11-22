@@ -16,7 +16,6 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
     <section class="block">
       <div class="block-head">
         <h4 class="block-title">配色</h4>
-        <span class="block-note">{{ THEMES.length }} 套，全部按对比度硬标准算过</span>
       </div>
       <div class="theme-grid">
         <button
@@ -44,7 +43,6 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
               {{ item.name }}
               <span v-if="theme === item.id" class="tick">✓</span>
             </span>
-            <span class="card-hint">{{ item.hint }}</span>
           </span>
         </button>
       </div>
@@ -71,7 +69,6 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
           {{ item.name }}
         </button>
       </div>
-      <p class="hint">选「跟随系统」时，系统切到深色，这里会立刻跟着变，不用重开。</p>
     </section>
 
     <section class="block">
@@ -94,9 +91,6 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
           <span class="seg-hint">{{ item.hint }}</span>
         </button>
       </div>
-      <p class="hint">
-        正文与列表用同一套档位。笔记本外接大屏时调大一档，比系统缩放更不容易糊。
-      </p>
     </section>
   </div>
 </template>
@@ -239,15 +233,7 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
   color: var(--c-primary-ink);
 }
 
-.card-hint {
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
+/* 每张卡原来还有一行 12px 的色系说明（「灰褐配琥珀」）：左边预览块已经在演示这件事。 */
 .seg {
   display: inline-flex;
   padding: 2px;
@@ -283,12 +269,5 @@ const { theme, mode, fontSize, resolvedMode, setTheme, setMode, setFontSize } = 
   font-size: var(--fs-xs);
   color: var(--c-text-3);
   font-weight: 400;
-}
-
-.hint {
-  margin: var(--space-2) 0 0;
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  line-height: var(--lh-body);
 }
 </style>

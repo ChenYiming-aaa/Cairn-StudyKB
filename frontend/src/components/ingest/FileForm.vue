@@ -80,7 +80,7 @@ defineExpose({ addFiles })
 
     <div class="dropzone" @click="fileInput?.click()">
       <p class="drop-title">把文件拖到这里，或点一下选</p>
-      <p class="drop-hint">Word、PDF、PPT、Excel、图片、文本都行；一次可以选多个</p>
+      <p class="drop-hint">Word、PDF、PPT、Excel、图片、文本 · 可多选</p>
       <input
         ref="fileInput"
         class="hidden"

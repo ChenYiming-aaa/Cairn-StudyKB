@@ -22,10 +22,13 @@ const accuracyText = computed(() => {
   return value === null || value === undefined ? '—' : `${Math.round(value * 100)}%`
 })
 
+/** 今日之外的样本量：与今日次数相同时不重复报（「今日 3 次 · 累计 33%（3 次）」读着像 bug） */
 const accuracyAllText = computed(() => {
-  const value = today.value?.accuracy_all
+  const data = today.value
+  const value = data?.accuracy_all
   if (value === null || value === undefined) return '还没有作答记录'
-  return `累计 ${Math.round(value * 100)}%（${today.value.attempts_all} 次作答）`
+  const at = Math.round(value * 100)
+  return data.attempts_all > data.attempts_today ? `累计 ${at}%（共 ${data.attempts_all} 次）` : `累计 ${at}%`
 })
 
 const categoryMax = computed(() =>
@@ -37,10 +40,8 @@ const categoryMax = computed(() =>
 const streakNote = computed(() => {
   const data = today.value
   if (!data) return ''
-  if (data.studied_today) return '今天已经学过了，明天接着来'
-  return (data.streak_days || 0) > 0
-    ? '今天还没动，整理一篇或答几道都算'
-    : '从今天开始，整理一篇或答几道就记 1 天'
+  if (data.studied_today) return '今天已学'
+  return (data.streak_days || 0) > 0 ? '今天还没动' : '今天整理或答题就记 1 天'
 })
 
 function openCategory(name) {
@@ -105,9 +106,7 @@ onMounted(load)
       <div class="card">
         <span class="card-label">正确率（今日）</span>
         <span class="card-value">{{ accuracyText }}</span>
-        <span class="card-sub">
-          今日 {{ today.attempts_today }} 次作答 · {{ accuracyAllText }}
-        </span>
+        <span class="card-sub">今日 {{ today.attempts_today }} 次作答 · {{ accuracyAllText }}</span>
       </div>
 
       <!-- 5 分类分布 -->
@@ -153,18 +152,6 @@ onMounted(load)
   gap: var(--space-4);
 }
 
-.page-title {
-  margin: 0;
-  font-size: var(--fs-xl);
-  color: var(--c-text-1);
-}
-
-.page-sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
-}
-
 .note {
   margin: var(--space-4) 0 0;
   font-size: var(--fs-sm);
@@ -207,13 +194,20 @@ onMounted(load)
   border-color: var(--c-primary);
 }
 
+/* 卡的「名字」：12px 但加粗一档。原先它和卡内说明（card-sub）同为 12/400/text-3，
+   一张卡里三行字只有数字在区分 —— 标签读起来像第一行说明。 */
 .card-label {
   font-size: var(--fs-xs);
+  font-weight: 600;
   color: var(--c-text-3);
 }
 
+/* 数字是这张卡唯一的内容，也是全页唯一的结论。30px/400 的汉字笔画粗细
+   与上面 12px 的标签相当，卡片读起来是「标签 + 一段留白」；
+   加粗到 600 才让数字成为视线落点。 */
 .card-value {
   font-size: 30px;
+  font-weight: 600;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
   color: var(--c-text-1);

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
@@ -20,13 +21,34 @@ EMBED_AFTER = {"organize", "fetch_url", "transcribe_video"}
 _executor: ThreadPoolExecutor | None = None
 _lock = threading.Lock()
 
+DEFAULT_WORKERS = 3
+MAX_WORKERS = 8
+
+
+def _worker_count() -> int:
+    """并发 worker 数，`CAIRN_TASK_WORKERS` 可覆盖（1–8）。
+
+    原来是固定 2：一次转录（按音频时长跑十几分钟）加一次识别就能占满，
+    之后所有整理都在队列里等，而整理正是用户点了「开始整理」正盯着结果的那一类。
+    放到 3 让整理有位置；上限 8 是因为再往上就是并发打模型额度，收益反而变成 429。
+    """
+    raw = os.environ.get("CAIRN_TASK_WORKERS", "").strip()
+    try:
+        value = int(raw) if raw else DEFAULT_WORKERS
+    except ValueError:
+        log.warning("CAIRN_TASK_WORKERS=%r 不是整数，按 %s 处理", raw, DEFAULT_WORKERS)
+        value = DEFAULT_WORKERS
+    return max(1, min(value, MAX_WORKERS))
+
 
 def _get_executor() -> ThreadPoolExecutor:
     """懒加载：lifespan 退出会 shutdown，重新进入时池必须可重建，否则 submit 永久失效。"""
     global _executor
     with _lock:
         if _executor is None:
-            _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="cairn-task")
+            _executor = ThreadPoolExecutor(
+                max_workers=_worker_count(), thread_name_prefix="cairn-task"
+            )
         return _executor
 
 

@@ -5,7 +5,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { api, friendlyMessage, humanDetail, streamSSE } from '../api/client'
 import QuizRunner from '../components/QuizRunner.vue'
 import RailToggle from '../components/RailToggle.vue'
-import SearchScopeHint from '../components/SearchScopeHint.vue'
 import SidePanel from '../components/SidePanel.vue'
 import { useLayout } from '../composables/useLayout'
 import { useToast } from '../composables/useToast'
@@ -334,7 +333,7 @@ onMounted(async () => {
     <header class="head">
       <div>
         <h1 class="page-title">练习</h1>
-        <p class="page-sub">拿自己的材料出题考自己，答错的题目明天会自动回来找你</p>
+        <p class="page-sub">用自己的材料出题；答错的明天回来</p>
       </div>
     </header>
 
@@ -357,21 +356,18 @@ onMounted(async () => {
               placeholder="搜标题…"
               @keydown.enter="loadItems"
             />
-            <SearchScopeHint
-              :show="Boolean(keyword) && !loading && !items.length"
-              @open-search="router.push('/ask')"
-            />
             <p v-if="loading" class="cfg-note">加载中…</p>
             <p v-else-if="listError" class="cfg-note error">{{ listError }}</p>
             <!-- 空态：一句现状 + 一个能点的出口（L 组）。只说「到知识库去」而不给按钮，
                  等于让用户自己找路 —— 与列表空态（已有采集按钮）的句式对齐 -->
             <div v-else-if="!items.length" class="cfg-empty">
-              <p class="cfg-note">
-                {{ keyword ? `标题里没有「${keyword}」。` : '还没有整理好的内容。整理完就能出题。' }}
-              </p>
-              <button class="btn btn-ghost btn-sm" type="button" @click="router.push('/')">
-                去知识库
-              </button>
+              <p v-if="keyword" class="cfg-note">标题里没有「{{ keyword }}」。换个词，或者<button class="link-btn" type="button" @click="router.push('/ask')">去检索正文</button></p>
+              <template v-else>
+                <p class="cfg-note">还没有整理好的内容，整理完就能出题。</p>
+                <button class="btn btn-ghost btn-sm" type="button" @click="router.push('/')">
+                  去知识库
+                </button>
+              </template>
             </div>
             <ul v-else class="item-list">
               <li v-for="item in items" :key="item.id">
@@ -389,7 +385,7 @@ onMounted(async () => {
               </li>
             </ul>
             <p v-if="!loading && total > items.length" class="cfg-note">
-              仅显示前 {{ items.length }} / {{ total }} 条，用关键词缩小范围
+              显示前 {{ items.length }} / {{ total }} 条
             </p>
           </section>
 
@@ -447,10 +443,6 @@ onMounted(async () => {
             </section>
           </template>
 
-          <p v-else class="cfg-note">
-            这是一份试卷：题目、选项、题号都按原卷来，不用挑题型和题数。
-          </p>
-
           <div class="cfg-foot">
             <button
               v-if="isExam"
@@ -501,7 +493,7 @@ onMounted(async () => {
             </li>
           </ul>
           <p class="gen-note">
-            出完会自动开始作答。等太久可以点「停止生成」，已经出的题照样能做。
+            出完自动开始作答；停止后已出的题照样能做
           </p>
         </div>
 
@@ -521,8 +513,8 @@ onMounted(async () => {
         <div v-else class="state">
           <p class="state-title">{{ genError ? (isExam ? '取题失败' : '出题失败') : '还没开始' }}</p>
           <p v-if="genError" class="state-error">{{ genError }}</p>
-          <p v-else-if="isExam">左边已经选好试卷，点「按卷练」就按原卷题序从头做到尾</p>
-          <p v-else>左侧挑一条材料、选题型与题数，点「出题」</p>
+          <p v-else-if="isExam">左侧已选好试卷，点「按卷练」开始</p>
+          <p v-else>左侧选好材料，点「出题」</p>
         </div>
       </section>
     </div>
@@ -544,18 +536,6 @@ onMounted(async () => {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-}
-
-.page-title {
-  margin: 0;
-  font-size: var(--fs-xl);
-  color: var(--c-text-1);
-}
-
-.page-sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
 }
 
 .body {
@@ -586,11 +566,13 @@ onMounted(async () => {
   min-height: 0;
 }
 
+/* 字段标签（题型 / 难度 / 题数）：比面板名（panel-name）低一档，比说明文字高一档。
+   原先 12/600/text-3 —— 与提示文字同色，整列三层全是灰的。 */
 .cfg-title {
   margin: 0;
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--c-text-3);
+  color: var(--c-text-2);
   letter-spacing: 0.04em;
 }
 

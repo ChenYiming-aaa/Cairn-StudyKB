@@ -114,11 +114,11 @@ const fallbackHint = computed(() => {
   const value = tab.value === 'ask' ? askFallback.value : hitsFallback.value
   // 搜索前就先说清楚（M2）：等搜完才补一句「只能按关键词搜」，用户会先把
   // 第一轮结果质量差归因成「我的库不行」
-  if (value === 'none' && !embedReady.value) return '现在只能按关键词搜。装上「向量检索」就能按意思搜'
-  if (value === 'vector_disabled') return '语义检索暂时不可用，已改成按关键词搜，也能找到大部分内容'
+  if (value === 'none' && !embedReady.value) return '只能按关键词搜'
+  if (value === 'vector_disabled') return '语义检索不可用，已按关键词搜'
   // 文案不再自带"去设置里装"：那一句改成一个按钮（同一行里更明显，也不用记路径）
-  if (value === 'vector_component_missing') return '现在只能按关键词搜。装上「向量检索」就能按意思搜'
-  if (value === 'like_short_query') return '关键词少于 3 字，已改用模糊匹配'
+  if (value === 'vector_component_missing') return '只能按关键词搜'
+  if (value === 'like_short_query') return '少于 3 字，已模糊匹配'
   return ''
 })
 
@@ -460,7 +460,7 @@ watch(question, () => {
           type="button"
           @click="openSettings('downloads')"
         >
-          去安装
+          装向量检索
         </button>
       </p>
 
@@ -524,7 +524,7 @@ watch(question, () => {
 
         <div v-else-if="!answer && !asking && !askError" class="state">
           <p class="state-title">试着问一个具体问题</p>
-          <p>答案只来自你采集的内容；找不到会直接说没有。</p>
+          <p>只从你的内容里找，找不到就说没有</p>
         </div>
       </template>
 
@@ -649,18 +649,6 @@ watch(question, () => {
   margin-bottom: var(--space-4);
 }
 
-.page-title {
-  margin: 0;
-  font-size: var(--fs-xl);
-  color: var(--c-text-1);
-}
-
-.page-sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-}
-
 .tabs {
   display: flex;
   gap: var(--space-3);
@@ -774,10 +762,13 @@ watch(question, () => {
   cursor: help;
 }
 
+/* 区块标题（来源 / 问答历史）：与正文同号同色、只加粗一档。
+   原先 13/400/text-2 —— 比它下面那段正文还淡，「来源」读起来像一条注释。 */
 .section-title {
   margin: var(--space-6) 0 var(--space-2);
   font-size: var(--fs-sm);
-  color: var(--c-text-2);
+  font-weight: 600;
+  color: var(--c-text-1);
 }
 
 .source-list,

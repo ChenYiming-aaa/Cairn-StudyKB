@@ -475,8 +475,8 @@ async function commit() {
   <div class="exam-review">
     <header class="head">
       <div class="head-text">
-        <h2>导入试卷</h2>
-        <p v-if="item" class="sub">
+        <h1 class="page-title">导入试卷</h1>
+        <p v-if="item" class="page-sub">
           {{ item.title }}
           <template v-if="loadedFrom === 'library'">· 库里已有 {{ drafts.length }} 题</template>
           <template v-else-if="stats">· 认出 {{ stats.questions }} 题 · {{ stats.with_answer }} 题有答案</template>
@@ -779,17 +779,8 @@ async function commit() {
   gap: var(--space-4);
 }
 
-.head h2 {
-  margin: 0;
-  font-size: var(--fs-xl);
-  line-height: var(--lh-title);
-}
-
-.sub {
-  margin: var(--space-1) 0 0;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
-}
+/* 标题与副题走 app.css 的 page-title / page-sub：这一页原先自己写了一版 h2，
+   与另外七页的 20px 标题只差一个字重来源（UA bold vs 手写 600）。 */
 
 .head-actions {
   margin-left: auto;

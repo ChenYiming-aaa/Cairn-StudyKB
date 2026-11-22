@@ -230,7 +230,12 @@ def organize_pending(
                 skipped.append(item_id)
                 continue
             with conn:
-                repo.set_status(conn, item_id, "organizing")
+                claimed = repo.claim_organize(conn, item_id, only_pending=True)
+            if not claimed:
+                # 刚好被另一路抢走（自动整理、或另一个人点了同一次批量）：
+                # 跳过而不是再派一条，否则同一条内容会跑两遍模型、两遍结果互相覆盖
+                skipped.append(item_id)
+                continue
             queued.append({
                 "item_id": item_id,
                 "task_id": task_queue.submit("organize", organizer.run, {"item_id": item_id}),
@@ -259,8 +264,20 @@ def organize_item(item_id: int):
             # 正文还是占位就整理 = 拿 `[文件] 原名` 写摘要，既浪费模型又污染学习页
             return blocked
         with conn:
-            repo.set_status(conn, item_id, "organizing")
-        task_id = task_queue.submit("organize", organizer.run, {"item_id": item_id})
+            claimed = repo.claim_organize(conn, item_id)
+        if not claimed:
+            # 上面那次读 status 只是快速挡一次；真正的抢占在条件 UPDATE 里做，
+            # 两个请求同时进来时只有一个 rowcount=1，另一个走这里
+            return JSONResponse(
+                status_code=409,
+                content=error_payload("ITEM_BUSY", "该条目正在整理中，请等待完成"),
+            )
+        task_id = task_queue.submit(
+            "organize", organizer.run,
+            # overwrite_note：界面在 note_edited=1 时弹过一次确认框，用户点了继续 ——
+            # 这次整理完成后把手改标记清掉，让之后的采集恢复自动整理
+            {"item_id": item_id, "overwrite_note": bool(row["note_edited"])},
+        )
         return JSONResponse(status_code=202, content={"task_id": task_id})
     finally:
         conn.close()

@@ -141,9 +141,42 @@ def _quality_ok(result: dict, kind: str = "material") -> bool:
     return len(result["key_points"]) >= 2
 
 
+def _yield_to_user(item_id: int, overwrite_note: bool) -> bool:
+    """排队期间用户手改过笔记 → 放行这次整理（返回 True）。
+
+    `dispatch.organize_if_pending` 在**派任务时**已经挡过一次 `note_edited`，
+    但任务可能排队等模型、等别的任务跑好几分钟，用户完全可能在这段时间里打开这条
+    改掉笔记。写入时不复查，就会出现「我刚改完，一刷新全没了」——
+    而这正是自动化最招人恨的形态。复查放在调模型之前，省掉一次白花钱的调用。
+
+    状态落回 `pending` 而不是 `ready`：这次确实没整理，界面上「待整理」才是实话。
+    用户点「重新整理」（界面会先弹确认框）时任务带 `overwrite_note=True`，不再走这里。
+    """
+    if overwrite_note:
+        return False
+    conn = get_conn()
+    try:
+        row = repo.get_item(conn, item_id)
+        if row is None or not row["note_edited"]:
+            return False
+        with conn:
+            repo.set_status(conn, item_id, "pending")
+    finally:
+        conn.close()
+    log.warning("条目 %s 在整理排队期间笔记被手改，本次整理让开", item_id)
+    return True
+
+
 def run(task_input: dict | None = None) -> dict:
-    """任务队列入口。成功返回 {item_id, truncated, note_chunk_count}。"""
-    item_id = int((task_input or {}).get("item_id") or 0)
+    """任务队列入口。成功返回 {item_id, truncated, note_chunk_count}。
+
+    `overwrite_note=True` 只由「用户点过确认框的重新整理」传进来：它允许把
+    `note_edited` 清成 0（手改的那份笔记已被这次整理取代）。自动与批量整理一律不传，
+    否则用户手改过的笔记会在下一次采集时被静默覆盖。
+    """
+    payload = task_input or {}
+    item_id = int(payload.get("item_id") or 0)
+    overwrite_note = bool(payload.get("overwrite_note"))
     conn = get_conn()
     try:
         row = repo.get_item(conn, item_id)
@@ -159,6 +192,10 @@ def run(task_input: dict | None = None) -> dict:
         _mark_failed(item_id, "原文为空，无法整理")
         raise OrganizeError("ORGANIZE_EMPTY_CONTENT", "原文为空，无法整理")
 
+    # 用户已经接管这条内容 → 连模型都不必调
+    if _yield_to_user(item_id, overwrite_note):
+        return {"item_id": item_id, "skipped": "note_edited"}
+
     try:
         result = _organize_with_retry(
             _build_messages(title, content, truncated, kind), title, kind
@@ -171,6 +208,10 @@ def run(task_input: dict | None = None) -> dict:
         _mark_failed(item_id, str(exc)[:200])
         raise OrganizeError("ORGANIZE_FAILED", str(exc)[:200]) from None
 
+    # 模型调用那几十秒里用户也可能手改，写库前再复查一次
+    if _yield_to_user(item_id, overwrite_note):
+        return {"item_id": item_id, "skipped": "note_edited"}
+
     conn = get_conn()
     try:
         with conn:
@@ -180,6 +221,7 @@ def run(task_input: dict | None = None) -> dict:
                 summary=result["summary"], key_points=result["key_points"],
                 # 非 material 是 ""：**明确清空**（不是「别动」），见 save_organize_result 三态
                 structured_note=result["structured_note"], truncated=truncated,
+                reset_note_edited=overwrite_note,
             )
             # 数据契约 §6：新 structured_note 必须重建 note chunk（空串 = 删掉旧 note chunk）
             note_chunks = repo.rebuild_chunks(conn, item_id, result["structured_note"], "note")
