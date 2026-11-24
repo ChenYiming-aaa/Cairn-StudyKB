@@ -20,9 +20,10 @@ import threading
 import time
 from pathlib import Path
 
+from app.subproc import CREATE_NO_WINDOW
+
 log = logging.getLogger(__name__)
 
-CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0
 HELLO_TIMEOUT = 10.0
 IDLE_EXIT = 600.0          # 空转 10 分钟自杀，下次调用再起（§2.3）
 MAX_FAILURES = 2           # 连续两次失败判「异常」，UI 给「重新安装」

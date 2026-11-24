@@ -566,13 +566,16 @@ def main() -> int:
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
                       title TEXT NOT NULL DEFAULT '',
                       raw_content TEXT NOT NULL DEFAULT '',
+                      content_hash TEXT NOT NULL DEFAULT '',
                       category TEXT, tags TEXT, summary TEXT, key_points TEXT,
                       structured_note TEXT,
                       status TEXT NOT NULL DEFAULT 'pending',
                       created_at TEXT NOT NULL, updated_at TEXT NOT NULL
                     );
-                    INSERT INTO knowledge_item (title, raw_content, created_at, updated_at)
-                    VALUES ('老内容', 'v2 时代写下的正文', '2026-01-01', '2026-01-01');
+                    INSERT INTO knowledge_item
+                      (title, raw_content, content_hash, created_at, updated_at)
+                    VALUES ('老内容', 'v2 时代写下的正文', 'legacy-hash',
+                            '2026-01-01', '2026-01-01');
 
                     CREATE TABLE question (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -602,6 +605,12 @@ def main() -> int:
                 old_item = old.execute(
                     "SELECT title, kind, workspace_id, file_id FROM knowledge_item"
                 ).fetchall()
+                # v6 是唯一索引迁移：要 UPDATE content_hash 再建索引，桩里必须有这一列
+                # —— 2026-11-24 之前缺列，m6 第 8 组必崩。索引与哈希值在这里一次取好。
+                idx = {row[1]: row[2] for row in old.execute(
+                    "PRAGMA index_list(knowledge_item)")}
+                legacy_hash = old.execute(
+                    "SELECT content_hash FROM knowledge_item").fetchone()[0]
             finally:
                 old.close()
             check("升级后 user_version = 当前版本", version == SCHEMA_VERSION, str(version))
@@ -621,6 +630,10 @@ def main() -> int:
                   {"origin", "number"} <= q_cols, str(sorted(q_cols)))
             check("老内容一条不丢，且按默认值落成「普通资料 / 未归类 / 无原件」",
                   old_item == [("老内容", "material", None, None)], str(old_item))
+            check("v6 的 content_hash 唯一索引建成了",
+                  idx.get("idx_item_hash") == 1, str(idx))
+            check("v6 没改坏唯一行的哈希（单行不该被加 :id 后缀）",
+                  legacy_hash == "legacy-hash", str(legacy_hash))
 
             # ── 9. 严格模式（S-3）──────────────────────────────
             step("9. 配置来源可检查：不再从老地方拿 Key")

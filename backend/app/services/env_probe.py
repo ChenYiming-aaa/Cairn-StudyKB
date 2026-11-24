@@ -19,6 +19,7 @@ import httpx
 from app.config import config_audit, get_settings
 from app.paths import is_frozen
 from app.services import llm_route
+from app.subproc import CREATE_NO_WINDOW
 
 log = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def _version(exe: Path) -> str | None:
     try:
         out = subprocess.run(
             [str(exe), "-version"], capture_output=True, text=True,
-            timeout=10, check=False,
+            timeout=10, check=False, creationflags=CREATE_NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError):
         return None

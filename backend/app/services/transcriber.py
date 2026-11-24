@@ -27,6 +27,7 @@ import numpy as np
 from app.config import get_settings
 from app.services import browser, components, subtitles, video_sites, zh_text
 from app.services.fetch_errors import FetchError
+from app.subproc import CREATE_NO_WINDOW
 
 if TYPE_CHECKING:                             # 只给类型标注用，运行期不 import
     from faster_whisper import WhisperModel
@@ -515,6 +516,7 @@ class YtDlpWhisperTranscriber(BaseTranscriber):
                 [exe, "-y", "-i", str(src), "-vn", "-ac", "1", "-ar", str(SAMPLE_RATE),
                  "-c:a", "pcm_s16le", str(dst)],
                 capture_output=True, text=True, timeout=600,
+                creationflags=CREATE_NO_WINDOW,
             )
         except FileNotFoundError as exc:
             raise FetchError("TRANSCRIBE_NO_FFMPEG",
