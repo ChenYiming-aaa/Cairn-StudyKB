@@ -309,8 +309,11 @@ function onFinished(result) {
   }
 }
 
-function onRestart() {
+async function onRestart() {
   backToIdle()
+  // 试卷的「再做一遍」要真的重新开卷：题在库里，不必让用户回左侧再点一次。
+  // 生成的题组仍然回配置 —— 题是现出的，得重选题型与题数。
+  if (paperRun.value) await startPaper()
 }
 
 onMounted(async () => {
