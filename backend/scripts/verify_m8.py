@@ -570,14 +570,19 @@ def group_update() -> None:
         server.should_exit = True
         time.sleep(0.4)
 
-    step("§5.2 四处版本号一致（bump_version --check）")
+    step("§5.2 版本号一致（bump_version --check，五处）")
     r = subprocess.run([sys.executable, str(ROOT / "tools" / "bump_version.py"), "--check"],
                        capture_output=True, text=True)
     tail = (r.stdout or "").strip().splitlines()
     check("tools/bump_version.py --check 通过", r.returncode == 0, tail[-1] if tail else r.stderr[:80])
-    check("四处文件都读到了（不是空串算过）",
-          all(line.split()[-1] not in ("", "(未读到)") for line in tail if line.strip()),
-          " / ".join(tail[:4]))
+    # 2026-11-26 起 README 徽标是第五处：在此之前它停在 0.3.4 而代码已是 0.3.7，
+    # `--check` 却说「四处一致」照样绿 —— 写死个数的断言发现不了「该管的地方没纳入管理」。
+    # 所以这里列名单，少一处就红。
+    for name in ("backend/pyproject.toml", "backend/app/version.py",
+                 "frontend/package.json", "desktop/package.json", "README.md"):
+        line = next((ln for ln in tail if name in ln), "")
+        got = line.split()[-1] if line.split() else ""
+        check(f"{name} 的版本读到了", bool(got) and got != "(未读到)", line or "输出里没有这一行")
 
     step("§5.3 更新器接线（desktop/）")
     desktop = ROOT / "desktop"

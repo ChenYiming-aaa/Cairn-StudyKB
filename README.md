@@ -20,7 +20,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey.svg" alt="Platform">
-  <img src="https://img.shields.io/badge/version-0.3.4-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.3.7-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/data-100%25%20local-success.svg" alt="Local first">
 </p>
 
