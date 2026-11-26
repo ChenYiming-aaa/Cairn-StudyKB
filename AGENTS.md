@@ -101,3 +101,69 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 不预加载、不猜测，也不自行重建这些专项流程。平台调用方式、请求格式、批次上限、审批规则、索引格式细节和恢复步骤由对应Guide、工具说明、模型Prompt和CLI帮助按需提供。
 <!-- aoci:end -->
+
+<!-- 以下「上工手册」不归 AOCI 维护：AOCI 只管它在 begin/end 之间的那段。
+     2026-11-26 追加（优化方案 §3.5）—— 在此之前 AGENTS.md 只有 AOCI 治理，
+     新会话拿不到目录地图，也不知道「动代码前该读哪一页」。 -->
+
+## 上工手册（新会话先读这一节）
+
+### 五条命令
+
+```bash
+# 1. 起后端（127.0.0.1:8756；--data-dir 必须用绝对路径，相对路径按项目根解析）
+cd backend && uv run python -m app
+
+# 2. 起前端（5173，/api 反代到 8756）
+cd frontend && npm run dev
+
+# 3. 一条命令回归（自动扫 backend/scripts/verify_m*.py；退出码 0 绿 / 1 有 FAIL / 2 缺环境）
+python tools/regress.py
+python tools/regress.py --only 10,11        # 只跑这两组
+
+# 4. 文档体检（改过 docs/ 或端点后必跑；0 FAIL / 0 WARN 才算过）
+python tools/doc_check.py --strict
+
+# 5. 前端 lint + 构建（改过 frontend/ 后必跑）
+cd frontend && npm run lint && npm run build
+```
+
+轻量验收（离线、秒级，批 5 的 CI 挂的就是这几条 + m4/m10/m11）：
+`verify_pool.py` 23 条 · `verify_backup.py` 33 条 · `verify_m4.py` 78 条 · `verify_m10.py` 151 条，
+都在 `backend/scripts/`，用法统一 `cd backend && uv run python scripts/verify_xxx.py`（`--only <组>` 可单跑）。
+
+### 目录地图
+
+| 位置 | 管什么 |
+|---|---|
+| `backend/app/routers/` | HTTP 端点，按资源分 18 个模块（knowledge / quiz / review / tasks / settings / imports / components …）。只做参数校验与响应拼装，业务不写这里 |
+| `backend/app/services/` | 按能力分：`ingest_file` 落盘与识别、`agents/` 整理与出题、`exam/` 试卷拆解与校对、`extractors/` 非 PDF 抽取、`llm` + `llm_route`、`retriever` + `embedder`、`backup`、`locate` … |
+| `backend/app/db/` | `schema.sql` + `migrate.py` + `repo/`（薄 SQL 封装、语义化方法名；**没有 ORM**） |
+| `frontend/src/views/` | 10 个页面：Knowledge / Ask / Practice / Review / ExamReview / Dashboard / Tasks / Setup / HtmlPages / Try |
+| `frontend/src/components/` | 16 个复用组件 + 5 组子目录（`filters/` `ingest/` `list/` `raw/` `settings/`） |
+| `frontend/src/styles/` | `tokens.css` 是**生成物**（`tools/check_contrast.py --write` 会整份重写），要往里加东西必须同步改生成脚本 |
+| `backend/scripts/verify_m*.py` | 每个里程碑一组验收断言；`tools/regress.py` 靠扫目录自动带上新的 |
+| `docs/dev/` | `00-总纲.md`（红线与技术栈）· `contracts/`（接口 / 数据 / ADR）· `milestones/` · `HANDOFF.md`（台账）· `文案规范.md` |
+
+### 九条红线（摘要）
+
+完整论述、代价与解除条件在 `docs/dev/00-总纲.md` §2（第 3–6 条另见 ADR-020）。
+
+1. 不做多用户、账号、权限、云同步、移动端
+2. 不做任何形式的应用锁定 / 网站拦截 / 白名单
+3. 不引多 Agent 框架（LangGraph / CrewAI / AutoGen）
+4. 不用 ORM 自动映射（Pydantic + `repo/` 薄封装，SQL 可读）
+5. 不引整包 UI 库（原生 CSS + 自建组件；单个专用小库允许）
+6. 不引独立向量库（向量与业务数据同库）
+7. API Key 不进前端、日志、异常栈、git 历史
+8. 异步失败必须落 `agent_task` 且前端可见，不许静默死亡
+9. 新需求先进 backlog，不进当前里程碑
+
+### 动代码前
+
+- **总纲 §2 / §3**：红线与技术栈（定版，不自行更换）
+- **对应 ADR**：`docs/dev/contracts/决策记录.md`，选型问题先看 ADR-020
+- **对应契约**：改端点读 `contracts/接口契约.md`，改表读 `contracts/数据契约.md`；
+  新端点**必须先登记**，否则 `doc_check` 报「未在接口契约登记」
+- **改界面文案**：先读 `docs/dev/文案规范.md`（术语与禁止词），改完跑 `verify_m7`
+- **改版本号**：只走 `tools/bump_version.py --to X.Y.Z`（五处，含 README 徽标），提交前 `--check`
