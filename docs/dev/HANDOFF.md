@@ -2891,10 +2891,13 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 **回归**：`verify_m10 --only paper` 8/8、`verify_m11` 61/61、`verify_m7` 99/99、
 `doc_check --strict` 0 FAIL / 0 WARN（登记端点 69 → 71）、eslint 干净、build 4.0 s（主包 415.36 kB / gzip 148.03）。
 
-**发现但没改（既有，不属本批）**
-> 配置栏可拖窄（`--w-config`）。拖到 200px 左右时，`出题：<20 字标题>` 这颗主按钮的
-> `white-space: nowrap` 会把文字顶出按钮。要修就统一给 `.cfg-foot .btn` 一个截断规则，
-> 别只改这一个按钮（否则同一列里两种溢出行为）。
+**批 3 收尾补修（同日）**：配置栏拖到最窄 240px 时，`出题：<长标题>` 那颗主按钮的
+`white-space: nowrap` 会把文字顶出按钮边框、硬切成半个字，既没有省略号也没有 title。
+修法：`.cfg-foot` 里三颗按钮的文字统一包进 `.btn-label`（`flex:1 1 auto` + `min-width:0` +
+`overflow:hidden` + `text-overflow:ellipsis`），按钮各自带完整文案的 `title`。
+判据（真实库副本 + Chrome，`--w-config` 240/300/400 三档）：label 的
+`scrollWidth > clientWidth` 只允许出现在窄栏且必须有非空 title；label 左右边界必须落在按钮内容区内；
+400px 宽栏不许截断。三档全 OK，console 无错误。
 
 **下一会话第一件事**
 > 批 4（`AGENTS.md` 上工手册 + §4.3 版本与台账单一事实源）。另：批 5 做 CI 时把

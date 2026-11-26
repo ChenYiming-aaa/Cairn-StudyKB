@@ -523,19 +523,22 @@ onMounted(async () => {
               class="btn btn-primary"
               type="button"
               :disabled="phase !== 'idle' || paperLoading"
+              :title="paperLoading ? '' : `按卷练：${pickedTitle}`"
               @click="startPaper"
             >
-              {{ paperLoading ? '正在取题…' : `按卷练：${pickedTitle}` }}
+              <span class="btn-label">{{ paperLoading ? '正在取题…' : `按卷练：${pickedTitle}` }}</span>
             </button>
             <template v-else>
               <button
                 class="btn btn-primary"
                 type="button"
                 :disabled="!canGenerate || phase !== 'idle'"
-                :title="phase === 'answering' ? '先做完这一组，或点结果页的「再来一组」' : ''"
+                :title="phase === 'answering'
+                  ? '先做完这一组，或点结果页的「再来一组」'
+                  : (pickedTitle ? `出题：${pickedTitle}` : '出题')"
                 @click="generate"
               >
-                {{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}
+                <span class="btn-label">{{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}</span>
               </button>
               <p class="cfg-note">{{ estimate }}</p>
               <!-- 已有的题可以重做：不花一次调用重新出，做过的也能再走一遍（方案 §3.2）。
@@ -547,7 +550,7 @@ onMounted(async () => {
                 :disabled="phase !== 'idle' || poolLoading"
                 @click="startPool"
               >
-                {{ poolLoading ? '正在取题…' : `做已有题（${poolTotal}）` }}
+                <span class="btn-label">{{ poolLoading ? '正在取题…' : `做已有题（${poolTotal}）` }}</span>
               </button>
             </template>
           </div>
@@ -778,6 +781,21 @@ onMounted(async () => {
 /* 次要入口（做已有题）和主入口之间留一档：贴太近会像同一件事的两种说法 */
 .cfg-alt {
   margin-top: var(--space-1);
+}
+
+/* 配置栏能拖到 240px，标题却可能 20 字以上。`.btn` 是 inline-flex + nowrap，
+   不压窄就只会把文字顶到按钮边框外面硬切掉 —— 看不出少了字，也没提示全文。
+   统一走省略号，全文由按钮的 title 兜住（2026-11-26 修）。 */
+.cfg-foot .btn {
+  min-width: 0;
+}
+
+.cfg-foot .btn-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stage {
