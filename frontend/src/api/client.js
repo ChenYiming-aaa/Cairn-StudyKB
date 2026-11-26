@@ -335,6 +335,10 @@ export const api = {
   probeProvider: (payload) => post('/api/settings/probe', payload),
   /** 写 provider 的 Key（.env）与地址（settings.json），返回 {saved, env_file, settings} */
   saveProvider: (payload) => post('/api/settings/llm', payload),
+  /** 最近一次备份：{last: {name, path, size, at} | null, dir, keep, interval_hours} */
+  backupStatus: () => get('/api/settings/backup'),
+  /** 立即备份：{created, reason, path?, size?, pruned?, message?}；同一天只留一份 */
+  backupNow: () => post('/api/settings/backup'),
   /** 版本元数据 {version, commit, built_at}（T8.5 更新器用） */
   version: () => get('/api/version'),
   /** 可选组件清单 + 状态（M8 T8.3）：{items, repo, release_tag, mirror} */

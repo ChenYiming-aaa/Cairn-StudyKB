@@ -15,12 +15,17 @@
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from app.config import get_settings as get_config
 from app.errors import ApiError
-from app.services import env_store, llm_route, prefs
+from app.services import backup, env_store, llm_route, prefs
 from app.services.env_probe import probe_provider
+
+log = logging.getLogger("cairn")
 
 router = APIRouter(tags=["settings"])
 
@@ -79,3 +84,24 @@ def save_llm(body: LlmBody) -> dict:
         raise ApiError("SETTINGS_INVALID", f"未知的 provider：{body.provider}", status=400)
     path = env_store.update_provider(body.provider, body.api_key, body.base_url)
     return {"saved": True, "env_file": str(path), "settings": prefs.public_view()}
+
+
+# ── 数据备份（优化方案 v0.4 §3.3）──────────────────────────────
+@router.get("/api/settings/backup")
+def backup_status() -> dict:
+    """最近一次备份的时间与位置。给「关于」页那一行用；从没备过时 `last` 为 null。"""
+    return backup.status(get_config().data_dir)
+
+
+@router.post("/api/settings/backup")
+def backup_now() -> dict:
+    """立即备份：跳过 24 小时门槛，但**同一天仍然只有一份**。
+
+    失败回 200 + `reason=error`：这是用户主动点的一次动作，界面要能说「这次没备上」；
+    弹一个请求失败的红框会让人以为整个设置坏了，而实际上数据一个字都没动。
+    """
+    try:
+        return backup.run(get_config().data_dir, force=True)
+    except Exception as exc:            # noqa: BLE001 — 人话给界面，细节进日志
+        log.warning("手动备份失败：%s", exc, exc_info=True)
+        return {"created": False, "reason": "error", "message": str(exc)}

@@ -15,6 +15,7 @@ import { computed, onMounted, ref } from 'vue'
 import { api } from '../../api/client'
 import { useSettings } from '../../composables/useSettings'
 import { useUpdater } from '../../composables/useUpdater'
+import { fileSize, shortTime } from '../../utils/format'
 
 const info = ref(null)
 const loading = ref(true)
@@ -53,6 +54,7 @@ const builtAt = computed(() => {
 onMounted(async () => {
   // 配置来源要能看见（S-3）：光有开关没人检查，等于没修
   loadSettings()
+  loadBackup()
   try {
     info.value = await api.version()
   } catch {
@@ -62,6 +64,58 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+// ── 数据备份（优化方案 v0.4 §3.3）────────────────────────────
+const backupInfo = ref(null)
+const backing = ref(false)
+const backupNote = ref('')
+const backupTone = ref('')
+
+/** 「上次备份」那一行：时间 + 体积；从没备过就直说，不写「—」让人猜 */
+const lastBackup = computed(() => {
+  const last = backupInfo.value?.last
+  if (!last) return '还没备份过'
+  return `${shortTime(last.at)} · ${fileSize(last.size)}`
+})
+const backupDir = computed(() => backupInfo.value?.dir || '')
+
+async function loadBackup() {
+  try {
+    backupInfo.value = await api.backupStatus()
+  } catch {
+    backupInfo.value = null   // 读不到备份状态不该把整张「关于」拖死
+  }
+}
+
+async function runBackup() {
+  if (backing.value) return
+  backing.value = true
+  backupNote.value = ''
+  backupTone.value = ''
+  try {
+    const res = await api.backupNow()
+    if (res.created) {
+      backupNote.value = `已备份（${fileSize(res.size)}）`
+      backupTone.value = 'ok'
+    } else if (res.reason === 'already_today') {
+      backupNote.value = '今天已经备过了，一天只留一份'
+    } else if (res.reason === 'recent') {
+      backupNote.value = '24 小时内刚备过'
+    } else if (res.reason === 'error') {
+      // 数据没动，只是这次没备上 —— 别让人以为出了大事
+      backupNote.value = '这次没备上，内容一个字都没动'
+      backupTone.value = 'warn'
+    } else {
+      backupNote.value = '这次没有可备份的内容'
+    }
+    await loadBackup()
+  } catch (err) {
+    backupNote.value = `这次没备上：${err.message || '稍后再试'}`
+    backupTone.value = 'warn'
+  } finally {
+    backing.value = false
+  }
+}
 
 /** 配置来源审计：`ok=false` 只表示"配置被两处拼起来过"，开发机才会出现 */
 const cfg = computed(() => settings.value?.config || null)
@@ -212,6 +266,29 @@ const hint = computed(() => {
     </section>
 
     <section class="block">
+      <h5 class="block-title">备份</h5>
+      <dl class="facts">
+        <div class="fact">
+          <dt>上次备份</dt>
+          <dd>{{ lastBackup }}</dd>
+        </div>
+        <div class="fact">
+          <dt>备份位置</dt>
+          <dd>{{ backupDir || '—' }}</dd>
+        </div>
+      </dl>
+      <div class="update-row">
+        <button class="btn btn-sm" type="button" :disabled="backing" @click="runBackup">
+          {{ backing ? '正在备份…' : '立即备份' }}
+        </button>
+        <span class="update-note" :class="{ ok: backupTone === 'ok', warn: backupTone === 'warn' }">
+          {{ backupNote }}
+        </span>
+      </div>
+      <p class="update-note">每天自动备一次，保留最近 7 份。备份文件用任何 SQLite 工具都能打开。</p>
+    </section>
+
+    <section class="block">
       <h5 class="block-title">链接</h5>
       <div class="links">
         <a
@@ -229,7 +306,7 @@ const hint = computed(() => {
     </section>
 
     <p class="privacy">
-      数据目录 <code>%APPDATA%\Cairn</code>：备份就是复制这个文件夹，卸载不会删内容。
+      数据目录 <code>%APPDATA%\Cairn</code>：卸载不会删里面的内容。
     </p>
   </div>
 </template>

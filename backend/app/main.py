@@ -28,6 +28,7 @@ from app.routers import (
 # 下载中心（M8 T8.3）：路由模块名与 services.components 撞，导入时改名
 from app.routers import components as components_api
 from app.services import browser, components, ingest_file
+from app.services import backup as db_backup
 from app.services import files as file_store
 from app.services import llm_route
 from app.services.tasks import recover_stale_tasks, shutdown
@@ -49,6 +50,9 @@ async def lifespan(_: FastAPI):
     force_utf8_stdio()
     setup_logging(cfg)
     init_db()
+    # 优化方案 v0.4 §3.3：启动后异步备一份（24 小时内备过就跳过）。
+    # daemon 线程 + 内部 try/except —— 备份失败只写日志，**绝不许拖慢或拖死启动**。
+    db_backup.maybe_start(cfg.data_dir)
     recover_stale_tasks()
     # T9.6：识别是线程任务，被 kill 时来不及写状态。启动时看到 running 一定是上次没跑完，
     # 不拨回 pending 的话界面永远转圈、重识别还会被判「正在跑」
