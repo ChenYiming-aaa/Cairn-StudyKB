@@ -2861,3 +2861,41 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 **下一会话第一件事**
 > 批 3（已有题池：`GET knowledge/{id}/questions` + 练习页「做已有题（N）」）—— 要改同一个 `Practice.vue`，
 > 与批 1 分开提交。另：批 5 做 CI 时把 `verify_backup.py` 一起挂上（6 秒、离线，比 m4/m10 还便宜）。
+
+## 2026-11-26 深夜 · 批 3：已有题池（做已有题）
+
+**判据先落**：`backend/scripts/verify_pool.py`（23 条，离线，约 2 秒，不调模型）。四组：
+- `§count` 没有题回空 / 出 5 题回 5 / 再出 5 题回 10，且**老题 id 一个都没变**（要的是重做同一批，不是换一批）；
+- `§order` 导入题在前按题号数值序（1, 2, 10）、模型题在后按入库顺序；
+  `origin='imported'` 但题号被摘掉的残留题**不出现**；
+- `§shape` payload 是 dict、question/options/answer/explanation 都在、选项已剥自带 `A.` 前缀；
+- `§edge` 不存在的 id → 404 `ITEM_NOT_FOUND`；同一份试卷上按卷练 3 道 / 题池 4 道（口径差异是设计）。
+
+**方案没写、实现时补上的一条**：`origin='imported' AND number IS NULL` 必须排除。那是
+`exam/commit._drop_unused` 在「用户删了这道题、可它还有作答记录」时摘掉题号的残留，
+题池不筛它等于「删了又冒出来」。只筛 `number IS NOT NULL` 又会把模型出的题（题号本来就空）全滤掉，
+所以判据写成 `origin <> 'imported' OR number IS NOT NULL`。
+
+**实现**：`repo/questions.list_for_item()`（排序 + 上面那条筛选）/ `GET /api/knowledge/{id}/questions`
+（没题回 `total: 0` 而不是 404 —— 否则练习页每次选中一条没出过题的内容都要处理一次异常）/
+练习页 `watch(itemId)` 取计数（`poolSeq` 丢弃过期回包，避免快点材料时慢回包盖掉后选的）、
+`startPool()`、`poolRun` 与 `paperRun` 分开（题号只有试卷有）。
+
+**一处与方案原文不同**：方案写「点下去 `paperRun = false`」，照做之后交卷页的按钮会变成
+「回配置再出一组」——那句话会让人以为要重新花钱出题。改成 `poolRun` 单独记，
+`onRestart` 里 `paperRun → startPaper` / `poolRun → startPool`，两种都是「再做一遍」。
+
+**实测**（`verify_pool` 23/23；真库副本 + Chrome）：选「用图书管理系统讲透真实工程架构」（库里 10 题）→
+按钮 `做已有题（10）` → 开卷 `第 1 / 10 题`、首题题干与接口一致 → 答完交卷 → 点「再做一遍」→
+**回到 `第 1 / 10 题`**；选试卷 → 没有这颗按钮、`按卷练` 仍在（1 颗）。console 无错误。
+**回归**：`verify_m10 --only paper` 8/8、`verify_m11` 61/61、`verify_m7` 99/99、
+`doc_check --strict` 0 FAIL / 0 WARN（登记端点 69 → 71）、eslint 干净、build 4.0 s（主包 415.36 kB / gzip 148.03）。
+
+**发现但没改（既有，不属本批）**
+> 配置栏可拖窄（`--w-config`）。拖到 200px 左右时，`出题：<20 字标题>` 这颗主按钮的
+> `white-space: nowrap` 会把文字顶出按钮。要修就统一给 `.cfg-foot .btn` 一个截断规则，
+> 别只改这一个按钮（否则同一列里两种溢出行为）。
+
+**下一会话第一件事**
+> 批 4（`AGENTS.md` 上工手册 + §4.3 版本与台账单一事实源）。另：批 5 做 CI 时把
+> `verify_pool.py`（2 秒）与 `verify_backup.py`（6 秒）一起挂上，比 m4/m10 还便宜。
