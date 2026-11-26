@@ -370,6 +370,11 @@ export const api = {
   wrongQuestions: (params) => get('/api/quiz/wrong', params),
   /** 整份试卷的题（T10.5）：按题号排好，供「按卷练习」 */
   quizPaper: (itemId) => get(`/api/quiz/paper/${itemId}`),
+  /**
+   * 这条内容下已有的题（做已有题）：与按卷练同一种形状，可直接喂给作答器。
+   * 没有题时是 `{ total: 0, questions: [] }`，不报错 —— 前端据此不显示入口。
+   */
+  itemQuestions: (itemId) => get(`/api/knowledge/${itemId}/questions`),
   /** 试卷草稿（T10.2）：纯计算不落库，返回 {drafts, stats} */
   examParse: (payload) => post('/api/exams/parse', payload),
   /** 这份原件对应的内容/是否已导入（5-2）：只读不解析，导过的试卷据此读库里那版 */

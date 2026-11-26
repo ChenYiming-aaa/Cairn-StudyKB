@@ -165,6 +165,35 @@ def list_paper(conn: sqlite3.Connection, item_id: int) -> list[dict]:
     return items
 
 
+def list_for_item(conn: sqlite3.Connection, item_id: int) -> list[dict]:
+    """一条内容下**现存全部题**（`GET /api/knowledge/{item_id}/questions`）。
+
+    与 `list_paper` 的差别只有筛选口径：按卷练要的是「这张卷子原本的题」（`origin='imported'`
+    且有题号），而「做已有题」问的是「这条内容上现在有哪些题」—— 试卷之外的内容只有模型出的题
+    （`origin='ai'`、题号为空），筛 origin 会把它们全滤掉。
+
+    但 `origin='imported' AND number IS NULL` 必须排除：那是 `exam/commit._drop_unused`
+    在「用户删掉这道题、可它还有作答记录」时摘掉题号的残留，题池里再出现它等于删了又冒出来。
+
+    排序按方案 §3.2：先 origin（导入的在前），再题号数值序，最后入库顺序。
+    纯 `ORDER BY id` 会让「先出的 A 组 + 后补的 B 组」看上去是顺序乱掉的，
+    而 `_number_key` 把空题号排在最后，正好让生成的题按出题顺序接在后面。
+    """
+    rows = conn.execute(
+        """SELECT * FROM question
+           WHERE item_id=? AND (origin <> 'imported' OR number IS NOT NULL)
+           ORDER BY id""",
+        (item_id,),
+    ).fetchall()
+    items = [row_to_question(r) for r in rows]
+    items.sort(key=lambda q: (
+        0 if q.get("origin") == "imported" else 1,
+        _number_key(q.get("number")),
+        q["id"],
+    ))
+    return items
+
+
 def row_to_question(row: sqlite3.Row) -> dict:
     question = dict(row)
     try:

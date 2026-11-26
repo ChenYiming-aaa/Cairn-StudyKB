@@ -96,6 +96,7 @@ function saveRun() {
       difficulty: difficulty.value,
       count: count.value,
       paper: paperRun.value,
+      pool: poolRun.value,
     }))
   } catch {
     // 同上
@@ -138,6 +139,7 @@ function resumeRun() {
   if (run.difficulty) difficulty.value = run.difficulty
   if (run.count) count.value = run.count
   paperRun.value = Boolean(run.paper)
+  poolRun.value = Boolean(run.pool)
   resumeQuiet.value = true
   phase.value = 'answering'
   runKey.value += 1
@@ -158,6 +160,36 @@ const isExam = computed(() => pickedItem.value?.kind === 'exam')
 const paperLoading = ref(false)
 // 这一轮是不是按卷练。快照而不是读 `isExam`：作答中途换材料不该改掉正在做的那一轮
 const paperRun = ref(false)
+
+// 这条内容上已经有多少题（「做已有题」的入口与计数，方案 §3.2）
+const poolTotal = ref(0)
+const poolLoading = ref(false)
+// 这一轮是不是在做已有题。与 paperRun 分开：题号只有试卷有，两者的呈现不一样
+const poolRun = ref(false)
+// 点材料点得快时会有多个请求在飞，只认最后一次的回包（否则先发的慢回包会盖掉后选的）
+let poolSeq = 0
+
+// 舞台失败标题：出题失败和取题失败是两件事，用户看标题就知道刚才点的是哪个
+const errorTitle = ref('出题失败')
+
+/**
+ * 取「已有题」的条数。只对非试卷取：试卷的入口是「按卷练」，两颗入口按钮会互相抢戏。
+ * 失败不提示 —— 拿不到数只是少一个次要入口，配置栏不该因此报红。
+ */
+async function loadPool() {
+  const seq = ++poolSeq
+  poolTotal.value = 0
+  if (itemId.value === null || isExam.value) return
+  try {
+    const data = await api.itemQuestions(itemId.value)
+    if (seq === poolSeq) poolTotal.value = Number(data.total) || 0
+  } catch {
+    // 见上：静默。下次换材料或出完题会再问一次
+  }
+}
+
+// 换材料就重新数一遍（首次加载时 itemId 由 null 变成首条，也会走到这里）
+watch(itemId, loadPool)
 
 async function loadItems() {
   loading.value = true
@@ -203,6 +235,8 @@ function isLastType(type) {
 async function generate() {
   if (!canGenerate.value || phase.value === 'generating') return
   paperRun.value = false
+  poolRun.value = false
+  errorTitle.value = '出题失败'
   // 新出一组就是新的一轮：上一轮的续跑记录（如果还有）到此作废
   clearRun()
   phase.value = 'generating'
@@ -243,6 +277,8 @@ async function generate() {
     // 一题都没出出来（失败/手动停）：配置得还回去，否则用户改不了题型再来一次
     if (phase.value === 'idle') restoreConfig()
     runKey.value += 1
+    // 这一轮往库里加了题：回到配置时「做已有题（N）」上的数字要是新的
+    if (questions.value.length) loadPool()
     if (!questions.value.length && !genError.value) {
       toast.error('一题都没出出来，换个内容或题型再试')
     }
@@ -264,6 +300,7 @@ async function startPaper() {
   if (!itemId.value || phase.value !== 'idle' || paperLoading.value) return
   paperLoading.value = true
   genError.value = ''
+  errorTitle.value = '取题失败'
   try {
     const data = await api.quizPaper(itemId.value)
     questions.value = data.questions || []
@@ -272,12 +309,45 @@ async function startPaper() {
     if (!questions.value.length) toast.info('这份试卷还没有导进题目')
     else {
       paperRun.value = true
+      poolRun.value = false
       phase.value = 'answering'
     }
   } catch (err) {
     genError.value = `${friendlyMessage(err)}${humanDetail(err.detail) ? `（${humanDetail(err.detail)}）` : ''}`
   } finally {
     paperLoading.value = false
+    runKey.value += 1
+  }
+}
+
+/**
+ * 做已有题：把这条内容上现存的题取回来直接作答，不走模型（方案 §3.2）。
+ *
+ * 和「按卷练」只差来源与题号：题池里的题没有原卷题号，所以不标「原卷 N 题」。
+ * 相同的是「题已经在库里」—— 交卷后能原样再做一遍，不用再花一次调用重新出题。
+ */
+async function startPool() {
+  if (!itemId.value || phase.value !== 'idle' || poolLoading.value) return
+  poolLoading.value = true
+  genError.value = ''
+  errorTitle.value = '取题失败'
+  try {
+    const data = await api.itemQuestions(itemId.value)
+    questions.value = data.questions || []
+    poolTotal.value = questions.value.length
+    requested.value = questions.value.length
+    skips.value = 0
+    if (!questions.value.length) {
+      toast.info('这条内容还没有题，先出几道')
+    } else {
+      poolRun.value = true
+      paperRun.value = false
+      phase.value = 'answering'
+    }
+  } catch (err) {
+    genError.value = `${friendlyMessage(err)}${humanDetail(err.detail) ? `（${humanDetail(err.detail)}）` : ''}`
+  } finally {
+    poolLoading.value = false
     runKey.value += 1
   }
 }
@@ -311,9 +381,10 @@ function onFinished(result) {
 
 async function onRestart() {
   backToIdle()
-  // 试卷的「再做一遍」要真的重新开卷：题在库里，不必让用户回左侧再点一次。
+  // 试卷与已有题都一样：题在库里，重开同一批，不必让用户回左侧再点一次。
   // 生成的题组仍然回配置 —— 题是现出的，得重选题型与题数。
   if (paperRun.value) await startPaper()
+  else if (poolRun.value) await startPool()
 }
 
 onMounted(async () => {
@@ -467,6 +538,17 @@ onMounted(async () => {
                 {{ phase === 'generating' ? '出题中…' : `出题${pickedTitle ? `：${pickedTitle}` : ''}` }}
               </button>
               <p class="cfg-note">{{ estimate }}</p>
+              <!-- 已有的题可以重做：不花一次调用重新出，做过的也能再走一遍（方案 §3.2）。
+                   没有题就不渲染 —— 一个点下去只弹「还没有题」的按钮不如不出现 -->
+              <button
+                v-if="poolTotal > 0"
+                class="btn cfg-alt"
+                type="button"
+                :disabled="phase !== 'idle' || poolLoading"
+                @click="startPool"
+              >
+                {{ poolLoading ? '正在取题…' : `做已有题（${poolTotal}）` }}
+              </button>
             </template>
           </div>
         </div>
@@ -506,7 +588,7 @@ onMounted(async () => {
           :key="runKey"
           :questions="questions"
           :numbered="paperRun"
-          :restart-label="paperRun ? '再做一遍' : '回配置再出一组'"
+          :restart-label="paperRun || poolRun ? '再做一遍' : '回配置再出一组'"
           :auto-resume="resumeQuiet"
           @finished="onFinished"
           @restart="onRestart"
@@ -514,9 +596,10 @@ onMounted(async () => {
 
         <!-- 空态 -->
         <div v-else class="state">
-          <p class="state-title">{{ genError ? (isExam ? '取题失败' : '出题失败') : '还没开始' }}</p>
+          <p class="state-title">{{ genError ? errorTitle : '还没开始' }}</p>
           <p v-if="genError" class="state-error">{{ genError }}</p>
           <p v-else-if="isExam">左侧已选好试卷，点「按卷练」开始</p>
+          <p v-else-if="poolTotal > 0">左侧选好材料，点「出题」新出一组，或点「做已有题」重做</p>
           <p v-else>左侧选好材料，点「出题」</p>
         </div>
       </section>
@@ -690,6 +773,11 @@ onMounted(async () => {
   margin-top: auto;
   padding-top: var(--space-3);
   border-top: 1px solid var(--c-border);
+}
+
+/* 次要入口（做已有题）和主入口之间留一档：贴太近会像同一件事的两种说法 */
+.cfg-alt {
+  margin-top: var(--space-1);
 }
 
 .stage {

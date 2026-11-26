@@ -16,6 +16,7 @@ from app.db.conn import get_conn
 from app.db.repo import files as file_repo
 from app.db.repo import items as repo
 from app.db.repo import pages as page_repo
+from app.db.repo import questions as question_repo
 from app.db.repo import workspaces as workspace_repo
 from app.errors import ApiError, error_payload
 from app.services import dispatch
@@ -311,6 +312,35 @@ def get_mindmap(
         )
     finally:
         conn.close()
+
+
+@router.get("/{item_id}/questions")
+def get_item_questions(item_id: int):
+    """这条内容下已有的题（「做已有题」入口，方案 §3.2）。
+
+    交卷之后只剩错题本（只有答错的）和复习队列（只有到期的），「我做过的那批题」没有去处；
+    这里把该内容的题一次给全，形状与按卷练（`GET /api/quiz/paper/{id}`）一致，
+    前端可以直接喂给同一个答题组件。
+
+    **没有题不是错误**：回 `questions: []` + `total: 0`，前端据此不渲染入口。
+    真回 404 的话，练习页每次选中一条没出过题的内容都要处理一次异常。
+    """
+    conn = get_conn()
+    try:
+        row = repo.get_item(conn, item_id)
+        if row is None:
+            return _not_found()
+        questions = question_repo.list_for_item(conn, item_id)
+    finally:
+        conn.close()
+    return {
+        "item_id": item_id,
+        "title": row["title"],
+        "kind": row["kind"],
+        "total": len(questions),
+        # payload 兜底成 {}：与按卷练同一形状，前端不必判断字段在不在
+        "questions": [{**q, "payload": q.get("payload") or {}} for q in questions],
+    }
 
 
 @router.get("/{item_id}")
