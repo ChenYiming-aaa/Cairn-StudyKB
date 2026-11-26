@@ -2829,3 +2829,35 @@ P2 七项，分 7 批，每批独立可交付）。
 **下一会话第一件事**
 > 批 2（启动时 `VACUUM INTO` 自动备份 + 设置页「立即备份」，保留 7 份）尚未开工；
 > 批 3（已有题池，`做已有题（N）`）要改同一个 `Practice.vue`，按 `优化方案-v0.4.md` §7 的顺序别并成一次提交。
+
+## 2026-11-26 晚 · 批 2：数据备份（三条判据先落、再实现）
+
+**判据先落**：`backend/scripts/verify_backup.py`（33 条，离线，约 6 秒）。三组：
+- `§flow` 当天不重复 + 备份真的可用（标准 sqlite3 能打开、`knowledge_item` 行数与源库相同、
+  `integrity_check` 为 ok）；
+- `§keep` 只留 7 份，删的是最旧的那些，且**只认 `data-YYYYMMDD.db`**（`readme.txt`、`data-notadate.db`
+  一个都没动）；
+- `§failure` 备份失败不阻塞启动：`run()` 如实抛错 → 启动钩子不抛 → 真起一个服务（坏的数据目录）
+  `/api/health` 200、`/api/settings/backup` 200 且 `last` 为空。
+
+**判据逼出来的两处认知修正**（不写下来下次还会踩）：
+1. **`already_today` 的优先级高于 `recent`**：同一天里 `recent` 分支**不可达**，原方案把两者写成并列条件。
+   要验 `recent` 必须造「跨天 + mtime 23 小时前」；我第一次直接断言「第二次调是 recent」，
+   实际返回 `already_today` —— 判据错，不是实现错。
+2. **Windows 上 `integrity_check` 那条内联连接没关会导致 WinError 32**：验完文件还被占用，后面 rename
+   就失败。凡是「开库 → 验 → 改名」的脚本，连接必须 try/finally close。
+
+**实现**：`services/backup.py`（`VACUUM INTO` 快照 / `KEEP=7` / `INTERVAL_HOURS=24` / 只删自己命名的文件 /
+失败删掉半份不留残骸）、lifespan 里 `db_backup.maybe_start()`（daemon 线程，内部吞异常只记 warning）、
+`GET`/`POST /api/settings/backup`、关于页新增「备份」块（上次备份 / 备份位置 / 立即备份）。
+关于页原来那句「备份就是复制这个文件夹」删了 —— 已经有按钮再说这句会自相矛盾。
+
+**实测**：`verify_backup` 33/33；真库副本 + Chrome 走查：「上次备份 11-26 22:22 · 4.1 MB」→ 点「立即备份」→
+「今天已经备过了，一天只留一份」（目录仍 1 份）→ 删掉 `backup/` 再点 →「已备份（4.1 MB）」，
+console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
+**回归**：`verify_m7` **99/99**（含「设置·关于 没有禁止词」）、`verify_m10` 151/151、`verify_m11` 61/61、
+`doc_check --strict` 0 FAIL / 0 WARN、eslint 干净、build 4.8 s。
+
+**下一会话第一件事**
+> 批 3（已有题池：`GET knowledge/{id}/questions` + 练习页「做已有题（N）」）—— 要改同一个 `Practice.vue`，
+> 与批 1 分开提交。另：批 5 做 CI 时把 `verify_backup.py` 一起挂上（6 秒、离线，比 m4/m10 还便宜）。
