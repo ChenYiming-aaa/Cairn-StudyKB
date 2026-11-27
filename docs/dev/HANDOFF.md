@@ -18,16 +18,16 @@
 
 ---
 
-## 当前状态（2026-11-26 · 每次会话结束更新这一段）
+## 当前状态（2026-11-27 · 每次会话结束更新这一段）
 
 | 项 | 值 |
 |---|---|
-| 阶段 | **v0.4 优化线**：`docs/dev/优化方案-v0.4.md` 共 7 批。**批 1–4 已完成**（试卷重做 / 数据备份 / 已有题池 / 上工手册与版本台账），批 5 CI、批 6 单测、批 7 P2 待开工 |
+| 阶段 | **v0.4 优化线**：`docs/dev/优化方案-v0.4.md` 共 7 批。**批 1–5 已完成**（试卷重做 / 数据备份 / 已有题池 / 上工手册与版本台账 / CI），批 6 单测、批 7 P2 待开工 |
 | 功能基线 | M11 已完成（v0.3 三层：识别 / 试卷 / 原件呈现）。里程碑台账在 `执行计划-v0.3-M9-M11.md` §9，各里程碑细节在 `milestones/` |
 | 版本 | **0.3.7**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
 | 发布 | 最新 Release **`v0.3.7`**（2026-11-24，`Cairn-0.3.7-setup.exe` 184,465,211 B，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
-| 最近验收 | 2026-11-26：`verify_m7` 99/99 · `verify_m10` 151/151 · `verify_m11` 61/61 · `verify_pool` 23/23 · `verify_backup` 33/33 · `doc_check --strict` 0 FAIL / 0 WARN · eslint 干净 · build ≈4 s（主包 415 kB / gzip 148） |
-| 下一件事 | 批 5 CI：`.github/workflows/` 加 front / docs / backend 三个 job，backend 挂 m4 / m10 / m11 + `verify_pool` / `verify_backup`（全部离线、合计不到 30 秒）；然后批 6 单测 → 批 7 P2 |
+| 最近验收 | 2026-11-27：**CI 三个 job 全绿**（front 16–19 s / docs 5–7 s / backend 17–24 s，run `45933146553`）· 本机 2026-11-26：`verify_m7` 99/99 · `verify_m10` 151/151 · `verify_m11` 61/61 · `verify_pool` 23/23 · `verify_backup` 33/33 · `doc_check --strict` 0 FAIL / 0 WARN · eslint 干净 · build ≈4 s（主包 415 kB / gzip 148） |
+| 下一件事 | 批 6：最小单测（`pytest` ≥30 条）+ 提示词输出 schema（`优化方案-v0.4.md` §4.2）；然后批 7 P2 |
 | 在线演示 | <https://chenyiming-aaa.github.io/Cairn-StudyKB/> —— `VITE_DEMO=1` 静态演示，`pages.yml` 随 main 自动重建；**仓库必须 Public**（免费账号私有仓库不支持 Pages） |
 | 许可证 | MIT（`LICENSE`） |
 | 台账 | 本文件只留「当前状态 + 归档索引 + 2026-11-17 起的条目」。M4–M11 在 `archive/HANDOFF-2026-11-07至11-14.md`，M0–M3 在 `archive/HANDOFF-2026-11-05至11-07.md` |
@@ -372,3 +372,48 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 **下一会话第一件事**
 > 批 5 CI（`.github/workflows/` 三个 job）。注意 `npm run e2e` 写死了 `D:\Anaconda3\python.exe`
 > （`frontend/package.json`），上 CI 前先改成 `python`，否则在 runner 上必然找不到。
+
+---
+
+## 2026-11-27 · 批 5 CI + 填掉批 1–4 留下的两个坑
+
+**A. CI：`.github/workflows/ci.yml`，三个 job（PR #1，run `45933146553` 全绿）**
+- `front` 16–19 s：`npm ci` → lint → build → 挡「演示数据进了 dist」。
+  闸门的判据不是空话：`VITE_DEMO=1` 构建产物里确实有 `cairn-demo` 标记（在 `assets/index-*.js`），
+  正式构建里没有 —— 两头都验过。
+- `docs` 5–7 s：`doc_check --strict` + `bump_version --check`，纯标准库。
+- `backend` 17–24 s：`uv sync --frozen` 跳过 17 个包（torch / triton / `nvidia-*`），
+  再跑 `verify_pool` 23 + `verify_backup` 33 + `verify_m4` 78 + `verify_m10` 148（CI 上少 3 条，
+  真样本 `samples/` 按 `.gitignore` 不入库、走 SKIP）。
+- 方案 §8 那句「CI 冷装耗时未实测」现在有数了：**首次 20–24 s、命中 `setup-uv` 缓存 17 s**。
+  torch 在 linux 上约 4 GB，跳过它才是这个数量级的前提；不跳过的话磁盘和时间都吃不消。
+- 坑：**CI 里不能 `uv run`** —— 它会先按锁文件 sync 一遍，把跳过的包又装回来。job 里直接调 `.venv/bin/python`。
+
+**B. 坑一：`npm run e2e` 写死 `D:\Anaconda3\python.exe`**
+- 换成 `node e2e/run.mjs`：按 `CAIRN_PYTHON` → `backend/.venv` → `python3` / `python` / `py -3` 依次探测，
+  **每个候选真起一次浏览器**才认（包在、浏览器版本对不上时 import 成功、launch 才报错，只验 import 等于没验）。
+- Windows 下探测不能走 `python -c`：带换行与引号的 `-c` 会被重新切词（实测 `py -3` 报一串乱码），
+  改走 stdin（`python -`）。
+- 顺带给仓库 venv 装了 chromium（`PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright`；
+  直连 `cdn.playwright.dev` 实测 10 分钟停在 0%），本机不再依赖 Anaconda。
+
+**C. 坑二：`tools/regress.py` 只扫 `verify_m*.py`**
+- 批 2 / 批 3 新建的 `verify_pool` / `verify_backup` 从来没被「一条命令回归」带上过。
+- `discover()` 改为扫全部 `verify_*.py`：里程碑按编号排、`EXTRA` 里的排最后；
+  `--only` 同时认 `10` / `m10` / `pool`；`--from` / `--to` 仍只管里程碑（补某一段时不顺带跑补丁套件）。
+
+**D. CI 第一次红就抓到一个真缺陷：`verify_m4` 依赖本机根目录 `.env`**
+- 出题接口先判「有没有 Key」，没 Key 直接 400 不抛流 → 事件流是空的 → `events[-1]` IndexError，
+  报错离根因很远。本机有真 Key 时永远看不出这件事。
+- 修法照 `verify_m10`：往临时数据目录写一份假 Key（模型调用本来就全被打桩）。
+- 但假 Key 又让 `organize_if_pending` 多了「有 Key」这一条件 → 建条目时排一条真去调模型的整理任务，
+  401 重试三轮、脚本收尾删目录后它还在写 → `llm_call_log 写入失败：OperationalError`。
+  断言照样绿、绿里全是噪音 —— 用本来就存在的 `CAIRN_NO_AUTO_ORGANIZE=1`（`verify_m1` 早就在用）关掉。
+- 复现方式：`CAIRN_ENV_STRICT=1` 模拟「没有根 `.env`」，本机 78/78。
+
+**E. 红/绿双向验证（方案 §4.1 的验收判据）**
+- 故意改坏 `Practice.vue` 一个字符 → `front` 红（lint 拦住）；把 `review.next_interval` 的 ×2 改成 ×3
+  → `backend` 红在 `失败：连续答对间隔 1→2→4→7`（77/78）；`docs` 仍绿。回滚后全绿。
+
+**下一会话第一件事**
+> 批 6：最小单测（`pytest` ≥30 条）+ 提示词输出 schema。三类边界见 `优化方案-v0.4.md` §4.2。
