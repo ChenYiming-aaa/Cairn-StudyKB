@@ -22,12 +22,12 @@
 
 | 项 | 值 |
 |---|---|
-| 阶段 | **v0.4 优化线**：`docs/dev/优化方案-v0.4.md` 共 7 批。**批 1–5 已完成**（试卷重做 / 数据备份 / 已有题池 / 上工手册与版本台账 / CI），批 6 单测、批 7 P2 待开工 |
+| 阶段 | **v0.4 优化线**：`docs/dev/优化方案-v0.4.md` 共 7 批。**批 1–5 已完成并随 v0.3.8 发布**；批 6 进行中（提示词输出 schema 已完成，剩三组单测：organizer 失败码 / `review.next_interval` 边界 / `exam.commit` 事务回滚）；批 7 P2 待开工 |
 | 功能基线 | M11 已完成（v0.3 三层：识别 / 试卷 / 原件呈现）。里程碑台账在 `执行计划-v0.3-M9-M11.md` §9，各里程碑细节在 `milestones/` |
-| 版本 | **0.3.7**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
-| 发布 | 最新 Release **`v0.3.7`**（2026-11-24，`Cairn-0.3.7-setup.exe` 184,465,211 B，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
-| 最近验收 | 2026-11-27：**CI 三个 job 全绿**（front 16–19 s / docs 5–7 s / backend 17–24 s，run `45933146553`）· 本机 2026-11-26：`verify_m7` 99/99 · `verify_m10` 151/151 · `verify_m11` 61/61 · `verify_pool` 23/23 · `verify_backup` 33/33 · `doc_check --strict` 0 FAIL / 0 WARN · eslint 干净 · build ≈4 s（主包 415 kB / gzip 148） |
-| 下一件事 | 批 6：最小单测（`pytest` ≥30 条）+ 提示词输出 schema（`优化方案-v0.4.md` §4.2）；然后批 7 P2 |
+| 版本 | **0.3.8**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
+| 发布 | 最新 Release **`v0.3.8`**（2026-11-27，`Cairn-0.3.8-setup.exe` 184,483,214 B，sha256 `c0340cae…`，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.7 / v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
+| 最近验收 | 2026-11-27（v0.3.8 发版前）：`pytest` 38/38 · `verify_m7` 99/99 · `verify_m8` 110/110 · `verify_m10` 151/151 · `verify_pool` 23/23 · `verify_backup` 33/33 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 · eslint 干净 · build 2.9 s（主包 415.56 kB / gzip 148.07）· 包内冒烟 `/api/version` = 0.3.8 / `e9d23dc` |
+| 下一件事 | 批 6 剩余三组单测：organizer 三种失败返回对应的错误码、`review.next_interval` 边界、`exam.commit` 事务回滚（`优化方案-v0.4.md` §4.2）；然后批 7 P2 |
 | 在线演示 | <https://chenyiming-aaa.github.io/Cairn-StudyKB/> —— `VITE_DEMO=1` 静态演示，`pages.yml` 随 main 自动重建；**仓库必须 Public**（免费账号私有仓库不支持 Pages） |
 | 许可证 | MIT（`LICENSE`） |
 | 台账 | 本文件只留「当前状态 + 归档索引 + 2026-11-17 起的条目」。M4–M11 在 `archive/HANDOFF-2026-11-07至11-14.md`，M0–M3 在 `archive/HANDOFF-2026-11-05至11-07.md` |
@@ -417,3 +417,40 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 
 **下一会话第一件事**
 > 批 6：最小单测（`pytest` ≥30 条）+ 提示词输出 schema。三类边界见 `优化方案-v0.4.md` §4.2。
+
+---
+
+## 2026-11-27 · 批 6 上半（模型输出 schema + pytest）与 v0.3.8 发版
+
+**A. 模型输出 schema（提交 `936a6cf`）**
+- 新增 `backend/app/services/schemas.py`：`OrganizeResult` / `QuizItem` / `ExamFix` + 三个 `from_raw()`，
+  把三个调用点的手写容错收进模型。动机是「静默 stringify」：原来 `str({"a": 1})` 会变成一个标题、
+  `str({"B": true})` 会变成一个答案 —— 不报错、也没痕迹。`text()` 现在对 dict / list / bool 一律返回空。
+- 失败口径**沿用各自原有路径**：organizer 的 `ValidationError` → `LLM_BAD_RESPONSE`（走「重试一次再落 failed」）；
+  quizzer 计 `bad_shape` 跳过该题；exam 只丢模型给的那个字段。
+- 两处刻意的宽松：`ExamFix.type` 用宽松 `str`（做成 `Literal` 会让「type 写成中文」时整次补字段作废，
+  连累本来能用的答案）；分类**不设长度上限**（先写了 12 字截断，撤掉 —— 15 字的课程全名是正经分类）。
+- `backend/tests/` 38 条；`conftest.py` 钉 `CAIRN_ENV_STRICT=1` + 临时数据目录，本机有没有根 `.env` 都不影响。
+  `pyproject` 加 `dependency-groups.test` 与 `[tool.uv] default-groups = ["dev", "test"]`，`uv run` 直接能跑。
+- CI backend job 挂上 pytest（Linux 上 38 passed / 0.8 s）。
+
+**B. v0.3.8 发版（tag `v0.3.8` → `e9d23dc`）**
+- 版本 0.3.7 → 0.3.8：`bump_version.py --to 0.3.8`（五处）+ `uv lock` 只重写 `uv.lock` 的项目版本行。
+- **tag 指被装的那份源码**：`e9d23dc`（版本号提交）。包内 `_build_info.COMMIT` = `e9d23dc`，
+  与 `/api/version` 实测一致；底稿与 README / 台账的提交放在 tag 之后，**没平移 tag**。
+- 发版前验收：`pytest` 38/38 · `verify_m7` 99/99 · `verify_m8` 110/110 · `verify_m10` 151/151 ·
+  `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 · eslint 干净 · build 2.9 s。
+- 安装包 `Cairn-0.3.8-setup.exe` **184,483,214 B**（184.5 MB），
+  sha256 `c0340cae8b16b413b7c3ee2c0bf73bbee42acf6fd8ab0b10c7497e193869ea65`（附件 `.sha256` 已自校验）。
+- 包内冒烟：`/api/version` = `0.3.8 / e9d23dc / 2026-11-27T11:46:43+08:00`、`/` 200 `text/html`、
+  `/pdf/cmaps/Adobe-GB1-UCS2.bcmap` 200、`assets/pdf.worker.min-*.mjs` = `text/javascript`、`/api/health` ok。
+- **无迁移**：`SCHEMA_VERSION` 仍 6（与 v0.3.7 同），固定短句写「可装回上一版」。
+- 正文 5 条（试卷重做 / 做已有题 / 每日备份 / 手动备份 / 按钮截断），底稿 `release-notes-v0.3.8.md`。
+
+**C. 两个坑**
+- `doc_check` 的**归档隔离**拦了底稿里那句「M4–M11 移进 `archive/`」—— 文档里连提到这个目录名都不行，
+  改成「移进归档文件」。这类 FAIL 报的行号是串首次出现的位置，不是真出处。
+- 打包输出目录必须换新的（`--config.directories.output=release-v038`）：同一目录重打会撞 `app.asar` 被占用。
+
+**下一会话第一件事**
+> 批 6 剩余三组单测：organizer 三种失败返回对应的错误码、`review.next_interval` 边界、`exam.commit` 事务回滚。
