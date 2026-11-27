@@ -87,7 +87,7 @@ css = [
 
 [[package]]
 name = "cairn"
-version = "0.3.7"
+version = "0.3.8"
 source = { virtual = "." }
 default-groups = ["dev", "test"]
 dependencies = [
