@@ -12,8 +12,9 @@
      逐项与**独立写的 SQL 聚合**对账（不调被验的 repo）
   2. 连续天数  作答与「整理成 ready」都算学过；今天没学不算断；没有动作的日期会断
   3. 口径边界  「今天之前的 pending 不算今日待整理」、NULL 不计入正确率分母、分类只取前 8
-  4. 已下线    `/api/session/*` 与 `/api/stats/week` 必须 404（防止有人顺手加回来）
-  5. 首次引导  保存 Key 到 .env（T5.7）
+  4. 学习记录  热力图逐格与独立 SQL 对账；掌握度按「最近一次判定的答对题数 / 全部题数」
+  5. 已下线    `/api/session/*` 与 `/api/stats/week` 必须 404（防止有人顺手加回来）
+  6. 首次引导  保存 Key 到 .env（T5.7）
 
 全程临时 DATA_DIR，不碰 data/data.db；不调模型、不联网。
 M5 §6.6 的口径是**文档契约**，所以这里的期望值必须用另写一遍的 SQL 算，不能调 `repo.stats`——
@@ -238,8 +239,125 @@ def main() -> int:
                   },
                   str(sorted(s5)))
 
-            # ── 4. 已下线的端点 ─────────────────────────────────────
-            step("4. 番茄钟下线后的端点")
+            # ── 4. 学习记录热力图与掌握度 ───────────────────────────
+            step("4. 学习记录热力图与掌握度")
+
+            heat = client.get("/api/stats/heatmap").json()
+            check("热力图默认一年、返回连续日期",
+                  heat["days"] == 364 and len(heat["cells"]) == 364
+                  and heat["cells"][-1]["date"] == TODAY.isoformat()
+                  and heat["cells"][0]["date"] == (TODAY - timedelta(days=363)).isoformat(),
+                  f"{heat['days']} 天 / {len(heat['cells'])} 格 / "
+                  f"{heat['cells'][0]['date']} → {heat['cells'][-1]['date']}")
+
+            # 逐格与另写的 SQL 对账：作答按 created_at 的本地日期，ready 按 updated_at
+            exp_attempts = {row[0]: int(row[1]) for row in sql(
+                conn,
+                """SELECT date(created_at,'localtime') AS day, COUNT(*)
+                     FROM quiz_attempt WHERE date(created_at,'localtime') >= ?
+                    GROUP BY day""",
+                (heat["start"],),
+            )}
+            exp_ready = {row[0]: int(row[1]) for row in sql(
+                conn,
+                """SELECT date(updated_at,'localtime') AS day, COUNT(*)
+                     FROM knowledge_item
+                    WHERE status='ready' AND date(updated_at,'localtime') >= ?
+                    GROUP BY day""",
+                (heat["start"],),
+            )}
+            mismatched = [
+                (cell["date"], cell["count"], exp_attempts.get(cell["date"], 0)
+                 + exp_ready.get(cell["date"], 0))
+                for cell in heat["cells"]
+                if cell["count"] != exp_attempts.get(cell["date"], 0)
+                + exp_ready.get(cell["date"], 0)
+            ]
+            check("每格 = 当天作答数 + 当天整理完成数（独立 SQL 对账）",
+                  not mismatched, str(mismatched[:3]))
+            check("attempts / organized 分开给（提示框要能说清是哪一种）",
+                  all({"attempts", "organized"} <= set(cell) for cell in heat["cells"]))
+
+            today_cell = heat["cells"][-1]
+            check("今天的格子 = 6 篇整理，0 次作答",
+                  today_cell == {"date": TODAY.isoformat(), "attempts": 0,
+                                 "organized": 6, "count": 6},
+                  str(today_cell))
+            check("汇总与逐格一致",
+                  heat["total"] == sum(c["count"] for c in heat["cells"])
+                  and heat["active_days"] == sum(1 for c in heat["cells"] if c["count"])
+                  and heat["max_count"] == max(c["count"] for c in heat["cells"]),
+                  f"total={heat['total']} active={heat['active_days']} max={heat['max_count']}")
+
+            week = client.get("/api/stats/heatmap", params={"days": 7}).json()
+            check("days=7 → 只回一周，且仍以今天结尾",
+                  week["days"] == 7 and len(week["cells"]) == 7
+                  and week["cells"][-1]["date"] == TODAY.isoformat(),
+                  f"{week['days']} / {len(week['cells'])}")
+            check("days 越界 → 422（不静默截断成别的窗口）",
+                  client.get("/api/stats/heatmap", params={"days": 3}).status_code == 422
+                  and client.get("/api/stats/heatmap", params={"days": 400}).status_code == 422)
+
+            # 掌握度：q1 的最近一次是 NULL（待人工判断）→ 不算对、也不算错；
+            # q2 有题没作答 → 分母仍算它
+            mastery = client.get(f"/api/stats/mastery/{item_id}").json()
+            check("掌握度分母是全部题（没练过的也算没掌握）",
+                  mastery["questions"] == 2 and mastery["practiced"] == 1
+                  and mastery["mastery"] == 0,
+                  f"{mastery['correct']}/{mastery['questions']} = {mastery['mastery']}%")
+            check("最近一次待人工判断 → 不算对、不计入正确率分母、单列 pending",
+                  mastery["correct"] == 0 and mastery["graded"] == 0
+                  and mastery["accuracy"] is None and mastery["pending"] == 1,
+                  f"graded={mastery['graded']} pending={mastery['pending']}")
+            check("待复习与 lapses 只算这条内容的题",
+                  mastery["due"] == 1 and mastery["lapses"] == 0,
+                  f"due={mastery['due']} lapses={mastery['lapses']}")
+
+            with conn:
+                conn.execute(
+                    """INSERT INTO quiz_attempt (question_id, user_answer, is_correct, created_at)
+                       VALUES (?, '[]', 1, ?)""",
+                    (qid, iso(TODAY, 12)),
+                )
+            m2 = client.get(f"/api/stats/mastery/{item_id}").json()
+            check("最新一次答对 → 算对（同一道题先对后错就翻回去）",
+                  m2["correct"] == 1 and m2["graded"] == 1 and m2["accuracy"] == 1.0
+                  and m2["mastery"] == 50 and m2["pending"] == 0,
+                  f"{m2['correct']}/{m2['questions']} accuracy={m2['accuracy']}")
+
+            with conn:
+                conn.execute(
+                    """INSERT INTO quiz_attempt (question_id, user_answer, is_correct, created_at)
+                       VALUES (?, '[]', 0, ?)""",
+                    (qid, iso(TODAY, 13)),
+                )
+            m3 = client.get(f"/api/stats/mastery/{item_id}").json()
+            check("只看最新一次：先对后错 → 掌握度掉回 0",
+                  m3["correct"] == 0 and m3["accuracy"] == 0 and m3["mastery"] == 0,
+                  f"correct={m3['correct']} accuracy={m3['accuracy']}")
+
+            # 没有题的内容：mastery 必须是 null，不能拿 0 冒充「一题都不会」
+            with conn:
+                cur = conn.execute(
+                    """INSERT INTO knowledge_item (title, source_type, raw_content, content_hash,
+                                                   status, created_at, updated_at)
+                       VALUES ('没有题', 'text', 'x', 'verify-m5-noq', 'ready', ?, ?)""",
+                    (iso(TODAY), iso(TODAY)),
+                )
+                noq = int(cur.lastrowid)
+            empty = client.get(f"/api/stats/mastery/{noq}").json()
+            check("没有题 → mastery/accuracy 都是 null，不是 0",
+                  empty["questions"] == 0 and empty["mastery"] is None
+                  and empty["accuracy"] is None, str(empty))
+
+            r = client.get("/api/stats/mastery/999999")
+            check("内容不存在 → 404 ITEM_NOT_FOUND",
+                  r.status_code == 404
+                  and r.json()["error"]["code"] == "ITEM_NOT_FOUND",
+                  str(r.json().get("error")))
+
+            # ── 5. 已下线的端点 ─────────────────────────────────────
+            step("5. 番茄钟下线后的端点")
 
             for path in ("/api/session", "/api/session/current", "/api/stats/week"):
                 r = client.get(path)
@@ -247,8 +365,8 @@ def main() -> int:
             r = client.post("/api/session/start", json={})
             check("POST /api/session/start 已下线 → 404", r.status_code == 404, str(r.status_code))
 
-            # ── 5. 首次引导：保存 Key（T5.7）────────────────────────
-            step("5. 首次引导：保存 Key 到 .env")
+            # ── 6. 首次引导：保存 Key（T5.7）────────────────────────
+            step("6. 首次引导：保存 Key 到 .env")
 
             r = client.post("/api/env/key", json={})
             check("空请求 → 400 ENV_NOTHING_TO_SAVE",

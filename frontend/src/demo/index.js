@@ -288,6 +288,74 @@ const DEMO_COMPONENTS = () => ({
   demo: true,
 })
 
+/**
+ * 学习记录：演示库只有一份快照（`stats_today`），所以**只有快照那一天有数字**。
+ * 不按 streak 反推、也不随机点亮别的格子 —— 那就不叫「抓下来的响应」了。
+ * 想看到满格的热力图，装桌面版用自己的库。
+ */
+function demoHeatmap(params) {
+  const span = Math.min(366, Math.max(7, Number(params.get('days')) || 364))
+  const end = new Date(`${data.stats_today.date}T00:00:00`)
+  const cells = []
+  for (let offset = span - 1; offset >= 0; offset -= 1) {
+    const day = new Date(end)
+    day.setDate(end.getDate() - offset)
+    const iso = [
+      day.getFullYear(),
+      String(day.getMonth() + 1).padStart(2, '0'),
+      String(day.getDate()).padStart(2, '0'),
+    ].join('-')
+    // 快照只记了「今天作答几次」，没记每天都做了多少
+    const attempts = iso === data.stats_today.date ? Number(data.stats_today.attempts_today || 0) : 0
+    cells.push({ date: iso, attempts, organized: 0, count: attempts })
+  }
+  const active = cells.filter((cell) => cell.count)
+  return {
+    start: cells[0].date,
+    end: cells[cells.length - 1].date,
+    days: span,
+    total: active.reduce((sum, cell) => sum + cell.count, 0),
+    active_days: active.length,
+    max_count: Math.max(0, ...active.map((cell) => cell.count)),
+    cells,
+  }
+}
+
+/**
+ * 掌握度：演示库只带「复习 / 错题」里那几道题，没导出的题不计。
+ * 用 fixture 里真实的 `last_result` 算，不补编对错。
+ */
+function demoMastery(match) {
+  const id = Number(match[1])
+  const seen = new Map()
+  for (const q of [...(data.review_due?.items || []), ...(data.wrong?.items || [])]) {
+    if (Number(q.source_item_id) !== id || seen.has(q.question_id)) continue
+    seen.set(q.question_id, q.last_result === 1)
+  }
+  const results = [...seen.values()]
+  const correct = results.filter(Boolean).length
+  const total = results.length
+  const due = (data.review_due?.items || []).filter(
+    (q) => Number(q.source_item_id) === id
+  ).length
+  const lapses = (data.review_due?.items || [])
+    .filter((q) => Number(q.source_item_id) === id)
+    .reduce((sum, q) => sum + Number(q.lapses || 0), 0)
+  return {
+    item_id: id,
+    questions: total,
+    practiced: total,
+    graded: total,
+    correct,
+    pending: 0,
+    accuracy: total ? Number((correct / total).toFixed(4)) : null,
+    mastery: total ? Math.round((correct / total) * 100) : null,
+    due,
+    lapses,
+    last_attempt_at: null,
+  }
+}
+
 const ROUTES = [
   [/^\/api\/health$/, () => data.health],
   [/^\/api\/components$/, () => DEMO_COMPONENTS()],
@@ -390,6 +458,8 @@ const ROUTES = [
     },
   ],
   [/^\/api\/stats\/today$/, () => data.stats_today],
+  [/^\/api\/stats\/heatmap$/, (_m, { params }) => demoHeatmap(params)],
+  [/^\/api\/stats\/mastery\/(\d+)$/, (m) => demoMastery(m)],
 ]
 
 const POST_ROUTES = [

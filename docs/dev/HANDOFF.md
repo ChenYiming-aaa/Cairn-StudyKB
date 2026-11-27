@@ -26,7 +26,7 @@
 | 功能基线 | M11 已完成（v0.3 三层：识别 / 试卷 / 原件呈现）。里程碑台账在 `执行计划-v0.3-M9-M11.md` §9，各里程碑细节在 `milestones/` |
 | 版本 | **0.3.8**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
 | 发布 | 最新 Release **`v0.3.8`**（2026-11-27，`Cairn-0.3.8-setup.exe` 184,483,214 B，sha256 `c0340cae…`，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.7 / v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
-| 最近验收 | 2026-11-27（前端 v0.5 外观重做后）：eslint 干净 · build 3.3 s · `verify_m7` 99/99 · `verify_m11` 61/61 · `pytest` 38/38 · `verify_pool` 23/23 · `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 · `check_motion_tokens` 全过 · `check_contrast` 12 组达标 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 |
+| 最近验收 | 2026-11-27（热力图 + 掌握度后）：eslint 干净 · build 3.3 s · `verify_m5` **39/39** · `verify_m7` 99/99 · `verify_m11` 61/61 · `pytest` 38/38 · `verify_pool` 23/23 · `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 · `check_motion_tokens` 全过 · `check_contrast` 12 组达标 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 |
 | 下一件事 | 批 6 剩余三组单测：organizer 三种失败返回对应的错误码、`review.next_interval` 边界、`exam.commit` 事务回滚（`优化方案-v0.4.md` §4.2）；然后批 7 P2 |
 | 在线演示 | <https://chenyiming-aaa.github.io/Cairn-StudyKB/> —— `VITE_DEMO=1` 静态演示，`pages.yml` 随 main 自动重建；**仓库必须 Public**（免费账号私有仓库不支持 Pages） |
 | 许可证 | MIT（`LICENSE`） |
@@ -491,3 +491,45 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 
 **下一会话第一件事**
 > 决定列表接口要不要带 `summary`（带了列表行才真正有「为什么点这条」的依据）；然后回批 6 剩余三组单测。
+
+---
+
+## 2026-11-27 傍晚 · 学习记录热力图 + 掌握度（上一条 D 里「等后端」的两项）
+
+**A. 先更正上一条的错误判断**
+- 上一条写「没有按条目或按天的作答记录」，**这句话是错的**：`quiz_attempt` 一直有
+  `created_at` 与 `question_id`，`question` 也有 `item_id`。数据都在，缺的只是聚合端点，
+  不存在「硬做只能编数字」。这次没有倒推、没有随机点亮。
+
+**B. 后端两个只读端点（都落在 `db/repo/stats.py`，路由 `routers/stats.py`）**
+- `GET /api/stats/heatmap?days=364`（7–366，越界 422）：回**连续日期**含 0 格。
+  一格强度 = 当天 `quiz_attempt` 条数 + 当天 `status='ready'` 的 `knowledge_item` 条数，
+  与「连续学习天数」同一对信号；`attempts` / `organized` 分开给，提示框能说清是哪一种。
+- `GET /api/stats/mastery/{item_id}`：**最近一次判定的答对题数 / 该内容全部题数**（0–100）。
+  分母是全部题，没练过也算没掌握；最近一次是 `is_correct IS NULL` 时单列 `pending`，
+  不算对也不算错；没有题时 `mastery` / `accuracy` 都是 `null`（不是 0）；内容不存在 404。
+- 待复习数只算这条内容，比较沿用 `review.to_aware` 在 Python 侧做，没重写 `due_at <= now`。
+
+**C. 前端**
+- 仪表盘新增 `components/dashboard/ContributionGraph.vue`：52 周 × 7 天，月份/星期标签对齐，
+  强度按**绝对次数**分四档（1 次就亮、6 次以上最深）——归一化会把「一天 1 次」压成看不见。
+  图例在右上，空库也画格子并给一句「答一次题就会亮一格」；端点挂了只这一张卡提示，不打整页。
+- 详情页概览侧栏改成两个环：**完善度**（4 步清单）与**掌握度**（按题），各带标题与一行数字。
+  掌握度 80 以上绿、40 以下琥珀；取不到时整块不渲染，不用 0% 冒充「一题都不会」。
+- 演示站（`VITE_DEMO=1`）只按 fixture 能确证的部分算：热力图只有快照那天有数字，
+  掌握度只用复习/错题里那几道题，不补编历史。
+
+**D. 验收（本机实跑）**
+- `eslint` 干净 · build 3.3 s · **`verify_m5` 39/39**（新增热力图逐格 SQL 对账、掌握度语义 8 条）·
+  `verify_m7` 99/99 · `verify_m11` 61/61 · `pytest` 38/38 · `verify_pool` 23/23 ·
+  `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 ·
+  `check_motion_tokens` 全过 · `check_contrast` 12 组达标 · `doc_check --strict` 0/0。
+- README 的 `02-item-detail` / `07-dashboard` 用干净种子库重拍（7 条内容、一年作答记录）；
+  深色仪表盘单独拍过核对层次，没进 README。
+
+**E. 还没做**
+- 列表接口 `_list_shape()` 仍没给 `summary`，列表行的摘要行依旧不渲染（上一条 D 的第一项，未变）。
+- 热力图未加 `quiz_attempt(created_at)` 索引：个人库规模下全表扫足够，等真慢了再走迁移。
+
+**下一会话第一件事**
+> 回批 6 剩余三组单测（organizer 失败码 / `review.next_interval` 边界 / `exam.commit` 回滚）。

@@ -206,6 +206,64 @@ watch(
   { immediate: true }
 )
 
+/**
+ * 掌握度（按题算，后端 `/api/stats/mastery/{id}`）。
+ *
+ * 取不到时**整块不渲染**，不用 0% 冒充「一题都不会」——「还没出题」「没练过」
+ * 「取不到」是三件不同的事，界面上不能长成同一个样子。
+ * 换内容、重新整理后都重取；作答发生在练习/复习页，回到详情页时会重新挂载。
+ */
+const mastery = ref(null)
+let masterySeq = 0
+
+async function loadMastery() {
+  const id = props.item?.id
+  mastery.value = null
+  if (!id) return
+  const seq = ++masterySeq
+  try {
+    const data = await api.itemMastery(id)
+    if (seq === masterySeq) mastery.value = data
+  } catch {
+    if (seq === masterySeq) mastery.value = null
+  }
+}
+
+watch(
+  () => [props.item?.id, props.item?.updated_at],
+  loadMastery,
+  { immediate: true }
+)
+
+const masteryPercent = computed(() => mastery.value?.mastery ?? 0)
+const masteryCenter = computed(() => {
+  const value = mastery.value?.mastery
+  return value === null || value === undefined ? '—' : `${value}%`
+})
+/** 80 以上算稳，40 以下提醒还没成型；颜色只做补充，数字本身已经说清 */
+const masteryTone = computed(() => {
+  const value = mastery.value?.mastery
+  if (value === null || value === undefined) return 'primary'
+  if (value >= 80) return 'success'
+  if (value >= 40) return 'primary'
+  return 'warning'
+})
+const masteryHint = computed(() => {
+  const data = mastery.value
+  if (!data) return ''
+  if (!data.questions) return '还没有题'
+  return `${data.correct}/${data.questions} 题`
+})
+const masteryNote = computed(() => {
+  const data = mastery.value
+  if (!data) return ''
+  if (!data.questions) return '去练习页出几道题，这里才有可算的掌握度。'
+  if (!data.practiced) return `共 ${data.questions} 题，还没练过。`
+  if (data.due) return `${data.due} 题到了该复习的时间。`
+  if (data.pending) return `${data.pending} 题待人工判断，暂时不算对也不算错。`
+  return '按每道题最近一次判定计入，不是按作答次数。'
+})
+
 // 试卷的「整理笔记」页签不存在，但 tab 可能还停在那儿（刚从普通资料切过来）
 watch(tabs, (list) => {
   if (!list.some((entry) => entry.key === tab.value)) tab.value = 'summary'
@@ -489,20 +547,36 @@ onBeforeUnmount(() => {
 
         <!-- 完善度：环给一个总量，清单给下一步。清单比环更能指导行动，所以两个都要 -->
         <template #side>
-          <div class="side-progress">
-            <ProgressRing
-              :percent="percent"
-              :center-label="`${doneCount}/${steps.length}`"
-              :size="56"
-              :caption="`${doneCount} / ${steps.length} 步已完成`"
-            />
-            <div class="side-progress-text">
-              <p class="side-title">内容完善度</p>
-              <p class="side-desc">
-                {{ percent === 100 ? '这一步都做完了，接下来去练习或复习。' : '按顺序补齐，整理出的笔记才真正能用。' }}
-              </p>
+          <!-- 两个环回答两个问题：整理到哪一步了 / 现在到底会不会。
+               混成一个环会让「整理完了」看起来像「学会了」 -->
+          <div class="side-rings">
+            <div class="side-ring">
+              <ProgressRing
+                :percent="percent"
+                :center-label="`${doneCount}/${steps.length}`"
+                :size="56"
+                :caption="`${doneCount} / ${steps.length} 步已完成`"
+              />
+              <p class="side-title">完善度</p>
+              <p class="side-hint">{{ doneCount }}/{{ steps.length }} 步</p>
+            </div>
+
+            <div v-if="mastery" class="side-ring">
+              <ProgressRing
+                :percent="masteryPercent"
+                :center-label="masteryCenter"
+                :size="56"
+                :tone="masteryTone"
+                :caption="`掌握度 ${masteryCenter}`"
+              />
+              <p class="side-title">掌握度</p>
+              <p class="side-hint">{{ masteryHint }}</p>
             </div>
           </div>
+
+          <p class="side-desc">
+            {{ mastery ? masteryNote : (percent === 100 ? '这一步都做完了，接下来去练习或复习。' : '按顺序补齐，整理出的笔记才真正能用。') }}
+          </p>
 
           <CompletenessList :steps="steps" :busy="busy" @action="onStepAction" />
         </template>
@@ -635,24 +709,35 @@ onBeforeUnmount(() => {
 }
 
 /* 侧栏顶部：环 + 一句结论 */
-.side-progress {
-  display: flex;
-  align-items: center;
+/* 两个环并排：每个都自带标题与一行数字，不再共用一段说明 */
+.side-rings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
-.side-progress-text {
+.side-ring {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   min-width: 0;
+  text-align: center;
 }
 
 .side-title {
   margin: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--c-text-1);
+}
+
+.side-hint {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--c-text-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .side-desc {

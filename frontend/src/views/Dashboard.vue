@@ -3,19 +3,25 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage } from '../api/client'
+import ContributionGraph from '../components/dashboard/ContributionGraph.vue'
 
 /**
- * 仪表盘（T5.4）。5 个区块，数字全部来自 `/api/stats/today`，
- * **前端不做任何二次统计**——口径只写在后端一处（M5 §6.6），否则页面与 SQL 迟早对不上。
+ * 仪表盘（T5.4）。数字全部来自 `/api/stats/today`，热力图来自
+ * `/api/stats/heatmap`，**前端不做任何二次统计**——口径只写在后端一处
+ * （M5 §6.6），否则页面与 SQL 迟早对不上。
  *
  * 2026-11-17：番茄钟下线，原「本周专注」条形图与服务它的 `/api/stats/week` 一并移除
  * （见 docs/dev/功能价值审计-2026-11-17.md）。剩下的每一块都还能落到能干活的地方。
+ * 2026-11-27：补学习记录热力图 —— 数据本来就在 `quiz_attempt` 与 `knowledge_item`
+ * 里，缺的只是聚合端点，不是「编一张图」。
  */
 const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
 const today = ref(null)
+// null = 没取到（不等于没有记录）；热力图是补充信息，取不到不该把整页打成错误态
+const heatmap = ref(null)
 
 const accuracyText = computed(() => {
   const value = today.value?.accuracy_today
@@ -52,9 +58,11 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    today.value = await api.statsToday()
-  } catch (err) {
-    error.value = friendlyMessage(err)
+    // 两块各自成败：热力图挂了只影响自己那张卡，KPI 仍然照常显示
+    const [main, heat] = await Promise.allSettled([api.statsToday(), api.statsHeatmap()])
+    if (main.status === 'fulfilled') today.value = main.value
+    else error.value = friendlyMessage(main.reason)
+    heatmap.value = heat.status === 'fulfilled' ? heat.value : null
   } finally {
     loading.value = false
   }
@@ -109,7 +117,10 @@ onMounted(load)
         <span class="card-sub">今日 {{ today.attempts_today }} 次作答 · {{ accuracyAllText }}</span>
       </div>
 
-      <!-- 5 分类分布 -->
+      <!-- 5 学习记录（贡献热力图）：一格一天，颜色是当天作答 + 整理的强度 -->
+      <ContributionGraph :data="heatmap" />
+
+      <!-- 6 分类分布 -->
       <section class="card cat-card">
         <span class="card-label">分类分布</span>
         <ul v-if="today.categories.length" class="cats">

@@ -404,6 +404,10 @@ export const api = {
   reportReview: (questionId, payload) => post(`/api/review/${questionId}/result`, payload),
   /** 统计（T5.4）：只读，仪表盘与「今日」条共用一份口径 */
   statsToday: () => get('/api/stats/today'),
+  /** 逐日学习强度（贡献热力图）：连续日期，含 0 格，前端不补日期 */
+  statsHeatmap: (params) => get('/api/stats/heatmap', params),
+  /** 一条内容的掌握度：按题算（最近一次判定的答对题数 / 全部题数），不按次数算 */
+  itemMastery: (itemId) => get(`/api/stats/mastery/${itemId}`),
 }
 
 const POLL_START = 1500

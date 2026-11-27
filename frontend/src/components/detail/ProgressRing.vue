@@ -16,7 +16,12 @@ const props = defineProps({
   // 环中间显示什么：默认是百分比，也可给「3/4」这种
   centerLabel: { type: String, default: '' },
   caption: { type: String, default: '' },
+  // 语义色：完善度用主色，掌握度用成功/警告——同一个环回答两个问题时不能长得一样
+  tone: { type: String, default: 'primary' },
 })
+
+const TONES = ['primary', 'success', 'warning']
+const toneClass = computed(() => `ring-arc-${TONES.includes(props.tone) ? props.tone : 'primary'}`)
 
 const clamped = computed(() => Math.max(0, Math.min(100, Math.round(props.percent))))
 const stroke = computed(() => (props.size >= 56 ? 6 : 5))
@@ -45,6 +50,7 @@ const dash = computed(() => (circumference.value * clamped.value) / 100)
       />
       <circle
         class="ring-arc"
+        :class="toneClass"
         :cx="size / 2"
         :cy="size / 2"
         :r="radius"
@@ -74,6 +80,15 @@ const dash = computed(() => (circumference.value * clamped.value) / 100)
 
 .ring-arc {
   transition: stroke-dasharray var(--dur-progress) var(--ease-out);
+}
+
+/* 类选择器会盖掉 circle 上的 presentation attribute，所以这里只写颜色 */
+.ring-arc-success {
+  stroke: var(--c-success);
+}
+
+.ring-arc-warning {
+  stroke: var(--c-warning);
 }
 
 /* 中心文字绝对定位在环里：环是装饰性容器，两者尺寸互不牵连 */
