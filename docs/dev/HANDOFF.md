@@ -24,9 +24,9 @@
 |---|---|
 | 阶段 | **v0.4 优化线**：`docs/dev/优化方案-v0.4.md` 共 7 批。**批 1–5 已完成并随 v0.3.8 发布**；批 6 进行中（提示词输出 schema 已完成，剩三组单测：organizer 失败码 / `review.next_interval` 边界 / `exam.commit` 事务回滚）；批 7 P2 待开工 |
 | 功能基线 | M11 已完成（v0.3 三层：识别 / 试卷 / 原件呈现）。里程碑台账在 `执行计划-v0.3-M9-M11.md` §9，各里程碑细节在 `milestones/` |
-| 版本 | **0.3.8**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
-| 发布 | 最新 Release **`v0.3.8`**（2026-11-27，`Cairn-0.3.8-setup.exe` 184,483,214 B，sha256 `c0340cae…`，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.7 / v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
-| 最近验收 | 2026-11-27（热力图 + 掌握度后）：eslint 干净 · build 3.3 s · `verify_m5` **39/39** · `verify_m7` 99/99 · `verify_m11` 61/61 · `pytest` 38/38 · `verify_pool` 23/23 · `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 · `check_motion_tokens` 全过 · `check_contrast` 12 组达标 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 |
+| 版本 | **0.4.0**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
+| 发布 | 最新 Release **`v0.4.0`**（2026-11-27，`Cairn-0.4.0-setup.exe` 184,499,129 B，sha256 `1eae68b0…`，tag 指 `1fe683d`，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.8 / v0.3.7 / v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
+| 最近验收 | 2026-11-27（v0.4.0 发版前）：eslint 干净 · build 3.2 s（主包 440.94 kB）· `verify_m5` **39/39** · `verify_m7` 99/99 · `verify_m11` 61/61 · `pytest` 38/38 · `verify_pool` 23/23 · `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 · `check_motion_tokens` 全过 · `check_contrast` 12 组达标 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.4.0 · 包内冒烟 `/api/version` = 0.4.0 / `1fe683d`，`assets/pdf.worker.min-*.mjs` 为 `text/javascript`，包内页面零控制台报错 |
 | 下一件事 | 批 6 剩余三组单测：organizer 三种失败返回对应的错误码、`review.next_interval` 边界、`exam.commit` 事务回滚（`优化方案-v0.4.md` §4.2）；然后批 7 P2 |
 | 在线演示 | <https://chenyiming-aaa.github.io/Cairn-StudyKB/> —— `VITE_DEMO=1` 静态演示，`pages.yml` 随 main 自动重建；**仓库必须 Public**（免费账号私有仓库不支持 Pages） |
 | 许可证 | MIT（`LICENSE`） |
@@ -533,3 +533,38 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 
 **下一会话第一件事**
 > 回批 6 剩余三组单测（organizer 失败码 / `review.next_interval` 边界 / `exam.commit` 回滚）。
+
+---
+
+## 2026-11-27 15:30 · 发版 v0.4.0（前端外观重做 + 热力图 + 掌握度）
+
+**A. 打包装了什么**
+- 被装的源码是 `1fe683d`（只有版本号一个提交），包内 `_build_info.COMMIT` 与之逐字一致；
+  `git tag v0.4.0` 就指这个提交，本文与 README 的提交在 tag **之后**，没有平移 tag。
+- 顺序：`bump_version --to 0.4.0` → 提交 → 前端 `npm run build`（确认 `grep -r cairn-demo dist` 为空）→
+  `PyInstaller --distpath build/dist --workpath build/work cairn-backend.spec`（约 53 s）→
+  `cd desktop && npm run dist -- --config.directories.output=release-v040`（约 80 s）。
+  **换新输出目录**这一步不能省，同目录重打会撞 `app.asar` 被占用。
+
+**B. 数字（都是实跑，写进 README 与底稿的是同一组）**
+- `Cairn-0.4.0-setup.exe` **184,499,129 B**（184.5 MB），
+  sha256 `1eae68b099c45eff7bd90ee17b6bf2f37862cecc825ccbd39df5106237b3cd35`。
+- 包内冒烟 `/api/version` → `0.4.0 / 1fe683d / 2026-11-27T15:23:46+08:00`；
+  `/` 200 `text/html`、`/pdf/cmaps/Adobe-GB1-UCS2.bcmap` 200（33,974 B）、
+  `assets/pdf.worker.min-*.mjs` 为 `text/javascript`、`assets/index-*.css` 为 `text/css`；
+  `/api/stats/heatmap?days=7` 回连续 7 格、`/api/stats/mastery/99999` 404。
+- 真起浏览器加载包内页面：外壳 1、导航 5 项、图标 `<use>` 17 处、热力图 364 格 + 13 个月份标签，
+  **控制台零报错**（空库下空态文案正常显示）。
+
+**C. 发版说明**
+底稿 `docs/dev/release-notes-v0.4.0.md`：标题「界面重做，多了学习记录」（10 字），正文 6 条
+（最长 12 字），固定三行按规范留空行。§3 维护者备注写了两次口径决定（热力图绝对分档 / 掌握度看最近一次）
+与「`SCHEMA_VERSION` 仍 6、没有迁移」，所以固定短句敢写「可装回上一版」。
+
+**D. 顺带记住的两件事**
+- `xargs -n1 basename` 在本机 Git Bash 会把 `bc_ctl.arg_max >= LINE_MAX` 断言崩掉（exit 134），
+  列文件名别用 `ls | xargs`，直接 `for` 循环或 `basename` 循环。
+- 包内页面的根节点是 `.shell`（不是 `.app-shell`），脚本里等外壳时按这个写。
+
+**下一会话第一件事**
+> 回批 6 剩余三组单测（organizer 失败码 / `review.next_interval` 边界 / `exam.commit` 回滚），然后批 7 P2。
