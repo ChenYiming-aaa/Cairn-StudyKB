@@ -117,9 +117,10 @@ cd backend && uv run python -m app
 # 2. 起前端（5173，/api 反代到 8756）
 cd frontend && npm run dev
 
-# 3. 一条命令回归（自动扫 backend/scripts/verify_m*.py；退出码 0 绿 / 1 有 FAIL / 2 缺环境）
+# 3. 一条命令回归（自动扫 backend/scripts/verify_*.py；退出码 0 绿 / 1 有 FAIL / 2 缺环境）
 python tools/regress.py
 python tools/regress.py --only 10,11        # 只跑这两组
+python tools/regress.py --only pool,backup  # 只跑两个秒级离线套件（约 11 秒）
 
 # 4. 文档体检（改过 docs/ 或端点后必跑；0 FAIL / 0 WARN 才算过）
 python tools/doc_check.py --strict
@@ -128,9 +129,13 @@ python tools/doc_check.py --strict
 cd frontend && npm run lint && npm run build
 ```
 
-轻量验收（离线、秒级，批 5 的 CI 挂的就是这几条 + m4/m10/m11）：
+轻量验收（离线、秒级，本机合计约 20 秒）：
 `verify_pool.py` 23 条 · `verify_backup.py` 33 条 · `verify_m4.py` 78 条 · `verify_m10.py` 151 条，
 都在 `backend/scripts/`，用法统一 `cd backend && uv run python scripts/verify_xxx.py`（`--only <组>` 可单跑）。
+`.github/workflows/ci.yml` 的 `backend` job 挂的就是这四条，另两个 job 跑前端 lint/build 与 `doc_check --strict` + `bump_version --check`。
+`verify_m9`（真调模型，20 分钟）与 `npm run e2e`（要两个 dev server）只在本地跑，不进 CI。
+
+浏览器端到端（手动，会花钱）：`cd frontend && npm run e2e`——解释器由 `e2e/run.mjs` 探测，不用改仓库文件。
 
 ### 目录地图
 
@@ -142,7 +147,7 @@ cd frontend && npm run lint && npm run build
 | `frontend/src/views/` | 10 个页面：Knowledge / Ask / Practice / Review / ExamReview / Dashboard / Tasks / Setup / HtmlPages / Try |
 | `frontend/src/components/` | 16 个复用组件 + 5 组子目录（`filters/` `ingest/` `list/` `raw/` `settings/`） |
 | `frontend/src/styles/` | `tokens.css` 是**生成物**（`tools/check_contrast.py --write` 会整份重写），要往里加东西必须同步改生成脚本 |
-| `backend/scripts/verify_m*.py` | 每个里程碑一组验收断言；`tools/regress.py` 靠扫目录自动带上新的 |
+| `backend/scripts/verify_*.py` | 每个里程碑一组验收断言（`verify_m*.py`），另有 `verify_pool` / `verify_backup` 两个补丁套件；`tools/regress.py` 扫目录自动带上新的 |
 | `docs/dev/` | `00-总纲.md`（红线与技术栈）· `contracts/`（接口 / 数据 / ADR）· `milestones/` · `HANDOFF.md`（台账）· `文案规范.md` |
 
 ### 九条红线（摘要）

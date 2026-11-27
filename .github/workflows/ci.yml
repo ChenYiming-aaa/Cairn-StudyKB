@@ -1,0 +1,123 @@
+# 三条闸门：前端能构建、文档与版本自洽、后端离线验收全绿。
+#
+# 只跑「不联网、不花钱」的那部分：
+#   backend  → verify_pool(23) / verify_backup(33) / verify_m4(78) / verify_m10(151)
+#              模型全打桩，本机合计 20 秒出头（m9 真调模型 20 分钟、e2e 要两个 dev server，
+#              都留在本地，不进 CI）
+#   docs     → doc_check --strict + bump_version --check（纯标准库，10 秒）
+#   front    → lint + build，并挡住「演示数据进了正式 dist」
+#
+# 为什么要拦「演示数据」：验演示站时用 VITE_DEMO=1 构建，demo 数据会留在 dist；
+# 那份 dist 一旦被 electron-builder 收走，所有用户打开就是演示库。这类事故靠记忆防不住。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  front:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 代码检查
+        run: npm run lint
+
+      - name: 构建
+        run: npm run build
+
+      - name: 确认正式包里没有演示数据
+        working-directory: ${{ github.workspace }}
+        run: |
+          if grep -rl "cairn-demo" frontend/dist; then
+            echo "::error::dist 里出现演示数据（VITE_DEMO 构建的产物）：重新以正式模式构建"
+            exit 1
+          fi
+          echo "dist 干净：没有 cairn-demo 标记"
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 文档闸门
+        run: python tools/doc_check.py --strict
+
+      - name: 版本号五处一致
+        run: python tools/bump_version.py --check
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: 装 Python 3.12
+        run: uv python install 3.12
+
+      # torch 在 linux 上会拖进 ~4 GB 的 nvidia-* 轮子，runner 磁盘和分钟数都吃不消。
+      # 这四个脚本根本不碰向量 / 识别 / 浏览器（VECTOR_ENABLED=0，模型全打桩），
+      # 本机实测在「没有 torch 的环境」里 285/285 全绿。
+      # 除这些之外仍走 uv.lock（--frozen）：新加的普通依赖会自动装上，不会悄悄漏。
+      - name: 安装依赖（跳过 CUDA 全家桶）
+        run: |
+          uv sync --frozen --no-dev \
+            --no-install-package torch \
+            --no-install-package triton \
+            --no-install-package nvidia-cublas \
+            --no-install-package nvidia-cuda-cccl \
+            --no-install-package nvidia-cuda-cupti \
+            --no-install-package nvidia-cuda-nvrtc \
+            --no-install-package nvidia-cuda-runtime \
+            --no-install-package nvidia-cudnn-cu13 \
+            --no-install-package nvidia-cufft \
+            --no-install-package nvidia-cufile \
+            --no-install-package nvidia-cusolver \
+            --no-install-package nvidia-cusparse \
+            --no-install-package nvidia-cusparselt-cu13 \
+            --no-install-package nvidia-nccl-cu13 \
+            --no-install-package nvidia-nvjitlink \
+            --no-install-package nvidia-nvshmem-cu13 \
+            --no-install-package nvidia-nvtx
+
+      # 直接调 venv 里的 python，不用 `uv run`：uv run 会先按锁文件 sync 一遍，
+      # 把上面跳过的包又装回来（且是几个 GB）。
+      - name: 离线验收
+        run: |
+          .venv/bin/python scripts/verify_pool.py
+          .venv/bin/python scripts/verify_backup.py
+          .venv/bin/python scripts/verify_m4.py
+          .venv/bin/python scripts/verify_m10.py
