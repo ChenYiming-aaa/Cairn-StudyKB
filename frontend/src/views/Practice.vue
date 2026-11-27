@@ -162,7 +162,7 @@ const paperLoading = ref(false)
 const paperRun = ref(false)
 
 // 这条内容上已经有多少题（「做已有题」的入口与计数，方案 §3.2）
-const poolTotal = ref(0)
+const poolTotal = = ref(0)   // 故意改坏：验 CI 会拦
 const poolLoading = ref(false)
 // 这一轮是不是在做已有题。与 paperRun 分开：题号只有试卷有，两者的呈现不一样
 const poolRun = ref(false)
