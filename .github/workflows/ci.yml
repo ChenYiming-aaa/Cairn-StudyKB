@@ -1,7 +1,7 @@
 # 三条闸门：前端能构建、文档与版本自洽、后端离线验收全绿。
 #
 # 只跑「不联网、不花钱」的那部分：
-#   backend  → verify_pool(23) / verify_backup(33) / verify_m4(78) / verify_m10(151)
+#   backend  → pytest（单测，38+ 条）+ verify_pool(23) / verify_backup(33) / verify_m4(78) / verify_m10(151)
 #              模型全打桩，本机合计 20 秒出头（m9 真调模型 20 分钟、e2e 要两个 dev server，
 #              都留在本地，不进 CI）
 #   docs     → doc_check --strict + bump_version --check（纯标准库，10 秒）
@@ -94,7 +94,7 @@ jobs:
       # 除这些之外仍走 uv.lock（--frozen）：新加的普通依赖会自动装上，不会悄悄漏。
       - name: 安装依赖（跳过 CUDA 全家桶）
         run: |
-          uv sync --frozen --no-dev \
+          uv sync --frozen --no-dev --group test \
             --no-install-package torch \
             --no-install-package triton \
             --no-install-package nvidia-cublas \
@@ -112,6 +112,11 @@ jobs:
             --no-install-package nvidia-nvjitlink \
             --no-install-package nvidia-nvshmem-cu13 \
             --no-install-package nvidia-nvtx
+
+      # 单测与 11 个里程碑脚本是两件事：脚本验「链路能跑通」，单测验
+      # 「organizer 的失败路径 / 复习排期边界 / 试卷提交的事务各自对不对」。
+      - name: 单测
+        run: .venv/bin/python -m pytest -q
 
       # 直接调 venv 里的 python，不用 `uv run`：uv run 会先按锁文件 sync 一遍，
       # 把上面跳过的包又装回来（且是几个 GB）。

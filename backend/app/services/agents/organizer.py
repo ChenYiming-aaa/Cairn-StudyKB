@@ -22,10 +22,13 @@ from __future__ import annotations
 
 import logging
 
+from pydantic import ValidationError
+
 from app.db.conn import get_conn
 from app.db.repo import items as repo
 from app.services import llm, prompts
 from app.services.llm import LLMError
+from app.services.schemas import OrganizeResult
 
 log = logging.getLogger(__name__)
 
@@ -33,9 +36,6 @@ SAMPLE_LIMIT = 50_000
 HEAD_CHARS = 40_000
 TAIL_CHARS = 10_000
 OMIT_MARKER = "\n\n[内容过长，已省略中间部分]\n\n"
-MAX_TAGS = 6
-MAX_KEY_POINTS = 8
-MAX_TITLE = 20  # 裁决：标题上限 20 字，超了强截，不做「……」省略
 
 RETRY_HINT = (
     "上一次的输出不合格：summary 为空，或 key_points 少于 3 条，或 structured_note 为空。"
@@ -85,60 +85,31 @@ def _build_messages(title: str, content: str, truncated: bool,
     return [{"role": "user", "content": body}]
 
 
-def _as_list(value) -> list:
-    return value if isinstance(value, list) else []
+def _normalize(data: dict, fallback_title: str, kind: str = "material") -> OrganizeResult:
+    """模型的 JSON → `OrganizeResult`。形状与容错都在 `services/schemas.py`，这里不再各写一套。
 
-
-def clean_title(value, fallback: str) -> str:
-    """把模型给的标题压成一行、去掉首尾的标点与书名号，并卡在 MAX_TITLE 字内。
-
-    超长直接截断而不是加「…」——标题要进列表行和窗口标题，省略号只是把问题往后推。
-    模型没给或给了空白时退回原标题，不让这次整理把标题变成空。
+    唯一留在调用点的判断是「兜底之后仍然不合法」：那说明容错本身有 bug（字段改名、
+    兜底值变空），落成 `LLM_BAD_RESPONSE` 走 `_organize_with_retry` 的重试分支 ——
+    与坏 JSON 同一条路，重试一次还不行就整条失败，不新增错误码也不新增文案。
     """
-    text = " ".join(str(value or "").split())
-    text = text.strip("#*·-—《》〈〉“”‘’\"'")
-    text = text.strip("。．.！!？?；;，,：:")
-    if not text:
-        return fallback
-    return text[:MAX_TITLE].strip()
+    try:
+        return OrganizeResult.from_raw(data, fallback_title, kind)
+    except ValidationError as exc:
+        log.error("整理结果形状不合法（kind=%s）：%s", kind, exc.error_count())
+        raise LLMError("LLM_BAD_RESPONSE", "LLM 响应结构异常", "schema") from None
 
 
-def _normalize(data: dict, fallback_title: str, kind: str = "material") -> dict:
-    """容错：模型偶尔把 tags 写成字符串、把 key_points 写成带序号的段落。
-
-    `kind != 'material'` 时**强制丢弃** structured_note：prompt 里已经说了不要输出，
-    但模型偶尔还是会顺手写一篇 —— 在这里拦住，而不是指望 prompt 听话。
-    """
-    tags: list[str] = []
-    for raw in _as_list(data.get("tags")):
-        text = str(raw).strip().lstrip("#").strip()
-        if text and text not in tags:
-            tags.append(text)
-
-    points = [str(p).strip() for p in _as_list(data.get("key_points")) if str(p).strip()]
-
-    return {
-        "title": clean_title(data.get("title"), fallback_title),
-        "category": str(data.get("category") or "").strip() or "未分类",
-        "tags": tags[:MAX_TAGS],
-        "summary": str(data.get("summary") or "").strip(),
-        "key_points": points[:MAX_KEY_POINTS],
-        "structured_note": ""
-        if kind != "material" else str(data.get("structured_note") or "").strip(),
-    }
-
-
-def _quality_ok(result: dict, kind: str = "material") -> bool:
+def _quality_ok(result: OrganizeResult, kind: str = "material") -> bool:
     """M1 §6.5：key_points < 2 或 summary 为空视为不合格。
 
     `image` 只要求 summary：一张只有两行字的照片本来就没有两个要点，
     按 material 的标准重试只会让模型编出两条凑数。
     """
-    if not result["summary"]:
+    if not result.summary:
         return False
     if kind == "image":
         return True
-    return len(result["key_points"]) >= 2
+    return len(result.key_points) >= 2
 
 
 def _yield_to_user(item_id: int, overwrite_note: bool) -> bool:
@@ -216,26 +187,26 @@ def run(task_input: dict | None = None) -> dict:
     try:
         with conn:
             repo.save_organize_result(
-                conn, item_id, title=result["title"],
-                category=result["category"], tags=result["tags"],
-                summary=result["summary"], key_points=result["key_points"],
+                conn, item_id, title=result.title,
+                category=result.category, tags=result.tags,
+                summary=result.summary, key_points=result.key_points,
                 # 非 material 是 ""：**明确清空**（不是「别动」），见 save_organize_result 三态
-                structured_note=result["structured_note"], truncated=truncated,
+                structured_note=result.structured_note, truncated=truncated,
                 reset_note_edited=overwrite_note,
             )
             # 数据契约 §6：新 structured_note 必须重建 note chunk（空串 = 删掉旧 note chunk）
-            note_chunks = repo.rebuild_chunks(conn, item_id, result["structured_note"], "note")
+            note_chunks = repo.rebuild_chunks(conn, item_id, result.structured_note, "note")
     finally:
         conn.close()
 
     log.info("条目 %s 整理完成（kind=%s, title=%s, truncated=%s, note_chunk=%s）",
-             item_id, kind, result["title"], truncated, note_chunks)
-    return {"item_id": item_id, "title": result["title"],
+             item_id, kind, result.title, truncated, note_chunks)
+    return {"item_id": item_id, "title": result.title,
             "truncated": truncated, "note_chunk_count": note_chunks}
 
 
 def _organize_with_retry(messages: list[dict], fallback_title: str,
-                         kind: str = "material") -> dict:
+                         kind: str = "material") -> OrganizeResult:
     """解析失败重试一次；质量不合格也重试一次。最多两次调用。"""
     hint = KINDS.get(kind, KINDS["material"])[1]
     last_error: LLMError | None = None
@@ -254,7 +225,7 @@ def _organize_with_retry(messages: list[dict], fallback_title: str,
             return result
         if attempt == 0:
             log.warning("整理结果质量不合格（kind=%s, summary=%s, key_points=%s），重试一次",
-                        kind, bool(result["summary"]), len(result["key_points"]))
+                        kind, bool(result.summary), len(result.key_points))
             messages = messages + [{"role": "user", "content": hint}]
             continue
         # 第二次仍不合格：不编造、不丢弃已有内容，接受结果但留痕

@@ -15,16 +15,17 @@ import logging
 import re
 from typing import Any, Iterator
 
+from pydantic import ValidationError
+
 from app.db.repo import questions as qrepo
 from app.services import llm, prompts
+from app.services.schemas import DIFFICULTIES, TYPES, QuizItem
 
 MAX_MATERIAL = 6000        # 出题材料预算（M4 §6.1）
 MIN_MATERIAL = 120         # 低于这个长度基本出不了题，直接拒绝，不浪费一次 LLM 调用
 # 20 题 × (题干+选项+解析) 约 4k+ token，默认 4096 会把末题截断成坏 JSON，
 # 于是全部落进 skip 再触发补生成——反而更慢更贵。给足 8192。
 MAX_TOKENS = 8192
-TYPES = ("single", "multiple", "boolean", "short")
-DIFFICULTIES = ("basic", "understand", "apply")
 TYPE_LABELS = {"single": "单选", "multiple": "多选", "boolean": "判断", "short": "简答"}
 
 log = logging.getLogger(__name__)
@@ -230,7 +231,13 @@ def _answer(qtype: str, value: Any, option_count: int) -> tuple[Any, str]:
 
 
 def normalize(raw: dict, *, difficulty: str) -> tuple[dict | None, str]:
-    """把模型给的对象压成入库形状。返回 (题目, 失败原因)，原因空串表示通过。"""
+    """把模型给的对象压成入库形状。返回 (题目, 失败原因)，原因空串表示通过。
+
+    返回值最后过一道 `QuizItem`：字段上限、题型取值这些形状只写在 `schemas.py`，
+    这里不再各写一套。上面每一道判断都拦过一遍，所以走到 `ValidationError`
+    说明是拦漏了（比如新加题型没同步 schemas）—— 计一次 `bad_shape` 跳过这一题，
+    与其它跳过原因同一代价，不让整条流崩（M4 §1 约束 2）。
+    """
     qtype = _text(raw.get("type")).lower()
     if qtype not in TYPES:
         return None, "bad_type"
@@ -250,14 +257,19 @@ def normalize(raw: dict, *, difficulty: str) -> tuple[dict | None, str]:
         return None, reason
 
     level = _text(raw.get("difficulty")).lower()
-    return {
-        "type": qtype,
-        "question": question,
-        "options": options,
-        "answer": answer,
-        "explanation": explanation,
-        "difficulty": level if level in DIFFICULTIES else difficulty,
-    }, ""
+    try:
+        item = QuizItem(
+            type=qtype,
+            question=question,
+            options=options,
+            answer=answer,
+            explanation=explanation,
+            difficulty=level if level in DIFFICULTIES else difficulty,
+        )
+    except ValidationError as exc:
+        log.error("题目形状不合法（%s 处）：%s", exc.error_count(), question[:20])
+        return None, "bad_shape"
+    return item.model_dump(), ""
 
 
 # ── prompt 装配 ─────────────────────────────────────────────

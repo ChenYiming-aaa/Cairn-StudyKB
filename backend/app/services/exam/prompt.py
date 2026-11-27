@@ -18,6 +18,7 @@ import logging
 import re
 
 from app.services import llm, prompts
+from app.services.schemas import ExamFix
 
 log = logging.getLogger(__name__)
 
@@ -55,54 +56,44 @@ def _letters(value) -> list[str]:
     return sorted(out)
 
 
-def _score(value, fallback: float | None) -> float | None:
-    try:
-        number = float(value)
-    except (TypeError, ValueError):
-        return fallback
-    return number if 0 < number <= 200 else fallback
-
-
 def merge(draft: dict, data: dict) -> tuple[dict, list[str]]:
     """把模型给的东西并进规则草稿，返回 (草稿, 被采纳的字段名)。
 
     采纳是有条件的，条件写在每一行里 —— 这些条件就是「不许漂移」的守卫：
     答案必须是既有选项里的字母；选项只在规则一个都没切出来时才收；
     题型必须是四种之一；`question` / `number` 无论模型说什么都不动。
+
+    进来先过 `ExamFix.from_raw()`：分数字段给成 "3分"、confidence 给成 5、
+    options 给成一句话，都在那里被丢掉**单个数**，其余字段照收 ——
+    一个坏字段不该让整次补字段作废（那会让本来能用的答案一起丢了）。
     """
+    fix = ExamFix.from_raw(data)
     taken: list[str] = []
     options = draft.get("options") or []
 
-    model_options = [str(o).strip() for o in (data.get("options") or []) if str(o).strip()]
-    if not options and len(model_options) >= 2:
-        cleaned, _ = _strip_prefixes(model_options)
+    if not options and len(fix.options) >= 2:
+        cleaned, _ = _strip_prefixes(fix.options)
         options = cleaned
         draft["options"] = options
         draft["options_incomplete"] = False
         taken.append("options")
 
-    qtype = str(data.get("type") or "").strip()
-    if qtype in TYPES:
-        draft["type"] = qtype
+    if fix.type in TYPES:
+        draft["type"] = fix.type
         taken.append("type")
 
-    answer = data.get("answer")
-    if draft.get("answer") is None and answer is not None:
-        accepted = _accept_answer(draft["type"], answer, len(options))
+    if draft.get("answer") is None and fix.answer is not None:
+        accepted = _accept_answer(draft["type"], fix.answer, len(options))
         if accepted is not None:
             draft["answer"] = accepted
             taken.append("answer")
 
-    score = _score(data.get("score"), None)
-    if draft.get("score") is None and score is not None:
-        draft["score"] = score
+    if draft.get("score") is None and fix.score is not None:
+        draft["score"] = fix.score
         taken.append("score")
 
-    if "confidence" in data:
-        try:
-            draft["confidence"] = max(float(draft.get("confidence") or 0), min(1.0, float(data["confidence"])))
-        except (TypeError, ValueError):
-            pass
+    if fix.confidence is not None:
+        draft["confidence"] = max(float(draft.get("confidence") or 0), fix.confidence)
     return draft, taken
 
 

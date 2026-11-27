@@ -53,8 +53,20 @@ packages = ["app"]
 
 [tool.uv]
 package = false
+# `uv run` 默认连单测组一起装：否则「跑一下 pytest」得先记住 `--group test`，
+# 忘记时看到的是 ModuleNotFoundError，而不是「这条命令该怎么写」
+default-groups = ["dev", "test"]
 
 [dependency-groups]
 dev = [
     "pyinstaller>=6.22.3",
 ]
+# 单测（§4.2）。只装 pytest 本体：用例一律 monkeypatch 打桩，不引 pytest-mock
+test = [
+    "pytest>=8.3,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 用例全部离线、不需要 Key、不碰真实数据目录（见 tests/conftest.py）
+filterwarnings = ["ignore::DeprecationWarning"]
