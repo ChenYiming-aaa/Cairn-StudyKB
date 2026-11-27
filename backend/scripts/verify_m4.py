@@ -35,6 +35,11 @@ TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-m4-"))
 os.environ["DATA_DIR"] = str(TMP)  # 必须早于 import app：get_settings() 首次调用即缓存
 os.environ["VECTOR_ENABLED"] = "0"
 os.environ.setdefault("LOG_LEVEL", "WARNING")
+# 出题 / 批改接口先判「有没有 Key」（`llm_route.resolve`），没 Key 直接 400 不抛流——
+# 事件流于是是空的，`events[-1]` 抛 IndexError，报错落在离根因很远的地方。
+# 本机有根目录 `.env` 时看不出这件事，CI 上第一条就红。这里自己写一份假 Key，
+# 脚本不依赖任何本机配置（模型调用全在下面被打桩，这个 Key 不会被用出去）。
+(TMP / ".env").write_text("LLM_API_KEY=sk-verify-m4-not-a-real-key\n", encoding="utf-8")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
