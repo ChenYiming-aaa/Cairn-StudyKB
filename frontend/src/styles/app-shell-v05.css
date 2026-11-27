@@ -1,0 +1,315 @@
+/* Cairn v0.5 外壳与全局类的「兼容升级层」
+ *
+ * 作用：在不改任何页面模板的前提下，把旧类名（.btn / .input / .badge / .state / .skeleton
+ *       / .pane / .page-title …）整体升到 v0.5 的视觉标准。
+ *
+ * 为什么是追加而不是替换：app.css 里有大量布局声明（.workspace / .pane / 三栏宽度），
+ * 那些是结构，不能动。这一层只覆盖**视觉**属性（颜色、边框、圆角、阴影、字号、间距），
+ * 让旧页面立刻跟上新体系，逐个迁移时不会出现「新旧两套按钮并存」的割裂。
+ *
+ * 引入位置：frontend/src/main.js
+ *   import './styles/app.css'
+ *   import './styles/tokens-v05.css'   // 令牌追加层
+ *   import './styles/ui.css'           // 原语公共层
+ *   import './styles/app-shell-v05.css' // ← 本文件，必须在最后
+ */
+
+/* ══ 页面标题：原设计标题与正文只差 2px，层级立不住 ══ */
+.page-title {
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-title);
+  color: var(--c-text-1);
+}
+
+.page-sub {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--c-text-3);
+}
+
+/* ══ 面板：从「白底 + 细边」升到「有抬升的面」 ══ */
+.pane {
+  background: var(--c-surface-1);
+}
+
+.panel-bar {
+  border-bottom: 1px solid var(--c-border);
+}
+
+.panel-name {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--c-text-3);
+}
+
+/* ══ 按钮：旧类名继承新外观（不改 DOM）══ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 34px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-1);
+  color: var(--c-text-1);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--c-bg-2);
+  border-color: var(--c-line-strong);
+  color: var(--c-text-1);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.btn-sm {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--fs-sm);
+}
+
+.btn-primary {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  border-color: var(--c-primary-hover);
+  background: var(--c-primary-hover);
+  color: var(--c-on-primary);
+}
+
+.btn-danger {
+  border-color: var(--c-danger);
+  background: var(--c-danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--c-danger-ink);
+  background: var(--c-danger-ink);
+  color: #fff;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--c-text-2);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--c-bg-2);
+  color: var(--c-text-1);
+}
+
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--c-primary-ink);
+  font-family: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--c-primary-hover);
+}
+
+.link-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 2px;
+}
+
+/* ══ 输入：旧类名与新原语共用同一套控件外观 ══ */
+.input,
+.textarea {
+  min-height: 34px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-1);
+  color: var(--c-text-1);
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--c-text-3);
+}
+
+.input:hover:not(:disabled),
+.textarea:hover:not(:disabled) {
+  border-color: var(--c-line-strong);
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: var(--focus-ring-inset);
+}
+
+/* ══ 徽标：与 ui/Badge.vue 同一套配色 ══ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-bg-2);
+  color: var(--c-text-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.badge .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-pending {
+  border-color: var(--c-warning-border);
+  background: var(--c-warning-soft);
+  color: var(--c-warning-ink);
+}
+
+.badge-organizing {
+  border-color: var(--c-primary-border);
+  background: var(--c-primary-soft);
+  color: var(--c-primary-ink);
+}
+
+.badge-ready {
+  border-color: var(--c-success-border);
+  background: var(--c-success-soft);
+  color: var(--c-success-ink);
+}
+
+.badge-failed {
+  border-color: var(--c-danger-border);
+  background: var(--c-danger-soft);
+  color: var(--c-danger-ink);
+}
+
+.badge-soft {
+  border-color: var(--c-border);
+  background: var(--c-bg-2);
+  color: var(--c-text-2);
+}
+
+/* ══ 空态 / 错误态：从「一段灰字」升到「标题 + 说明 + 出路」 ══ */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  color: var(--c-text-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+}
+
+.state-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: var(--lh-title);
+  color: var(--c-text-1);
+}
+
+.state-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.state-error .state-title {
+  color: var(--c-danger-ink);
+}
+
+/* ══ 骨架：统一成同一道微光，组件不再各写一份渐变 ══ */
+.skeleton {
+  border-radius: 4px;
+  background: var(--c-bg-2);
+  background-image: linear-gradient(
+    90deg,
+    var(--c-bg-2) 0%,
+    var(--c-skeleton) 50%,
+    var(--c-bg-2) 100%
+  );
+  background-size: 220% 100%;
+  animation: shell-skel 1.2s var(--ease-linear) infinite;
+}
+
+@keyframes shell-skel {
+  from {
+    background-position: 120% 0;
+  }
+
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* ══ 进度条与转圈：颜色对齐主色 ══ */
+.meter::-webkit-progress-value,
+.progress-bar::-webkit-progress-value {
+  background: var(--c-primary);
+  border-radius: 999px;
+  transition: width var(--dur-progress) var(--ease-out);
+}
+
+/* ══ 三栏之间的边界：用线而不是阴影，避免中缝出现两道阴影 ══ */
+.side-panel {
+  border-right: 1px solid var(--c-border);
+}
+
+/* ══ 滚动条：与主题皮肤一致 ══ */
+* {
+  scrollbar-color: var(--c-scrollbar) transparent;
+}
+
+/* ══ 减弱动效 ══ */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--c-bg-2);
+  }
+}

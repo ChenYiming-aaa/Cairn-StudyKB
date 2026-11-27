@@ -150,8 +150,9 @@ cd backend && uv run python -m pytest -q
 | `backend/app/services/` | 按能力分：`ingest_file` 落盘与识别、`agents/` 整理与出题、`exam/` 试卷拆解与校对、`extractors/` 非 PDF 抽取、`llm` + `llm_route`、`retriever` + `embedder`、`backup`、`locate` … |
 | `backend/app/db/` | `schema.sql` + `migrate.py` + `repo/`（薄 SQL 封装、语义化方法名；**没有 ORM**） |
 | `frontend/src/views/` | 10 个页面：Knowledge / Ask / Practice / Review / ExamReview / Dashboard / Tasks / Setup / HtmlPages / Try |
-| `frontend/src/components/` | 16 个复用组件 + 5 组子目录（`filters/` `ingest/` `list/` `raw/` `settings/`） |
-| `frontend/src/styles/` | `tokens.css` 是**生成物**（`tools/check_contrast.py --write` 会整份重写），要往里加东西必须同步改生成脚本 |
+| `frontend/src/components/` | 16 个复用组件 + 6 组子目录（`detail/` `filters/` `ingest/` `list/` `raw/` `settings/`） |
+| `frontend/src/ui/` | 12 个原语（Button / Icon / Badge / Dialog / Tabs / EmptyState …）+ `Icon.vue` 取 `index.html` 里那份 symbol 仓库。**新界面先找原语，别再往页面里抄一份 `.btn` 样式**；图标语义见 `docs/dev/图标语义映射.md` |
+| `frontend/src/styles/` | `tokens.css` 是**生成物**（`tools/check_contrast.py --write` 会整份重写），要往里加东西必须同步改生成脚本。`tokens-v05.css`（令牌追加层）/ `ui.css`（原语公共层）/ `app-shell-v05.css`（旧类名兼容升级层）都是**追加**，引入顺序见 `main.js`，`app-shell-v05.css` 必须最后 |
 | `backend/scripts/verify_*.py` | 每个里程碑一组验收断言（`verify_m*.py`），另有 `verify_pool` / `verify_backup` 两个补丁套件；`tools/regress.py` 扫目录自动带上新的 |
 | `backend/tests/` | `pytest` 单测（离线、不碰真实数据目录）；`tools/regress.py` **不管它**，另跑 `uv run python -m pytest -q` |
 | `docs/dev/` | `00-总纲.md`（红线与技术栈）· `contracts/`（接口 / 数据 / ADR）· `milestones/` · `HANDOFF.md`（台账）· `文案规范.md` |

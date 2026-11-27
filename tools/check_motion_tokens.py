@@ -135,7 +135,9 @@ def run(pw):
 
         if to_ms(first(data["parts"]["btnDur"])) != 150:
             failed.append(f"{mode}: .btn 时长 {data['parts']['btnDur']}")
-        if first(data["parts"]["btnFn"]) != "ease":
+        # v0.5 起按钮悬停反馈统一走 --ease-out（减速收尾）；改造前是 UA 默认的 `ease`。
+        # 这里仍按精确值比，不是放宽成「有缓动就行」。
+        if first(data["parts"]["btnFn"]) != "ease-out":
             failed.append(f"{mode}: .btn 缓动 {data['parts']['btnFn']}")
         if to_ms(data["parts"]["inputDur"]) != 150:
             failed.append(f"{mode}: .input 时长 {data['parts']['inputDur']}")

@@ -347,7 +347,7 @@ class Browser:
         page.goto(base_url(), wait_until="networkidle")
         page.locator("aside[aria-label='内容列表'] .row").filter(has_text=title).first.click()
         page.wait_for_timeout(500)
-        page.locator(".tabs").get_by_role("button", name="原文").click()
+        page.locator(".tabs").get_by_role("tab", name="原文").click()
 
     def jump(self, phrase: str, title: str) -> None:
         """从「原文命中」点一条检索结果（引用跳转的真实入口）。"""
@@ -359,7 +359,7 @@ class Browser:
         box.press("Enter")
         page.locator(".hits .hit").first.wait_for(timeout=20000)
         page.locator(".hits .hit").filter(has_text=title).first.click()
-        page.locator(".tabs").get_by_role("button", name="原文").click()
+        page.locator(".tabs").get_by_role("tab", name="原文").click()
 
     def console_clean(self, where: str) -> None:
         real = [e for e in self.errors if "favicon" not in e]
@@ -377,7 +377,7 @@ def group_pdf() -> None:
         started = time.monotonic()
         page.locator("aside[aria-label='内容列表'] .row").filter(has_text="页图讲义").first.click()
         page.wait_for_timeout(400)
-        page.locator(".tabs").get_by_role("button", name="原文").click()
+        page.locator(".tabs").get_by_role("tab", name="原文").click()
         page.wait_for_function(
             "() => { const el = document.querySelector('.pdf-view .shot');"
             " return el && el.naturalWidth > 0 }",

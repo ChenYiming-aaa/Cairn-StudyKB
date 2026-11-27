@@ -1,16 +1,25 @@
 <script setup>
 /**
- * 内容列表栏（T7.0 → T7.2 接入 SidePanel → T9.9 加勾选与批量移入）。
+ * 内容列表栏（T7.0 → T7.2 接入 SidePanel → T9.9 加勾选与批量移入；v0.5 重做视觉）。
  *
  * - 宽度/折叠交给 SidePanel + useLayout（列宽 0 时整栏干净收起，不靠过渡样式兜）
  * - 搜索框留在顶部；空状态给「下一步」：一句话 + 最近 3 条 + 采集按钮
  * - 勾选态按 id 存，筛选变化时剔掉看不见的 id（否则会移走屏幕外的内容）
+ *
+ * v0.5 的改动只在表现层，props / emits / 交互一个没动：
+ * 1. 搜索框从裸 input 换成「图标 + 可清空」的一体输入，清空按钮从 `×` 字符换成图标。
+ * 2. 空态与错误态改用统一的 EmptyState，出路不再是一段灰字里夹一个链接。
+ * 3. 骨架屏改成与真实行同构的三行（标题 + 元信息），内容到达时不再整块跳动。
  */
 import { ref, watch } from 'vue'
 
 import SidePanel from './SidePanel.vue'
 import BulkMoveBar from './list/BulkMoveBar.vue'
 import ItemRow from './list/ItemRow.vue'
+import Button from '../ui/Button.vue'
+import EmptyState from '../ui/EmptyState.vue'
+import Icon from '../ui/Icon.vue'
+import Skeleton from '../ui/Skeleton.vue'
 import { shortTime } from '../utils/format'
 
 const props = defineProps({
@@ -92,30 +101,40 @@ function clearKeyword() {
 <template>
   <SidePanel target="list" class="list-panel" title="内容列表">
     <div class="list-toolbar">
+      <!-- 搜索：图标在左、清空在右，标签对屏幕阅读器可见即可（搜索框的用途由占位符与图标共同表达） -->
       <div class="search">
+        <Icon name="search" :size="16" class="search-icon" />
         <input
           v-model="keyword"
-          class="input"
+          class="input search-input"
           type="search"
           placeholder="搜索标题"
           aria-label="搜索标题"
           @input="onInput"
         />
-        <button v-if="keyword" class="clear" type="button" title="清空" @click="clearKeyword">×</button>
-      </div>
-      <div class="list-meta">
-        <span>{{ total }} 条{{ filtered ? '（已筛选）' : '' }}</span>
         <button
-          v-if="pendingCount > 0"
-          class="btn btn-ghost btn-sm"
+          v-if="keyword"
+          class="search-clear"
           type="button"
-          :disabled="organizing"
-          :aria-busy="organizing"
+          title="清空"
+          aria-label="清空搜索"
+          @click="clearKeyword"
+        >
+          <Icon name="x" :size="16" />
+        </button>
+      </div>
+
+      <div class="list-meta">
+        <span class="list-count">{{ total }} 条{{ filtered ? '（已筛选）' : '' }}</span>
+        <Button
+          v-if="pendingCount > 0"
+          variant="ghost"
+          size="sm"
+          :loading="organizing"
           @click="emit('organize-pending')"
         >
-          <progress v-if="organizing" class="spin" aria-hidden="true" />
           {{ organizing ? '整理中…' : `开始整理 ${pendingCount} 条` }}
-        </button>
+        </Button>
       </div>
     </div>
 
@@ -136,29 +155,40 @@ function clearKeyword() {
     />
 
     <div class="list-body">
+      <!-- 骨架与真实行同构：两行文字 + 一行元信息 -->
       <div v-if="loading && !items.length" class="skeletons">
-        <div v-for="i in 5" :key="i" class="skeleton-row">
-          <div class="skeleton" style="width: 70%" />
-          <div class="skeleton" style="width: 40%; height: 10px" />
+        <div v-for="i in 5" :key="i" class="skeleton-item">
+          <Skeleton variant="text" width="72%" :index="i" />
+          <Skeleton variant="text" width="44%" height="10px" :index="i" />
         </div>
       </div>
 
-      <div v-else-if="error" class="state state-error">
-        <p class="state-title">列表没加载出来</p>
-        <p>{{ error }}</p>
-        <p>内容还在，重试一次通常就好。</p>
-        <div class="state-actions">
-          <button class="btn btn-sm" type="button" @click="emit('retry')">重试</button>
-        </div>
-      </div>
+      <EmptyState
+        v-else-if="error"
+        icon="alert"
+        title="列表没加载出来"
+        :description="`${error}。内容还在，重试一次通常就好。`"
+      >
+        <Button size="sm" icon="refresh" @click="emit('retry')">重试</Button>
+      </EmptyState>
 
-      <div v-else-if="!items.length" class="state">
+      <template v-else-if="!items.length">
         <!-- 搜了词却没结果：标题说的是「标题里」，出路就在下一行，不再另起一段解释
              「这个框只搜标题」——2026-11-22 把那一整段（SearchScopeHint）并进这里。 -->
-        <p class="state-title">{{ filtered ? `标题里没有「${keyword}」` : '这里放你的内容' }}</p>
-        <!-- 按钮与前面的字写在一行：跨行会在「或者」和链接之间留一个空格，中文里不该有 -->
-        <p v-if="filtered">换个词，或者<button class="link-btn" type="button" @click="emit('open-search')">去检索正文</button></p>
-        <p v-else>还没有采集过内容。</p>
+        <EmptyState
+          :icon="filtered ? 'search' : 'inbox'"
+          :title="filtered ? `标题里没有「${keyword}」` : '这里放你的内容'"
+          :description="filtered ? '' : '还没有采集过内容。粘一条链接、传一个文件，或者记一段笔记，整理之后就在这里了。'"
+          compact
+        >
+          <!-- 按钮与前面的字写在一行：跨行会在「或者」和链接之间留一个空格，中文里不该有 -->
+          <span v-if="filtered" class="empty-inline">
+            换个词，或者<button class="link-btn" type="button" @click="emit('open-search')">去检索正文</button>
+          </span>
+          <Button v-else variant="primary" size="sm" icon="plus" @click="emit('create')">
+            采集内容
+          </Button>
+        </EmptyState>
 
         <ul v-if="recent.length" class="recent">
           <li class="recent-label">最近采集的</li>
@@ -169,11 +199,7 @@ function clearKeyword() {
             </button>
           </li>
         </ul>
-
-        <button class="btn btn-primary btn-sm" type="button" @click="emit('create')">
-          ＋ 采集内容
-        </button>
-      </div>
+      </template>
 
       <ul v-else class="rows">
         <ItemRow
@@ -200,41 +226,76 @@ function clearKeyword() {
 
 .list-toolbar {
   flex: 0 0 auto;
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  padding: var(--space-3);
   border-bottom: 1px solid var(--c-border);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
+/* ── 搜索框 ── */
 .search {
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.search .input {
-  padding-right: var(--space-6);
+.search-icon {
+  position: absolute;
+  left: var(--space-3);
+  color: var(--c-text-3);
+  pointer-events: none;
 }
 
-.clear {
+.search-input {
+  width: 100%;
+  padding-left: calc(var(--space-3) + 16px + var(--space-2));
+  padding-right: var(--space-8);
+}
+
+.search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear {
   position: absolute;
   right: var(--space-2);
-  top: 50%;
-  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
   border: none;
-  background: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--c-text-3);
-  font-size: var(--fs-md);
-  line-height: 1;
-  padding: 0 var(--space-1);
+  cursor: pointer;
 }
 
+.search-clear:hover {
+  background: var(--c-bg-2);
+  color: var(--c-text-1);
+}
+
+.search-clear:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ── 计数行 ── */
 .list-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 28px;
   font-size: var(--fs-xs);
   color: var(--c-text-3);
-  min-height: 24px;
+}
+
+.list-count {
+  font-variant-numeric: tabular-nums;
 }
 
 .list-truncated {
@@ -252,11 +313,18 @@ function clearKeyword() {
   overflow-y: auto;
 }
 
+/* ── 空态里的行内出路 ── */
+.empty-inline {
+  font-size: var(--fs-sm);
+  color: var(--c-text-3);
+}
+
+/* ── 最近采集 ── */
 .recent {
   width: 100%;
   list-style: none;
-  margin: var(--space-3) 0 var(--space-4);
-  padding: 0;
+  margin: 0 0 var(--space-4);
+  padding: 0 var(--space-2);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -279,13 +347,20 @@ function clearKeyword() {
   border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
+  font-family: var(--font-ui);
   font-size: var(--fs-sm);
   color: var(--c-text-1);
+  cursor: pointer;
 }
 
 .recent-row:hover {
   background: var(--c-bg-0);
   border-color: var(--c-border);
+}
+
+.recent-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .recent-title {
@@ -303,6 +378,7 @@ function clearKeyword() {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── 行列表 ── */
 .rows {
   list-style: none;
   margin: 0;
@@ -312,6 +388,7 @@ function clearKeyword() {
   gap: 2px;
 }
 
+/* ── 骨架 ── */
 .skeletons {
   padding: var(--space-3);
   display: flex;
@@ -319,7 +396,7 @@ function clearKeyword() {
   gap: var(--space-4);
 }
 
-.skeleton-row {
+.skeleton-item {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

@@ -513,7 +513,7 @@ def main() -> int:
             page.get_by_role("button", name="去看看").first.click()
             page.wait_for_timeout(1000)
 
-            page.locator(".tabs").get_by_role("button", name="原文").click()
+            page.locator(".tabs").get_by_role("tab", name="原文").click()
             page.wait_for_timeout(900)
             doc = page.locator(".raw-pane .doc")
             check("Word 的原文渲染成版式（不是一坨纯文本）", doc.count() == 1, str(doc.count()))
@@ -533,7 +533,7 @@ def main() -> int:
             # 没有原件的内容（粘贴来的）仍走纯文本原文，问答定位高亮靠这一路
             page.locator("aside[aria-label='内容列表'] .row").nth(1).click()
             page.wait_for_timeout(700)
-            page.locator(".tabs").get_by_role("button", name="原文").click()
+            page.locator(".tabs").get_by_role("tab", name="原文").click()
             page.wait_for_timeout(600)
             check("没有原件的内容用纯文本原文",
                   page.locator(".raw-pane .raw").count() == 1,
@@ -627,7 +627,7 @@ def main() -> int:
                 page.goto(base, wait_until="networkidle")
                 page.locator("aside[aria-label='内容列表'] .row").filter(has_text=title).first.click()
                 page.wait_for_timeout(400)
-                page.locator(".tabs").get_by_role("button", name="原文").click()
+                page.locator(".tabs").get_by_role("tab", name="原文").click()
                 page.locator(ready).first.wait_for(timeout=20000)
 
             open_raw("扫描讲义", ".pdf-view .line")
@@ -744,20 +744,22 @@ def main() -> int:
             page.wait_for_timeout(900)
             # 详情页签要限定在详情区里：采集面板也是常驻 DOM 的 <dialog>（关着 = display:none），
             # 它自己也有一排 .tabs .tab，不限定就会一次匹配到两处
-            labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
+            # 页签右端带计数（v0.5），inner_text 会变成「摘要与要点\n2」：取首行即页签名
+            labels = [t.strip().splitlines()[0] for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("试卷的页签里没有「整理笔记」", "整理笔记" not in labels, str(labels))
             # 2026-11-17：番茄钟下线，「学习记录」页签随 study_session 一起移除
             check("试卷仍保留摘要、原文、导图",
                   {"摘要与要点", "原文", "思维导图"} <= set(labels), str(labels))
             check("「学习记录」页签已随番茄钟下线", "学习记录" not in labels, str(labels))
             check("试卷默认停在摘要页签",
-                  page.locator(".detail .tabs .tab.on").inner_text().strip() == "摘要与要点",
+                  page.locator(".detail .tabs .tab.on").inner_text().strip().splitlines()[0] == "摘要与要点",
                   page.locator(".detail .tabs .tab.on").inner_text())
 
             # 普通资料仍要有笔记页签（别把整站都改没了）
             page.locator("aside[aria-label='内容列表'] .row").filter(has_text="费曼").first.click()
             page.locator(".detail .tabs .tab").first.wait_for(timeout=15000)
-            labels = [t.strip() for t in page.locator(".detail .tabs .tab").all_inner_texts()]
+            # 页签右端带计数（v0.5），inner_text 会变成「摘要与要点\n2」：取首行即页签名
+            labels = [t.strip().splitlines()[0] for t in page.locator(".detail .tabs .tab").all_inner_texts()]
             check("普通资料仍有「整理笔记」页签", "整理笔记" in labels, str(labels))
             # 2026-11-17：导图与笔记同源，从一级页签降为笔记页里的折叠块。
             # 断言两条一起看：页签里没有它，折叠块在（只删不加 = 导图没了）。
@@ -911,7 +913,7 @@ def main() -> int:
             page.locator(".list-body").get_by_text("费曼技巧：用输出倒逼输入").click()
             page.wait_for_timeout(500)
             # 2026-11-17：导图从一级页签降成「整理笔记」里的折叠块，先进笔记页签再展开
-            page.get_by_role("button", name="整理笔记").click()
+            page.get_by_role("tab", name="整理笔记").click()
             page.locator(".mindmap-fold > summary").click()
             page.wait_for_timeout(700)
             mm_src = page.locator(".mindmap-img").get_attribute("src") or ""
@@ -944,7 +946,9 @@ def main() -> int:
                     return 'rgb(255, 255, 255)';
                   };
                   const out = {};
-                  for (const cls of ['badge-ready', 'badge-pending', 'badge-failed', 'badge-organizing']) {
+                  // v0.5 起徽标是原语组件，语气类名是 tone（success/warning/danger/info），
+                  // 与状态枚举的映射见 ItemRow.STATUS。这里量的仍是「屏幕上真实的徽标」
+                  for (const cls of ['u-badge-success', 'u-badge-warning', 'u-badge-danger', 'u-badge-info']) {
                     const el = document.querySelector('.' + cls);
                     if (!el) continue;
                     const a = lum(getComputedStyle(el).color);
@@ -985,7 +989,7 @@ def main() -> int:
                 page.wait_for_timeout(600)
                 page.screenshot(path=str(shots / "02-item-detail.png"))
 
-                page.get_by_role("button", name="整理笔记").click()
+                page.get_by_role("tab", name="整理笔记").click()
                 page.locator(".mindmap-fold > summary").click()
                 page.wait_for_timeout(900)
                 page.screenshot(path=str(shots / "03-mindmap.png"))

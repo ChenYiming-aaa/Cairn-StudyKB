@@ -6,6 +6,7 @@ import { api, friendlyMessage } from './api/client'
 import IngestPanel from './components/IngestPanel.vue'
 import RailToggle from './components/RailToggle.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import Icon from './ui/Icon.vue'
 import { installResponsiveLayout, useLayout } from './composables/useLayout'
 import { useComponentInstall } from './composables/useComponentInstall'
 import { useSettings } from './composables/useSettings'
@@ -42,6 +43,11 @@ const hasList = computed(() => route.path === '/')
 // 正式构建里 VITE_DEMO 未设，这个常量恒为 false，整块提示被摇掉。
 const isDemo = import.meta.env.VITE_DEMO === '1'
 let uninstallResponsive = null
+
+/** 顶栏连接状态的可读文案（与图标一起构成「不只是颜色」的状态表达） */
+const connText = computed(() =>
+  backend.value === 'ok' ? '已连接' : backend.value === 'down' ? '未连接' : '连接中'
+)
 
 /** 输入框里按 Ctrl+B 是「加粗」之类的编辑器语义，不该折叠侧栏 */
 function isTyping(target) {
@@ -119,6 +125,9 @@ watch(
   }
 )
 
+/** 提示的图标：与文案一起表达结果，不让颜色单独扛 */
+const TOAST_ICON = { ok: 'check', error: 'alert', info: 'info' }
+
 function onCreated(result) {
   closePaste()
   requestRefresh()
@@ -157,26 +166,48 @@ function onOpen(itemId) {
     <header class="topbar">
       <div class="brand">
         <img class="brand-mark" src="/logo.svg" alt="" width="22" height="22" />
-        Cairn
+        <span class="brand-name">Cairn</span>
         <small>个人知识库</small>
       </div>
+
       <!-- 左栏折叠（T7.0）：和左栏里的窄条按钮是同一个状态 -->
       <RailToggle target="sidebar" />
       <!-- 列表折叠（T7.2）：只在知识库页有意义；收起后列宽 0，这是它的恢复入口 -->
       <RailToggle v-if="hasList" target="list" />
-      <nav class="nav">
-        <router-link to="/" class="nav-item" exact-active-class="on">知识库</router-link>
-        <router-link to="/ask" class="nav-item" active-class="on">检索</router-link>
+
+      <nav class="nav" aria-label="主导航">
+        <router-link to="/" class="nav-item" exact-active-class="on">
+          <Icon name="library" :size="16" />
+          <span>知识库</span>
+        </router-link>
+        <router-link to="/ask" class="nav-item" active-class="on">
+          <Icon name="search" :size="16" />
+          <span>检索</span>
+        </router-link>
         <!-- 「导出」而不是「学习」：这一页做的是把几条内容装订成一份离线文件，
              不是「在这里学」——叫「学习」会让用户点进来找一个不存在的学习流程。
              页面标题仍是「学习页」，那是产物名（文案规范 §1 术语表） -->
-        <router-link to="/pages" class="nav-item" active-class="on">导出</router-link>
-        <router-link to="/practice" class="nav-item" active-class="on">练习</router-link>
-        <router-link to="/review" class="nav-item" active-class="on">复习</router-link>
+        <router-link to="/pages" class="nav-item" active-class="on">
+          <Icon name="export" :size="16" />
+          <span>导出</span>
+        </router-link>
+        <router-link to="/practice" class="nav-item" active-class="on">
+          <Icon name="practice" :size="16" />
+          <span>练习</span>
+        </router-link>
+        <router-link to="/review" class="nav-item" active-class="on">
+          <Icon name="review" :size="16" />
+          <span>复习</span>
+        </router-link>
         <!-- 试用（只在演示站注册）：用自己的 Key 真跑一遍整理 / 追问 / 出题 -->
-        <router-link v-if="isDemo" to="/try" class="nav-item" active-class="on">试用</router-link>
+        <router-link v-if="isDemo" to="/try" class="nav-item" active-class="on">
+          <Icon name="play" :size="16" />
+          <span>试用</span>
+        </router-link>
       </nav>
+
       <div class="topbar-spacer" />
+
       <!-- 待配置（T5.7）：只在缺 Key / 缺 ffmpeg 时出现，配好就消失 -->
       <button
         v-if="envBlocking.length"
@@ -185,35 +216,52 @@ function onOpen(itemId) {
         title="还有一项没配好，点了去补"
         @click="router.push('/setup')"
       >
-        <i class="dot" />
+        <Icon name="alert" :size="16" />
         还差一步
       </button>
+
       <!-- 右侧顺序固定（T7.4）：连接状态 · 任务 · 采集 · 齿轮
            （「专注」计时器 2026-11-17 移除，见 docs/dev/功能价值审计-2026-11-17.md） -->
       <span class="conn" :class="backend" :title="backend === 'ok' ? '服务已连接' : '服务未连接'">
-        <i class="dot" />
-        <span class="conn-text">{{ backend === 'ok' ? '已连接' : backend === 'down' ? '未连接' : '连接中' }}</span>
+        <Icon name="signal" :size="16" />
+        <span class="conn-text">{{ connText }}</span>
       </span>
+
       <!-- 任务（T7.4）：从导航挪过来，角标是未完成数量；仪表盘入口在知识库的「今日」条 -->
       <button
-        class="btn btn-sm btn-ghost task-btn"
+        class="nav-action"
         type="button"
         title="任务中心：采集和整理跑到哪了"
+        aria-label="任务"
         @click="router.push('/tasks')"
       >
-        任务
-        <span v-if="activeTasks" class="task-count">{{ activeTasks }}</span>
+        <Icon name="tasks" :size="16" />
+        <span>任务</span>
+        <span v-if="activeTasks" class="task-count" :aria-label="`${activeTasks} 项未完成`">
+          {{ activeTasks }}
+        </span>
       </button>
-      <button class="btn btn-primary" type="button" @click="openPaste()">＋ 采集内容</button>
+
+      <!-- aria-label 与可见文字一致：窄窗（<1180）会把文字收掉，没有它按钮就没有可访问名称 -->
+      <button
+        class="nav-action nav-action-primary"
+        type="button"
+        aria-label="采集内容"
+        @click="openPaste()"
+      >
+        <Icon name="plus" :size="16" />
+        <span>采集内容</span>
+      </button>
+
       <!-- 设置入口（T6.5）：模态窗口，不新增路由；齿轮固定放最后 -->
       <button
-        class="btn btn-sm btn-ghost gear"
+        class="nav-icon"
         type="button"
         title="设置：模型、外观、下载、关于"
         aria-label="设置"
         @click="openSettings()"
       >
-        <span aria-hidden="true">⚙</span>
+        <Icon name="settings" :size="20" />
       </button>
     </header>
 
@@ -249,7 +297,8 @@ function onOpen(itemId) {
         :class="item.kind"
         @click="dismiss(item.id)"
       >
-        {{ item.message }}
+        <Icon :name="TOAST_ICON[item.kind] || 'info'" :size="16" />
+        <span class="toast-text">{{ item.message }}</span>
       </div>
     </div>
 
@@ -267,36 +316,81 @@ function onOpen(itemId) {
 </template>
 
 <style scoped>
+/* ── 顶栏 ──
+   52px 高度不变（useLayout 与各页面的 scroll-margin 都依赖 --h-topbar）。
+   层级靠「字重 + 图标 + 间距」建立，不靠加边框。 */
+.topbar {
+  gap: var(--space-3);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: var(--ls-title);
+  color: var(--c-text-1);
+}
+
+.brand-name {
+  display: block;
+  line-height: 1;
+}
+
+.brand small {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--c-text-3);
+  letter-spacing: 0;
+}
+
+/* ── 导航 ── */
 .nav {
   display: flex;
-  gap: var(--space-1);
-  margin-left: var(--space-4);
-  /* T7.4：导航永不换行 —— 1280 与 1024 都要保持一行，宁可收字距 */
+  align-items: center;
+  gap: 2px;
+  margin-left: var(--space-3);
   flex: none;
   white-space: nowrap;
 }
 
 .nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--fs-sm);
+  font-weight: 500;
   color: var(--c-text-2);
   text-decoration: none;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .nav-item:hover {
   background: var(--c-bg-2);
+  color: var(--c-text-1);
 }
 
+.nav-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* 选中态：底色 + 主色文字 + 图标一起变，不只靠颜色深浅 */
 .nav-item.on {
   background: var(--c-primary-soft);
   color: var(--c-primary-ink);
 }
 
+/* ── 连接状态 ── */
 .conn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 4px;
   font-size: var(--fs-xs);
   color: var(--c-text-3);
 }
@@ -309,11 +403,68 @@ function onOpen(itemId) {
   color: var(--c-danger-ink);
 }
 
-/* 任务角标（T7.4）：未完成数量。用主色实心的小胶囊，和左侧「环境待配置」的黄点区分开 */
-.task-btn {
+/* 连接中：图标轻微呼吸，表示「还在探测」而不是「已经好了」 */
+.conn.checking .icon {
+  animation: conn-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes conn-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ── 右侧动作按钮 ── */
+.nav-action {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-2);
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.nav-action:hover {
+  background: var(--c-bg-2);
+  color: var(--c-text-1);
+}
+
+.nav-action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* 一屏唯一的主操作 */
+.nav-action-primary {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+}
+
+.nav-action-primary:hover {
+  border-color: var(--c-primary-hover);
+  background: var(--c-primary-hover);
+  color: var(--c-on-primary);
+}
+
+.nav-action-primary:active {
+  transform: translateY(1px);
 }
 
 .task-count {
@@ -330,29 +481,37 @@ function onOpen(itemId) {
   font-variant-numeric: tabular-nums;
 }
 
-/* 1024 宽（窗口下限 960）：导航仍要一行，先把不承载信息的字收掉 */
-@media (max-width: 1100px) {
-  .topbar {
-    gap: var(--space-2);
-    padding: 0 var(--space-4);
-  }
+/* 主按钮上的角标反过来用底色强调，避免两个同色块糊在一起 */
+.nav-action-primary .task-count {
+  background: var(--c-on-primary);
+  color: var(--c-primary);
+}
 
-  .brand small {
-    display: none;
-  }
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
 
-  .conn-text {
-    display: none;
-  }
+.nav-icon:hover {
+  background: var(--c-bg-2);
+  color: var(--c-text-1);
+}
 
-  .nav {
-    margin-left: var(--space-2);
-  }
-
-  .nav-item {
-    padding-left: var(--space-2);
-    padding-right: var(--space-2);
-  }
+.nav-icon:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* 环境待配置：用警示色但保持低饱和，别把顶栏变成报警灯 */
@@ -360,32 +519,29 @@ function onOpen(itemId) {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  margin-right: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  margin-right: var(--space-1);
+  padding: 2px var(--space-2);
   border: 1px solid var(--c-warning-border);
   border-radius: var(--radius-sm);
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
+  font-family: var(--font-ui);
   font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
-}
-
-.env-flag .dot {
-  background: var(--c-warning);
 }
 
 .env-flag:hover {
   border-color: var(--c-warning);
 }
 
-/* 齿轮：图标按钮，视觉重量要低于「采集内容」，所以用 ghost */
-.gear {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--fs-lg);
-  line-height: 1;
-  color: var(--c-text-2);
+.env-flag:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
+/* ── 通知条 ── */
 .toast-stack {
   /* popover 的 UA 默认（居中、边框、底色、内边距）全部要清掉，位置仍贴右下 */
   position: fixed;
@@ -409,28 +565,38 @@ function onOpen(itemId) {
 }
 
 .toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
   max-width: 380px;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-sm);
-  background: var(--c-bg-1);
+  background: var(--c-surface-2);
   border: 1px solid var(--c-border);
-  border-left-width: 3px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--elev-2);
   font-size: var(--fs-sm);
+  line-height: var(--lh-body);
+  color: var(--c-text-1);
   cursor: pointer;
-  animation: slide-in var(--dur-enter) ease;
+  animation: slide-in var(--dur-enter) var(--ease-out);
 }
 
-.toast.ok {
-  border-left-color: var(--c-success);
+/* 结果图标分色，文字保持正文色——颜色只做辅助，不做唯一线索 */
+.toast.ok .icon {
+  color: var(--c-success-ink);
 }
 
-.toast.error {
-  border-left-color: var(--c-danger);
+.toast.error .icon {
+  color: var(--c-danger-ink);
 }
 
-.toast.info {
-  border-left-color: var(--c-primary);
+.toast.info .icon {
+  color: var(--c-primary-ink);
+}
+
+.toast-text {
+  display: block;
+  min-width: 0;
 }
 
 @keyframes slide-in {
@@ -438,13 +604,14 @@ function onOpen(itemId) {
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: none;
   }
 }
 
-/* 演示模式横幅：贴底部一条，不进布局，避免把界面挤变形 */
+/* ── 演示模式横幅 ── */
 .demo-bar {
   position: fixed;
   left: 0;
@@ -483,12 +650,59 @@ function onOpen(itemId) {
   padding: 1px var(--space-2);
   border: 1px solid var(--c-primary-border);
   border-radius: var(--radius-sm);
-  background: var(--c-bg-0);
+  background: var(--c-bg-1);
   color: var(--c-primary-ink);
   white-space: nowrap;
 }
 
 .demo-bar .demo-sep {
   color: var(--c-text-3);
+}
+
+/* ── 窄窗：先收不承载信息的字，导航保持一行 ── */
+@media (max-width: 1180px) {
+  .topbar {
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .conn-text {
+    display: none;
+  }
+
+  .nav {
+    margin-left: var(--space-2);
+  }
+
+  .nav-item {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  .nav-action span:not(.task-count) {
+    display: none;
+  }
+
+  .nav-action {
+    padding: 0 var(--space-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .conn.checking .icon {
+    animation: none;
+  }
+
+  .nav-action-primary:active {
+    transform: none;
+  }
+
+  .toast {
+    animation: none;
+  }
 }
 </style>

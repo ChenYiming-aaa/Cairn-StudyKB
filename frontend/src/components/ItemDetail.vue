@@ -3,12 +3,20 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { api, friendlyMessage, pollTask } from '../api/client'
-import StatusBadge from './StatusBadge.vue'
 import MindmapPane from './MindmapPane.vue'
 import NoteEditor from './NoteEditor.vue'
 import RawPane from './RawPane.vue'
 import SummaryPane from './SummaryPane.vue'
-import TitleEditor from './TitleEditor.vue'
+import CompletenessList from './detail/CompletenessList.vue'
+import DetailHeader from './detail/DetailHeader.vue'
+import DocMinimap from './detail/DocMinimap.vue'
+import InsightPanel from './detail/InsightPanel.vue'
+import ProgressRing from './detail/ProgressRing.vue'
+import StatTile from './detail/StatTile.vue'
+import Button from '../ui/Button.vue'
+import EmptyState from '../ui/EmptyState.vue'
+import Skeleton from '../ui/Skeleton.vue'
+import Tabs from '../ui/Tabs.vue'
 import { useTheme } from '../composables/useTheme'
 import { useToast } from '../composables/useToast'
 import { useUi } from '../composables/useUi'
@@ -260,18 +268,14 @@ function organize() {
 }
 
 /** 详情里的下拉：改这一条的位置。空串 = 未归类（PATCH 里 null 就是「移出工作区」） */
-function onWorkspaceChange(event) {
-  const value = event.target.value
-  emit('move', {
-    id: props.item.id,
-    workspaceId: value === '' ? null : Number(value),
-  })
+function onWorkspaceChange(payload) {
+  emit('move', payload)
 }
 
+/** 删除：确认框移到 DetailHeader 里（那里能写清后果），这里只负责真的删 */
 function remove() {
   const item = props.item
   if (!item) return
-  if (!window.confirm(`删除「${item.title}」？它的笔记片段、题目和作答记录会一起删掉，不能恢复。`)) return
   api
     .deleteItem(item.id)
     .then(() => {
@@ -290,6 +294,90 @@ function practiceThis() {
   router.push({ path: '/practice', query: { item: String(props.item.id) } })
 }
 
+/* ── 概览面板的数据 ──
+ * 全部从已有字段推导，不新增接口、不编造数字：
+ * key_points 可能是数组也可能是 JSON 字符串（老数据），两种都要吃得下。 */
+function asList(value) {
+  if (Array.isArray(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+const points = computed(() => asList(props.item?.key_points))
+/** 字数去掉空白再算：中文原文里的换行与缩进不是内容 */
+const textLength = computed(() => String(props.item?.raw_content || '').replace(/\s/g, '').length)
+const noteLength = computed(() => String(props.item?.structured_note || '').replace(/\s/g, '').length)
+const paragraphCount = computed(
+  () => String(props.item?.raw_content || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).length
+)
+
+/** 完善度清单：判断条件全部是本地就能算出来的事实 */
+const steps = computed(() => {
+  const list = [
+    {
+      key: 'raw',
+      label: '有原文',
+      done: textLength.value > 0,
+      hint: textLength.value ? `${textLength.value.toLocaleString()} 字 · ${paragraphCount.value} 段` : '还没有正文',
+    },
+    {
+      key: 'organized',
+      label: '已整理',
+      done: props.item?.status === 'ready',
+      hint: props.item?.status === 'ready' ? '摘要、要点与笔记已生成' : '整理后会生成摘要、要点和笔记',
+      action: '开始整理',
+    },
+    {
+      key: 'points',
+      label: '有要点',
+      done: points.value.length > 0,
+      hint: points.value.length ? `${points.value.length} 条要点` : '整理时一并生成',
+    },
+  ]
+
+  // 试卷没有笔记页签，清单里也不该出现「有笔记」这一步
+  if (props.item?.kind !== 'exam') {
+    list.push({
+      key: 'note',
+      label: '有笔记',
+      done: noteLength.value > 0,
+      hint: noteLength.value ? `${noteLength.value.toLocaleString()} 字${props.item?.note_edited ? '（已手改）' : ''}` : '写一份自己的整理，复习时更有用',
+      action: noteLength.value ? '' : '去写笔记',
+    })
+  }
+
+  return list
+})
+
+const doneCount = computed(() => steps.value.filter((step) => step.done).length)
+const percent = computed(() =>
+  steps.value.length ? Math.round((doneCount.value / steps.value.length) * 100) : 0
+)
+
+/** 清单里的动作：只做当前页面能完成的事，不跳来跳去 */
+function onStepAction(key) {
+  if (key === 'organized') organize()
+  else if (key === 'note') tab.value = 'note'
+}
+
+/** 页签上的计数：只在真有意义的地方给，不给的地方不显示，避免一排零 */
+const tabsMeta = computed(() =>
+  tabs.value.map((entry) => {
+    const icon = { summary: 'summary', note: 'note', raw: 'doc', mindmap: 'mindmap' }[entry.key]
+    let count = 0
+    if (entry.key === 'summary') count = points.value.length
+    if (entry.key === 'raw') count = paragraphCount.value
+    return { id: entry.key, label: entry.label, icon, count }
+  })
+)
+
 onBeforeUnmount(() => {
   stop()
   if (ocrTimer) clearTimeout(ocrTimer)
@@ -300,124 +388,131 @@ onBeforeUnmount(() => {
 <template>
   <section class="detail">
     <div v-if="refreshing" class="detail-refreshing" role="status" aria-label="正在更新这条内容" />
+
+    <!-- 加载：骨架与真实结构同构（页头 + 面板 + 页签 + 正文），内容到达时不整块跳动 -->
     <div v-if="loading" class="detail-loading">
-      <div v-for="w in ['45%', '80%', '70%', '60%']" :key="w" class="skeleton" :style="{ width: w }" />
+      <Skeleton variant="text" width="40%" height="14px" />
+      <Skeleton variant="text" width="70%" height="26px" />
+      <Skeleton variant="block" height="120px" />
+      <div class="detail-loading-body">
+        <Skeleton variant="text" width="88%" :index="1" />
+        <Skeleton variant="text" width="76%" :index="2" />
+        <Skeleton variant="text" width="82%" :index="3" />
+        <Skeleton variant="text" width="54%" :index="4" />
+      </div>
     </div>
 
     <div v-else-if="error" class="detail-state">
-      <p class="state-title">详情加载失败</p>
-      <p class="state-error">{{ error }}</p>
-      <button class="btn btn-sm" type="button" @click="emit('refresh', item?.id)">重试</button>
+      <EmptyState icon="alert" title="详情加载失败" :description="`${error}。内容还在，重试一次通常就好。`">
+        <Button icon="refresh" @click="emit('refresh', item?.id)">重试</Button>
+      </EmptyState>
     </div>
 
-    <div v-else-if="!item" class="detail-state state">
-      <template v-if="hasItems">
-        <p class="state-title">这里放你的摘要、笔记和原文</p>
-        <p>从左侧选一条开始读。</p>
-      </template>
-      <template v-else>
-        <p class="state-title">这里放你的内容</p>
-        <p>还没有采集过内容。</p>
-        <button class="btn btn-sm" type="button" @click="emit('create')">＋ 采集内容</button>
-      </template>
+    <div v-else-if="!item" class="detail-state">
+      <!-- D-01：两种空态分开说，否则「库里有内容但没选中」会被说成「还没有内容」 -->
+      <EmptyState
+        v-if="hasItems"
+        icon="inbox"
+        title="这里放你的摘要、笔记和原文"
+        description="从左侧选一条开始读。整理完成后，摘要、要点与思维导图都会出现在这里。"
+      />
+      <EmptyState
+        v-else
+        icon="inbox"
+        title="这里放你的内容"
+        description="还没有采集过内容。粘一条链接、传一个文件，或者记一段笔记，整理之后就在这里了。"
+      >
+        <Button variant="primary" icon="plus" @click="emit('create')">采集内容</Button>
+      </EmptyState>
     </div>
 
     <template v-else>
-      <header class="detail-head">
-        <TitleEditor :item-id="item.id" :title="item.title" :disabled="busy" @saved="emit('refresh', item.id)" />
-        <div class="head-actions">
-          <!-- 详情页页签里没有「题目」：想知道这条练过什么，此前只能自己记住标题去练习页翻。
-               这根线把当前这条直接带过去，到了练习页就是它已选中。 -->
-          <button
-            v-if="item.status === 'ready'"
-            class="btn btn-sm"
-            type="button"
-            @click="practiceThis"
-          >练这条</button>
-          <!-- 原件没读完时的出口（6-3）：缺组件给「去装」，装了给「重读」。
-               原来这两条都没有，用户只能对着「整理中/待整理」干等一个不存在的进度 -->
-          <button
-            v-if="needsRead && item.status !== 'ready' && ocrReady === false"
-            class="btn btn-sm"
-            type="button"
-            @click="openSettings('downloads')"
-          >去装识别组件</button>
-          <button
-            v-else-if="needsRead && item.status !== 'ready'"
-            class="btn btn-sm"
-            type="button"
-            :disabled="reocrBusy"
-            @click="reocr"
-          >{{ reocrBusy ? '正在排队…' : '重读' }}</button>
-          <!-- 试卷入口（T10.3）：原件读完才有；已经是试卷的写「重新导入」，别让人以为没导过 -->
-          <button v-if="canImportExam" class="btn btn-sm" type="button" @click="openExamReview">
-            {{ item.kind === 'exam' ? '重新导入' : '导入试卷' }}
-          </button>
-          <!-- 5-3：是 PDF/图片但没读完时，按钮**出现但禁用**并说明差在哪。
-               整个不渲染时，用户只会认为这个版本不支持试卷导入 -->
-          <template v-else-if="examBlockedByRead">
-            <button class="btn btn-sm" type="button" disabled>导入试卷</button>
-            <span class="head-hint">还没读完，读完才能导入</span>
-          </template>
-          <!-- 试卷不整理正文（正文就是原件的占位），改题目走「重新导入」，所以这里不出现 -->
-          <button
-            v-if="item.kind !== 'exam'"
-            class="btn btn-sm"
-            type="button"
-            :disabled="busy"
-            :aria-busy="busy"
-            @click="organize"
-          >
-            <progress v-if="busy" class="spin" aria-hidden="true" />
-            {{ busy ? '整理中…' : isPending ? '开始整理' : '重新整理' }}
-          </button>
-          <!-- 删除降成幽灵按钮并隔开：原来与「整理」同权重紧挨着，点整理时手一抖就点了它 -->
-          <button class="btn btn-sm btn-ghost btn-danger head-del" type="button" @click="remove">删除</button>
+      <DetailHeader
+        :item="item"
+        :busy="busy"
+        :organizing="organizing"
+        :reocr-busy="reocrBusy"
+        :file-state="fileState"
+        :needs-read="needsRead"
+        :ocr-ready="ocrReady"
+        :can-import-exam="canImportExam"
+        :exam-blocked-by-read="examBlockedByRead"
+        :workspaces="workspaces"
+        @organize="organize"
+        @remove="remove"
+        @practice="practiceThis"
+        @reocr="reocr"
+        @install-ocr="openSettings('downloads')"
+        @import-exam="openExamReview"
+        @move="onWorkspaceChange"
+        @title-saved="emit('refresh', item.id)"
+      />
+
+      <InsightPanel
+        class="detail-insight"
+        :headline="`${doneCount} / ${steps.length} 步已完成`"
+        :percent="percent"
+      >
+        <div class="stat-grid">
+          <StatTile
+            label="原文"
+            :value="textLength.toLocaleString()"
+            unit="字"
+            :hint="paragraphCount ? `${paragraphCount} 段` : '还没有正文'"
+            icon="doc"
+          />
+          <StatTile
+            label="要点"
+            :value="points.length"
+            unit="条"
+            :hint="points.length ? '整理产出' : '整理后生成'"
+            icon="summary"
+          />
+          <StatTile
+            label="笔记"
+            :value="noteLength.toLocaleString()"
+            unit="字"
+            :hint="item.note_edited ? '你手改过' : noteLength ? '由整理生成' : '还没写'"
+            icon="note"
+            :tone="item.note_edited ? 'warning' : 'neutral'"
+          />
+          <StatTile
+            label="状态"
+            :value="isPending ? '待整理' : '已整理'"
+            :hint="fullTime(item.updated_at || item.created_at)"
+            icon="clock"
+            :tone="item.status === 'failed' ? 'danger' : 'neutral'"
+          />
         </div>
-      </header>
 
-      <div class="meta">
-        <StatusBadge :status="item.status" />
-        <!-- 原件读字状态（6-3）：关掉采集面板后，这份 PDF 在界面上曾经「失踪」 -->
-        <span
-          v-if="fileState"
-          class="chip chip-file"
-          :class="`file-${fileState.tone}`"
-        >{{ fileState.text }}</span>
-        <span v-if="item.category" class="chip">{{ item.category }}</span>
-        <span v-for="tag in item.tags" :key="tag" class="chip chip-tag">#{{ tag }}</span>
-        <span v-if="item.note_edited" class="chip chip-edit" title="整理会覆盖手改内容">笔记已手改</span>
-        <!-- 这一排都是只读标签，中间夹一个能改归属的下拉，用户会当成又一个标签。
-             加一个字把它和标签区分开：「归到 未归类」读出来就知道这里能改。 -->
-        <label class="ws-pick-wrap">
-          <span class="ws-pick-label">归到</span>
-          <select
-            class="ws-pick"
-            aria-label="把这条移到哪个工作区"
-            :value="item.workspace_id ? String(item.workspace_id) : ''"
-            @change="onWorkspaceChange"
-          >
-            <option value="">未归类</option>
-            <option v-for="ws in workspaces" :key="ws.id" :value="String(ws.id)">{{ ws.name }}</option>
-          </select>
-        </label>
-        <span class="time">{{ fullTime(item.created_at) }}</span>
-      </div>
+        <DocMinimap :text="item.raw_content || ''" />
 
-      <p v-if="item.truncated" class="truncated-note">原文超过 5 万字，整理时只读开头 4 万字和结尾 1 万字；原文完整保留，不受影响。</p>
+        <!-- 完善度：环给一个总量，清单给下一步。清单比环更能指导行动，所以两个都要 -->
+        <template #side>
+          <div class="side-progress">
+            <ProgressRing
+              :percent="percent"
+              :center-label="`${doneCount}/${steps.length}`"
+              :size="56"
+              :caption="`${doneCount} / ${steps.length} 步已完成`"
+            />
+            <div class="side-progress-text">
+              <p class="side-title">内容完善度</p>
+              <p class="side-desc">
+                {{ percent === 100 ? '这一步都做完了，接下来去练习或复习。' : '按顺序补齐，整理出的笔记才真正能用。' }}
+              </p>
+            </div>
+          </div>
 
-      <nav class="tabs">
-        <button
-          v-for="entry in tabs"
-          :key="entry.key"
-          type="button"
-          class="tab"
-          :class="{ on: tab === entry.key }"
-          @click="tab = entry.key"
-        >
-          {{ entry.label }}
-        </button>
-      </nav>
+          <CompletenessList :steps="steps" :busy="busy" @action="onStepAction" />
+        </template>
+      </InsightPanel>
+
+      <p v-if="item.truncated" class="truncated-note">
+        原文超过 5 万字，整理时只读开头 4 万字和结尾 1 万字；原文完整保留，不受影响。
+      </p>
+
+      <Tabs v-model="tab" :tabs="tabsMeta" class="detail-tabs" />
 
       <div class="detail-body">
         <SummaryPane v-show="tab === 'summary'" :item="item" />
@@ -453,7 +548,6 @@ onBeforeUnmount(() => {
           :mode="resolvedMode"
           @organize="organize"
         />
-
       </div>
     </template>
   </section>
@@ -475,7 +569,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
   min-height: 0;
   padding-bottom: var(--space-8);
 }
@@ -485,7 +578,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-6) 0;
+  padding: var(--space-4) 0;
+}
+
+.detail-loading-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 /* 后台刷新：2px 细线从左往右扫一眼，不动内容。不是进度条（拿不到真实进度），
@@ -505,6 +605,7 @@ onBeforeUnmount(() => {
   from {
     background-position: -40% 0;
   }
+
   to {
     background-position: 140% 0;
   }
@@ -521,196 +622,68 @@ onBeforeUnmount(() => {
   }
 }
 
-.detail-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
+.detail-insight {
+  margin-top: var(--space-4);
 }
 
-.head-actions {
-  display: flex;
+/* 四个指标块：默认 2×2，宽屏幕（≥720 的内容区）自动排成一行。
+   原来写 150px 时，默认宽度下会排成 3+1——第四块单独占一行，比两行两列更散 */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-2);
-  padding-top: 2px;
 }
 
-.meta {
+/* 侧栏顶部：环 + 一句结论 */
+.side-progress {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
+  gap: var(--space-3);
+}
+
+.side-progress-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.side-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-1);
+}
+
+.side-desc {
+  margin: 0;
   font-size: var(--fs-xs);
+  line-height: 1.55;
   color: var(--c-text-3);
-}
-
-.chip {
-  padding: 1px var(--space-2);
-  border-radius: 999px;
-  background: var(--c-bg-2);
-  color: var(--c-text-2);
-}
-
-.chip-tag {
-  background: transparent;
-  border: 1px solid var(--c-border);
-  color: var(--c-text-3);
-}
-
-.chip-edit {
-  background: var(--c-warning-soft);
-  color: var(--c-warning-ink);
-}
-
-/* 原件读字状态：与内容状态徽标并排，用颜色区分「还在跑 / 卡住 / 没戏」 */
-.chip-file.file-ok {
-  background: var(--c-success-soft);
-  color: var(--c-success-ink);
-}
-
-.chip-file.file-busy {
-  background: var(--c-primary-soft);
-  color: var(--c-primary-ink);
-}
-
-.chip-file.file-warn {
-  background: var(--c-warning-soft);
-  color: var(--c-warning-ink);
-}
-
-.chip-file.file-bad {
-  background: var(--c-danger-soft);
-  color: var(--c-danger-ink);
-}
-
-/* 「还没读完，读完才能导入」：跟在禁用按钮后面，不抢按钮的宽 */
-.head-hint {
-  align-self: center;
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-  white-space: nowrap;
-}
-
-/* 下拉前那个「归到」：这排标签里唯一能改的东西，得让人看出来是可编辑的 */
-.ws-pick-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--fs-xs);
-  color: var(--c-text-3);
-}
-
-.ws-pick {
-  max-width: 140px;
-  padding: 1px var(--space-1);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-bg-1);
-  color: var(--c-text-2);
-  font-size: var(--fs-xs);
-}
-
-/* 删除：平时只是个淡淡的红字，与「整理」拉开一点距离，避免点整理点成删除 */
-.head-del.btn-ghost {
-  margin-left: var(--space-2);
-  color: var(--c-danger-ink);
-}
-
-.head-del.btn-ghost:hover:not(:disabled) {
-  background: var(--c-danger-soft);
-}
-
-.time {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
 }
 
 .truncated-note {
+  flex: none;
   margin: var(--space-3) 0 0;
   padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-warning-border);
   border-radius: var(--radius-sm);
   background: var(--c-warning-soft);
   color: var(--c-warning-ink);
   font-size: var(--fs-xs);
+  line-height: var(--lh-body);
 }
 
-.tabs {
-  display: flex;
-  gap: var(--space-4);
+.detail-tabs {
+  flex: none;
   margin-top: var(--space-4);
-  border-bottom: 1px solid var(--c-border);
-}
-
-.tab {
-  padding: var(--space-2) 0;
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  font-size: var(--fs-sm);
-  color: var(--c-text-3);
-  margin-bottom: -1px;
-}
-
-.tab:hover {
-  color: var(--c-text-1);
-}
-
-.tab.on {
-  color: var(--c-primary-ink);
-  border-bottom-color: var(--c-primary);
-  font-weight: 600;
-}
-
-.pane-note {
-  display: flex;
-  flex-direction: column;
-  /* 笔记编辑器自己滚，导图折叠块跟在它下面；整页不滚 */
-  overflow: hidden;
-}
-
-/* 导图折叠块：标题行常驻，展开后在自己的框里滚，不把笔记挤出屏幕 */
-.mindmap-fold {
-  flex: 0 0 auto;
-  border-top: 1px solid var(--c-border);
-  max-height: 60%;
-  overflow: auto;
-}
-
-.mindmap-summary {
-  padding: var(--space-2) 0;
-  font-size: var(--fs-xs);
-  color: var(--c-text-2);
-  cursor: pointer;
-  list-style: none;
-}
-
-.mindmap-summary::-webkit-details-marker {
-  display: none;
-}
-
-.mindmap-summary::before {
-  content: '▸';
-  margin-right: var(--space-1);
-  color: var(--c-text-3);
-}
-
-.mindmap-fold[open] .mindmap-summary::before {
-  content: '▾';
-}
-
-.mindmap-summary:hover {
-  color: var(--c-text-1);
-}
-
-/* MindmapPane 根节点是 height:100%，在 details 里没有确定高度会塌成 0 —— 给它一个底 */
-.mindmap-fold-body {
-  min-height: 240px;
 }
 
 .detail-body {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-  padding-bottom: var(--space-4);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
-
 </style>

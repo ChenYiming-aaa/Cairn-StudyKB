@@ -1,0 +1,166 @@
+/* Cairn 设计令牌 · v0.5 追加层
+ *
+ * 为什么是「追加」而不是替换：tokens.css 是 tools/check_contrast.py 的生成物，
+ * 手改会被下一次 --write 冲掉。这一层只新增变量，不改任何既有变量名与取值，
+ * 所以追加进去零风险；等生成器补齐字段后（见同目录《生成器改动说明.md》），
+ * 把这里的值搬进生成器，再删掉本文件即可。
+ *
+ * 引入位置：frontend/src/main.js，紧跟 styles/tokens.css 之后
+ *   import './styles/tokens.css'
+ *   import './styles/tokens-v05.css'   // ← 新增
+ *
+ * 命名沿用既有规范：--c-* 颜色 / --space-* 间距 / --fs-* 字号 / --radius-* 圆角
+ *                  --elev-* 阴影 / --dur-* 时长 / --ease-* 缓动 / --icon-* 图标
+ */
+
+:root {
+  /* ── 间距补齐：原来只有 4/8/12/16/24/32，中间与两端各差一档 ── */
+  --space-5: 20px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── 字号补齐：原阶梯到 20px 为止，撑不起页面标题与仪表盘数字 ── */
+  --fs-2xl: 26px; /* 页面主标题 */
+  --fs-3xl: 32px; /* 仪表盘大数字 */
+
+  /* ── 圆角补齐：浮层需要比卡片更圆一档 ── */
+  --radius-lg: 16px;
+
+  /* ── 行高与字距 ── */
+  --lh-tight: 1.25; /* 标题 */
+  --ls-title: -0.012em; /* 大字号需要轻微收紧，否则中文标题发松 */
+
+  /* ── 图标几何：全站只此一个描边值 ── */
+  --icon-16: 16px;
+  --icon-20: 20px;
+  --icon-24: 24px;
+  --icon-stroke: 1.75px;
+
+  /* ── 动效补齐：原来只有入场，没有出场与错开 ── */
+  --dur-exit: 110ms; /* 入场的 60–70% */
+  --stagger: 36ms; /* 列表项依次入场的间隔 */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* ── 焦点环：两级 box-shadow，任何父级 overflow 都裁不掉 ──
+     --c-focus 取当前主题主色，深色主题下由各主题块覆盖 */
+  --c-focus: var(--c-primary);
+  --focus-ring: 0 0 0 2px var(--c-bg-1), 0 0 0 4px var(--c-focus);
+  --focus-ring-inset: inset 0 0 0 2px var(--c-focus);
+}
+
+/* ══ 三级抬升面（light）══
+ * surface-0 = 页面底色（= bg-0，不重复定义）
+ * surface-1 = 卡片、列表行选中
+ * surface-2 = 下拉、菜单、浮起的小面板
+ * 浅色下三者靠阴影与描边区分，因此色值相同；深色下必须逐级提亮，
+ * 否则层级在深底上完全消失——这正是原设计在深色模式里偏平的原因。 */
+[data-theme="paper"] {
+  --c-surface-1: #fffefa;
+  --c-surface-2: #ffffff;
+  --c-line-strong: #d3cfc2;
+}
+
+[data-theme="notes"] {
+  --c-surface-1: #ffffff;
+  --c-surface-2: #ffffff;
+  --c-line-strong: #dcdcda;
+}
+
+[data-theme="chestnut"] {
+  --c-surface-1: #ffffff;
+  --c-surface-2: #ffffff;
+  --c-line-strong: #e6dccd;
+}
+
+[data-theme="docs"] {
+  --c-surface-1: #ffffff;
+  --c-surface-2: #ffffff;
+  --c-line-strong: #d9e0e9;
+}
+
+[data-theme="study"] {
+  --c-surface-1: #ffffff;
+  --c-surface-2: #ffffff;
+  --c-line-strong: #e4daf7;
+}
+
+[data-theme="teal"] {
+  --c-surface-1: #ffffff;
+  --c-surface-2: #ffffff;
+  --c-line-strong: #b3ecdf;
+}
+
+/* ══ 三级抬升面（dark）：逐级提亮 ══ */
+[data-theme="paper"][data-mode="dark"] {
+  --c-surface-1: #28342f;
+  --c-surface-2: #313e39;
+  --c-line-strong: #4a5551;
+}
+
+[data-theme="notes"][data-mode="dark"] {
+  --c-surface-1: #322f2e;
+  --c-surface-2: #3b3836;
+  --c-line-strong: #524f4d;
+}
+
+[data-theme="chestnut"][data-mode="dark"] {
+  --c-surface-1: #362d28;
+  --c-surface-2: #3f342e;
+  --c-line-strong: #574e49;
+}
+
+[data-theme="docs"][data-mode="dark"] {
+  --c-surface-1: #2a3038;
+  --c-surface-2: #333a43;
+  --c-line-strong: #4b525a;
+}
+
+[data-theme="study"][data-mode="dark"] {
+  --c-surface-1: #2e2937;
+  --c-surface-2: #383342;
+  --c-line-strong: #504a59;
+}
+
+[data-theme="teal"][data-mode="dark"] {
+  --c-surface-1: #293633;
+  --c-surface-2: #323f3d;
+  --c-line-strong: #4b5654;
+}
+
+/* ══ 三级阴影（light）══ */
+:root {
+  --elev-1: 0 1px 2px rgb(35 33 28 / 0.05), 0 2px 8px rgb(35 33 28 / 0.05);
+  --elev-2: 0 1px 3px rgb(35 33 28 / 0.07), 0 6px 18px rgb(35 33 28 / 0.09);
+  --elev-3: 0 2px 8px rgb(35 33 28 / 0.08), 0 18px 44px rgb(35 33 28 / 0.16);
+}
+
+/* ══ 三级阴影（dark）：深底上要更重才浮得起来 ══ */
+[data-mode="dark"] {
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.45), 0 2px 8px rgb(0 0 0 / 0.3);
+  --elev-2: 0 2px 6px rgb(0 0 0 / 0.5), 0 8px 22px rgb(0 0 0 / 0.42);
+  --elev-3: 0 4px 12px rgb(0 0 0 / 0.55), 0 22px 52px rgb(0 0 0 / 0.6);
+}
+
+/* ══ 字号三档：随 html[data-fs] 一起缩放，新增两级同步缩放 ══ */
+html[data-fs="sm"] {
+  --fs-2xl: 22px;
+  --fs-3xl: 27px;
+}
+
+html[data-fs="lg"] {
+  --fs-2xl: 29px;
+  --fs-3xl: 36px;
+}
+
+/* ══ 减弱动效：统一降级，组件不各写一套 ══ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-overlay: 1ms;
+    --dur-enter: 1ms;
+    --dur-progress: 1ms;
+    --dur-slow: 1ms;
+    --dur-exit: 1ms;
+    --stagger: 0ms;
+  }
+}

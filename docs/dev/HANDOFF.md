@@ -26,7 +26,7 @@
 | 功能基线 | M11 已完成（v0.3 三层：识别 / 试卷 / 原件呈现）。里程碑台账在 `执行计划-v0.3-M9-M11.md` §9，各里程碑细节在 `milestones/` |
 | 版本 | **0.3.8**（**五处**一致：`pyproject` / `app/version.py` / 两个 `package.json` / README 徽标；`tools/bump_version.py --check`） |
 | 发布 | 最新 Release **`v0.3.8`**（2026-11-27，`Cairn-0.3.8-setup.exe` 184,483,214 B，sha256 `c0340cae…`，`/releases/latest` 指向它、已进更新通道）。历史：v0.3.7 / v0.3.5 / v0.3.3 / v0.3.2 / v0.3.1 / v0.3.0 / v0.3.0-alpha.1 / v0.2.x |
-| 最近验收 | 2026-11-27（v0.3.8 发版前）：`pytest` 38/38 · `verify_m7` 99/99 · `verify_m8` 110/110 · `verify_m10` 151/151 · `verify_pool` 23/23 · `verify_backup` 33/33 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 · eslint 干净 · build 2.9 s（主包 415.56 kB / gzip 148.07）· 包内冒烟 `/api/version` = 0.3.8 / `e9d23dc` |
+| 最近验收 | 2026-11-27（前端 v0.5 外观重做后）：eslint 干净 · build 3.3 s · `verify_m7` 99/99 · `verify_m11` 61/61 · `pytest` 38/38 · `verify_pool` 23/23 · `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 · `check_motion_tokens` 全过 · `check_contrast` 12 组达标 · `doc_check --strict` 0 FAIL / 0 WARN · `bump_version --check` 五处 0.3.8 |
 | 下一件事 | 批 6 剩余三组单测：organizer 三种失败返回对应的错误码、`review.next_interval` 边界、`exam.commit` 事务回滚（`优化方案-v0.4.md` §4.2）；然后批 7 P2 |
 | 在线演示 | <https://chenyiming-aaa.github.io/Cairn-StudyKB/> —— `VITE_DEMO=1` 静态演示，`pages.yml` 随 main 自动重建；**仓库必须 Public**（免费账号私有仓库不支持 Pages） |
 | 许可证 | MIT（`LICENSE`） |
@@ -454,3 +454,40 @@ console 无错误。真实 4.6 MB 库 VACUUM 后 4.1 MB。
 
 **下一会话第一件事**
 > 批 6 剩余三组单测：organizer 三种失败返回对应的错误码、`review.next_interval` 边界、`exam.commit` 事务回滚。
+
+---
+
+## 2026-11-27 下午 · 前端 v0.5 外观重做（批次一 + 批次二）
+
+**A. 装进来的东西（只动表现层）**
+- 追加层三件：`tokens-v05.css`（三级表面 / 三级阴影 / 字号补到 32px / 图标几何 / 两级焦点环）、
+  `ui.css`（原语公共层）、`app-shell-v05.css`（把 `.btn` `.input` `.badge` `.state` 这批旧类名整体升到新外观，
+  `.workspace` / `.pane` / 三栏宽度这些**结构**声明不动）。`tokens.css` 一行没改 —— 它仍是
+  `check_contrast.py --write` 的产物，新配色走追加层，等生成器补齐字段再合并。
+- `frontend/src/ui/` 12 个原语 + `Icon.vue`；38 枚 symbol 贴在 `index.html` 的 `<body>` 首行（`display:none`，不占布局）。
+- 覆盖 `App.vue`（导航带图标、连接状态带文字、任务降为图标 + 角标、一屏只有主操作一颗实心按钮）、
+  `RailToggle.vue`、`ItemList.vue`、`list/ItemRow.vue`、`ItemDetail.vue`；新增 `components/detail/` 六件
+  （页头 / 概览面板 / 指标块 / 原文概览 / 进度环 / 完善度清单）。**props / emits / 路由 / 后端一个没动。**
+
+**B. 为了不弄红既有闸门做的三处妥协（都是旧钩子，不是放宽判据）**
+- `Tabs` / `Badge` 根节点保留旧类名（`.tabs` `.tab` `.on` / `.badge`）；`Checkbox` 加 `inputClass`，
+  列表行传 `pick`，让 `verify_m7` 的 `.list-body .pick` 仍落在真正的 checkbox 上。
+- 页签是货真价实的 ARIA tabs（`role="tab"`），所以 8 处 `get_by_role("button", name="原文"|"整理笔记")`
+  改成 `"tab"`（`verify_m7` 6 处、`verify_m11` 3 处……合计 8 处）；页签右端带计数后 `inner_text` 变成
+  「摘要与要点\n2」，两处断言取 `splitlines()[0]`；徽标实测对比度改量 `u-badge-*`（旧的 `.badge-*` 类已不存在）。
+- `check_motion_tokens` 的 `.btn` 缓动期望从 UA 默认 `ease` 改成 `ease-out`（v0.5 统一减速收尾），
+  仍按精确值比，没有放宽成「有缓动就行」。
+
+**C. 验收（本机实跑）**
+- `eslint` 干净 · `npm run build` 3.2–3.5 s · `verify_m7` **99/99** · `verify_m11` 61/61 · `pytest` 38/38 ·
+  `verify_pool` 23/23 · `verify_backup` 33/33 · `verify_m4` 78/78 · `verify_m10` 151/151 ·
+  `check_motion_tokens` 全过 · `check_contrast` 6 套 × 明暗 12 组全达标 · `doc_check --strict` 0 FAIL / 0 WARN。
+- README 的 `01-knowledge` / `02-item-detail` / `10-dark-mode` 三张图重拍（干净种子库，不跑工作区那组用例）。
+
+**D. 两件没做、需要决定**
+- 列表行的摘要行读 `item.summary`，但列表接口 `_list_shape()` 没给这个字段 → 摘要行目前**不渲染**
+  （不报错，只是退化成原样）。要不要把 `summary` 加进列表返回，是后端口径决定（契约 + 返回体积），没擅自改。
+- 贡献热力图与掌握度环缺端点（只有 `GET /api/stats/today` 这一张今日快照），照旧等后端。
+
+**下一会话第一件事**
+> 决定列表接口要不要带 `summary`（带了列表行才真正有「为什么点这条」的依据）；然后回批 6 剩余三组单测。

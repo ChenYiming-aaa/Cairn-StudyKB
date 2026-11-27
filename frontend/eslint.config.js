@@ -24,4 +24,10 @@ export default [
     files: ['src/views/**/*.vue'],
     rules: { 'vue/multi-word-component-names': 'off' },
   },
+  {
+    // 原语层（v0.5）：这层的组件名就是那件东西本身（Button / Icon / Tabs），
+    // 加前缀只会变成 UiButton、UiIcon，读起来更绕。与 Element Plus 等库的约定一致。
+    files: ['src/ui/**/*.vue'],
+    rules: { 'vue/multi-word-component-names': 'off' },
+  },
 ]
