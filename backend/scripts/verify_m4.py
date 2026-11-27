@@ -34,6 +34,9 @@ sys.path.insert(0, str(BACKEND))
 TMP = Path(tempfile.mkdtemp(prefix="cairn-verify-m4-"))
 os.environ["DATA_DIR"] = str(TMP)  # 必须早于 import app：get_settings() 首次调用即缓存
 os.environ["VECTOR_ENABLED"] = "0"
+# 别让建条目的同时排一条整理任务：本脚本验的是出题与判分，整理那条路一跑就要真调模型
+# （假 Key 会让它 401 重试三轮，然后往临时库里写失败状态——绿也是绿色的噪音）。
+os.environ["CAIRN_NO_AUTO_ORGANIZE"] = "1"
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 # 出题 / 批改接口先判「有没有 Key」（`llm_route.resolve`），没 Key 直接 400 不抛流——
 # 事件流于是是空的，`events[-1]` 抛 IndexError，报错落在离根因很远的地方。
