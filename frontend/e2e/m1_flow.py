@@ -8,16 +8,19 @@
     cd frontend && npm run dev
 
 用法：
-    npm run e2e                     # 等价于下面这行
-    D:/Anaconda3/python.exe ../frontend/e2e/m1_flow.py
+    npm run e2e                     # 起浏览器跑本文件（解释器由 e2e/run.mjs 探测）
+    node e2e/run.mjs m1_flow --keep # 等价，参数原样透传
 
     --keep          保留截图，且不删除脚本建的条目（排障用）
     --base-url      前端地址，默认 http://localhost:5173
     --api           后端地址，默认 http://127.0.0.1:8756
     --timeout       等待整理完成的上限秒数，默认 180
 
-环境要求：本机 Playwright 装在 Anaconda Python 下（`D:/Anaconda3/python.exe`），
-backend 的 .venv 里没有它，别用 `uv run` 跑本文件。
+环境要求：一个装了 Playwright、且浏览器已就绪的 Python。`npm run e2e` 会按
+`CAIRN_PYTHON` → `backend/.venv` → 系统 python 依次探测，探测方式是**真起一次浏览器**
+（只 import 成功不算 —— 包在、浏览器版本对不上时 launch 才报错）。
+仓库 venv 缺浏览器：`cd backend && uv run playwright install chromium`
+（国内网络慢时加 `PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright`）。
 """
 from __future__ import annotations
 

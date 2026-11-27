@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "e2e": "D:\\Anaconda3\\python.exe e2e/m1_flow.py",
+    "e2e": "node e2e/run.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

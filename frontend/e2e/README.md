@@ -15,14 +15,29 @@ cd frontend && npm run dev
 cd frontend && npm run e2e
 ```
 
-`npm run e2e` 调的是 `D:\Anaconda3\python.exe`——本机 Playwright 只装在这个解释器下，
-backend 的 `.venv` 里没有。换机器或换 Python 路径时改 `package.json` 的那一行即可。
+`npm run e2e` 走 `e2e/run.mjs`：按 `CAIRN_PYTHON` → `backend/.venv` → 系统 python 依次探测，
+**每个候选都真起一次浏览器**才决定用谁（只 import 成功不算——包在、浏览器版本对不上时，
+launch 那一步才报「请运行 playwright install」）。所以换机器、换 conda 路径都不用改仓库文件。
 
-可选参数（直接调脚本时）：
+仓库自带 venv 缺浏览器时：
 
 ```bash
-D:/Anaconda3/python.exe e2e/m1_flow.py --keep        # 保留截图与测试条目，排障用
-D:/Anaconda3/python.exe e2e/m1_flow.py --timeout 300 # 整理等待上限，默认 180s
+cd backend && uv run playwright install chromium
+# 国内直连 cdn.playwright.dev 会卡在 0%（实测 10 分钟不动），走镜像：
+PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright uv run playwright install chromium
+```
+
+已知某个解释器可用，也可以直接指：
+
+```bash
+CAIRN_PYTHON=D:/Anaconda3/python.exe npm run e2e
+```
+
+可选参数（`npm run e2e --` 后面原样透传）：
+
+```bash
+npm run e2e -- --keep          # 保留截图与测试条目，排障用
+npm run e2e -- --timeout 300   # 整理等待上限，默认 180s
 ```
 
 截图落在 `e2e/_shots/`（gitignored），不加 `--keep` 时跑完自动删。
@@ -57,7 +72,7 @@ cd backend && DATA_DIR=data/tmp/m4-e2e uv run uvicorn app.main:app --port 8757
 cd frontend && CAIRN_API_TARGET=http://127.0.0.1:8757 npm run dev -- --port 5174
 
 # 终端 3
-cd frontend && D:/Anaconda3/python.exe e2e/m4_quiz.py --db ../data/tmp/m4-e2e/data.db --keep
+cd frontend && npm run e2e -- m4_quiz --db ../data/tmp/m4-e2e/data.db --keep
 ```
 
 | 步骤 | 断言 |

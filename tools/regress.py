@@ -7,14 +7,18 @@
 要等到下一轮才发现。这里把「跑全部」变成一条命令。
 
 用法：
-    python tools/regress.py            # 扫到的全部跑（当前 m1 → m11）
+    python tools/regress.py            # 扫到的全部跑（当前 m1 → m11，最后是 pool / backup）
     python tools/regress.py --from 9   # 从 m9 开始（改完 M9 只补这一段）
     python tools/regress.py --only 7,9 # 只跑 m7 和 m9
+    python tools/regress.py --only pool,backup   # 只跑补丁验收（约 8 秒）
     python tools/regress.py --list     # 只列将要跑哪些，不执行
     python tools/regress.py --keep-going   # 有 FAIL 也接着跑完（定位多处回归用）
 
 脚本列表**靠扫目录**得出（`backend/scripts/verify_m<N>.py`），不写死 m1..m9：
 M10 / M11 就是这么被自动带上的（`--list` 已见 m11），以后加脚本不用回来改这里。
+不带里程碑编号的（`verify_pool.py` / `verify_backup.py`，批 2、批 3 加的秒级离线套件）
+按 `EXTRA` 里的顺序排在最后；`--from` / `--to` 只管里程碑，带这两个参数时不跑它们
+（那是在补某一段，不是全量回归）。
 
 退出码：0 全绿；1 有 FAIL；2 没 FAIL 但有环境不满足（脚本自己退 2）
         —— 2 与 0 必须分开：干净机上缺识别组件是正常事，不能让它冒充「全绿」。
@@ -46,6 +50,10 @@ DEFAULT_TIMEOUT = 3600        # 单个脚本最多一小时（m9 全量实测 20
 
 _RESULT = re.compile(r"(\d+)/(\d+)\s*(?:PASS|通过)")   # m1/m5/m6 是「结果：57/57 通过」，别锚行首
 
+# 不带里程碑编号的验收脚本，按这里的顺序跑在里程碑后面。
+# 都是离线秒级的：加进来几乎不花时间，但「只跑 verify_m*」会让它们永远没人跑。
+EXTRA = ("verify_pool.py", "verify_backup.py")
+
 
 def die(msg: str) -> None:
     print(msg)
@@ -68,14 +76,39 @@ def pick_python() -> Path:
     return Path(sys.executable)
 
 
-def discover() -> list[tuple[int, Path]]:
-    """扫出所有 `verify_m<N>.py`，按里程碑号排序（不是按字典序，m10 得排在 m9 后面）。"""
+def label_num(label: str) -> int | None:
+    """`m10` → 10；`pool` / `backup` 这类补丁验收返回 None。"""
+    m = re.fullmatch(r"m(\d+)", label)
+    return int(m.group(1)) if m else None
+
+
+def discover() -> list[tuple[str, Path]]:
+    """扫出全部验收脚本，返回 (标签, 路径)。标签是打印用的 `m10` / `pool`。
+
+    里程碑按编号排序（不是按字典序，m10 得排在 m9 后面）；`EXTRA` 里的排在最后。
+    """
     found: list[tuple[int, Path]] = []
     for p in SCRIPTS.glob("verify_m*.py"):
         m = re.fullmatch(r"verify_m(\d+)\.py", p.name)
         if m:
             found.append((int(m.group(1)), p))
-    return sorted(found)
+    found.sort()
+    picked: list[tuple[str, Path]] = [(f"m{n}", p) for n, p in found]
+    for name in EXTRA:
+        p = SCRIPTS / name
+        if p.is_file():
+            picked.append((name[len("verify_"):-len(".py")], p))
+    return picked
+
+
+def norm(tok: str) -> str:
+    """`--only` 的一格：`10` / `m10` / `verify_m10.py` 都认成 `m10`，`pool` 认成 `pool`。"""
+    t = tok.strip().lower()
+    if t.endswith(".py"):
+        t = t[: -len(".py")]
+    if t.startswith("verify_"):
+        t = t[len("verify_"):]
+    return t if t.startswith("m") or not t.isdigit() else f"m{t}"
 
 
 def parse_args() -> dict:
@@ -93,7 +126,7 @@ def parse_args() -> dict:
         elif a == "--to":
             opts["to"] = int(argv[i + 1]); i += 2
         elif a == "--only":
-            opts["only"] = {int(x) for x in argv[i + 1].replace(" ", ",").split(",") if x}
+            opts["only"] = {norm(x) for x in argv[i + 1].replace(" ", ",").split(",") if x}
             i += 2
         elif a == "--list":
             opts["list"] = True; i += 1
@@ -106,15 +139,18 @@ def parse_args() -> dict:
     return opts
 
 
-def select(all_scripts: list[tuple[int, Path]], opts: dict) -> list[tuple[int, Path]]:
+def select(all_scripts: list[tuple[str, Path]], opts: dict) -> list[tuple[str, Path]]:
     picked = all_scripts
     if opts["only"]:
-        picked = [(n, p) for n, p in picked if n in opts["only"]]
+        picked = [(l, p) for l, p in picked if l in opts["only"]]
     else:
+        # --from / --to 只在里程碑里有意义：补某一段时不该顺带跑 pool / backup
         if opts["from"] is not None:
-            picked = [(n, p) for n, p in picked if n >= opts["from"]]
+            picked = [(l, p) for l, p in picked
+                      if (n := label_num(l)) is not None and n >= opts["from"]]
         if opts["to"] is not None:
-            picked = [(n, p) for n, p in picked if n <= opts["to"]]
+            picked = [(l, p) for l, p in picked
+                      if (n := label_num(l)) is not None and n <= opts["to"]]
     return picked
 
 
@@ -141,7 +177,7 @@ def dist_is_stale() -> str:
     return ""
 
 
-def run_one(milestone: int, script: Path, python: Path, timeout: int) -> tuple[str, int, list[str], float]:
+def run_one(label: str, script: Path, python: Path, timeout: int) -> tuple[str, int, list[str], float]:
     """跑一个脚本，边跑边打。返回 (状态, 退出码, 输出尾巴, 耗时秒)。"""
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
@@ -215,68 +251,68 @@ def main() -> int:
 
     if opts["list"]:
         print(f"解释器：{python}")
-        for n, p in picked:
-            print(f"  m{n:<3} {p.relative_to(ROOT).as_posix()}")
+        for label, p in picked:
+            print(f"  {label:<7} {p.relative_to(ROOT).as_posix()}")
         return 0
 
     warn = dist_is_stale()
     if warn:
         print(f"[WARN] {warn}\n")
 
-    print(f"回归范围：{len(picked)} 个脚本  m{picked[0][0]} → m{picked[-1][0]}")
+    print(f"回归范围：{len(picked)} 个脚本  {picked[0][0]} → {picked[-1][0]}")
     print(f"解释器：{python}")
     print(f"工作目录：{BACKEND}\n")
 
-    results: list[tuple[int, str, int, float, str]] = []   # (里程碑, 状态, 码, 耗时, 计数)
+    results: list[tuple[str, str, int, float, str]] = []   # (标签, 状态, 码, 耗时, 计数)
     began = time.time()
 
-    for n, script in picked:
+    for label, script in picked:
         print("=" * 68)
-        print(f"▶ m{n}  {script.name}")
+        print(f"▶ {label}  {script.name}")
         print("=" * 68, flush=True)
-        status, code, tail, elapsed = run_one(n, script, python, opts["timeout"])
+        status, code, tail, elapsed = run_one(label, script, python, opts["timeout"])
 
         m = _RESULT.search("\n".join(tail))
         count = f"{m.group(1)}/{m.group(2)}" if m else ("—" if status != "PASS" else "?")
-        results.append((n, status, code, elapsed, count))
+        results.append((label, status, code, elapsed, count))
 
         if status in ("FAIL", "TIMEOUT"):
-            print(f"\n✗ m{n} {status}（退出码 {code}，{elapsed:.0f}s）—— 该脚本最后 {len(tail)} 行：")
+            print(f"\n✗ {label} {status}（退出码 {code}，{elapsed:.0f}s）—— 该脚本最后 {len(tail)} 行：")
             for line in tail:
                 print(f"  | {line}")
             if not opts["keep_going"]:
                 break            # 第一个红的往往就是根因
         elif status == "SKIP":
-            print(f"\n! m{n} 环境不满足（退出码 2，{elapsed:.0f}s）—— 继续跑后面的")
+            print(f"\n! {label} 环境不满足（退出码 2，{elapsed:.0f}s）—— 继续跑后面的")
         else:
-            print(f"\n✓ m{n} PASS  {count}  {elapsed:.0f}s")
+            print(f"\n✓ {label} PASS  {count}  {elapsed:.0f}s")
         print(flush=True)
 
     total = time.time() - began
     print("=" * 68)
     print("回归汇总")
     print("=" * 68)
-    for n, status, code, elapsed, count in results:
+    for label, status, code, elapsed, count in results:
         mark = {"PASS": "✓", "FAIL": "✗", "SKIP": "!", "TIMEOUT": "✗"}[status]
-        print(f"  {mark} m{n:<3} {status:<7} {count:>8}  {elapsed:6.0f}s")
+        print(f"  {mark} {label:<7} {status:<7} {count:>8}  {elapsed:6.0f}s")
 
     ran = {n for n, *_ in results}
-    missed = [n for n, _ in picked if n not in ran]
+    missed = [label for label, _ in picked if label not in ran]
     if missed:
-        print(f"  未跑：m{', m'.join(str(x) for x in missed)}（前面有 FAIL，按约定停下）")
+        print(f"  未跑：{', '.join(missed)}（前面有 FAIL，按约定停下）")
 
-    failed = [n for n, s, *_ in results if s in ("FAIL", "TIMEOUT")]
-    skipped = [n for n, s, *_ in results if s == "SKIP"]
+    failed = [label for label, s, *_ in results if s in ("FAIL", "TIMEOUT")]
+    skipped = [label for label, s, *_ in results if s == "SKIP"]
     print(f"\n合计 {len(results)} 个脚本，用时 {total / 60:.1f} 分钟")
 
     if failed:
-        print(f"有 FAIL：m{', m'.join(str(x) for x in failed)}")
+        print(f"有 FAIL：{', '.join(failed)}")
         return 1
     if missed:
         print("有脚本没跑到，不算全绿")
         return 1
     if skipped:
-        print(f"环境不满足：m{', m'.join(str(x) for x in skipped)}（不算全绿，但也不是用例失败）")
+        print(f"环境不满足：{', '.join(skipped)}（不算全绿，但也不是用例失败）")
         if warn:
             print(f"另有提醒：{warn}")
         return 2

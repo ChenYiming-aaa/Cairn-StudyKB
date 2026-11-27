@@ -8,7 +8,7 @@
     cd frontend && CAIRN_API_TARGET=http://127.0.0.1:8757 npm run dev -- --port 5174
 
 用法：
-    D:/Anaconda3/python.exe e2e/m4_quiz.py --db ../data/tmp/m4-e2e/data.db
+    node e2e/run.mjs m4_quiz --db ../data/tmp/m4-e2e/data.db   # 解释器自动探测（同 m1_flow）
 
     --db       副本库路径。条目建好后需要把 status 从 pending 改成 ready，
                否则练习页（只列 ready）看不到它。不传就只能手动挑一条现成的 ready 条目
