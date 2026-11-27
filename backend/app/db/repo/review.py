@@ -51,7 +51,7 @@ def next_interval(interval: int, correct: bool) -> int:
     if not correct:
         return 1
     if interval < CAP_INTERVAL:
-        return min(max(interval, 1) * 3, CAP_INTERVAL)   # 故意改坏：验 CI 会拦
+        return min(max(interval, 1) * 2, CAP_INTERVAL)
     return MAX_INTERVAL
 
 
